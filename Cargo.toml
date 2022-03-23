@@ -1,0 +1,21 @@
+[package]
+name = "mitmguard"
+description = "WireGuard interface for mitmproxy"
+license = "MIT"
+publish = false
+
+version = "0.1.0-dev"
+edition = "2021"
+rust-version = "1.56.0"
+
+authors = ["Fabio Valentini <decathorpe@gmail.com>"]
+exclude = ["/rustfmt.toml"]
+
+[dependencies]
+#base64 = "0.13"
+#boringtun = { version = "0.4", default-features = false }
+env_logger = "0.9"
+log = "0.4.14"
+#smoltcp = "0.8"
+tokio = { version = "1.15", features = ["macros", "net", "rt-multi-thread", "time"] }
+

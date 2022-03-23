@@ -1,0 +1,9 @@
+blank_lines_lower_bound = 0
+blank_lines_upper_bound = 2
+comment_width = 100
+format_code_in_doc_comments = true
+imports_layout = "HorizontalVertical"
+match_block_trailing_comma = true
+max_width = 120
+use_field_init_shorthand = true
+wrap_comments = true
