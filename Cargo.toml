@@ -15,9 +15,15 @@ exclude = ["/rustfmt.toml"]
 anyhow = "1.0.56"
 base64 = "0.13"
 boringtun = { version = "0.4", default-features = false }
+console-subscriber = "0.1.3"
 env_logger = "0.9"
 log = "0.4.14"
 pretty-hex = "0.2.1"
 smoltcp = "0.8"
 tokio = { version = "1.15", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
 

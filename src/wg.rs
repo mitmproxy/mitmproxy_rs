@@ -11,6 +11,8 @@ use smoltcp::wire::{IpProtocol, Ipv4Packet, TcpPacket};
 use tokio::net::UdpSocket;
 use tokio::sync::{broadcast, mpsc};
 
+use crate::tcp::{TcpMessage, TcpHandler};
+
 pub struct WgServer {
     addr: SocketAddr,
     sec_key: Arc<X25519SecretKey>,
@@ -22,13 +24,13 @@ pub struct WgServer {
     wg_pull: mpsc::Sender<(SocketAddr, Vec<u8>)>,
 
     // outgoing TCP packets
-    tcp_push: mpsc::Sender<(SocketAddr, Vec<u8>)>,
+    tcp_push: mpsc::Sender<TcpMessage>,
     // incoming TCP packets
-    tcp_pull: broadcast::Sender<(SocketAddr, Vec<u8>)>,
+    tcp_pull: broadcast::Sender<TcpMessage>,
 
     // store single receivers for later use
     wg_puller: mpsc::Receiver<(SocketAddr, Vec<u8>)>,
-    tcp_pusher: mpsc::Receiver<(SocketAddr, Vec<u8>)>,
+    tcp_pusher: mpsc::Receiver<TcpMessage>,
 }
 
 impl WgServer {
@@ -77,7 +79,8 @@ impl WgServer {
         }
 
         // spawn handler for virtual TCP interface
-        // TODO
+        let tcp_handler = TcpHandler::new(self.tcp_pusher, self.tcp_pull);
+        tokio::spawn(tcp_handler.handle());
 
         // listen for incoming WireGuard connections
         let socket = UdpSocket::bind(self.addr).await?;
@@ -118,8 +121,8 @@ impl WgPeerTunn {
         self,
         mut wg_push: broadcast::Receiver<(SocketAddr, Vec<u8>)>,
         wg_pull: mpsc::Sender<(SocketAddr, Vec<u8>)>,
-        tcp_push: mpsc::Sender<(SocketAddr, Vec<u8>)>,
-        mut tcp_pull: broadcast::Receiver<(SocketAddr, Vec<u8>)>,
+        tcp_push: mpsc::Sender<TcpMessage>,
+        mut tcp_pull: broadcast::Receiver<TcpMessage>,
     ) -> Result<(), anyhow::Error> {
         let mut wg_buf = [0u8; 1500];
 
@@ -168,16 +171,14 @@ impl WgPeerTunn {
                                 continue;
                             }
 
-                            let src_ip = ip_packet.src_addr();
-                            let dst_ip = ip_packet.dst_addr();
+                            let src_ip: IpAddr = IpAddr::V4(ip_packet.src_addr().into());
+                            let dst_ip: IpAddr = IpAddr::V4(ip_packet.dst_addr().into());
 
                             log::debug!("WireGuard: IPv4 src address: {}", src_ip);
                             log::debug!("WireGuard: IPv4 dst address: {}", dst_ip);
 
-                            let tcp_packet = TcpPacket::new_checked(ip_packet.payload_mut()).unwrap();
-                            let sock_addr = SocketAddr::new(IpAddr::V4(src_ip.into()), tcp_packet.src_port());
-
-                            tcp_push.send((sock_addr, ip_packet.into_inner().to_vec())).await.unwrap();
+                            let tcp_packet = TcpPacket::new_checked(ip_packet.payload_mut().to_vec()).unwrap();
+                            tcp_push.send(TcpMessage::new(src_ip, dst_ip, tcp_packet)).await.unwrap();
                         },
                         // IPv6 packet
                         TunnResult::WriteToTunnelV6(buf, src_addr) => {
@@ -189,15 +190,18 @@ impl WgPeerTunn {
                 },
                 // wait for outgoing data
                 ret = tcp_pull.recv() => {
-                    let (dst_addr, packet) = ret.unwrap();
+                    let message = ret.unwrap();
+                    let (_, dst_ip, packet) = (message.src_ip, message.dst_ip, message.packet);
+                    let dst_port = packet.dst_port();
 
-                    let mut result = self.tunn.encapsulate(&packet, &mut wg_buf);
+                    let mut result = self.tunn.encapsulate(&packet.into_inner(), &mut wg_buf);
 
                     // encode and handle outgoing WireGuard packet(s)
                     loop {
                         match result {
                             TunnResult::WriteToNetwork(b) => {
                                 log::debug!("WireGuard: WriteToNetwork");
+                                let dst_addr = SocketAddr::new(dst_ip, dst_port);
                                 wg_pull.send((dst_addr, b.to_vec())).await.unwrap();
                             },
                             _ => break,
