@@ -8,8 +8,6 @@ use smoltcp::socket::{TcpSocket, TcpSocketBuffer};
 use smoltcp::time::Instant;
 use smoltcp::wire::TcpPacket;
 
-use tokio::sync::{broadcast, mpsc};
-
 #[derive(Clone, Debug)]
 pub struct TcpMessage {
     pub src_ip: IpAddr,
@@ -24,85 +22,88 @@ impl TcpMessage {
 }
 
 pub struct TcpHandler {
-    pusher: mpsc::Receiver<TcpMessage>,
-    puller: broadcast::Sender<TcpMessage>,
     handles: HashMap<SocketAddr, SocketHandle>,
     memory: HashMap<SocketHandle, (IpAddr, IpAddr)>,
     iface: VirtualInterface,
 }
 
 impl TcpHandler {
-    pub fn new(pusher: mpsc::Receiver<TcpMessage>, puller: broadcast::Sender<TcpMessage>) -> TcpHandler {
+    pub fn new() -> TcpHandler {
         let handles = HashMap::new();
         let memory = HashMap::new();
         let iface = VirtualInterface::new();
 
-        TcpHandler { pusher, puller, handles, memory, iface }
+        TcpHandler { handles, memory, iface }
     }
 
-    pub async fn handle(mut self) -> Result<(), anyhow::Error> {
-        loop {
-            if let Ok(true) = self.iface.iface.poll(Instant::now()) {
-                tokio::select!(
-                    // handle outgoing TCP packets
-                    ret = self.pusher.recv() => {
-                        if let Some(message) = ret {
-                            let (src_ip, dst_ip, packet) = (message.src_ip, message.dst_ip, message.packet);
-                            log::debug!("Outgoing TCP packet: {} -> {}: {:?}", src_ip, dst_ip, packet);
+    // receive a TCP packet over the WireGuard tunnel
+    pub async fn recv(&mut self, message: TcpMessage) -> Result<Vec<TcpMessage>, anyhow::Error> {
+        let (src_ip, dst_ip, packet) = (message.src_ip, message.dst_ip, message.packet);
+        log::debug!("Outgoing TCP packet: {} -> {}: {:?}", src_ip, dst_ip, packet);
 
-                            let _src_addr = SocketAddr::new(src_ip, packet.src_port());
-                            let dst_addr = SocketAddr::new(dst_ip, packet.dst_port());
+        let _src_addr = SocketAddr::new(src_ip, packet.src_port());
+        let dst_addr = SocketAddr::new(dst_ip, packet.dst_port());
 
-                            if packet.syn() {
-                                let mut socket = TcpSocket::new(
-                                    TcpSocketBuffer::new(vec![0u8; 4096]),
-                                    TcpSocketBuffer::new(vec![0u8; 4096]),
-                                );
+        let syn = packet.syn();
+        let fin = packet.fin();
 
-                                socket.set_ack_delay(None);
-                                socket.listen(dst_addr).unwrap();
+        if syn {
+            let mut socket = TcpSocket::new(
+                TcpSocketBuffer::new(vec![0u8; 4096]),
+                TcpSocketBuffer::new(vec![0u8; 4096]),
+            );
 
-                                let handle = self.iface.iface.add_socket(socket);
-                                self.handles.insert(dst_addr, handle);
-                                self.memory.insert(handle, (src_ip, dst_ip));
-                            }
+            socket.set_ack_delay(None);
+            socket.listen(dst_addr)?;
 
-                            let fin = packet.fin();
-                            self.iface.recv_packet(packet.into_inner());
+            let handle = self.iface.iface.add_socket(socket);
+            self.handles.insert(dst_addr, handle);
+            self.memory.insert(handle, (src_ip, dst_ip));
+        }
 
-                            if fin {
-                                if let Some(handle) = self.handles.get(&dst_addr) {
-                                    self.iface.iface.remove_socket(*handle);
-                                }
-                            }
+        self.iface.recv_packet(packet.into_inner());
 
-                            while let Some(resp_packet) = self.iface.resp_packet() {
-                                let pack = TcpPacket::new_checked(resp_packet).unwrap();
-                                self.puller.send(TcpMessage::new(dst_ip, src_ip, pack)).unwrap();
-                            }
-                        }
-                    },
-                    // handle TCP response packets
-                    /*
-                    ret = std::future::ready(self.iface.resp_packet()) => {
-                        if let Some(response) = ret {
-                            // TODO: lookup src_addr, dst_addr based on which socket has received data
-                            let resp_packet = TcpPacket::new_checked(response)?;
-                            log::debug!("Response TCP packet: {:?}", resp_packet);
-                            //self.puller.send((src_addr, resp_packet))?;
-                        }
-                    }
-                    */
-                )
+        if fin {
+            if let Some(handle) = self.handles.get(&dst_addr) {
+                self.iface.iface.remove_socket(*handle);
             }
+        }
 
-            if let Some(dur) = self.iface.iface.poll_delay(Instant::now()) {
-                log::debug!("TCP poll delay: {}", dur);
-                tokio::time::sleep(dur.into()).await;
+        let mut responses = Vec::new();
+        while let Some(resp_packet) = self.iface.resp_packet() {
+            let packet = TcpPacket::new_checked(resp_packet)?;
+            responses.push(TcpMessage::new(dst_ip, src_ip, packet));
+        }
+
+        Ok(responses)
+    }
+
+    // send a TCP packet over the WireGuard tunnel
+    pub async fn send(&mut self) -> Result<TcpMessage, anyhow::Error> {
+        todo!()
+    }
+
+    fn poll(&mut self, timestamp: Instant) -> smoltcp::Result<bool> {
+        self.iface.iface.poll(timestamp)
+    }
+
+    async fn wait(&mut self) {
+        if let Some(dur) = self.iface.iface.poll_delay(Instant::now()) {
+            log::debug!("TCP poll delay: {}", dur);
+            tokio::time::sleep(dur.into()).await;
+        } else {
+            // FIXME: Interface::poll_delay seems to always (?) return `None`.
+            //        This statement was only added to avoid busy sleeping in this case.
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+    }
+
+    pub async fn ready(&mut self) {
+        loop {
+            if let Ok(true) = self.poll(Instant::now()) {
+                return;
             } else {
-                // FIXME: Interface::poll_delay seems to always return `None`
-                //        This statement was only added to avoid busy sleeping.
-                tokio::time::sleep(Duration::from_millis(200)).await;
+                self.wait().await
             }
         }
     }

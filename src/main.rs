@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 
@@ -33,7 +34,9 @@ async fn main() -> Result<(), anyhow::Error> {
     let server_addr: SocketAddr = "0.0.0.0:51820".parse()?;
 
     let mut wg_server = WgServer::new(server_addr, server_priv_key);
-    wg_server.add_peer(peer_pub_key)?;
+
+    // TODO: make configurable
+    wg_server.add_peer(Arc::new(peer_pub_key), None)?;
 
     // start WireGuard server
     wg_server.serve().await
