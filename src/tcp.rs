@@ -1,24 +1,17 @@
 use std::collections::{HashMap, VecDeque};
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 use smoltcp::iface::{Interface, InterfaceBuilder, SocketHandle};
-use smoltcp::phy::{Device, DeviceCapabilities, Medium, RxToken, TxToken};
-use smoltcp::socket::{TcpSocket, TcpSocketBuffer};
+use smoltcp::phy::{ChecksumCapabilities, Device, DeviceCapabilities, Medium, RxToken, TxToken};
+use smoltcp::socket::{Socket, TcpSocket, TcpSocketBuffer};
 use smoltcp::time::Instant;
-use smoltcp::wire::TcpPacket;
+use smoltcp::wire::{IpProtocol, Ipv4Address, Ipv4Packet, Ipv4Repr, Ipv6Packet, TcpPacket};
 
-#[derive(Clone, Debug)]
-pub struct TcpMessage {
-    pub src_ip: IpAddr,
-    pub dst_ip: IpAddr,
-    pub packet: TcpPacket<Vec<u8>>,
-}
-
-impl TcpMessage {
-    pub fn new(src_ip: IpAddr, dst_ip: IpAddr, packet: TcpPacket<Vec<u8>>) -> TcpMessage {
-        TcpMessage { src_ip, dst_ip, packet }
-    }
+#[allow(unused)]
+pub enum IpPacket {
+    V4(Ipv4Packet<Vec<u8>>),
+    V6(Ipv6Packet<Vec<u8>>),
 }
 
 pub struct TcpHandler {
@@ -36,16 +29,27 @@ impl TcpHandler {
         TcpHandler { handles, memory, iface }
     }
 
-    // receive a TCP packet over the WireGuard tunnel
-    pub async fn recv(&mut self, message: TcpMessage) -> Result<Vec<TcpMessage>, anyhow::Error> {
-        let (src_ip, dst_ip, packet) = (message.src_ip, message.dst_ip, message.packet);
-        log::debug!("Outgoing TCP packet: {} -> {}: {:?}", src_ip, dst_ip, packet);
+    // receive an IPv4 TCP packet over the WireGuard tunnel
+    pub async fn recv4(
+        &mut self,
+        mut ip_packet: Ipv4Packet<Vec<u8>>,
+    ) -> Result<Vec<Ipv4Packet<Vec<u8>>>, anyhow::Error> {
+        let tcp_packet = TcpPacket::new_checked(ip_packet.payload_mut().to_vec())?;
 
-        let _src_addr = SocketAddr::new(src_ip, packet.src_port());
-        let dst_addr = SocketAddr::new(dst_ip, packet.dst_port());
+        let src_ip = IpAddr::V4(Ipv4Addr::from(ip_packet.src_addr()));
+        let dst_ip = IpAddr::V4(Ipv4Addr::from(ip_packet.dst_addr()));
 
-        let syn = packet.syn();
-        let fin = packet.fin();
+        log::debug!(
+            "Outgoing IPv4 TCP packet: {} -> {}: {:?}",
+            src_ip,
+            dst_ip,
+            ip_packet.payload_mut()
+        );
+
+        let dst_addr = SocketAddr::new(dst_ip, tcp_packet.dst_port());
+
+        let syn = tcp_packet.syn();
+        let fin = tcp_packet.fin();
 
         if syn {
             let mut socket = TcpSocket::new(
@@ -59,9 +63,12 @@ impl TcpHandler {
             let handle = self.iface.iface.add_socket(socket);
             self.handles.insert(dst_addr, handle);
             self.memory.insert(handle, (src_ip, dst_ip));
+
+            // TODO: create connections with read/write streams for each new socket
+            //       take connection handler as callback function and pass read/write streams
         }
 
-        self.iface.recv_packet(packet.into_inner());
+        self.iface.recv_packet(ip_packet.into_inner().to_vec());
 
         if fin {
             if let Some(handle) = self.handles.get(&dst_addr) {
@@ -71,16 +78,66 @@ impl TcpHandler {
 
         let mut responses = Vec::new();
         while let Some(resp_packet) = self.iface.resp_packet() {
-            let packet = TcpPacket::new_checked(resp_packet)?;
-            responses.push(TcpMessage::new(dst_ip, src_ip, packet));
+            let packet = Ipv4Packet::new_checked(resp_packet)?;
+            responses.push(packet);
         }
 
         Ok(responses)
     }
 
-    // send a TCP packet over the WireGuard tunnel
-    pub async fn send(&mut self) -> Result<TcpMessage, anyhow::Error> {
+    /*
+    // receive an IPv6 TCP packet over the WireGuard tunnel
+    pub async fn recv6(
+        &mut self,
+        mut _ip_packet: Ipv6Packet<Vec<u8>>,
+    ) -> Result<Vec<Ipv6Packet<Vec<u8>>>, anyhow::Error> {
         todo!()
+    }
+    */
+
+    // send an IPv4 or IPv6 TCP packet over the WireGuard tunnel
+    pub async fn send(&mut self) -> Result<Option<IpPacket>, anyhow::Error> {
+        for (handle, socket) in self.iface.iface.sockets_mut() {
+            match socket {
+                Socket::Tcp(s) => {
+                    if s.can_recv() {
+                        let (dst_addr, src_addr) = self.memory.get(&handle).unwrap();
+
+                        match (dst_addr, src_addr) {
+                            (IpAddr::V4(dst_addr), IpAddr::V4(src_addr)) => {
+                                let mut buf = [0u8; 1500];
+                                let size = s.recv_slice(&mut buf).unwrap();
+
+                                // construct Ipv4 packet
+                                let repr = Ipv4Repr {
+                                    src_addr: Ipv4Address::from(*src_addr),
+                                    dst_addr: Ipv4Address::from(*dst_addr),
+                                    protocol: IpProtocol::Tcp,
+                                    payload_len: size,
+                                    hop_limit: 64,
+                                };
+
+                                let buffer = vec![0u8; repr.buffer_len() + repr.payload_len];
+                                let mut ip_packet = Ipv4Packet::new_unchecked(buffer);
+                                repr.emit(&mut ip_packet, &ChecksumCapabilities::default());
+
+                                return Ok(Some(IpPacket::V4(ip_packet)));
+                            },
+                            (IpAddr::V6(_dst_addr), IpAddr::V6(_src_addr)) => {
+                                log::debug!("IPv6 packets not supported yet.");
+                                // TODO: IPv6 support
+                            },
+                            _ => {
+                                log::error!("Unsupported address pair: mixed IPv4 / IPv6");
+                            },
+                        }
+                    }
+                },
+                _ => log::error!("Unsupported socket type: {:?}", socket),
+            }
+        }
+
+        Ok(None)
     }
 
     fn poll(&mut self, timestamp: Instant) -> smoltcp::Result<bool> {
@@ -160,7 +217,6 @@ impl RxToken for VirtualRxToken {
     where
         F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
     {
-        // TODO: actually receive packet
         f(&mut self.buffer)
     }
 }
@@ -175,7 +231,6 @@ impl<'a> TxToken for VirtualTxToken<'a> {
     where
         F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
     {
-        // TODO: actually send packet
         let mut buffer = vec![0; len];
         let result = f(&mut buffer);
         self.device.tx_buffer.push_back(buffer);

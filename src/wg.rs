@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
 use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
@@ -13,7 +13,7 @@ use smoltcp::wire::{IpProtocol, Ipv4Packet, TcpPacket};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 
-use crate::tcp::{TcpHandler, TcpMessage};
+use crate::tcp::{IpPacket, TcpHandler};
 
 pub struct WgServer {
     addr: SocketAddr,
@@ -162,6 +162,7 @@ impl WgPeer {
 
         loop {
             tokio::select!(
+                // handle packets that are incoming at the WireGuard tunnel
                 ret = self.wg_recv.recv() => {
                     let (datagram, src_addr) = ret.unwrap();
 
@@ -195,7 +196,7 @@ impl WgPeer {
                             log::debug!("IPv4 source address: {}", src_addr);
                             log::debug!("{}", pretty_hex(&buf));
 
-                            let mut ip_packet = Ipv4Packet::new_checked(buf).unwrap();
+                            let ip_packet = Ipv4Packet::new_checked(buf.to_vec()).unwrap();
                             if ip_packet.protocol() != IpProtocol::Tcp {
                                 // TODO: handle IP packet types other than TCP?
                                 log::debug!("Unsupported IPv4 packet type: {}", ip_packet.protocol());
@@ -207,14 +208,14 @@ impl WgPeer {
                             log::debug!("WireGuard: IPv4 src address: {}", src_ip);
                             log::debug!("WireGuard: IPv4 dst address: {}", dst_ip);
 
-                            let tcp_packet = TcpPacket::new_checked(ip_packet.payload_mut().to_vec()).unwrap();
-                            let tcp_message = TcpMessage::new(src_ip, dst_ip, tcp_packet);
-
                             // handle immediate TCP response packages (handshake etc.)
-                            let resp_packets = tcp_handler.recv(tcp_message).await.unwrap();
-                            for packet in resp_packets {
-                                let dst_addr = SocketAddr::new(packet.dst_ip, packet.packet.dst_port());
-                                self.wg_send.send((packet.packet.into_inner(), dst_addr)).await.unwrap();
+                            let resp_packets = tcp_handler.recv4(ip_packet).await.unwrap();
+                            for mut packet in resp_packets {
+                                let dst_ip = IpAddr::V4(Ipv4Addr::from(packet.dst_addr()));
+                                let tcp_packet = TcpPacket::new_checked(packet.payload_mut()).unwrap();
+
+                                let dst_addr = SocketAddr::new(dst_ip, tcp_packet.dst_port());
+                                self.wg_send.send((packet.into_inner(), dst_addr)).await.unwrap();
                             }
                         },
                         // IPv6 packet
@@ -227,22 +228,34 @@ impl WgPeer {
                         }
                     }
                 },
+                // handle packets that are outgoing through the WireGuard tunnel
                 _ = tcp_handler.ready() => {
-                    let message = tcp_handler.send().await.unwrap();
+                    let ip_packet = if let Some(ip_packet) = tcp_handler.send().await.unwrap() {
+                        ip_packet
+                    } else {
+                        continue;
+                    };
 
-                    let (_, dst_ip, packet) = (message.src_ip, message.dst_ip, message.packet);
-                    let dst_port = packet.dst_port();
+                    let (mut result, dst_addr) = match ip_packet {
+                        IpPacket::V4(mut packet) => {
+                            let dst_ip = IpAddr::V4(Ipv4Addr::from(packet.dst_addr()));
+                            let tcp_packet = TcpPacket::new_checked(packet.payload_mut()).unwrap();
+                            let dst_addr = SocketAddr::new(dst_ip, tcp_packet.dst_port());
 
-                    let mut result = self.tunn.encapsulate(&packet.into_inner(), &mut buf);
+                            (self.tunn.encapsulate(&packet.into_inner(), &mut buf), dst_addr)
+                        },
+                        IpPacket::V6(_) => {
+                            todo!()
+                        }
+                    };
 
                     while let TunnResult::WriteToNetwork(b) = result {
                         log::debug!("WireGuard: WriteToNetwork");
-                        let dst_addr = SocketAddr::new(dst_ip, dst_port);
                         self.wg_send.send((b.to_vec(), dst_addr)).await.unwrap();
 
                         // check if there are more things to be handled
                         result = self.tunn.decapsulate(None, &[0; 0], &mut buf);
-                    }
+                    };
 
                     match result {
                         TunnResult::Done => {
@@ -264,7 +277,7 @@ impl WgPeer {
                             log::warn!("Unexpected WireGuard event (WriteToTunnelV6) when handling a response.");
                         }
                     }
-                }
+                },
             );
         }
     }
