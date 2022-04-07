@@ -200,22 +200,22 @@ impl WgPeer {
                             if ip_packet.protocol() != IpProtocol::Tcp {
                                 // TODO: handle IP packet types other than TCP?
                                 log::debug!("Unsupported IPv4 packet type: {}", ip_packet.protocol());
-                            }
+                            } else {
+                                let src_ip: IpAddr = IpAddr::V4(ip_packet.src_addr().into());
+                                let dst_ip: IpAddr = IpAddr::V4(ip_packet.dst_addr().into());
 
-                            let src_ip: IpAddr = IpAddr::V4(ip_packet.src_addr().into());
-                            let dst_ip: IpAddr = IpAddr::V4(ip_packet.dst_addr().into());
+                                log::debug!("WireGuard: IPv4 src address: {}", src_ip);
+                                log::debug!("WireGuard: IPv4 dst address: {}", dst_ip);
 
-                            log::debug!("WireGuard: IPv4 src address: {}", src_ip);
-                            log::debug!("WireGuard: IPv4 dst address: {}", dst_ip);
+                                // handle immediate TCP response packages (handshake etc.)
+                                let resp_packets = tcp_handler.recv4(ip_packet).await.unwrap();
+                                for mut packet in resp_packets {
+                                    let dst_ip = IpAddr::V4(Ipv4Addr::from(packet.dst_addr()));
+                                    let tcp_packet = TcpPacket::new_checked(packet.payload_mut()).unwrap();
 
-                            // handle immediate TCP response packages (handshake etc.)
-                            let resp_packets = tcp_handler.recv4(ip_packet).await.unwrap();
-                            for mut packet in resp_packets {
-                                let dst_ip = IpAddr::V4(Ipv4Addr::from(packet.dst_addr()));
-                                let tcp_packet = TcpPacket::new_checked(packet.payload_mut()).unwrap();
-
-                                let dst_addr = SocketAddr::new(dst_ip, tcp_packet.dst_port());
-                                self.wg_send.send((packet.into_inner(), dst_addr)).await.unwrap();
+                                    let dst_addr = SocketAddr::new(dst_ip, tcp_packet.dst_port());
+                                    self.wg_send.send((packet.into_inner(), dst_addr)).await.unwrap();
+                                }
                             }
                         },
                         // IPv6 packet
