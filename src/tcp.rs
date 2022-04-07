@@ -1,7 +1,7 @@
+use anyhow::Context;
 use std::collections::{HashMap, VecDeque};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
-use anyhow::Context;
 
 use pretty_hex::pretty_hex;
 use smoltcp::iface::{Interface, InterfaceBuilder, SocketHandle};
@@ -36,18 +36,12 @@ impl TcpHandler {
         &mut self,
         mut ip_packet: Ipv4Packet<Vec<u8>>,
     ) -> Result<Vec<Ipv4Packet<Vec<u8>>>, anyhow::Error> {
-        let tcp_packet = TcpPacket::new_checked(
-            ip_packet.payload_mut().to_vec()
-        ).context("invalid TCP packet")?;
+        let tcp_packet = TcpPacket::new_checked(ip_packet.payload_mut().to_vec()).context("invalid TCP packet")?;
 
         let src_ip = IpAddr::V4(Ipv4Addr::from(ip_packet.src_addr()));
         let dst_ip = IpAddr::V4(Ipv4Addr::from(ip_packet.dst_addr()));
 
-        log::debug!(
-            "Outgoing IPv4 TCP packet: {} -> {}",
-            src_ip,
-            dst_ip
-        );
+        log::debug!("Outgoing IPv4 TCP packet: {} -> {}", src_ip, dst_ip);
         log::debug!("{}", pretty_hex(&ip_packet.payload_mut()));
 
         let dst_addr = SocketAddr::new(dst_ip, tcp_packet.dst_port());
@@ -57,8 +51,8 @@ impl TcpHandler {
 
         if syn {
             let mut socket = TcpSocket::new(
-                TcpSocketBuffer::new(vec![0u8; 4096]),
-                TcpSocketBuffer::new(vec![0u8; 4096]),
+                TcpSocketBuffer::new(vec![0u8; 128 * 1024]),
+                TcpSocketBuffer::new(vec![0u8; 128 * 1024]),
             );
 
             socket.set_ack_delay(None);
