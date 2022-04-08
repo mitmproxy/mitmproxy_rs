@@ -6,9 +6,21 @@ use anyhow::anyhow;
 use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
 
 mod tcp;
+use tcp::{ConnectionHandler, TcpConnection};
 
 mod wg;
 use wg::WgServer;
+
+struct EchoHandler {}
+
+#[async_trait::async_trait]
+impl ConnectionHandler for EchoHandler {
+    async fn handle(&self, mut connection: TcpConnection) {
+        while let Some(data) = connection.read().await {
+            connection.write(data).await;
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -33,7 +45,7 @@ async fn main() -> Result<(), anyhow::Error> {
     // TODO: make configurable
     let server_addr: SocketAddr = "0.0.0.0:51820".parse()?;
 
-    let mut wg_server = WgServer::new(server_addr, server_priv_key);
+    let mut wg_server = WgServer::new(server_addr, server_priv_key, Box::new(EchoHandler {}));
 
     // TODO: make configurable
     wg_server.add_peer(Arc::new(peer_pub_key), None)?;

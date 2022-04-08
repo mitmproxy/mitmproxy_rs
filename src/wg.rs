@@ -13,9 +13,11 @@ use smoltcp::wire::{IpProtocol, Ipv4Packet, TcpPacket};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 
-use crate::tcp::{IpPacket, PacketHandler};
+use crate::tcp::{ConnectionHandler, IpPacket, PacketHandler};
 
 pub struct WgServer {
+    conn_handler: Box<dyn ConnectionHandler>,
+
     addr: SocketAddr,
     sec_key: Arc<X25519SecretKey>,
     pub_key: Arc<X25519PublicKey>,
@@ -37,7 +39,7 @@ pub struct WgServer {
 }
 
 impl WgServer {
-    pub fn new(addr: SocketAddr, sec_key: X25519SecretKey) -> WgServer {
+    pub fn new(addr: SocketAddr, sec_key: X25519SecretKey, conn_handler: Box<dyn ConnectionHandler>) -> WgServer {
         let (wg_back_send, wg_back_recv) = mpsc::channel(64);
         let (ip_back_send, ip_back_recv) = mpsc::channel(64);
 
@@ -45,6 +47,8 @@ impl WgServer {
         let pub_key = Arc::new(sec_key.public_key());
 
         WgServer {
+            conn_handler,
+
             addr,
             sec_key,
             pub_key,
@@ -99,7 +103,7 @@ impl WgServer {
     }
 
     pub async fn serve(mut self) -> Result<(), anyhow::Error> {
-        let mut packet_handler = PacketHandler::new();
+        let mut packet_handler = PacketHandler::new(self.conn_handler);
 
         // spawn handlers for WireGuard peers
         for peer in self.peers {
