@@ -1,41 +1,126 @@
-use anyhow::Context;
 use std::collections::{HashMap, VecDeque};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::Duration;
 
+use anyhow::Context;
+
 use pretty_hex::pretty_hex;
+
 use smoltcp::iface::{Interface, InterfaceBuilder, SocketHandle};
 use smoltcp::phy::{ChecksumCapabilities, Device, DeviceCapabilities, Medium, RxToken, TxToken};
 use smoltcp::socket::{Socket, TcpSocket, TcpSocketBuffer};
 use smoltcp::time::Instant;
 use smoltcp::wire::{IpProtocol, Ipv4Address, Ipv4Packet, Ipv4Repr, Ipv6Packet, TcpPacket};
 
-#[allow(unused)]
+use tokio::sync::mpsc;
+
+/// generic IP packet type that wraps both IPv4 and IPv6 packet buffers
+#[derive(Debug)]
 pub enum IpPacket {
     V4(Ipv4Packet<Vec<u8>>),
     V6(Ipv6Packet<Vec<u8>>),
 }
 
-pub struct TcpHandler {
-    handles: HashMap<SocketAddr, SocketHandle>,
-    memory: HashMap<SocketHandle, (IpAddr, IpAddr)>,
-    iface: VirtualInterface,
+impl From<Ipv4Packet<Vec<u8>>> for IpPacket {
+    fn from(packet: Ipv4Packet<Vec<u8>>) -> Self {
+        IpPacket::V4(packet)
+    }
 }
 
-impl TcpHandler {
-    pub fn new() -> TcpHandler {
-        let handles = HashMap::new();
-        let memory = HashMap::new();
-        let iface = VirtualInterface::new();
+impl From<Ipv6Packet<Vec<u8>>> for IpPacket {
+    fn from(packet: Ipv6Packet<Vec<u8>>) -> Self {
+        IpPacket::V6(packet)
+    }
+}
 
-        TcpHandler { handles, memory, iface }
+impl IpPacket {
+    fn src_ip(&self) -> IpAddr {
+        match self {
+            IpPacket::V4(packet) => IpAddr::V4(Ipv4Addr::from(packet.src_addr())),
+            IpPacket::V6(packet) => IpAddr::V6(Ipv6Addr::from(packet.src_addr())),
+        }
     }
 
-    // receive an IPv4 TCP packet over the WireGuard tunnel
-    pub async fn recv4(
-        &mut self,
-        mut ip_packet: Ipv4Packet<Vec<u8>>,
-    ) -> Result<Vec<Ipv4Packet<Vec<u8>>>, anyhow::Error> {
+    fn dst_ip(&self) -> IpAddr {
+        match self {
+            IpPacket::V4(packet) => IpAddr::V4(Ipv4Addr::from(packet.dst_addr())),
+            IpPacket::V6(packet) => IpAddr::V6(Ipv6Addr::from(packet.dst_addr())),
+        }
+    }
+}
+
+pub struct PacketHandler {
+    iface: VirtualInterface,
+    handles: HashMap<SocketAddr, SocketHandle>,
+    memory: HashMap<SocketHandle, (IpAddr, IpAddr)>,
+    ip_back_send: HashMap<u32, mpsc::Sender<IpPacket>>,
+}
+
+impl PacketHandler {
+    pub fn new() -> PacketHandler {
+        PacketHandler {
+            iface: VirtualInterface::new(),
+            handles: HashMap::new(),
+            memory: HashMap::new(),
+            ip_back_send: HashMap::new(),
+        }
+    }
+
+    pub fn add_peer(&mut self, idx: u32, ip_back_send: mpsc::Sender<IpPacket>) {
+        self.ip_back_send.insert(idx, ip_back_send);
+    }
+
+    pub async fn handle(mut self, mut ip_forw_recv: mpsc::Receiver<(u32, IpPacket)>) -> Result<(), anyhow::Error> {
+        let mut back_table: HashMap<IpAddr, u32> = HashMap::new();
+
+        loop {
+            tokio::select!(
+                // handle IP packets that are received over the WireGuard tunnel
+                ret = ip_forw_recv.recv() => {
+                    if let Some((idx, packet)) = ret {
+                        back_table.insert(packet.src_ip(), idx);
+
+                        let resp_packets = self.recv(packet).unwrap();
+                        for resp_packet in resp_packets {
+                            self.ip_back_send.get(&idx).unwrap().send(resp_packet.into()).await.unwrap();
+                        }
+                    }
+                },
+                _ = self.ready() => {
+                    // handle IP packets that are to be sent back over the WireGuard tunnel
+                    if let Some(packet) = self.send().unwrap() {
+                        if let Some(idx) = back_table.get(&packet.dst_ip()) {
+                            let chan = self.ip_back_send.get(idx).unwrap();
+                            chan.send(packet).await.unwrap();
+                        } else {
+                            log::debug!("Unknown destination address: {}", packet.dst_ip());
+                        }
+                    }
+
+                    // TODO: read from / write to established TCP connections
+                },
+            )
+        }
+    }
+
+    /// receive an IP packet from the WireGuard tunnel
+    fn recv(&mut self, ip_packet: IpPacket) -> Result<Vec<IpPacket>, anyhow::Error> {
+        match ip_packet {
+            IpPacket::V4(packet) => self.recv4(packet),
+            IpPacket::V6(packet) => self.recv6(packet),
+        }
+    }
+
+    /// receive an IPv4 packet from the WireGuard tunnel
+    fn recv4(&mut self, mut ip_packet: Ipv4Packet<Vec<u8>>) -> Result<Vec<IpPacket>, anyhow::Error> {
+        if ip_packet.protocol() != IpProtocol::Tcp {
+            log::warn!(
+                "Attempt to send IP packet with unsupported protocol: {}",
+                ip_packet.protocol()
+            );
+            return Ok(Vec::new());
+        }
+
         let tcp_packet = TcpPacket::new_checked(ip_packet.payload_mut().to_vec()).context("invalid TCP packet")?;
 
         let src_ip = IpAddr::V4(Ipv4Addr::from(ip_packet.src_addr()));
@@ -74,27 +159,23 @@ impl TcpHandler {
             }
         }
 
-        let mut responses = Vec::new();
+        let mut responses: Vec<IpPacket> = Vec::new();
         while let Some(resp_packet) = self.iface.resp_packet() {
             let packet = Ipv4Packet::new_checked(resp_packet)?;
-            responses.push(packet);
+            responses.push(packet.into());
         }
 
         Ok(responses)
     }
 
-    /*
-    // receive an IPv6 TCP packet over the WireGuard tunnel
-    pub async fn recv6(
-        &mut self,
-        mut _ip_packet: Ipv6Packet<Vec<u8>>,
-    ) -> Result<Vec<Ipv6Packet<Vec<u8>>>, anyhow::Error> {
-        todo!()
+    /// receive an IPv6 packet from the WireGuard tunnel
+    fn recv6(&mut self, mut _ip_packet: Ipv6Packet<Vec<u8>>) -> Result<Vec<IpPacket>, anyhow::Error> {
+        log::warn!("Sending IPv6 packets is not implemented yet.");
+        Ok(Vec::new())
     }
-    */
 
-    // send an IPv4 or IPv6 TCP packet over the WireGuard tunnel
-    pub async fn send(&mut self) -> Result<Option<IpPacket>, anyhow::Error> {
+    /// get an IP packet that should be sent through the WireGuard tunnel
+    fn send(&mut self) -> Result<Option<IpPacket>, anyhow::Error> {
         for (handle, socket) in self.iface.iface.sockets_mut() {
             match socket {
                 Socket::Tcp(s) => {
@@ -106,20 +187,8 @@ impl TcpHandler {
                                 let mut buf = [0u8; 1500];
                                 let size = s.recv_slice(&mut buf).unwrap();
 
-                                // construct Ipv4 packet
-                                let repr = Ipv4Repr {
-                                    src_addr: Ipv4Address::from(*src_addr),
-                                    dst_addr: Ipv4Address::from(*dst_addr),
-                                    protocol: IpProtocol::Tcp,
-                                    payload_len: size,
-                                    hop_limit: 64,
-                                };
-
-                                let buffer = vec![0u8; repr.buffer_len() + repr.payload_len];
-                                let mut ip_packet = Ipv4Packet::new_unchecked(buffer);
-                                repr.emit(&mut ip_packet, &ChecksumCapabilities::default());
-
-                                return Ok(Some(IpPacket::V4(ip_packet)));
+                                let packet = Self::send4(src_addr, dst_addr, &buf[..size])?;
+                                return Ok(Some(packet.into()));
                             },
                             (IpAddr::V6(_dst_addr), IpAddr::V6(_src_addr)) => {
                                 log::debug!("IPv6 packets not supported yet.");
@@ -136,6 +205,31 @@ impl TcpHandler {
         }
 
         Ok(None)
+    }
+
+    /// construct an IPv4 TCP packet
+    fn send4(src_addr: &Ipv4Addr, dst_addr: &Ipv4Addr, payload: &[u8]) -> Result<Ipv4Packet<Vec<u8>>, anyhow::Error> {
+        // construct Ipv4 packet
+        let repr = Ipv4Repr {
+            src_addr: Ipv4Address::from(*src_addr),
+            dst_addr: Ipv4Address::from(*dst_addr),
+            protocol: IpProtocol::Tcp,
+            payload_len: payload.len(),
+            hop_limit: 64,
+        };
+
+        let buffer = vec![0u8; repr.buffer_len() + repr.payload_len];
+        let mut ip_packet = Ipv4Packet::new_unchecked(buffer);
+
+        // construct IP packet
+        repr.emit(&mut ip_packet, &ChecksumCapabilities::default());
+        // fill packet payload
+        ip_packet.payload_mut().copy_from_slice(payload);
+
+        ip_packet.fill_checksum();
+        ip_packet.check_len()?;
+
+        Ok(ip_packet)
     }
 
     fn poll(&mut self, timestamp: Instant) -> smoltcp::Result<bool> {
