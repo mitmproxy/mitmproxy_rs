@@ -1,202 +1,284 @@
-use std::fmt::{Display, Formatter};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::time::Duration;
+extern crate core;
 
+use std::net::{IpAddr, SocketAddr};
+use std::str::FromStr;
+use std::sync::Arc;
+
+use anyhow::{anyhow, Result};
+use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
+use pyo3::exceptions::{PyKeyError, PyOSError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::types::{PyBytes, PyString, PyTuple};
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::error::SendError;
+use tokio::sync::mpsc::{channel, unbounded_channel};
+use tokio::sync::oneshot;
+use tokio::sync::oneshot::error::RecvError;
 use tokio::task::JoinHandle;
+use crate::messages::{ConnectionId, TransportCommand, TransportEvent};
 
-type ConnectionId = u32;
-
-#[derive(Clone, Debug)]
-struct PySockAddr(SocketAddr);
-
-impl Display for PySockAddr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl IntoPy<PyObject> for PySockAddr {
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        match self.0 {
-            SocketAddr::V4(addr) => (addr.ip().to_string(), addr.port()).into_py(py),
-            SocketAddr::V6(addr) => {
-                log::debug!(
-                    "converting ipv6 to python, not sure if this is correct: {:?}",
-                    (addr.ip().to_string(), addr.port())
-                );
-                (addr.ip().to_string(), addr.port()).into_py(py)
-            },
-        }
-    }
-}
+mod tcp;
+mod wireguard;
+mod messages;
+mod virtual_device;
 
 #[pyclass]
-#[derive(Debug)]
-struct ConnectionEstablished {
-    #[pyo3(get)]
+struct TcpStream {
     connection_id: ConnectionId,
-    #[pyo3(get)]
-    src_addr: PySockAddr,
-    #[pyo3(get)]
-    dst_addr: PySockAddr,
+    event_tx: mpsc::UnboundedSender<TransportCommand>,
+    peername: SocketAddr,
+    sockname: SocketAddr,
+    original_dst: SocketAddr,
 }
 
 #[pymethods]
-impl ConnectionEstablished {
+impl TcpStream {
+    fn read<'p>(&self, py: Python<'p>, n: u32) -> PyResult<&'p PyAny> {
+        let (tx, rx) = oneshot::channel();
+        self.event_tx
+            .send(TransportCommand::ReadData(self.connection_id, n, tx))
+            .map_err(event_queue_unavailable)?;
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            let data = rx.await.map_err(connection_closed)?;
+            let bytes: Py<PyBytes> = Python::with_gil(|py| PyBytes::new(py, &data).into_py(py));
+            Ok(bytes)
+        })
+    }
+
+    fn write(&self, data: Vec<u8>) -> PyResult<()> {
+        self.event_tx
+            .send(TransportCommand::WriteData(self.connection_id, data))
+            .map_err(event_queue_unavailable)?;
+        Ok(())
+    }
+
+    fn drain<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+        let (tx, rx) = oneshot::channel();
+        self.event_tx
+            .send(TransportCommand::DrainWriter(self.connection_id, tx))
+            .map_err(event_queue_unavailable)?;
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            rx.await.map_err(connection_closed)?;
+            Ok(())
+        })
+    }
+
+    fn write_eof(&self) -> PyResult<()> {
+        self.event_tx
+            .send(TransportCommand::CloseConnection(self.connection_id, true))
+            .map_err(event_queue_unavailable)?;
+        Ok(())
+    }
+
+    fn close(&self) -> PyResult<()> {
+        self.event_tx
+            .send(TransportCommand::CloseConnection(self.connection_id, false))
+            .map_err(event_queue_unavailable)?;
+        Ok(())
+    }
+
+    fn get_extra_info(&self, py: Python, name: String) -> PyResult<PyObject> {
+        match name.as_str() {
+            "peername" => Ok(socketaddr_to_py(py, self.peername)),
+            "sockname" => Ok(socketaddr_to_py(py, self.sockname)),
+            "original_dst" => Ok(socketaddr_to_py(py, self.original_dst)),
+            _ => Err(PyKeyError::new_err(name)),
+        }
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "ConnectionEstablished({}, {}, {})",
-            self.connection_id, self.src_addr, self.dst_addr
+            "TcpStream({}, peer={}, sock={}, dst={})",
+            self.connection_id, self.peername, self.sockname, self.original_dst,
         )
     }
 }
 
-
-#[pyclass]
-#[derive(Debug)]
-struct DataReceived {
-    #[pyo3(get)]
-    connection_id: ConnectionId,
-    #[pyo3(get)]
-    data: Vec<u8>,
-}
-
-#[pymethods]
-impl DataReceived {
-    fn __repr__(&self) -> String {
-        format!("DataReceived({}, {:x?})", self.connection_id, self.data)
+impl Drop for TcpStream {
+    fn drop(&mut self) {
+        self.close().ok();
     }
 }
 
-
-#[pyclass]
-#[derive(Debug)]
-struct ConnectionClosed {
-    #[pyo3(get)]
-    connection_id: ConnectionId,
-}
-
-#[pymethods]
-impl ConnectionClosed {
-    fn __repr__(&self) -> String {
-        format!("ConnectionClosed({})", self.connection_id)
+fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
+    match s {
+        SocketAddr::V4(addr) => (addr.ip().to_string(), addr.port()).into_py(py),
+        SocketAddr::V6(addr) => {
+            log::debug!(
+                "converting ipv6 to python, not sure if this is correct: {:?}",
+                (addr.ip().to_string(), addr.port())
+            );
+            (addr.ip().to_string(), addr.port()).into_py(py)
+        },
     }
 }
 
-#[pyclass]
-#[derive(Debug)]
-struct DatagramReceived {
-    #[pyo3(get)]
-    src_addr: PySockAddr,
-    #[pyo3(get)]
-    dst_addr: PySockAddr,
-    #[pyo3(get)]
-    data: Vec<u8>,
-}
-
-#[pymethods]
-impl DatagramReceived {
-    fn __repr__(&self) -> String {
-        format!(
-            "DatagramReceived({}, {}, {:x?})",
-            self.src_addr, self.dst_addr, self.data
-        )
+fn py_to_socketaddr(t: &PyTuple) -> PyResult<SocketAddr> {
+    if t.len() == 2 {
+        let host = t.get_item(0)?.downcast::<PyString>()?;
+        let port: u16 = t.get_item(1)?.extract()?;
+        let addr = IpAddr::from_str(host.to_str()?)?;
+        Ok(SocketAddr::from((addr, port)))
+    } else {
+        Err(PyValueError::new_err("not a socket address"))
     }
 }
 
-
-#[derive(Debug)]
-enum Events {
-    ConnectionEstablished(ConnectionEstablished),
-    DataReceived(DataReceived),
-    ConnectionClosed(ConnectionClosed),
-    DatagramReceived(DatagramReceived),
+fn event_queue_unavailable(_: SendError<TransportCommand>) -> PyErr {
+    PyOSError::new_err("WireGuard server has been shut down.")
 }
 
-impl IntoPy<PyObject> for Events {
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        match self {
-            Events::ConnectionEstablished(e) => e.into_py(py),
-            Events::DataReceived(e) => e.into_py(py),
-            Events::ConnectionClosed(e) => e.into_py(py),
-            Events::DatagramReceived(e) => e.into_py(py),
-        }
-    }
+fn connection_closed(_: RecvError) -> PyErr {
+    PyOSError::new_err("connection closed")
 }
-
 
 #[pyclass]
 struct WireguardServer {
-    python_callback_task: JoinHandle<()>,
+    event_tx: mpsc::UnboundedSender<TransportCommand>,
+    local_addr: SocketAddr,
+    python_notify_task: JoinHandle<()>,
+    wireguard_task: JoinHandle<Result<()>>,
+    tcp_task: JoinHandle<Result<()>>,
 }
 
 #[pymethods]
 impl WireguardServer {
-    fn tcp_send(&self, connection_id: ConnectionId, data: Vec<u8>) -> PyResult<()> {
-        todo!()
-    }
-
-    fn tcp_close(&self, connection_id: ConnectionId) -> PyResult<()> {
-        todo!()
+    fn send_datagram(&self, data: Vec<u8>, src_addr: &PyTuple, dst_addr: &PyTuple) -> PyResult<()> {
+        self.event_tx
+            .send(TransportCommand::SendDatagram {
+                data,
+                src_addr: py_to_socketaddr(src_addr)?,
+                dst_addr: py_to_socketaddr(dst_addr)?,
+            })
+            .map_err(event_queue_unavailable)?;
+        Ok(())
     }
 
     fn stop(&self) -> PyResult<()> {
         self._stop();
         Ok(())
     }
+
+    fn getsockname(&self, py: Python) -> PyObject {
+        socketaddr_to_py(py, self.local_addr)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("WireguardServer({})", self.local_addr)
+    }
 }
 
 impl WireguardServer {
-    pub fn new(on_event: PyObject) -> WireguardServer {
-        let (tx, mut rx) = mpsc::channel::<Events>(64);
+    pub async fn new(
+        host: String,
+        port: u16,
+        private_key: String,
+        peer_public_keys: Vec<String>,
+        handle_connection: PyObject,
+        receive_datagram: PyObject,
+    ) -> Result<WireguardServer> {
+        let private_key: Arc<X25519SecretKey> = Arc::new(private_key.parse().map_err(|error: &str| anyhow!(error))?);
+        let peers = peer_public_keys
+            .into_iter()
+            .map(|peer| {
+                let key = Arc::new(X25519PublicKey::from_str(&peer).map_err(|error: &str| anyhow!(error))?);
+                Ok((key, None))
+            })
+            .collect::<Result<Vec<(Arc<X25519PublicKey>, Option<[u8; 32]>)>>>()?;
 
-        // random sender for testing.
-        tokio::spawn(async move {
-            loop {
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                tx.send(Events::ConnectionEstablished(ConnectionEstablished {
-                    connection_id: 42,
-                    src_addr: PySockAddr(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 4242)),
-                    dst_addr: PySockAddr(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 80)),
-                }))
-                .await
-                .unwrap();
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                tx.send(Events::DataReceived(DataReceived {
-                    connection_id: 42,
-                    data: vec![0, 1, 2],
-                }))
-                .await
-                .unwrap();
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                tx.send(Events::ConnectionClosed(ConnectionClosed { connection_id: 42 }))
-                    .await
-                    .unwrap();
-            }
-        });
+        let (py_loop, run_coroutine_threadsafe) = Python::with_gil(|py| -> PyResult<(PyObject, PyObject)> {
+            Ok((
+                pyo3_asyncio::tokio::get_current_loop(py)?.into(),
+                py.import("asyncio")?.getattr("run_coroutine_threadsafe")?.into(),
+            ))
+        })?;
 
+        let (wg_to_smol_tx, wg_to_smol_rx) = channel(16);
+        let (smol_to_wg_tx, smol_to_wg_rx) = channel(16);
+
+        let (smol_to_py_tx, mut smol_to_py_rx) = channel(64);  // only used to notify of incoming connections and datagrams
+        let (py_to_smol_tx, py_to_smol_rx) = unbounded_channel();  // used to send data and to ask for packets. We need this to be unbounded as write() is not async.
+
+        let mut wg_server =
+            wireguard::WireguardServer::new((host, port), private_key, peers, wg_to_smol_tx, smol_to_wg_rx).await?;
+        let local_addr = wg_server.local_addr()?;
+
+        let mut tcp_server = tcp::TcpServer::new(smol_to_wg_tx, wg_to_smol_rx, smol_to_py_tx, py_to_smol_rx)?;
+
+        let wireguard_task = tokio::spawn(async move { wg_server.run().await });
+        let tcp_task = tokio::spawn(async move { tcp_server.run().await });
+
+        let event_tx = py_to_smol_tx.clone();
         // this task feeds events into the Python callback.
-        let call_python_callback = tokio::spawn(async move {
-            while let Some(event) = rx.recv().await {
-                Python::with_gil(|py| {
-                    if let Err(err) = on_event.call1(py, (event,)) {
-                        err.print(py);
-                    }
-                });
+        let python_notify_task = tokio::spawn(async move {
+            while let Some(event) = smol_to_py_rx.recv().await {
+                match event {
+                    TransportEvent::ConnectionEstablished {
+                        connection_id,
+                        src_addr,
+                        dst_addr,
+                    } => {
+                        let stream = TcpStream {
+                            connection_id,
+                            sockname: local_addr,
+                            peername: src_addr,
+                            original_dst: dst_addr,
+                            event_tx: event_tx.clone(),
+                        };
+                        Python::with_gil(|py| {
+                            let stream = stream.into_py(py);
+                            let coro = match handle_connection.call1(py, (stream.clone_ref(py), stream)) {
+                                Ok(coro) => coro,
+                                Err(err) => {
+                                    err.print(py);
+                                    return;
+                                },
+                            };
+                            if let Err(err) = run_coroutine_threadsafe.call1(py, (coro, py_loop.as_ref(py))) {
+                                err.print(py);
+                            }
+                        });
+                    },
+                    TransportEvent::DatagramReceived {
+                        data,
+                        src_addr,
+                        dst_addr,
+                    } => {
+                        Python::with_gil(|py| {
+                            let bytes: Py<PyBytes> = PyBytes::new(py, &data).into_py(py);
+                            if let Err(err) = py_loop.call_method1(
+                                py,
+                                "call_soon_threadsafe",
+                                (
+                                    receive_datagram.as_ref(py),
+                                    bytes,
+                                    socketaddr_to_py(py, src_addr),
+                                    socketaddr_to_py(py, dst_addr),
+                                ),
+                            ) {
+                                err.print(py);
+                            }
+                        });
+                    },
+                }
             }
         });
 
-        WireguardServer {
-            python_callback_task: call_python_callback,
-        }
+        Ok(WireguardServer {
+            event_tx: py_to_smol_tx,
+            local_addr,
+            python_notify_task,
+            wireguard_task,
+            tcp_task,
+        })
     }
+
     fn _stop(&self) {
-        self.python_callback_task.abort();
-        // TODO: this is not completely trivial. we should probably close all connections somehow.
-        //       does smoltcp do something for us here?
+        self.python_notify_task.abort();
+        self.wireguard_task.abort();
+        self.tcp_task.abort();
     }
+
 }
 
 impl Drop for WireguardServer {
@@ -206,19 +288,45 @@ impl Drop for WireguardServer {
 }
 
 #[pyfunction]
-fn start_server(py: Python<'_>, host: String, port: u16, on_event: PyObject) -> PyResult<&PyAny> {
+fn start_server(
+    py: Python<'_>,
+    host: String,
+    port: u16,
+    private_key: String,
+    peer_public_keys: Vec<String>,
+    handle_connection: PyObject,
+    receive_datagram: PyObject,
+) -> PyResult<&PyAny> {
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        let server = WireguardServer::new(on_event);
+        // XXX: This is a bit of a race condition: the  handler could be called before
+        // .server = await start_server() has assigned to .server.
+        let server = WireguardServer::new(host, port, private_key, peer_public_keys, handle_connection, receive_datagram).await?;
         Ok(server)
     })
 }
 
+#[pyfunction]
+fn genkey() -> String {
+    base64::encode(X25519SecretKey::new().as_bytes())
+}
+
+#[pyfunction]
+fn pubkey(private_key: String) -> PyResult<String> {
+    let private_key = X25519SecretKey::from_str(&private_key)
+        .map_err(|_| PyValueError::new_err("Invalid private key."))?;
+    Ok(base64::encode(private_key.public_key().as_bytes()))
+}
+
 #[pymodule]
 fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
+    env_logger::builder().init();
+    #[cfg(debug_assertions)]
+    console_subscriber::init();
+
     m.add_function(wrap_pyfunction!(start_server, m)?)?;
-    m.add_class::<ConnectionEstablished>()?;
-    m.add_class::<DataReceived>()?;
-    m.add_class::<ConnectionClosed>()?;
-    m.add_class::<DatagramReceived>()?;
+    m.add_function(wrap_pyfunction!(genkey, m)?)?;
+    m.add_function(wrap_pyfunction!(pubkey, m)?)?;
+    m.add_class::<WireguardServer>()?;
+    m.add_class::<TcpStream>()?;
     Ok(())
 }

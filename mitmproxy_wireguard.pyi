@@ -1,30 +1,30 @@
-from collections.abc import Callable
+import asyncio
+from collections.abc import Awaitable, Callable
 
 
-class ConnectionEstablished:
-    connection_id: int
-    src_addr: tuple
-    dst_addr: tuple
+class WireguardServer:
+    def getsockname(self) -> tuple[str,int]:
+        ...
 
+    def send_datagram(self, data: bytes, src_addr: tuple[str, int], dst_addr: tuple[str, int]) -> None:
+        ...
 
-class DataReceived:
-    connection_id: int
-    data: bytes
-
-
-class ConnectionClosed:
-    connection_id: int
-
-
-class DatagramReceived:
-    src_addr: tuple
-    dst_addr: tuple
-    data: bytes
+    def stop(self) -> None:
+        ...
 
 
 async def start_server(
     host: str,
     port: int,
-    on_event: Callable[ConnectionEstablished | DataReceived | ConnectionClosed | DatagramReceived]
-):
+    private_key: str,
+    peer_public_keys: list[str],
+    handle_connection: Callable[[asyncio.StreamReader, asyncio.StreamWriter], Awaitable[None]],
+    receive_datagram: Callable[[bytes, tuple[str, int], tuple[str, int]], None],
+) -> WireguardServer:
+    ...
+
+def genkey() -> str:
+    ...
+
+def pubkey(private_key: str) -> str:
     ...

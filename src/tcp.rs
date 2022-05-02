@@ -1,422 +1,421 @@
-use std::collections::{HashMap, VecDeque};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::sync::Arc;
-use std::time::Duration;
+use std::cmp::min;
+use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::fmt;
+use std::net::SocketAddr;
 
-use anyhow::Context;
+use anyhow::{anyhow, Result};
+use smoltcp::iface::{Interface, InterfaceBuilder, Routes, SocketHandle};
+use smoltcp::phy::ChecksumCapabilities;
+use smoltcp::socket::{Socket, TcpSocket, TcpSocketBuffer, TcpState};
+use smoltcp::time::{Duration, Instant};
+use smoltcp::wire::{
+    IpAddress, IpCidr, IpProtocol, IpRepr, Ipv4Address, Ipv4Packet, Ipv4Repr, Ipv6Address, Ipv6Packet, Ipv6Repr,
+    TcpPacket, UdpPacket, UdpRepr,
+};
+use smoltcp::Error;
+use tokio::sync::mpsc::{Receiver, Sender, UnboundedReceiver};
+use tokio::sync::oneshot;
 
-use pretty_hex::pretty_hex;
+use crate::messages::{ConnectionId, IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent};
+use crate::virtual_device::VirtualDevice;
 
-use smoltcp::iface::{Interface, InterfaceBuilder, SocketHandle};
-use smoltcp::phy::{ChecksumCapabilities, Device, DeviceCapabilities, Medium, RxToken, TxToken};
-use smoltcp::socket::{Socket, TcpSocket, TcpSocketBuffer};
-use smoltcp::time::Instant;
-use smoltcp::wire::{IpProtocol, Ipv4Address, Ipv4Packet, Ipv4Repr, Ipv6Packet, TcpPacket};
-
-use tokio::sync::{mpsc, RwLock};
-
-/// generic IP packet type that wraps both IPv4 and IPv6 packet buffers
-#[derive(Debug)]
-pub enum IpPacket {
-    V4(Ipv4Packet<Vec<u8>>),
-    V6(Ipv6Packet<Vec<u8>>),
+/// Associated data for a smoltcp socket.
+struct SocketData {
+    handle: SocketHandle,
+    /// smoltcp can only operate with fixed-size buffers, but Python's stream implementation assumes
+    /// an infinite buffer. So we have a second send buffer here, plus a boolean to indicate that
+    /// we want to send a FIN.
+    send_buffer: VecDeque<u8>,
+    write_eof: bool,
+    // Gets notified once there's data to be read.
+    recv_waiter: Option<(u32, oneshot::Sender<Vec<u8>>)>,
+    // Gets notified once there is enough space in the write buffer.
+    drain_waiter: Vec<oneshot::Sender<()>>,
 }
 
-impl From<Ipv4Packet<Vec<u8>>> for IpPacket {
-    fn from(packet: Ipv4Packet<Vec<u8>>) -> Self {
-        IpPacket::V4(packet)
-    }
+pub struct TcpServer<'a> {
+    iface: Interface<'a, VirtualDevice>,
+    net_tx: Sender<NetworkCommand>,
+    net_rx: Receiver<NetworkEvent>,
+    py_tx: Sender<TransportEvent>,
+    py_rx: UnboundedReceiver<TransportCommand>,
+
+    next_connection_id: ConnectionId,
+    socket_data: HashMap<ConnectionId, SocketData>,
 }
 
-impl From<Ipv6Packet<Vec<u8>>> for IpPacket {
-    fn from(packet: Ipv6Packet<Vec<u8>>) -> Self {
-        IpPacket::V6(packet)
-    }
-}
+impl<'a> TcpServer<'a> {
+    pub fn new(
+        net_tx: Sender<NetworkCommand>,
+        net_rx: Receiver<NetworkEvent>,
+        py_tx: Sender<TransportEvent>,
+        py_rx: UnboundedReceiver<TransportCommand>,
+    ) -> Result<Self> {
+        let device = VirtualDevice::new(net_tx.clone());
 
-impl IpPacket {
-    fn src_ip(&self) -> IpAddr {
-        match self {
-            IpPacket::V4(packet) => IpAddr::V4(Ipv4Addr::from(packet.src_addr())),
-            IpPacket::V6(packet) => IpAddr::V6(Ipv6Addr::from(packet.src_addr())),
-        }
-    }
+        let builder = InterfaceBuilder::new(device, vec![]);
+        let ip_addrs = [IpCidr::new(IpAddress::v4(0, 0, 0, 1), 0)];
+        let mut routes = Routes::new(BTreeMap::new());
+        // TODO: v6
+        routes.add_default_ipv4_route(Ipv4Address::new(0, 0, 0, 1)).unwrap();
 
-    fn dst_ip(&self) -> IpAddr {
-        match self {
-            IpPacket::V4(packet) => IpAddr::V4(Ipv4Addr::from(packet.dst_addr())),
-            IpPacket::V6(packet) => IpAddr::V6(Ipv6Addr::from(packet.dst_addr())),
-        }
-    }
-}
+        let iface = builder.any_ip(true).ip_addrs(ip_addrs).routes(routes).finalize();
 
-pub struct TcpConnection {
-    socket: SocketHandle,
-    conn_back_send: mpsc::Sender<(SocketHandle, Vec<u8>)>,
-    conn_forw_recv: mpsc::Receiver<Vec<u8>>,
-}
-
-impl TcpConnection {
-    fn new(
-        socket: SocketHandle,
-        conn_back_send: mpsc::Sender<(SocketHandle, Vec<u8>)>,
-        conn_forw_recv: mpsc::Receiver<Vec<u8>>,
-    ) -> TcpConnection {
-        TcpConnection {
-            socket,
-            conn_back_send,
-            conn_forw_recv,
-        }
+        Ok(Self {
+            iface,
+            net_tx,
+            net_rx,
+            py_tx,
+            py_rx,
+            next_connection_id: 0,
+            socket_data: HashMap::new(),
+        })
     }
 
-    pub async fn read(&mut self) -> Option<Vec<u8>> {
-        self.conn_forw_recv.recv().await
-    }
-
-    pub async fn write(&mut self, data: Vec<u8>) {
-        self.conn_back_send.send((self.socket, data)).await.unwrap()
-    }
-}
-
-#[async_trait::async_trait]
-pub trait ConnectionHandler: Send + Sync {
-    async fn handle(&self, connection: TcpConnection);
-}
-
-pub struct PacketHandler {
-    conn_handler: Arc<Box<dyn ConnectionHandler>>,
-    iface: VirtualInterface,
-    handles: HashMap<SocketAddr, SocketHandle>,
-    connections: HashMap<SocketHandle, mpsc::Sender<Vec<u8>>>,
-    memory: HashMap<SocketHandle, (IpAddr, IpAddr)>,
-
-    // channels for sending IP packets to WireGuard peers
-    ip_back_send: HashMap<u32, mpsc::Sender<IpPacket>>,
-
-    // channel for receiving data from connection handlers
-    conn_back_send: mpsc::Sender<(SocketHandle, Vec<u8>)>,
-    conn_back_recv: Option<mpsc::Receiver<(SocketHandle, Vec<u8>)>>,
-}
-
-impl PacketHandler {
-    pub fn new(conn_handler: Box<dyn ConnectionHandler>) -> PacketHandler {
-        let (conn_back_send, conn_back_recv) = mpsc::channel(64);
-
-        PacketHandler {
-            conn_handler: Arc::new(conn_handler),
-            iface: VirtualInterface::new(),
-            handles: HashMap::new(),
-            connections: HashMap::new(),
-            memory: HashMap::new(),
-            ip_back_send: HashMap::new(),
-            conn_back_send,
-            conn_back_recv: Some(conn_back_recv),
-        }
-    }
-
-    pub fn add_peer(&mut self, idx: u32, ip_back_send: mpsc::Sender<IpPacket>) {
-        self.ip_back_send.insert(idx, ip_back_send);
-    }
-
-    pub async fn handle(mut self, mut ip_forw_recv: mpsc::Receiver<(u32, IpPacket)>) -> Result<(), anyhow::Error> {
-        let mut back_table: HashMap<IpAddr, u32> = HashMap::new();
-        let mut conn_back_recv = self.conn_back_recv.take().unwrap();
+    pub async fn run(&mut self) -> Result<()> {
+        let mut remove_conns = Vec::new();
 
         loop {
-            tokio::select!(
-                // handle IP packets that are received over the WireGuard tunnel
-                ret = ip_forw_recv.recv() => {
-                    if let Some((idx, packet)) = ret {
-                        back_table.insert(packet.src_ip(), idx);
+            // On a high level, we do three things in our main loop:
+            // 1. Wait for an event from either side and handle it, or wait until the next smoltcp timeout.
+            // 2. `.poll()` the smoltcp interface until it's finished with everything for now.
+            // 3. Check if we can wake up any waiters, move more data in the send buffer, or clean up sockets.
 
-                        let resp_packets = self.recv(packet).await.unwrap();
-                        for resp_packet in resp_packets {
-                            self.ip_back_send.get(&idx).unwrap().send(resp_packet).await.unwrap();
+            let delay = self.iface.poll_delay(Instant::now());
+
+            log::debug!("{:?}: {}", &self, match delay { Some(d) => format!("poll in {}", d), _ => "idle".to_string() });
+
+            tokio::select! {
+                _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
+                Some(e) = self.net_rx.recv() => {
+                    match e {
+                        NetworkEvent::ReceivePacket(packet) => {
+                            self.receive_packet(packet).await?;
                         }
                     }
                 },
-                _ = self.iface.ready() => {
-                    // handle IP packets that are to be sent back over the WireGuard tunnel
-                    if let Some(packet) = self.send().await.unwrap() {
-                        if let Some(idx) = back_table.get(&packet.dst_ip()) {
-                            let chan = self.ip_back_send.get(idx).unwrap();
-                            chan.send(packet).await.unwrap();
-                        } else {
-                            log::debug!("Unknown destination address: {}", packet.dst_ip());
+                Some(e) = self.py_rx.recv() => {
+                    match e {
+                        TransportCommand::ReadData(id, n, tx) => {
+                            self.read_data(id,n,tx);
+                        },
+                        TransportCommand::WriteData(id, buf) => {
+                            self.write_data(id, buf);
+                        },
+                        TransportCommand::DrainWriter(id, tx) => {
+                            self.drain_writer(id, tx);
+                        },
+                        TransportCommand::CloseConnection(id, half_close) => {
+                            self.close_connection(id, half_close);
+                        },
+                        TransportCommand::SendDatagram{data, src_addr, dst_addr} => {
+                            self.send_datagram(data, src_addr, dst_addr);
+                        },
+                    }
+                },
+                Ok(()) = wait_for_channel_capacity(self.net_tx.clone()), if self.net_tx.capacity() == 0 => {
+                    log::debug!("regained channel capacity");
+                },
+            }
+
+            loop {
+                match self.iface.poll(Instant::now()) {
+                    Ok(_) => break,
+                    Err(Error::Exhausted) => {
+                        log::debug!("smoltcp: exhausted.");
+                        break;
+                    },
+                    Err(e) => {
+                        // these can happen for "normal" reasons such as invalid packets,
+                        // we just write a log message and keep going.
+                        log::debug!("smoltcp network error: {}", e)
+                    },
+                }
+            }
+
+            for (connection_id, data) in self.socket_data.iter_mut() {
+                let sock = self.iface.get_socket::<TcpSocket>(data.handle);
+                if data.recv_waiter.is_some() {
+                    // dbg!(sock.state(), sock.can_recv(), sock.may_recv());
+                    if sock.can_recv() {
+                        let (n, tx) = data.recv_waiter.take().unwrap();
+                        let bytes_available = sock.recv_queue();
+                        let mut buf = vec![0u8; min(bytes_available, n as usize)];
+                        let bytes_read = sock.recv_slice(&mut buf)?;
+                        buf.truncate(bytes_read);
+                        tx.send(buf).map_err(|_| anyhow!("cannot send read() bytes"))?;
+                    } else {
+                        // We can't use .may_recv() here as it returns false during establishment.
+                        match sock.state() {
+                            // can we still receive something in the future?
+                            TcpState::CloseWait
+                            | TcpState::LastAck
+                            | TcpState::Closed
+                            | TcpState::Closing
+                            | TcpState::TimeWait => {
+                                let (_, tx) = data.recv_waiter.take().unwrap();
+                                tx.send(Vec::new()).map_err(|_| anyhow!("cannot send read() bytes"))?;
+                            },
+                            _ => {},
                         }
                     }
-                },
-                ret = conn_back_recv.recv() => {
-                    if let Some((handle, data)) = ret {
-                        let mut iface = self.iface.iface.write().await;
-                        let socket: &mut TcpSocket = iface.get_socket(handle);
-                        socket.send_slice(&data).unwrap();
+                }
+                if !data.send_buffer.is_empty() {
+                    if sock.can_send() {
+                        let (a, b) = data.send_buffer.as_slices();
+                        let sent = sock.send_slice(a)? + sock.send_slice(b)?;
+                        data.send_buffer.drain(..sent);
                     }
-                },
-            );
+                }
+                if !data.drain_waiter.is_empty() {
+                    // TODO: benchmark different variants here. (e.g. only return on half capacity)
+                    if sock.send_queue() < sock.send_capacity() {
+                        for waiter in data.drain_waiter.drain(..) {
+                            waiter.send(()).map_err(|_| anyhow!("cannot notify drain writer"))?;
+                        }
+                    }
+                }
+                if data.send_buffer.is_empty() && data.write_eof {
+                    // needs test: Is smoltcp smart enough to send out its own send buffer first?
+                    sock.close();
+                    data.write_eof = false;
+                    continue; // we want one more poll() so that our FIN is sent (TODO: test that).
+                }
+                if sock.state() == TcpState::Closed {
+                    remove_conns.push(*connection_id);
+                }
+            }
+            for connection_id in remove_conns.drain(..) {
+                let data = self.socket_data.remove(&connection_id).unwrap();
+                self.iface.remove_socket(data.handle);
+            }
         }
     }
 
-    /// receive an IP packet from the WireGuard tunnel
-    async fn recv(&mut self, ip_packet: IpPacket) -> Result<Vec<IpPacket>, anyhow::Error> {
-        match ip_packet {
-            IpPacket::V4(packet) => self.recv4(packet).await,
-            IpPacket::V6(packet) => self.recv6(packet).await,
+    async fn receive_packet(&mut self, packet: IpPacket) -> Result<()> {
+        match packet.transport_protocol() {
+            IpProtocol::Tcp => self.receive_packet_tcp(packet).await,
+            IpProtocol::Udp => self.receive_packet_udp(packet).await,
+            _ => {
+                log::debug!("Unhandled protocol: {}", packet.transport_protocol());
+                return Ok(());
+            },
         }
     }
 
-    /// receive an IPv4 packet from the WireGuard tunnel
-    async fn recv4(&mut self, mut ip_packet: Ipv4Packet<Vec<u8>>) -> Result<Vec<IpPacket>, anyhow::Error> {
-        if ip_packet.protocol() != IpProtocol::Tcp {
-            log::warn!(
-                "Attempt to send IP packet with unsupported protocol: {}",
-                ip_packet.protocol()
-            );
-            return Ok(Vec::new());
-        }
+    async fn receive_packet_udp(&mut self, mut packet: IpPacket) -> Result<()> {
+        let src_ip = packet.src_ip();
+        let dst_ip = packet.dst_ip();
 
-        let tcp_packet = TcpPacket::new_checked(ip_packet.payload_mut().to_vec()).context("invalid TCP packet")?;
+        let mut udp_packet = match UdpPacket::new_checked(packet.payload_mut()) {
+            Ok(p) => p,
+            Err(e) => {
+                log::debug!("Invalid UDP packet: {}", e);
+                return Ok(());
+            },
+        };
+        let src_addr = SocketAddr::new(src_ip, udp_packet.src_port());
+        let dst_addr = SocketAddr::new(dst_ip, udp_packet.dst_port());
 
-        let src_ip = IpAddr::V4(Ipv4Addr::from(ip_packet.src_addr()));
-        let dst_ip = IpAddr::V4(Ipv4Addr::from(ip_packet.dst_addr()));
+        let event = TransportEvent::DatagramReceived {
+            data: udp_packet.payload_mut().to_vec(),
+            src_addr,
+            dst_addr,
+        };
 
-        log::debug!("Outgoing IPv4 TCP packet: {} -> {}", src_ip, dst_ip);
-        log::debug!("{}", pretty_hex(&ip_packet.payload_mut()));
+        self.py_tx.send(event).await?;
+        Ok(())
+    }
 
+    async fn receive_packet_tcp(&mut self, mut packet: IpPacket) -> Result<()> {
+        let src_ip = packet.src_ip();
+        let dst_ip = packet.dst_ip();
+
+        let tcp_packet = match TcpPacket::new_checked(packet.payload_mut()) {
+            Ok(p) => p,
+            Err(e) => {
+                log::debug!("Invalid TCP packet: {}", e);
+                return Ok(());
+            },
+        };
+
+        let src_addr = SocketAddr::new(src_ip, tcp_packet.src_port());
         let dst_addr = SocketAddr::new(dst_ip, tcp_packet.dst_port());
 
         let syn = tcp_packet.syn();
-        let fin = tcp_packet.fin();
+        let _fin = tcp_packet.fin();
 
         if syn {
             let mut socket = TcpSocket::new(
-                TcpSocketBuffer::new(vec![0u8; 128 * 1024]),
-                TcpSocketBuffer::new(vec![0u8; 128 * 1024]),
+                TcpSocketBuffer::new(vec![0u8; 64 * 1024]),
+                TcpSocketBuffer::new(vec![0u8; 64 * 1024]),
             );
-
-            socket.set_ack_delay(None);
             socket.listen(dst_addr)?;
+            socket.set_timeout(Some(Duration::from_secs(60)));
+            socket.set_keep_alive(Some(Duration::from_secs(28)));
+            let handle = self.iface.add_socket(socket);
 
-            let handle = self.iface.iface.write().await.add_socket(socket);
-            self.handles.insert(dst_addr, handle);
-            self.memory.insert(handle, (src_ip, dst_ip));
+            let connection_id = self.next_connection_id;
+            self.next_connection_id += 1;
 
-            // create connections with read / write streams for each new socket
-            let (conn_forw_send, conn_forw_recv) = mpsc::channel(64);
+            let data = SocketData {
+                handle,
+                send_buffer: VecDeque::new(),
+                write_eof: false,
+                recv_waiter: None,
+                drain_waiter: Vec::new(),
+            };
+            self.socket_data.insert(connection_id, data);
 
-            let connection = TcpConnection::new(handle, self.conn_back_send.clone(), conn_forw_recv);
-
-            // spawn connection handler
-            let conn_handler = self.conn_handler.clone();
-            tokio::spawn(async move { conn_handler.handle(connection).await });
-
-            // set up connection channels
-            self.connections.insert(handle, conn_forw_send);
+            self.py_tx
+                .send(TransportEvent::ConnectionEstablished {
+                    connection_id,
+                    src_addr,
+                    dst_addr,
+                })
+                .await?;
         }
 
-        self.iface.recv_packet(ip_packet.into_inner().to_vec()).await;
+        self.iface.device_mut().receive_packet(packet);
 
-        if fin {
-            if let Some(handle) = self.handles.get(&dst_addr) {
-                self.iface.iface.write().await.remove_socket(*handle);
+        Ok(())
+    }
+
+    fn read_data(&mut self, id: ConnectionId, n: u32, tx: oneshot::Sender<Vec<u8>>) {
+        if let Some(data) = self.socket_data.get_mut(&id) {
+            assert!(data.recv_waiter.is_none());
+            data.recv_waiter = Some((n, tx));
+        } else {
+            // connection is has already been removed because the connection is closed,
+            // so we just drop the tx.
+        }
+    }
+
+    fn write_data(&mut self, id: ConnectionId, buf: Vec<u8>) {
+        if let Some(data) = self.socket_data.get_mut(&id) {
+            data.send_buffer.extend(buf);
+        } else {
+            // connection is has already been removed because the connection is closed,
+            // so we just ignore the write.
+        }
+    }
+
+    fn drain_writer(&mut self, id: ConnectionId, tx: oneshot::Sender<()>) {
+        if let Some(data) = self.socket_data.get_mut(&id) {
+            data.drain_waiter.push(tx);
+        } else {
+            // connection is has already been removed because the connection is closed,
+            // so we just drop the tx.
+        }
+    }
+
+    fn close_connection(&mut self, id: ConnectionId, half_close: bool) {
+        if let Some(data) = self.socket_data.get_mut(&id) {
+            let sock = self.iface.get_socket::<TcpSocket>(data.handle);
+            if half_close {
+                data.write_eof = true;
+            } else {
+                sock.abort();
             }
+        } else {
+            // connection is already dead.
         }
-
-        let mut responses: Vec<IpPacket> = Vec::new();
-        while let Some(resp_packet) = self.iface.resp_packet().await {
-            let packet = Ipv4Packet::new_checked(resp_packet)?;
-            responses.push(packet.into());
-        }
-
-        Ok(responses)
     }
 
-    /// receive an IPv6 packet from the WireGuard tunnel
-    async fn recv6(&mut self, mut _ip_packet: Ipv6Packet<Vec<u8>>) -> Result<Vec<IpPacket>, anyhow::Error> {
-        log::warn!("Sending IPv6 packets is not implemented yet.");
-        Ok(Vec::new())
-    }
-
-    /// get an IP packet that should be sent through the WireGuard tunnel
-    async fn send(&mut self) -> Result<Option<IpPacket>, anyhow::Error> {
-        for (handle, socket) in self.iface.iface.write().await.sockets_mut() {
-            match socket {
-                Socket::Tcp(s) => {
-                    if s.can_recv() {
-                        let (dst_addr, src_addr) = self.memory.get(&handle).unwrap();
-
-                        match (dst_addr, src_addr) {
-                            (IpAddr::V4(dst_addr), IpAddr::V4(src_addr)) => {
-                                let mut buf = [0u8; 1500];
-                                let size = s.recv_slice(&mut buf).unwrap();
-
-                                let packet = Self::send4(src_addr, dst_addr, &buf[..size])?;
-                                return Ok(Some(packet.into()));
-                            },
-                            (IpAddr::V6(_dst_addr), IpAddr::V6(_src_addr)) => {
-                                log::debug!("IPv6 packets not supported yet.");
-                                // TODO: IPv6 support
-                            },
-                            _ => {
-                                log::error!("Unsupported address pair: mixed IPv4 / IPv6");
-                            },
-                        }
-                    }
-                },
-                _ => log::error!("Unsupported socket type: {:?}", socket),
-            }
-        }
-
-        Ok(None)
-    }
-
-    /// construct an IPv4 TCP packet
-    fn send4(src_addr: &Ipv4Addr, dst_addr: &Ipv4Addr, payload: &[u8]) -> Result<Ipv4Packet<Vec<u8>>, anyhow::Error> {
-        // construct Ipv4 packet
-        let repr = Ipv4Repr {
-            src_addr: Ipv4Address::from(*src_addr),
-            dst_addr: Ipv4Address::from(*dst_addr),
-            protocol: IpProtocol::Tcp,
-            payload_len: payload.len(),
-            hop_limit: 64,
+    fn send_datagram(&mut self, data: Vec<u8>, src_addr: SocketAddr, dst_addr: SocketAddr) {
+        let permit = match self.net_tx.try_reserve() {
+            Ok(p) => p,
+            Err(_) => {
+                log::debug!("Channel full, discarding UDP packet.");
+                return;
+            },
         };
 
-        let buffer = vec![0u8; repr.buffer_len() + repr.payload_len];
-        let mut ip_packet = Ipv4Packet::new_unchecked(buffer);
+        // We now know that there's space for us to send,
+        // let's painstakingly reassemble the IP packet...
 
-        // construct IP packet
-        repr.emit(&mut ip_packet, &ChecksumCapabilities::default());
-        // fill packet payload
-        ip_packet.payload_mut().copy_from_slice(payload);
+        let udp_repr = UdpRepr {
+            src_port: src_addr.port(),
+            dst_port: dst_addr.port(),
+        };
 
-        ip_packet.fill_checksum();
-        ip_packet.check_len()?;
-
-        Ok(ip_packet)
-    }
-}
-
-struct VirtualInterface {
-    iface: Arc<RwLock<Interface<'static, VirtualDevice>>>,
-}
-
-impl VirtualInterface {
-    /// construct a new virtual TCP interface
-    fn new() -> VirtualInterface {
-        let device = VirtualDevice::default();
-        let builder = InterfaceBuilder::new(device, Vec::new());
-        let iface = builder.any_ip(true).finalize();
-
-        VirtualInterface {
-            iface: Arc::new(RwLock::new(iface)),
-        }
-    }
-
-    /// add a received packet
-    async fn recv_packet(&mut self, packet: Vec<u8>) {
-        self.iface.write().await.device_mut().recv_packet(packet)
-    }
-
-    /// get a response packet
-    async fn resp_packet(&mut self) -> Option<Vec<u8>> {
-        self.iface.write().await.device_mut().resp_packet()
-    }
-
-    async fn poll(&self, timestamp: Instant) -> smoltcp::Result<bool> {
-        self.iface.write().await.poll(timestamp)
-    }
-
-    async fn wait(&self) {
-        if let Some(dur) = self.iface.write().await.poll_delay(Instant::now()) {
-            log::debug!("TCP poll delay: {}", dur);
-            tokio::time::sleep(dur.into()).await;
-        } else {
-            // FIXME: Interface::poll_delay seems to always (?) return `None`.
-            //        This statement was only added to avoid busy sleeping in this case.
-            tokio::time::sleep(Duration::from_millis(200)).await;
-        }
-    }
-
-    pub async fn ready(&self) {
-        loop {
-            if let Ok(true) = self.poll(Instant::now()).await {
+        let ip_repr: IpRepr = match (src_addr, dst_addr) {
+            (SocketAddr::V4(src_addr), SocketAddr::V4(dst_addr)) => IpRepr::Ipv4(Ipv4Repr {
+                src_addr: Ipv4Address::from(*src_addr.ip()),
+                dst_addr: Ipv4Address::from(*dst_addr.ip()),
+                protocol: IpProtocol::Udp,
+                payload_len: udp_repr.header_len() + data.len(),
+                hop_limit: 255,
+            }),
+            (SocketAddr::V6(src_addr), SocketAddr::V6(dst_addr)) => IpRepr::Ipv6(Ipv6Repr {
+                src_addr: Ipv6Address::from(*src_addr.ip()),
+                dst_addr: Ipv6Address::from(*dst_addr.ip()),
+                next_header: IpProtocol::Udp,
+                payload_len: udp_repr.header_len() + data.len(),
+                hop_limit: 255,
+            }),
+            _ => {
+                log::error!("A datagram's src_addr and dst_addr must agree on IP version.");
                 return;
-            } else {
-                self.wait().await
-            }
-        }
+            },
+        };
+
+        let buf = vec![0u8; ip_repr.total_len()];
+
+        let mut ip_packet = match ip_repr {
+            IpRepr::Ipv4(repr) => {
+                let mut packet = Ipv4Packet::new_unchecked(buf);
+                repr.emit(&mut packet, &ChecksumCapabilities::default());
+                IpPacket::from(packet)
+            },
+            IpRepr::Ipv6(repr) => {
+                let mut packet = Ipv6Packet::new_unchecked(buf);
+                repr.emit(&mut packet);
+                IpPacket::from(packet)
+            },
+            _ => unreachable!(),
+        };
+
+        udp_repr.emit(
+            &mut UdpPacket::new_unchecked(ip_packet.payload_mut()),
+            &ip_repr.src_addr(),
+            &ip_repr.dst_addr(),
+            data.len(),
+            |buf| buf.copy_from_slice(data.as_slice()),
+            &ChecksumCapabilities::default(),
+        );
+
+        permit.send(NetworkCommand::SendPacket(ip_packet));
     }
 }
 
-#[derive(Debug, Default)]
-struct VirtualDevice {
-    rx_buffer: VecDeque<Vec<u8>>,
-    tx_buffer: VecDeque<Vec<u8>>,
-}
-
-impl VirtualDevice {
-    pub fn recv_packet(&mut self, packet: Vec<u8>) {
-        self.rx_buffer.push_back(packet);
-    }
-
-    pub fn resp_packet(&mut self) -> Option<Vec<u8>> {
-        self.tx_buffer.pop_front()
-    }
-}
-
-#[derive(Debug)]
-struct VirtualRxToken {
-    buffer: Vec<u8>,
-}
-
-impl RxToken for VirtualRxToken {
-    fn consume<R, F>(mut self, _timestamp: Instant, f: F) -> smoltcp::Result<R>
-    where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
-    {
-        f(&mut self.buffer)
+impl<'a> fmt::Debug for TcpServer<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("TcpServer {")?;
+        f.debug_list()
+            .entries(
+                self.iface
+                    .sockets()
+                    .filter_map(|(_h, s)| match s {
+                        Socket::Tcp(s) => Some(s),
+                        _ => None,
+                    })
+                    .map(|sock| {
+                        format!(
+                            "TCP {:<21} {:<21} {}",
+                            sock.remote_endpoint(),
+                            sock.local_endpoint(),
+                            sock.state()
+                        )
+                    }),
+            )
+            .finish()?;
+        f.write_str("}")
     }
 }
 
-#[derive(Debug)]
-struct VirtualTxToken<'a> {
-    device: &'a mut VirtualDevice,
-}
-
-impl<'a> TxToken for VirtualTxToken<'a> {
-    fn consume<R, F>(self, _timestamp: Instant, len: usize, f: F) -> smoltcp::Result<R>
-    where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
-    {
-        let mut buffer = vec![0; len];
-        let result = f(&mut buffer);
-        self.device.tx_buffer.push_back(buffer);
-        result
-    }
-}
-
-impl<'a> Device<'a> for VirtualDevice {
-    type RxToken = VirtualRxToken;
-    type TxToken = VirtualTxToken<'a>;
-
-    fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
-        if let Some(buffer) = self.rx_buffer.pop_front() {
-            let rx = Self::RxToken { buffer };
-            let tx = Self::TxToken { device: self };
-            Some((rx, tx))
-        } else {
-            None
-        }
-    }
-
-    fn transmit(&'a mut self) -> Option<Self::TxToken> {
-        Some(VirtualTxToken { device: self })
-    }
-
-    fn capabilities(&self) -> DeviceCapabilities {
-        let mut caps = DeviceCapabilities::default();
-        caps.medium = Medium::Ip;
-        caps.max_transmission_unit = 1500;
-        caps
-    }
+async fn wait_for_channel_capacity<T>(s: Sender<T>) -> Result<()> {
+    let permit = s.reserve().await?;
+    drop(permit);
+    Ok(())
 }
