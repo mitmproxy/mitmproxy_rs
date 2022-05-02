@@ -2,12 +2,13 @@ use std::collections::VecDeque;
 
 use smoltcp::phy::{Device, DeviceCapabilities, Medium, RxToken, TxToken};
 use smoltcp::time::Instant;
+
 use tokio::sync::mpsc::{Permit, Sender};
 
 use crate::messages::{IpPacket, NetworkCommand};
 
-/// A virtual smoltcp device into which we manually feed packets using [VirtualDevice::receive_packet]
-/// and which send outgoing packets to a channel.
+/// A virtual smoltcp device into which we manually feed packets using
+/// [VirtualDevice::receive_packet] and which send outgoing packets to a channel.
 pub struct VirtualDevice {
     rx_buffer: VecDeque<Vec<u8>>,
     tx_channel: Sender<NetworkCommand>,

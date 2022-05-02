@@ -40,7 +40,7 @@ maturin develop
 python3 ./echo_test_server.py
 ```
 
----------------------
+---
 
 For debug builds, the library can be introspected using `tokio-console`:
 

@@ -1,18 +1,31 @@
-use std::cmp::min;
+use std::cmp;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fmt;
 use std::net::SocketAddr;
 
 use anyhow::{anyhow, Result};
+
 use smoltcp::iface::{Interface, InterfaceBuilder, Routes, SocketHandle};
 use smoltcp::phy::ChecksumCapabilities;
 use smoltcp::socket::{Socket, TcpSocket, TcpSocketBuffer, TcpState};
 use smoltcp::time::{Duration, Instant};
 use smoltcp::wire::{
-    IpAddress, IpCidr, IpProtocol, IpRepr, Ipv4Address, Ipv4Packet, Ipv4Repr, Ipv6Address, Ipv6Packet, Ipv6Repr,
-    TcpPacket, UdpPacket, UdpRepr,
+    IpAddress,
+    IpCidr,
+    IpProtocol,
+    IpRepr,
+    Ipv4Address,
+    Ipv4Packet,
+    Ipv4Repr,
+    Ipv6Address,
+    Ipv6Packet,
+    Ipv6Repr,
+    TcpPacket,
+    UdpPacket,
+    UdpRepr,
 };
 use smoltcp::Error;
+
 use tokio::sync::mpsc::{Receiver, Sender, UnboundedReceiver};
 use tokio::sync::oneshot;
 
@@ -83,7 +96,14 @@ impl<'a> TcpServer<'a> {
 
             let delay = self.iface.poll_delay(Instant::now());
 
-            log::debug!("{:?}: {}", &self, match delay { Some(d) => format!("poll in {}", d), _ => "idle".to_string() });
+            log::debug!(
+                "{:?}: {}",
+                &self,
+                match delay {
+                    Some(d) => format!("poll in {}", d),
+                    _ => "idle".to_string(),
+                }
+            );
 
             tokio::select! {
                 _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
@@ -140,7 +160,7 @@ impl<'a> TcpServer<'a> {
                     if sock.can_recv() {
                         let (n, tx) = data.recv_waiter.take().unwrap();
                         let bytes_available = sock.recv_queue();
-                        let mut buf = vec![0u8; min(bytes_available, n as usize)];
+                        let mut buf = vec![0u8; cmp::min(bytes_available, n as usize)];
                         let bytes_read = sock.recv_slice(&mut buf)?;
                         buf.truncate(bytes_read);
                         tx.send(buf).map_err(|_| anyhow!("cannot send read() bytes"))?;

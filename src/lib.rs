@@ -1,26 +1,25 @@
-extern crate core;
-
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
+
 use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
+
 use pyo3::exceptions::{PyKeyError, PyOSError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString, PyTuple};
-use tokio::sync::mpsc;
-use tokio::sync::mpsc::error::SendError;
-use tokio::sync::mpsc::{channel, unbounded_channel};
-use tokio::sync::oneshot;
-use tokio::sync::oneshot::error::RecvError;
-use tokio::task::JoinHandle;
-use crate::messages::{ConnectionId, TransportCommand, TransportEvent};
 
-mod tcp;
-mod wireguard;
+use tokio::sync::mpsc::{self, channel, error::SendError, unbounded_channel};
+use tokio::sync::oneshot::{self, error::RecvError};
+use tokio::task::JoinHandle;
+
 mod messages;
+mod tcp;
 mod virtual_device;
+mod wireguard;
+
+use messages::{ConnectionId, TransportCommand, TransportEvent};
 
 #[pyclass]
 struct TcpStream {
@@ -196,8 +195,8 @@ impl WireguardServer {
         let (wg_to_smol_tx, wg_to_smol_rx) = channel(16);
         let (smol_to_wg_tx, smol_to_wg_rx) = channel(16);
 
-        let (smol_to_py_tx, mut smol_to_py_rx) = channel(64);  // only used to notify of incoming connections and datagrams
-        let (py_to_smol_tx, py_to_smol_rx) = unbounded_channel();  // used to send data and to ask for packets. We need this to be unbounded as write() is not async.
+        let (smol_to_py_tx, mut smol_to_py_rx) = channel(64); // only used to notify of incoming connections and datagrams
+        let (py_to_smol_tx, py_to_smol_rx) = unbounded_channel(); // used to send data and to ask for packets. We need this to be unbounded as write() is not async.
 
         let mut wg_server =
             wireguard::WireguardServer::new((host, port), private_key, peers, wg_to_smol_tx, smol_to_wg_rx).await?;
@@ -220,10 +219,10 @@ impl WireguardServer {
                     } => {
                         let stream = TcpStream {
                             connection_id,
-                            sockname: local_addr,
-                            peername: src_addr,
-                            original_dst: dst_addr,
                             event_tx: event_tx.clone(),
+                            peername: src_addr,
+                            sockname: local_addr,
+                            original_dst: dst_addr,
                         };
                         Python::with_gil(|py| {
                             let stream = stream.into_py(py);
@@ -278,7 +277,6 @@ impl WireguardServer {
         self.wireguard_task.abort();
         self.tcp_task.abort();
     }
-
 }
 
 impl Drop for WireguardServer {
@@ -300,7 +298,15 @@ fn start_server(
     pyo3_asyncio::tokio::future_into_py(py, async move {
         // XXX: This is a bit of a race condition: the  handler could be called before
         // .server = await start_server() has assigned to .server.
-        let server = WireguardServer::new(host, port, private_key, peer_public_keys, handle_connection, receive_datagram).await?;
+        let server = WireguardServer::new(
+            host,
+            port,
+            private_key,
+            peer_public_keys,
+            handle_connection,
+            receive_datagram,
+        )
+        .await?;
         Ok(server)
     })
 }
@@ -312,14 +318,18 @@ fn genkey() -> String {
 
 #[pyfunction]
 fn pubkey(private_key: String) -> PyResult<String> {
-    let private_key = X25519SecretKey::from_str(&private_key)
+    let private_key: X25519SecretKey = private_key
+        .parse()
         .map_err(|_| PyValueError::new_err("Invalid private key."))?;
     Ok(base64::encode(private_key.public_key().as_bytes()))
 }
 
 #[pymodule]
 fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
-    env_logger::builder().init();
+    // set up the Rust logger to send messages to the Python logger
+    pyo3_log::init();
+
+    // set up tracing subscriber for introspection with tokio-console
     #[cfg(debug_assertions)]
     console_subscriber::init();
 

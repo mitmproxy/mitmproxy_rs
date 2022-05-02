@@ -3,11 +3,14 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
+
 use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
-use boringtun::noise::handshake::parse_handshake_anon;
-use boringtun::noise::{Packet, Tunn, TunnResult};
+use boringtun::noise::{handshake::parse_handshake_anon, Packet, Tunn, TunnResult};
+
 use pretty_hex::pretty_hex;
+
 use smoltcp::wire::{Ipv4Packet, Ipv6Packet};
+
 use tokio::net::{ToSocketAddrs, UdpSocket};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::RwLock;
@@ -122,7 +125,10 @@ impl WireguardServer {
                 let hs = match parse_handshake_anon(&self.private_key, &self.public_key, &p) {
                     Ok(hs) => hs,
                     Err(e) => {
-                        log::warn!("Cannot parse WireGuard packet ({:?}). You may have used invalid credentials.", e);
+                        log::warn!(
+                            "Cannot parse WireGuard packet ({:?}). You may have used invalid credentials.",
+                            e
+                        );
                         return None;
                     },
                 };
