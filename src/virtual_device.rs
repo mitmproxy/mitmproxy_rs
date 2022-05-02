@@ -22,7 +22,7 @@ impl VirtualDevice {
         }
     }
 
-    pub fn receive_packet(self: &mut Self, packet: IpPacket) {
+    pub fn receive_packet(&mut self, packet: IpPacket) {
         self.rx_buffer.push_back(packet.into_inner());
     }
 }
@@ -43,7 +43,9 @@ impl<'a> Device<'a> for VirtualDevice {
                     return Some((rx, tx));
                 }
             },
-            Err(_) => {},
+            Err(_error) => {
+                // todo!()
+            },
         }
         None
     }

@@ -180,19 +180,15 @@ impl<'a> TcpServer<'a> {
                         }
                     }
                 }
-                if !data.send_buffer.is_empty() {
-                    if sock.can_send() {
-                        let (a, b) = data.send_buffer.as_slices();
-                        let sent = sock.send_slice(a)? + sock.send_slice(b)?;
-                        data.send_buffer.drain(..sent);
-                    }
+                if !data.send_buffer.is_empty() && sock.can_send() {
+                    let (a, b) = data.send_buffer.as_slices();
+                    let sent = sock.send_slice(a)? + sock.send_slice(b)?;
+                    data.send_buffer.drain(..sent);
                 }
-                if !data.drain_waiter.is_empty() {
-                    // TODO: benchmark different variants here. (e.g. only return on half capacity)
-                    if sock.send_queue() < sock.send_capacity() {
-                        for waiter in data.drain_waiter.drain(..) {
-                            waiter.send(()).map_err(|_| anyhow!("cannot notify drain writer"))?;
-                        }
+                // TODO: benchmark different variants here. (e.g. only return on half capacity)
+                if !data.drain_waiter.is_empty() && sock.send_queue() < sock.send_capacity() {
+                    for waiter in data.drain_waiter.drain(..) {
+                        waiter.send(()).map_err(|_| anyhow!("cannot notify drain writer"))?;
                     }
                 }
                 if data.send_buffer.is_empty() && data.write_eof {
@@ -218,7 +214,7 @@ impl<'a> TcpServer<'a> {
             IpProtocol::Udp => self.receive_packet_udp(packet).await,
             _ => {
                 log::debug!("Unhandled protocol: {}", packet.transport_protocol());
-                return Ok(());
+                Ok(())
             },
         }
     }

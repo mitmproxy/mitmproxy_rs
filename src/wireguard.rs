@@ -112,7 +112,7 @@ impl WireguardServer {
     }
 
     fn find_peer_for_datagram(&self, data: &[u8]) -> Option<Arc<WireguardPeer>> {
-        let packet = match Tunn::parse_incoming_packet(&data) {
+        let packet = match Tunn::parse_incoming_packet(data) {
             Ok(p) => p,
             Err(_) => {
                 println!("Invalid packet.");
@@ -150,13 +150,13 @@ impl WireguardServer {
 
     /// process WireGuard datagrams and forward the decrypted packets.
     async fn process_incoming_datagram(&mut self, data: &[u8], src_addr: SocketAddr) -> Result<()> {
-        let peer = match self.find_peer_for_datagram(&data) {
+        let peer = match self.find_peer_for_datagram(data) {
             Some(p) => p,
             None => return Ok(()),
         };
 
         peer.set_endpoint(src_addr).await;
-        let mut result = peer.tunnel.decapsulate(Some(src_addr.ip()), &data, &mut self.buf);
+        let mut result = peer.tunnel.decapsulate(Some(src_addr.ip()), data, &mut self.buf);
 
         while let TunnResult::WriteToNetwork(b) = result {
             log::debug!("process_incoming_datagram: WriteToNetwork");
