@@ -35,18 +35,15 @@ impl<'a> Device<'a> for VirtualDevice {
         if self.rx_buffer.is_empty() {
             return None;
         }
-        match self.tx_channel.try_reserve() {
-            Ok(permit) => {
-                if let Some(buffer) = self.rx_buffer.pop_front() {
-                    let rx = Self::RxToken { buffer };
-                    let tx = VirtualTxToken(permit);
-                    return Some((rx, tx));
-                }
-            },
-            Err(_error) => {
-                // todo!()
-            },
+
+        if let Ok(permit) = self.tx_channel.try_reserve() {
+            if let Some(buffer) = self.rx_buffer.pop_front() {
+                let rx = Self::RxToken { buffer };
+                let tx = VirtualTxToken(permit);
+                return Some((rx, tx));
+            }
         }
+
         None
     }
 
