@@ -28,7 +28,6 @@ anyhow = "1.0.56"
 base64 = "0.13"
 boringtun = { version = "0.4", default-features = false }
 console-subscriber = "0.1.4"
-env_logger = "0.9"
 log = "0.4.16"
 pretty-hex = "0.3.0"
 pyo3 = { version = "0.16.4", features = ["extension-module", "anyhow"] }

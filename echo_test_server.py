@@ -1,24 +1,38 @@
 import asyncio
-import os
+import logging
 import signal
 import sys
+import time
+
 from textwrap import dedent
+
+import mitmproxy_wireguard
 
 try:
     from rich import print
 except ImportError:
     pass
 
-os.environ["RUST_LOG"] = "mitmproxy_wireguard=debug"
-
-import mitmproxy_wireguard
-
 # (private key, public key)
-server_keypair = ("EG47ZWjYjr+Y97TQ1A7sVl7Xn3mMWDnvjU/VxU769ls=", "mitmV5Wo7pRJrHNAKhZEI0nzqqeO8u4fXG+zUbZEXA0=")
-client_keypair = ("qG8b7LI/s+ezngWpXqj5A7Nj988hbGL+eQ8ePki0iHk=", "Test1sbpTFmJULgSlJ5hJ1RdzsXWrl3Mg7k9UTN//jE=")
+server_keypair = (
+    "EG47ZWjYjr+Y97TQ1A7sVl7Xn3mMWDnvjU/VxU769ls=",
+    "mitmV5Wo7pRJrHNAKhZEI0nzqqeO8u4fXG+zUbZEXA0=",
+)
+client_keypair = (
+    "qG8b7LI/s+ezngWpXqj5A7Nj988hbGL+eQ8ePki0iHk=",
+    "Test1sbpTFmJULgSlJ5hJ1RdzsXWrl3Mg7k9UTN//jE=",
+)
+
+
+LOG_FORMAT = "[%(asctime)s %(levelname)-5s %(name)s] %(message)s"
+TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
 async def main():
+    logging.basicConfig(format=LOG_FORMAT, datefmt=TIME_FORMAT)
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.Formatter.convert = time.gmtime
+
     print(f"{dir(mitmproxy_wireguard)=}")
 
     k = mitmproxy_wireguard.genkey()
@@ -36,11 +50,13 @@ async def main():
         server_keypair[0],
         [client_keypair[1]],
         handle_connection,
-        receive_datagram
+        receive_datagram,
     )
     print(f"{server.getsockname()=}")
 
-    print(dedent(f"""
+    print(
+        dedent(
+            f"""
     :white_check_mark: Server started. Use the following WireGuard config for testing:
     ------------------------------------------------------------
     [Interface]
@@ -54,7 +70,9 @@ async def main():
     ------------------------------------------------------------
     
     And then run `nc 10.0.0.42 1234` or `nc -u 10.0.0.42 1234` to talk to the echo server.
-    """))
+    """
+        )
+    )
 
     def stop(*_):
         print("Stopping server...")

@@ -10,3 +10,8 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
+
+[tool.black]
+line-length = 100
+target-version = ['py37']
+include = '\.pyi?$'
