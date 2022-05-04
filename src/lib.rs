@@ -21,6 +21,7 @@ mod wireguard;
 
 use messages::{ConnectionId, TransportCommand, TransportEvent};
 
+/// An individual TCP stream with an API similar to `asyncio.StreamReader`/`asyncio.StreamWriter`.
 #[pyclass]
 struct TcpStream {
     connection_id: ConnectionId,
@@ -76,6 +77,7 @@ impl TcpStream {
         Ok(())
     }
 
+    /// Supported values: peername, sockname, original_dst.
     fn get_extra_info(&self, py: Python, name: String) -> PyResult<PyObject> {
         match name.as_str() {
             "peername" => Ok(socketaddr_to_py(py, self.peername)),
@@ -142,6 +144,7 @@ struct WireguardServer {
 
 #[pymethods]
 impl WireguardServer {
+    /// Send an individual UDP datagram using the specified source and destination addresses.
     fn send_datagram(&self, data: Vec<u8>, src_addr: &PyTuple, dst_addr: &PyTuple) -> PyResult<()> {
         self.event_tx
             .send(TransportCommand::SendDatagram {
@@ -153,11 +156,13 @@ impl WireguardServer {
         Ok(())
     }
 
+    /// Terminate the WireGuard server.
     fn stop(&self) -> PyResult<()> {
         self._stop();
         Ok(())
     }
 
+    /// Get the local address the WireGuard server is listening on.
     fn getsockname(&self, py: Python) -> PyObject {
         socketaddr_to_py(py, self.local_addr)
     }
@@ -285,6 +290,7 @@ impl Drop for WireguardServer {
     }
 }
 
+/// Start a WireGuard server.
 #[pyfunction]
 fn start_server(
     py: Python<'_>,
@@ -311,11 +317,13 @@ fn start_server(
     })
 }
 
+/// Generate a WireGuard private key and return its base64-encoded representation.
 #[pyfunction]
 fn genkey() -> String {
     base64::encode(X25519SecretKey::new().as_bytes())
 }
 
+/// Return the base64-encoded public key for the passed private key.
 #[pyfunction]
 fn pubkey(private_key: String) -> PyResult<String> {
     let private_key: X25519SecretKey = private_key
