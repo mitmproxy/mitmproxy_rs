@@ -40,13 +40,13 @@ struct WireguardServer {
 impl WireguardServer {
     /// Send an individual UDP datagram using the specified source and destination addresses.
     fn send_datagram(&self, data: Vec<u8>, src_addr: &PyTuple, dst_addr: &PyTuple) -> PyResult<()> {
-        self.event_tx
-            .send(TransportCommand::SendDatagram {
-                data,
-                src_addr: py_to_socketaddr(src_addr)?,
-                dst_addr: py_to_socketaddr(dst_addr)?,
-            })
-            .map_err(event_queue_unavailable)?;
+        let cmd = TransportCommand::SendDatagram {
+            data,
+            src_addr: py_to_socketaddr(src_addr)?,
+            dst_addr: py_to_socketaddr(dst_addr)?,
+        };
+
+        self.event_tx.send(cmd).map_err(event_queue_unavailable)?;
         Ok(())
     }
 

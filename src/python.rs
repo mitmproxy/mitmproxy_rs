@@ -36,9 +36,11 @@ pub struct TcpStream {
 impl TcpStream {
     fn read<'p>(&self, py: Python<'p>, n: u32) -> PyResult<&'p PyAny> {
         let (tx, rx) = oneshot::channel();
+
         self.event_tx
             .send(TransportCommand::ReadData(self.connection_id, n, tx))
             .map_err(event_queue_unavailable)?;
+
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let data = rx.await.map_err(connection_closed)?;
             let bytes: Py<PyBytes> = Python::with_gil(|py| PyBytes::new(py, &data).into_py(py));
@@ -50,14 +52,17 @@ impl TcpStream {
         self.event_tx
             .send(TransportCommand::WriteData(self.connection_id, data))
             .map_err(event_queue_unavailable)?;
+
         Ok(())
     }
 
     fn drain<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         let (tx, rx) = oneshot::channel();
+
         self.event_tx
             .send(TransportCommand::DrainWriter(self.connection_id, tx))
             .map_err(event_queue_unavailable)?;
+
         pyo3_asyncio::tokio::future_into_py(py, async move {
             rx.await.map_err(connection_closed)?;
             Ok(())
@@ -68,6 +73,7 @@ impl TcpStream {
         self.event_tx
             .send(TransportCommand::CloseConnection(self.connection_id, true))
             .map_err(event_queue_unavailable)?;
+
         Ok(())
     }
 
@@ -75,6 +81,7 @@ impl TcpStream {
         self.event_tx
             .send(TransportCommand::CloseConnection(self.connection_id, false))
             .map_err(event_queue_unavailable)?;
+
         Ok(())
     }
 
@@ -109,7 +116,7 @@ pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
         SocketAddr::V4(addr) => (addr.ip().to_string(), addr.port()).into_py(py),
         SocketAddr::V6(addr) => {
             log::debug!(
-                "converting ipv6 to python, not sure if this is correct: {:?}",
+                "Converting IPv6 address/port to Python equivalent (not sure if this is correct): {:?}",
                 (addr.ip().to_string(), addr.port())
             );
             (addr.ip().to_string(), addr.port()).into_py(py)
@@ -121,6 +128,7 @@ pub fn py_to_socketaddr(t: &PyTuple) -> PyResult<SocketAddr> {
     if t.len() == 2 {
         let host = t.get_item(0)?.downcast::<PyString>()?;
         let port: u16 = t.get_item(1)?.extract()?;
+
         let addr = IpAddr::from_str(host.to_str()?)?;
         Ok(SocketAddr::from((addr, port)))
     } else {
@@ -187,16 +195,25 @@ impl PyInteropTask {
                                     sockname: self.local_addr,
                                     original_dst: dst_addr,
                                 };
+
                                 Python::with_gil(|py| {
                                     let stream = stream.into_py(py);
-                                    let coro = match self.py_tcp_handler.call1(py, (stream.clone_ref(py), stream)) {
+
+                                    let coro = match self.py_tcp_handler.call1(
+                                        py,
+                                        (stream.clone_ref(py), stream)
+                                    ) {
                                         Ok(coro) => coro,
                                         Err(err) => {
                                             err.print(py);
                                             return;
                                         },
                                     };
-                                    if let Err(err) = self.run_coroutine_threadsafe.call1(py, (coro, self.py_loop.as_ref(py))) {
+
+                                    if let Err(err) = self.run_coroutine_threadsafe.call1(
+                                        py,
+                                        (coro, self.py_loop.as_ref(py))
+                                    ) {
                                         err.print(py);
                                     }
                                 });
@@ -208,6 +225,7 @@ impl PyInteropTask {
                             } => {
                                 Python::with_gil(|py| {
                                     let bytes: Py<PyBytes> = PyBytes::new(py, &data).into_py(py);
+
                                     if let Err(err) = self.py_loop.call_method1(
                                         py,
                                         "call_soon_threadsafe",

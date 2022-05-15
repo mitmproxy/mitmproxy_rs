@@ -5,7 +5,8 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 
 use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
-use boringtun::noise::{handshake::parse_handshake_anon, Packet, Tunn, TunnResult};
+use boringtun::noise::handshake::parse_handshake_anon;
+use boringtun::noise::{Packet, Tunn, TunnResult};
 
 use pretty_hex::pretty_hex;
 
@@ -32,9 +33,11 @@ impl WireguardPeer {
 
 pub struct WireGuardTaskBuilder {
     private_key: Arc<X25519SecretKey>,
+
     peers_by_idx: HashMap<u32, Arc<WireguardPeer>>,
     peers_by_key: HashMap<Arc<X25519PublicKey>, Arc<WireguardPeer>>,
     peers_by_ip: HashMap<IpAddr, Arc<WireguardPeer>>,
+
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
 }
@@ -47,9 +50,11 @@ impl WireGuardTaskBuilder {
     ) -> Self {
         WireGuardTaskBuilder {
             private_key,
+
             peers_by_idx: HashMap::new(),
             peers_by_key: HashMap::new(),
             peers_by_ip: HashMap::new(),
+
             net_tx,
             net_rx,
         }
@@ -57,6 +62,7 @@ impl WireGuardTaskBuilder {
 
     pub fn add_peer(&mut self, public_key: Arc<X25519PublicKey>, preshared_key: Option<[u8; 32]>) -> Result<()> {
         let index = self.peers_by_idx.len() as u32;
+
         let tunnel = Tunn::new(
             self.private_key.clone(),
             public_key.clone(),
@@ -84,11 +90,14 @@ impl WireGuardTaskBuilder {
         Ok(WireGuardTask {
             private_key: self.private_key,
             public_key,
+
             peers_by_idx: self.peers_by_idx,
             peers_by_key: self.peers_by_key,
             peers_by_ip: self.peers_by_ip,
+
             net_tx: self.net_tx,
             net_rx: self.net_rx,
+
             wg_buf: [0u8; 1500],
             barrier: Arc::new(Notify::new()),
         })
@@ -98,11 +107,14 @@ impl WireGuardTaskBuilder {
 pub struct WireGuardTask {
     private_key: Arc<X25519SecretKey>,
     public_key: Arc<X25519PublicKey>,
+
     peers_by_idx: HashMap<u32, Arc<WireguardPeer>>,
     peers_by_key: HashMap<Arc<X25519PublicKey>, Arc<WireguardPeer>>,
     peers_by_ip: HashMap<IpAddr, Arc<WireguardPeer>>,
+
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
+
     wg_buf: [u8; 1500],
     barrier: Arc<Notify>,
 }
@@ -154,8 +166,8 @@ impl WireGuardTask {
     fn find_peer_for_datagram(&self, data: &[u8]) -> Option<Arc<WireguardPeer>> {
         let packet = match Tunn::parse_incoming_packet(data) {
             Ok(p) => p,
-            Err(_) => {
-                println!("Invalid packet.");
+            Err(error) => {
+                log::error!("Received invalid WireGuard packet ({:?})", error);
                 return None;
             },
         };
@@ -179,10 +191,11 @@ impl WireGuardTask {
             Packet::PacketCookieReply(p) => self.peers_by_idx.get(&(p.receiver_idx >> 8)),
             Packet::PacketData(p) => self.peers_by_idx.get(&(p.receiver_idx >> 8)),
         };
+
         match peer {
             Some(p) => Some(p.clone()),
             None => {
-                println!("Unknown peer.");
+                log::error!("Received WireGuard packet from unknown peer.");
                 None
             },
         }
@@ -201,6 +214,7 @@ impl WireGuardTask {
         while let TunnResult::WriteToNetwork(b) = result {
             log::debug!("process_incoming_datagram: WriteToNetwork");
             socket.send_to(b, src_addr).await?;
+
             // check if there are more things to be handled
             result = peer.tunnel.decapsulate(None, &[0; 0], &mut self.wg_buf);
         }
@@ -307,6 +321,7 @@ impl WireGuardTask {
                 log::warn!("Unexpected WireGuard event (WriteToTunnelV6) when handling a response.");
             },
         }
+
         Ok(())
     }
 }

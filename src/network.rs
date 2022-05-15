@@ -170,13 +170,15 @@ impl<'a> NetworkTask<'a> {
 
             for (connection_id, data) in self.socket_data.iter_mut() {
                 let sock = self.iface.get_socket::<TcpSocket>(data.handle);
+
                 if data.recv_waiter.is_some() {
-                    // dbg!(sock.state(), sock.can_recv(), sock.may_recv());
                     if sock.can_recv() {
                         let (n, tx) = data.recv_waiter.take().unwrap();
                         let bytes_available = sock.recv_queue();
+
                         let mut buf = vec![0u8; cmp::min(bytes_available, n as usize)];
                         let bytes_read = sock.recv_slice(&mut buf)?;
+
                         buf.truncate(bytes_read);
                         tx.send(buf).map_err(|_| anyhow!("cannot send read() bytes"))?;
                     } else {
@@ -195,17 +197,20 @@ impl<'a> NetworkTask<'a> {
                         }
                     }
                 }
+
                 if !data.send_buffer.is_empty() && sock.can_send() {
                     let (a, b) = data.send_buffer.as_slices();
                     let sent = sock.send_slice(a)? + sock.send_slice(b)?;
                     data.send_buffer.drain(..sent);
                 }
+
                 // TODO: benchmark different variants here. (e.g. only return on half capacity)
                 if !data.drain_waiter.is_empty() && sock.send_queue() < sock.send_capacity() {
                     for waiter in data.drain_waiter.drain(..) {
                         waiter.send(()).map_err(|_| anyhow!("cannot notify drain writer"))?;
                     }
                 }
+
                 if data.send_buffer.is_empty() && data.write_eof {
                     // needs test: Is smoltcp smart enough to send out its own send buffer first?
                     sock.close();
@@ -213,17 +218,19 @@ impl<'a> NetworkTask<'a> {
                     // we want one more poll() so that our FIN is sent (TODO: test that)
                     continue;
                 }
+
                 if sock.state() == TcpState::Closed {
                     remove_conns.push(*connection_id);
                 }
             }
+
             for connection_id in remove_conns.drain(..) {
                 let data = self.socket_data.remove(&connection_id).unwrap();
                 self.iface.remove_socket(data.handle);
             }
         }
 
-        // TODO: process remaining pending data after the shutdown request was received
+        // TODO: process remaining pending data after the shutdown request was received?
 
         log::info!("Virtual Network device shutting down.");
         Ok(())

@@ -39,7 +39,7 @@ impl<'a> Device<'a> for VirtualDevice {
         if let Ok(permit) = self.tx_channel.try_reserve() {
             if let Some(buffer) = self.rx_buffer.pop_front() {
                 let rx = Self::RxToken { buffer };
-                let tx = VirtualTxToken(permit);
+                let tx = VirtualTxToken { permit };
                 return Some((rx, tx));
             }
         }
@@ -49,7 +49,7 @@ impl<'a> Device<'a> for VirtualDevice {
 
     fn transmit(&'a mut self) -> Option<Self::TxToken> {
         match self.tx_channel.try_reserve() {
-            Ok(permit) => Some(VirtualTxToken(permit)),
+            Ok(permit) => Some(VirtualTxToken { permit }),
             Err(_) => None,
         }
     }
@@ -62,7 +62,9 @@ impl<'a> Device<'a> for VirtualDevice {
     }
 }
 
-pub struct VirtualTxToken<'a>(Permit<'a, NetworkCommand>);
+pub struct VirtualTxToken<'a> {
+    permit: Permit<'a, NetworkCommand>,
+}
 
 impl<'a> TxToken for VirtualTxToken<'a> {
     fn consume<R, F>(self, _timestamp: Instant, len: usize, f: F) -> smoltcp::Result<R>
@@ -71,10 +73,10 @@ impl<'a> TxToken for VirtualTxToken<'a> {
     {
         let mut buffer = vec![0; len];
         let result = f(&mut buffer);
+
         if result.is_ok() {
-            self.0.send(NetworkCommand::SendPacket(
-                IpPacket::try_from(buffer).map_err(|_| smoltcp::Error::Malformed)?,
-            ));
+            let cmd = NetworkCommand::SendPacket(IpPacket::try_from(buffer).map_err(|_| smoltcp::Error::Malformed)?);
+            self.permit.send(cmd);
         }
         result
     }

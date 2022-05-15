@@ -74,6 +74,7 @@ impl TryFrom<Vec<u8>> for IpPacket {
         if value.is_empty() {
             return Err(anyhow!("Empty packet."));
         }
+
         match value[0] >> 4 {
             4 => Ok(IpPacket::V4(Ipv4Packet::new_checked(value)?)),
             6 => Ok(IpPacket::V6(Ipv6Packet::new_checked(value)?)),

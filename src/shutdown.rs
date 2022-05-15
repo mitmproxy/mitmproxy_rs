@@ -33,7 +33,7 @@ impl ShutdownTask {
     pub async fn run(self) {
         self.trigger.notified().await;
 
-        // wait for all tasks to terminate
+        // wait for all tasks to terminate and log any errors
         if let Err(error) = self.py_handle.await {
             log::error!("Python interop task failed: {}", error);
         }
