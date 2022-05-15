@@ -141,7 +141,7 @@ fn connection_closed(_: RecvError) -> PyErr {
 struct WireguardServer {
     event_tx: mpsc::UnboundedSender<TransportCommand>,
     local_addr: SocketAddr,
-    python_notify_task: JoinHandle<()>,
+    py_stopper: Arc<Notify>,
     wg_stopper: Arc<Notify>,
     tcp_stopper: Arc<Notify>,
     sd_trigger: Arc<Notify>,
@@ -163,11 +163,9 @@ impl WireguardServer {
 
     /// Terminate the WireGuard server.
     fn stop(&self) {
-        self.wg_stopper.notify_one();
+        self.py_stopper.notify_one();
         self.tcp_stopper.notify_one();
-
-        self.python_notify_task.abort(); // FIXME
-
+        self.wg_stopper.notify_one();
         self.sd_trigger.notify_one();
     }
 
@@ -201,23 +199,18 @@ impl WireguardServer {
             })
             .collect::<Result<Vec<(Arc<X25519PublicKey>, Option<[u8; 32]>)>>>()?;
 
-        let (py_loop, run_coroutine_threadsafe) = Python::with_gil(|py| -> PyResult<(PyObject, PyObject)> {
-            Ok((
-                pyo3_asyncio::tokio::get_current_loop(py)?.into(),
-                py.import("asyncio")?.getattr("run_coroutine_threadsafe")?.into(),
-            ))
-        })?;
-
         // initialize channels between the WireGuard server and the virtual network device
         let (wg_to_smol_tx, wg_to_smol_rx) = channel(16);
         let (smol_to_wg_tx, smol_to_wg_rx) = channel(16);
 
         // initialize channels between the virtual network device and the python interop task
         // - only used to notify of incoming connections and datagrams
-        let (smol_to_py_tx, mut smol_to_py_rx) = channel(64);
+        let (smol_to_py_tx, smol_to_py_rx) = channel(64);
         // - used to send data and to ask for packets
         // This channel needs to be unbounded because write() is not async.
         let (py_to_smol_tx, py_to_smol_rx) = unbounded_channel();
+
+        let event_tx = py_to_smol_tx.clone();
 
         // bind to UDP socket
         let socket = UdpSocket::bind((host, port)).await?;
@@ -235,75 +228,40 @@ impl WireguardServer {
         let tcp_server = tcp::TcpServer::new(smol_to_wg_tx, wg_to_smol_rx, smol_to_py_tx, py_to_smol_rx)?;
         let tcp_stopper = tcp_server.stopper();
 
+        // initialize Python interop task
+        // Note: Calling into the Python runtime needs to happen on the main thread, it doesn't
+        //       seem to work when called from a different task.
+        let (py_loop, run_coroutine_threadsafe) = Python::with_gil(|py| -> Result<(PyObject, PyObject)> {
+            let py_loop = pyo3_asyncio::tokio::get_current_loop(py)?.into();
+            let run_coroutine_threadsafe = py.import("asyncio")?.getattr("run_coroutine_threadsafe")?.into();
+            Ok((py_loop, run_coroutine_threadsafe))
+        })?;
+
+        let py_task = PyInteropTask::new(
+            local_addr,
+            py_loop,
+            run_coroutine_threadsafe,
+            py_to_smol_tx,
+            smol_to_py_rx,
+            py_tcp_handler,
+            py_udp_handler,
+        );
+        let py_stopper = py_task.stopper();
+
         // spawn tasks
         let wg_handle = tokio::spawn(async move { wg_server.run(socket).await });
         let tcp_handle = tokio::spawn(async move { tcp_server.run().await });
-
-        let event_tx = py_to_smol_tx.clone();
-        // this task feeds events into the Python callback.
-        let python_notify_task = tokio::spawn(async move {
-            while let Some(event) = smol_to_py_rx.recv().await {
-                match event {
-                    TransportEvent::ConnectionEstablished {
-                        connection_id,
-                        src_addr,
-                        dst_addr,
-                    } => {
-                        let stream = TcpStream {
-                            connection_id,
-                            event_tx: event_tx.clone(),
-                            peername: src_addr,
-                            sockname: local_addr,
-                            original_dst: dst_addr,
-                        };
-                        Python::with_gil(|py| {
-                            let stream = stream.into_py(py);
-                            let coro = match py_tcp_handler.call1(py, (stream.clone_ref(py), stream)) {
-                                Ok(coro) => coro,
-                                Err(err) => {
-                                    err.print(py);
-                                    return;
-                                },
-                            };
-                            if let Err(err) = run_coroutine_threadsafe.call1(py, (coro, py_loop.as_ref(py))) {
-                                err.print(py);
-                            }
-                        });
-                    },
-                    TransportEvent::DatagramReceived {
-                        data,
-                        src_addr,
-                        dst_addr,
-                    } => {
-                        Python::with_gil(|py| {
-                            let bytes: Py<PyBytes> = PyBytes::new(py, &data).into_py(py);
-                            if let Err(err) = py_loop.call_method1(
-                                py,
-                                "call_soon_threadsafe",
-                                (
-                                    py_udp_handler.as_ref(py),
-                                    bytes,
-                                    socketaddr_to_py(py, src_addr),
-                                    socketaddr_to_py(py, dst_addr),
-                                ),
-                            ) {
-                                err.print(py);
-                            }
-                        });
-                    },
-                }
-            }
-        });
+        let py_handle = tokio::spawn(async move { py_task.run().await });
 
         // initialize and run shutdown handler
-        let sd_handler = ShutdownTask::new(/* py_handle, */ wg_handle, tcp_handle);
+        let sd_handler = ShutdownTask::new(py_handle, wg_handle, tcp_handle);
         let sd_trigger = sd_handler.trigger();
         tokio::spawn(async move { sd_handler.run().await });
 
         Ok(WireguardServer {
-            event_tx: py_to_smol_tx,
+            event_tx,
             local_addr,
-            python_notify_task,
+            py_stopper,
             wg_stopper,
             tcp_stopper,
             sd_trigger,
@@ -317,38 +275,146 @@ impl Drop for WireguardServer {
     }
 }
 
+struct PyInteropTask {
+    local_addr: SocketAddr,
+    py_loop: PyObject,
+    run_coroutine_threadsafe: PyObject,
+    py_to_smol_tx: mpsc::UnboundedSender<TransportCommand>,
+    smol_to_py_rx: mpsc::Receiver<TransportEvent>,
+    py_tcp_handler: PyObject,
+    py_udp_handler: PyObject,
+    barrier: Arc<Notify>,
+}
+
+impl PyInteropTask {
+    fn new(
+        local_addr: SocketAddr,
+        py_loop: PyObject,
+        run_coroutine_threadsafe: PyObject,
+        py_to_smol_tx: mpsc::UnboundedSender<TransportCommand>,
+        smol_to_py_rx: mpsc::Receiver<TransportEvent>,
+        py_tcp_handler: PyObject,
+        py_udp_handler: PyObject,
+    ) -> Self {
+        PyInteropTask {
+            local_addr,
+            py_loop,
+            run_coroutine_threadsafe,
+            py_to_smol_tx,
+            smol_to_py_rx,
+            py_tcp_handler,
+            py_udp_handler,
+            barrier: Arc::new(Notify::new()),
+        }
+    }
+
+    fn stopper(&self) -> Arc<Notify> {
+        self.barrier.clone()
+    }
+
+    async fn run(mut self) -> Result<()> {
+        let mut stop = false;
+        while !stop {
+            tokio::select!(
+                _ = self.barrier.notified() => {
+                    stop = true;
+                },
+                event = self.smol_to_py_rx.recv() => {
+                    if let Some(event) = event {
+                        match event {
+                            TransportEvent::ConnectionEstablished {
+                                connection_id,
+                                src_addr,
+                                dst_addr,
+                            } => {
+                                let stream = TcpStream {
+                                    connection_id,
+                                    event_tx: self.py_to_smol_tx.clone(),
+                                    peername: src_addr,
+                                    sockname: self.local_addr,
+                                    original_dst: dst_addr,
+                                };
+                                Python::with_gil(|py| {
+                                    let stream = stream.into_py(py);
+                                    let coro = match self.py_tcp_handler.call1(py, (stream.clone_ref(py), stream)) {
+                                        Ok(coro) => coro,
+                                        Err(err) => {
+                                            err.print(py);
+                                            return;
+                                        },
+                                    };
+                                    if let Err(err) = self.run_coroutine_threadsafe.call1(py, (coro, self.py_loop.as_ref(py))) {
+                                        err.print(py);
+                                    }
+                                });
+                            },
+                            TransportEvent::DatagramReceived {
+                                data,
+                                src_addr,
+                                dst_addr,
+                            } => {
+                                Python::with_gil(|py| {
+                                    let bytes: Py<PyBytes> = PyBytes::new(py, &data).into_py(py);
+                                    if let Err(err) = self.py_loop.call_method1(
+                                        py,
+                                        "call_soon_threadsafe",
+                                        (
+                                            self.py_udp_handler.as_ref(py),
+                                            bytes,
+                                            socketaddr_to_py(py, src_addr),
+                                            socketaddr_to_py(py, dst_addr),
+                                        ),
+                                    ) {
+                                        err.print(py);
+                                    }
+                                });
+                            },
+                        }
+                    } else {
+                        // channel was closed
+                        stop = true;
+                    }
+                },
+            );
+        }
+
+        log::info!("Python interoperability task shutting down.");
+        Ok(())
+    }
+}
+
 struct ShutdownTask {
-    //py_handle: JoinHandle<Result<()>>,
+    py_handle: JoinHandle<Result<()>>,
     wg_handle: JoinHandle<Result<()>>,
     tcp_handle: JoinHandle<Result<()>>,
-    sd_trigger: Arc<Notify>,
+    trigger: Arc<Notify>,
 }
 
 impl ShutdownTask {
     fn new(
-        //py_handle: JoinHandle<Result<()>>,
+        py_handle: JoinHandle<Result<()>>,
         wg_handle: JoinHandle<Result<()>>,
         tcp_handle: JoinHandle<Result<()>>,
     ) -> Self {
         ShutdownTask {
-            //py_handle,
+            py_handle,
             wg_handle,
             tcp_handle,
-            sd_trigger: Arc::new(Notify::new()),
+            trigger: Arc::new(Notify::new()),
         }
     }
 
     fn trigger(&self) -> Arc<Notify> {
-        self.sd_trigger.clone()
+        self.trigger.clone()
     }
 
     async fn run(self) {
-        self.sd_trigger.notified().await;
+        self.trigger.notified().await;
 
         // wait for all tasks to terminate
-        //if let Err(error) = self.py_handle.await {
-        //    log::error!("Python interop task failed: {}", error);
-        //}
+        if let Err(error) = self.py_handle.await {
+            log::error!("Python interop task failed: {}", error);
+        }
         if let Err(error) = self.wg_handle.await {
             log::error!("Wireguard server task failed: {}", error);
         }
