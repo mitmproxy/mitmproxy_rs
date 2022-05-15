@@ -30,7 +30,7 @@ impl WireguardPeer {
     }
 }
 
-pub struct WireguardServerBuilder {
+pub struct WireGuardTaskBuilder {
     private_key: Arc<X25519SecretKey>,
     peers_by_idx: HashMap<u32, Arc<WireguardPeer>>,
     peers_by_key: HashMap<Arc<X25519PublicKey>, Arc<WireguardPeer>>,
@@ -39,13 +39,13 @@ pub struct WireguardServerBuilder {
     net_rx: Receiver<NetworkCommand>,
 }
 
-impl WireguardServerBuilder {
+impl WireGuardTaskBuilder {
     pub fn new(
         private_key: Arc<X25519SecretKey>,
         net_tx: Sender<NetworkEvent>,
         net_rx: Receiver<NetworkCommand>,
     ) -> Self {
-        WireguardServerBuilder {
+        WireGuardTaskBuilder {
             private_key,
             peers_by_idx: HashMap::new(),
             peers_by_key: HashMap::new(),
@@ -78,10 +78,10 @@ impl WireguardServerBuilder {
         Ok(())
     }
 
-    pub fn build(self) -> Result<WireguardServer> {
+    pub fn build(self) -> Result<WireGuardTask> {
         let public_key = Arc::new(self.private_key.public_key());
 
-        Ok(WireguardServer {
+        Ok(WireGuardTask {
             private_key: self.private_key,
             public_key,
             peers_by_idx: self.peers_by_idx,
@@ -95,7 +95,7 @@ impl WireguardServerBuilder {
     }
 }
 
-pub struct WireguardServer {
+pub struct WireGuardTask {
     private_key: Arc<X25519SecretKey>,
     public_key: Arc<X25519PublicKey>,
     peers_by_idx: HashMap<u32, Arc<WireguardPeer>>,
@@ -107,7 +107,7 @@ pub struct WireguardServer {
     barrier: Arc<Notify>,
 }
 
-impl WireguardServer {
+impl WireGuardTask {
     pub fn stopper(&self) -> Arc<Notify> {
         self.barrier.clone()
     }

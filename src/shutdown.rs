@@ -1,0 +1,49 @@
+use std::sync::Arc;
+
+use anyhow::Result;
+
+use tokio::sync::Notify;
+use tokio::task::JoinHandle;
+
+pub struct ShutdownTask {
+    py_handle: JoinHandle<Result<()>>,
+    wg_handle: JoinHandle<Result<()>>,
+    nw_handle: JoinHandle<Result<()>>,
+    trigger: Arc<Notify>,
+}
+
+impl ShutdownTask {
+    pub fn new(
+        py_handle: JoinHandle<Result<()>>,
+        wg_handle: JoinHandle<Result<()>>,
+        nw_handle: JoinHandle<Result<()>>,
+    ) -> Self {
+        ShutdownTask {
+            py_handle,
+            wg_handle,
+            nw_handle,
+            trigger: Arc::new(Notify::new()),
+        }
+    }
+
+    pub fn trigger(&self) -> Arc<Notify> {
+        self.trigger.clone()
+    }
+
+    pub async fn run(self) {
+        self.trigger.notified().await;
+
+        // wait for all tasks to terminate
+        if let Err(error) = self.py_handle.await {
+            log::error!("Python interop task failed: {}", error);
+        }
+        if let Err(error) = self.wg_handle.await {
+            log::error!("Wireguard server task failed: {}", error);
+        }
+        if let Err(error) = self.nw_handle.await {
+            log::error!("Virtual network stack task failed: {}", error);
+        }
+
+        log::info!("Shutting down.");
+    }
+}

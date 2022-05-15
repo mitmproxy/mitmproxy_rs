@@ -31,9 +31,12 @@ use tokio::sync::mpsc::{Receiver, Sender, UnboundedReceiver};
 use tokio::sync::{oneshot, Notify};
 
 use crate::messages::{ConnectionId, IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent};
-use crate::virtual_device::VirtualDevice;
+
+mod virtual_device;
+use virtual_device::VirtualDevice;
 
 /// Associated data for a smoltcp socket.
+#[derive(Debug)]
 struct SocketData {
     handle: SocketHandle,
     /// smoltcp can only operate with fixed-size buffers, but Python's stream implementation assumes
@@ -47,7 +50,7 @@ struct SocketData {
     drain_waiter: Vec<oneshot::Sender<()>>,
 }
 
-pub struct TcpServer<'a> {
+pub struct NetworkTask<'a> {
     iface: Interface<'a, VirtualDevice>,
     net_tx: Sender<NetworkCommand>,
     net_rx: Receiver<NetworkEvent>,
@@ -60,7 +63,7 @@ pub struct TcpServer<'a> {
     barrier: Arc<Notify>,
 }
 
-impl<'a> TcpServer<'a> {
+impl<'a> NetworkTask<'a> {
     pub fn new(
         net_tx: Sender<NetworkCommand>,
         net_rx: Receiver<NetworkEvent>,
@@ -423,28 +426,26 @@ impl<'a> TcpServer<'a> {
     }
 }
 
-impl<'a> fmt::Debug for TcpServer<'a> {
+impl<'a> fmt::Debug for NetworkTask<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("TcpServer {")?;
-        f.debug_list()
-            .entries(
-                self.iface
-                    .sockets()
-                    .filter_map(|(_h, s)| match s {
-                        Socket::Tcp(s) => Some(s),
-                        _ => None,
-                    })
-                    .map(|sock| {
-                        format!(
-                            "TCP {:<21} {:<21} {}",
-                            sock.remote_endpoint(),
-                            sock.local_endpoint(),
-                            sock.state()
-                        )
-                    }),
-            )
-            .finish()?;
-        f.write_str("}")
+        let sockets: Vec<String> = self
+            .iface
+            .sockets()
+            .filter_map(|(_h, s)| match s {
+                Socket::Tcp(s) => Some(s),
+                _ => None,
+            })
+            .map(|sock| {
+                format!(
+                    "TCP {:<21} {:<21} {}",
+                    sock.remote_endpoint(),
+                    sock.local_endpoint(),
+                    sock.state()
+                )
+            })
+            .collect();
+
+        f.debug_struct("NetworkTask").field("sockets", &sockets).finish()
     }
 }
 
