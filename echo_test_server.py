@@ -48,7 +48,7 @@ async def main():
         "0.0.0.0",
         51820,
         server_keypair[0],
-        [client_keypair[1]],
+        [(client_keypair[1], None)],
         handle_connection,
         receive_datagram,
     )

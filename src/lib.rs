@@ -181,16 +181,16 @@ impl WireguardServer {
         host: String,
         port: u16,
         private_key: String,
-        peer_public_keys: Vec<String>,
+        peer_public_keys: Vec<(String, Option<[u8; 32]>)>,
         handle_connection: PyObject,
         receive_datagram: PyObject,
     ) -> Result<WireguardServer> {
         let private_key: Arc<X25519SecretKey> = Arc::new(private_key.parse().map_err(|error: &str| anyhow!(error))?);
         let peers = peer_public_keys
             .into_iter()
-            .map(|peer| {
-                let key = Arc::new(X25519PublicKey::from_str(&peer).map_err(|error: &str| anyhow!(error))?);
-                Ok((key, None))
+            .map(|(peer_public_key, preshared_key)| {
+                let key = Arc::new(X25519PublicKey::from_str(&peer_public_key).map_err(|error: &str| anyhow!(error))?);
+                Ok((key, preshared_key))
             })
             .collect::<Result<Vec<(Arc<X25519PublicKey>, Option<[u8; 32]>)>>>()?;
 
@@ -302,7 +302,7 @@ fn start_server(
     host: String,
     port: u16,
     private_key: String,
-    peer_public_keys: Vec<String>,
+    peer_public_keys: Vec<(String, Option<[u8; 32]>)>,
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {

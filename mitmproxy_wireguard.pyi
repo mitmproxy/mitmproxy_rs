@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Awaitable, Callable
+from typing import Optional, Tuple
 
 class WireguardServer:
     def getsockname(self) -> tuple[str, int]: ...
@@ -12,7 +13,7 @@ async def start_server(
     host: str,
     port: int,
     private_key: str,
-    peer_public_keys: list[str],
+    peer_public_keys: list[Tuple[str, Optional[bytes]]],
     handle_connection: Callable[[asyncio.StreamReader, asyncio.StreamWriter], Awaitable[None]],
     receive_datagram: Callable[[bytes, tuple[str, int], tuple[str, int]], None],
 ) -> WireguardServer: ...
