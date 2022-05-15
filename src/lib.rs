@@ -177,15 +177,17 @@ impl WireguardServer {
 }
 
 impl WireguardServer {
-    pub async fn new(
+    pub async fn init(
         host: String,
         port: u16,
         private_key: String,
         peer_public_keys: Vec<(String, Option<[u8; 32]>)>,
-        handle_connection: PyObject,
-        receive_datagram: PyObject,
+        py_tcp_handler: PyObject,
+        py_udp_handler: PyObject,
     ) -> Result<WireguardServer> {
         let private_key: Arc<X25519SecretKey> = Arc::new(private_key.parse().map_err(|error: &str| anyhow!(error))?);
+
+        // configure WireGuard peers
         let peers = peer_public_keys
             .into_iter()
             .map(|(peer_public_key, preshared_key)| {
@@ -201,27 +203,36 @@ impl WireguardServer {
             ))
         })?;
 
+        // initialize channels between the WireGuard server and the virtual network device
         let (wg_to_smol_tx, wg_to_smol_rx) = channel(16);
         let (smol_to_wg_tx, smol_to_wg_rx) = channel(16);
 
-        let (smol_to_py_tx, mut smol_to_py_rx) = channel(64); // only used to notify of incoming connections and datagrams
-        let (py_to_smol_tx, py_to_smol_rx) = unbounded_channel(); // used to send data and to ask for packets. We need this to be unbounded as write() is not async.
+        // initialize channels between the virtual network device and the python interop task
+        // - only used to notify of incoming connections and datagrams
+        let (smol_to_py_tx, mut smol_to_py_rx) = channel(64);
+        // - used to send data and to ask for packets
+        // This channel needs to be unbounded because write() is not async.
+        let (py_to_smol_tx, py_to_smol_rx) = unbounded_channel();
 
+        // bind to UDP socket
+        let socket = UdpSocket::bind((host, port)).await?;
+        let local_addr = socket.local_addr()?;
+
+        // initialize WireGuard server
         let mut wg_server_builder = wireguard::WireguardServerBuilder::new(private_key, wg_to_smol_tx, smol_to_wg_rx);
         for (peer_public_key, preshared_key) in peers {
             wg_server_builder.add_peer(peer_public_key, preshared_key)?;
         }
-
         let wg_server = wg_server_builder.build()?;
         let wg_stopper = wg_server.stopper();
-        let socket = UdpSocket::bind((host, port)).await?;
-        let local_addr = socket.local_addr()?;
 
+        // initialize virtual network device
         let tcp_server = tcp::TcpServer::new(smol_to_wg_tx, wg_to_smol_rx, smol_to_py_tx, py_to_smol_rx)?;
         let tcp_stopper = tcp_server.stopper();
 
-        tokio::spawn(async move { wg_server.run(socket).await });
-        tokio::spawn(async move { tcp_server.run().await });
+        // spawn tasks
+        let _wg_handle = tokio::spawn(async move { wg_server.run(socket).await });
+        let _tcp_handle = tokio::spawn(async move { tcp_server.run().await });
 
         let event_tx = py_to_smol_tx.clone();
         // this task feeds events into the Python callback.
@@ -242,7 +253,7 @@ impl WireguardServer {
                         };
                         Python::with_gil(|py| {
                             let stream = stream.into_py(py);
-                            let coro = match handle_connection.call1(py, (stream.clone_ref(py), stream)) {
+                            let coro = match py_tcp_handler.call1(py, (stream.clone_ref(py), stream)) {
                                 Ok(coro) => coro,
                                 Err(err) => {
                                     err.print(py);
@@ -265,7 +276,7 @@ impl WireguardServer {
                                 py,
                                 "call_soon_threadsafe",
                                 (
-                                    receive_datagram.as_ref(py),
+                                    py_udp_handler.as_ref(py),
                                     bytes,
                                     socketaddr_to_py(py, src_addr),
                                     socketaddr_to_py(py, dst_addr),
@@ -309,7 +320,7 @@ fn start_server(
     pyo3_asyncio::tokio::future_into_py(py, async move {
         // XXX: This is a bit of a race condition: the  handler could be called before
         // .server = await start_server() has assigned to .server.
-        let server = WireguardServer::new(
+        let server = WireguardServer::init(
             host,
             port,
             private_key,
