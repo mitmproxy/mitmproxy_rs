@@ -12,25 +12,23 @@ Transparently proxy any device that can be configured as a WireGuard client!
 
 * multi-threaded / asynchronous WireGuard server using tokio:
   * one worker thread for WireGuard UDP connection
-  * one worker thread for each configured WireGuard peer
-* (very) basic TCP/IPv4 functionality
-* hook up remaining entry points of the TCP stack
-* expose Reader/Writer pairs for every socket connection
-* provide `asyncio.start_server` compatible python bindings with PyO3
-  (accept handler / callback function (reader, writer) as argument)
+  * one worker thread for the user-space network stack
+  * one worker thread for communicating with the Python runtime
+* basic TCP/IPv4 functionality, IPv6 only partially supported
+* Python interface similar to the one provided by `asyncio.start_server`
 
 ## TODO
 
-* basic IPv6 support
-* better error handling / logging
-* various other `TODO` and `FIXME` items documented in the source code
-* Tests
-* Mitmproxy Integration
+* more complete IPv6 support
+* more complete logging
+* various other `TODO` and `FIXME` items (documented in the code)
+* unit tests
+* mitmproxy Integration
 
 ## Hacking
 
-Run the following commands to set up a Python virtual environment
-and compile our Rust module, then follow the WireGuard instructions from the final command:
+Run the following commands to set up a Python virtual environment and compile
+our Rust module, then follow the WireGuard instructions from the final command:
 
 ```shell
 python3 -m venv venv
@@ -40,12 +38,18 @@ maturin develop
 python3 ./echo_test_server.py
 ```
 
+Use `maturin develop --release` to compile the native module with optimizations
+turned on. This will improve performance and reduce the size of the binary to
+about 4MB.
+
 ---
 
-For debug builds, the library can be introspected using `tokio-console`:
+The asynchronous runtime can be introspected using `tokio-console` when using
+a debug build of the native module:
 
 ```shell
 tokio-console http://localhost:6669
 ```
 
-There should be no task that is busy when the program is idle, i.e. there should be no busy waiting.
+There should be no task that is busy when the program is idle, i.e. there should
+be no busy waiting.
