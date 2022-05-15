@@ -99,7 +99,9 @@ impl TcpStream {
 
 impl Drop for TcpStream {
     fn drop(&mut self) {
-        self.close().ok();
+        if let Err(error) = self.close() {
+            log::error!("Failed to close TCP stream during clean up: {}", error);
+        }
     }
 }
 
@@ -142,6 +144,7 @@ struct WireguardServer {
     python_notify_task: JoinHandle<()>,
     wg_stopper: Arc<Notify>,
     tcp_stopper: Arc<Notify>,
+    sd_trigger: Arc<Notify>,
 }
 
 #[pymethods]
@@ -163,7 +166,9 @@ impl WireguardServer {
         self.wg_stopper.notify_one();
         self.tcp_stopper.notify_one();
 
-        self.python_notify_task.abort();
+        self.python_notify_task.abort(); // FIXME
+
+        self.sd_trigger.notify_one();
     }
 
     /// Get the local address the WireGuard server is listening on.
@@ -231,8 +236,8 @@ impl WireguardServer {
         let tcp_stopper = tcp_server.stopper();
 
         // spawn tasks
-        let _wg_handle = tokio::spawn(async move { wg_server.run(socket).await });
-        let _tcp_handle = tokio::spawn(async move { tcp_server.run().await });
+        let wg_handle = tokio::spawn(async move { wg_server.run(socket).await });
+        let tcp_handle = tokio::spawn(async move { tcp_server.run().await });
 
         let event_tx = py_to_smol_tx.clone();
         // this task feeds events into the Python callback.
@@ -290,12 +295,18 @@ impl WireguardServer {
             }
         });
 
+        // initialize and run shutdown handler
+        let sd_handler = ShutdownTask::new(/* py_handle, */ wg_handle, tcp_handle);
+        let sd_trigger = sd_handler.trigger();
+        tokio::spawn(async move { sd_handler.run().await });
+
         Ok(WireguardServer {
             event_tx: py_to_smol_tx,
             local_addr,
             python_notify_task,
             wg_stopper,
             tcp_stopper,
+            sd_trigger,
         })
     }
 }
@@ -303,6 +314,49 @@ impl WireguardServer {
 impl Drop for WireguardServer {
     fn drop(&mut self) {
         self.stop();
+    }
+}
+
+struct ShutdownTask {
+    //py_handle: JoinHandle<Result<()>>,
+    wg_handle: JoinHandle<Result<()>>,
+    tcp_handle: JoinHandle<Result<()>>,
+    sd_trigger: Arc<Notify>,
+}
+
+impl ShutdownTask {
+    fn new(
+        //py_handle: JoinHandle<Result<()>>,
+        wg_handle: JoinHandle<Result<()>>,
+        tcp_handle: JoinHandle<Result<()>>,
+    ) -> Self {
+        ShutdownTask {
+            //py_handle,
+            wg_handle,
+            tcp_handle,
+            sd_trigger: Arc::new(Notify::new()),
+        }
+    }
+
+    fn trigger(&self) -> Arc<Notify> {
+        self.sd_trigger.clone()
+    }
+
+    async fn run(self) {
+        self.sd_trigger.notified().await;
+
+        // wait for all tasks to terminate
+        //if let Err(error) = self.py_handle.await {
+        //    log::error!("Python interop task failed: {}", error);
+        //}
+        if let Err(error) = self.wg_handle.await {
+            log::error!("Wireguard server task failed: {}", error);
+        }
+        if let Err(error) = self.tcp_handle.await {
+            log::error!("Virtual network stack task failed: {}", error);
+        }
+
+        log::info!("Shutting down.");
     }
 }
 
