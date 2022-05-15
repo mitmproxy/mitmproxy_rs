@@ -212,12 +212,12 @@ impl WireguardServer {
             wg_server_builder.add_peer(peer_public_key, preshared_key)?;
         }
 
-        let mut wg_server = wg_server_builder.build()?;
+        let wg_server = wg_server_builder.build()?;
         let wg_stopper = wg_server.stopper();
         let socket = UdpSocket::bind((host, port)).await?;
         let local_addr = socket.local_addr()?;
 
-        let mut tcp_server = tcp::TcpServer::new(smol_to_wg_tx, wg_to_smol_rx, smol_to_py_tx, py_to_smol_rx)?;
+        let tcp_server = tcp::TcpServer::new(smol_to_wg_tx, wg_to_smol_rx, smol_to_py_tx, py_to_smol_rx)?;
         let tcp_stopper = tcp_server.stopper();
 
         tokio::spawn(async move { wg_server.run(socket).await });

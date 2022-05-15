@@ -112,7 +112,7 @@ impl WireguardServer {
         self.barrier.clone()
     }
 
-    pub async fn run(&mut self, socket: UdpSocket) -> Result<()> {
+    pub async fn run(mut self, socket: UdpSocket) -> Result<()> {
         if self.peers_by_idx.is_empty() {
             return Err(anyhow!("No WireGuard peers."));
         }

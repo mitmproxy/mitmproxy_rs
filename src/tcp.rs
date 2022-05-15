@@ -93,7 +93,7 @@ impl<'a> TcpServer<'a> {
         self.barrier.clone()
     }
 
-    pub async fn run(&mut self) -> Result<()> {
+    pub async fn run(mut self) -> Result<()> {
         let mut remove_conns = Vec::new();
 
         let mut stop = false;
@@ -207,7 +207,8 @@ impl<'a> TcpServer<'a> {
                     // needs test: Is smoltcp smart enough to send out its own send buffer first?
                     sock.close();
                     data.write_eof = false;
-                    continue; // we want one more poll() so that our FIN is sent (TODO: test that).
+                    // we want one more poll() so that our FIN is sent (TODO: test that)
+                    continue;
                 }
                 if sock.state() == TcpState::Closed {
                     remove_conns.push(*connection_id);
@@ -220,9 +221,6 @@ impl<'a> TcpServer<'a> {
         }
 
         // TODO: process remaining pending data after the shutdown request was received
-
-        self.net_rx.close();
-        self.py_rx.close();
 
         log::info!("Virtual Network device shutting down.");
         Ok(())
