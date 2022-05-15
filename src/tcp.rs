@@ -2,6 +2,7 @@ use std::cmp;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fmt;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 
@@ -27,7 +28,7 @@ use smoltcp::wire::{
 use smoltcp::Error;
 
 use tokio::sync::mpsc::{Receiver, Sender, UnboundedReceiver};
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, Notify};
 
 use crate::messages::{ConnectionId, IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent};
 use crate::virtual_device::VirtualDevice;
@@ -55,6 +56,8 @@ pub struct TcpServer<'a> {
 
     next_connection_id: ConnectionId,
     socket_data: HashMap<ConnectionId, SocketData>,
+
+    barrier: Arc<Notify>,
 }
 
 impl<'a> TcpServer<'a> {
@@ -82,13 +85,19 @@ impl<'a> TcpServer<'a> {
             py_rx,
             next_connection_id: 0,
             socket_data: HashMap::new(),
+            barrier: Arc::new(Notify::new()),
         })
+    }
+
+    pub fn stopper(&self) -> Arc<Notify> {
+        self.barrier.clone()
     }
 
     pub async fn run(&mut self) -> Result<()> {
         let mut remove_conns = Vec::new();
 
-        loop {
+        let mut stop = false;
+        while !stop {
             // On a high level, we do three things in our main loop:
             // 1. Wait for an event from either side and handle it, or wait until the next smoltcp timeout.
             // 2. `.poll()` the smoltcp interface until it's finished with everything for now.
@@ -106,6 +115,9 @@ impl<'a> TcpServer<'a> {
             );
 
             tokio::select! {
+                _ = self.barrier.notified() => {
+                    stop = true;
+                },
                 _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
                 Some(e) = self.net_rx.recv() => {
                     match e {
@@ -206,6 +218,14 @@ impl<'a> TcpServer<'a> {
                 self.iface.remove_socket(data.handle);
             }
         }
+
+        // TODO: process remaining pending data after the shutdown request was received
+
+        self.net_rx.close();
+        self.py_rx.close();
+
+        log::info!("Virtual Network device shutting down.");
+        Ok(())
     }
 
     async fn receive_packet(&mut self, packet: IpPacket) -> Result<()> {

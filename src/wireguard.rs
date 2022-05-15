@@ -148,7 +148,6 @@ impl WireguardServer {
         }
 
         log::info!("WireGuard server shutting down.");
-
         Ok(())
     }
 

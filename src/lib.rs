@@ -141,7 +141,7 @@ struct WireguardServer {
     local_addr: SocketAddr,
     python_notify_task: JoinHandle<()>,
     wg_stopper: Arc<Notify>,
-    tcp_task: JoinHandle<Result<()>>,
+    tcp_stopper: Arc<Notify>,
 }
 
 #[pymethods]
@@ -161,9 +161,9 @@ impl WireguardServer {
     /// Terminate the WireGuard server.
     fn stop(&self) {
         self.wg_stopper.notify_one();
+        self.tcp_stopper.notify_one();
 
         self.python_notify_task.abort();
-        self.tcp_task.abort();
     }
 
     /// Get the local address the WireGuard server is listening on.
@@ -218,9 +218,10 @@ impl WireguardServer {
         let local_addr = socket.local_addr()?;
 
         let mut tcp_server = tcp::TcpServer::new(smol_to_wg_tx, wg_to_smol_rx, smol_to_py_tx, py_to_smol_rx)?;
+        let tcp_stopper = tcp_server.stopper();
 
         tokio::spawn(async move { wg_server.run(socket).await });
-        let tcp_task = tokio::spawn(async move { tcp_server.run().await });
+        tokio::spawn(async move { tcp_server.run().await });
 
         let event_tx = py_to_smol_tx.clone();
         // this task feeds events into the Python callback.
@@ -283,7 +284,7 @@ impl WireguardServer {
             local_addr,
             python_notify_task,
             wg_stopper,
-            tcp_task,
+            tcp_stopper,
         })
     }
 }
