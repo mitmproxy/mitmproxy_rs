@@ -10,8 +10,10 @@ use pyo3::exceptions::{PyKeyError, PyOSError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString, PyTuple};
 
+use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{self, channel, error::SendError, unbounded_channel};
 use tokio::sync::oneshot::{self, error::RecvError};
+use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 
 mod messages;
@@ -138,7 +140,7 @@ struct WireguardServer {
     event_tx: mpsc::UnboundedSender<TransportCommand>,
     local_addr: SocketAddr,
     python_notify_task: JoinHandle<()>,
-    wireguard_task: JoinHandle<Result<()>>,
+    wg_stopper: Arc<Notify>,
     tcp_task: JoinHandle<Result<()>>,
 }
 
@@ -157,9 +159,11 @@ impl WireguardServer {
     }
 
     /// Terminate the WireGuard server.
-    fn stop(&self) -> PyResult<()> {
-        self._stop();
-        Ok(())
+    fn stop(&self) {
+        self.wg_stopper.notify_one();
+
+        self.python_notify_task.abort();
+        self.tcp_task.abort();
     }
 
     /// Get the local address the WireGuard server is listening on.
@@ -203,13 +207,19 @@ impl WireguardServer {
         let (smol_to_py_tx, mut smol_to_py_rx) = channel(64); // only used to notify of incoming connections and datagrams
         let (py_to_smol_tx, py_to_smol_rx) = unbounded_channel(); // used to send data and to ask for packets. We need this to be unbounded as write() is not async.
 
-        let mut wg_server =
-            wireguard::WireguardServer::new((host, port), private_key, peers, wg_to_smol_tx, smol_to_wg_rx).await?;
-        let local_addr = wg_server.local_addr()?;
+        let mut wg_server_builder = wireguard::WireguardServerBuilder::new(private_key, wg_to_smol_tx, smol_to_wg_rx);
+        for (peer_public_key, preshared_key) in peers {
+            wg_server_builder.add_peer(peer_public_key, preshared_key)?;
+        }
+
+        let mut wg_server = wg_server_builder.build()?;
+        let wg_stopper = wg_server.stopper();
+        let socket = UdpSocket::bind((host, port)).await?;
+        let local_addr = socket.local_addr()?;
 
         let mut tcp_server = tcp::TcpServer::new(smol_to_wg_tx, wg_to_smol_rx, smol_to_py_tx, py_to_smol_rx)?;
 
-        let wireguard_task = tokio::spawn(async move { wg_server.run().await });
+        tokio::spawn(async move { wg_server.run(socket).await });
         let tcp_task = tokio::spawn(async move { tcp_server.run().await });
 
         let event_tx = py_to_smol_tx.clone();
@@ -272,21 +282,15 @@ impl WireguardServer {
             event_tx: py_to_smol_tx,
             local_addr,
             python_notify_task,
-            wireguard_task,
+            wg_stopper,
             tcp_task,
         })
-    }
-
-    fn _stop(&self) {
-        self.python_notify_task.abort();
-        self.wireguard_task.abort();
-        self.tcp_task.abort();
     }
 }
 
 impl Drop for WireguardServer {
     fn drop(&mut self) {
-        self._stop();
+        self.stop();
     }
 }
 

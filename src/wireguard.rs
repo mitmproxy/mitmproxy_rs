@@ -11,9 +11,9 @@ use pretty_hex::pretty_hex;
 
 use smoltcp::wire::{Ipv4Packet, Ipv6Packet};
 
-use tokio::net::{ToSocketAddrs, UdpSocket};
+use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::RwLock;
+use tokio::sync::{Notify, RwLock};
 
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};
 
@@ -30,8 +30,72 @@ impl WireguardPeer {
     }
 }
 
+pub struct WireguardServerBuilder {
+    private_key: Arc<X25519SecretKey>,
+    peers_by_idx: HashMap<u32, Arc<WireguardPeer>>,
+    peers_by_key: HashMap<Arc<X25519PublicKey>, Arc<WireguardPeer>>,
+    peers_by_ip: HashMap<IpAddr, Arc<WireguardPeer>>,
+    net_tx: Sender<NetworkEvent>,
+    net_rx: Receiver<NetworkCommand>,
+}
+
+impl WireguardServerBuilder {
+    pub fn new(
+        private_key: Arc<X25519SecretKey>,
+        net_tx: Sender<NetworkEvent>,
+        net_rx: Receiver<NetworkCommand>,
+    ) -> Self {
+        WireguardServerBuilder {
+            private_key,
+            peers_by_idx: HashMap::new(),
+            peers_by_key: HashMap::new(),
+            peers_by_ip: HashMap::new(),
+            net_tx,
+            net_rx,
+        }
+    }
+
+    pub fn add_peer(&mut self, public_key: Arc<X25519PublicKey>, preshared_key: Option<[u8; 32]>) -> Result<()> {
+        let index = self.peers_by_idx.len() as u32;
+        let tunnel = Tunn::new(
+            self.private_key.clone(),
+            public_key.clone(),
+            preshared_key,
+            Some(25),
+            index,
+            None,
+        )
+        .map_err(|error| anyhow!(error))?;
+
+        let peer = Arc::new(WireguardPeer {
+            tunnel,
+            endpoint: RwLock::new(None),
+        });
+
+        self.peers_by_idx.insert(index, peer.clone());
+        self.peers_by_key.insert(public_key, peer);
+
+        Ok(())
+    }
+
+    pub fn build(self) -> Result<WireguardServer> {
+        let public_key = Arc::new(self.private_key.public_key());
+
+        Ok(WireguardServer {
+            private_key: self.private_key,
+            public_key,
+            peers_by_idx: self.peers_by_idx,
+            peers_by_key: self.peers_by_key,
+            peers_by_ip: self.peers_by_ip,
+            net_tx: self.net_tx,
+            net_rx: self.net_rx,
+            wg_buf: [0u8; 1500],
+            barrier: Arc::new(Notify::new()),
+        })
+    }
+}
+
 pub struct WireguardServer {
-    socket: UdpSocket,
     private_key: Arc<X25519SecretKey>,
     public_key: Arc<X25519PublicKey>,
     peers_by_idx: HashMap<u32, Arc<WireguardPeer>>,
@@ -39,76 +103,53 @@ pub struct WireguardServer {
     peers_by_ip: HashMap<IpAddr, Arc<WireguardPeer>>,
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
-    buf: [u8; 1500],
+    wg_buf: [u8; 1500],
+    barrier: Arc<Notify>,
 }
 
 impl WireguardServer {
-    pub async fn new<A: ToSocketAddrs>(
-        addr: A,
-        private_key: Arc<X25519SecretKey>,
-        peers: Vec<(Arc<X25519PublicKey>, Option<[u8; 32]>)>,
-        net_tx: Sender<NetworkEvent>,
-        net_rx: Receiver<NetworkCommand>,
-    ) -> Result<Self> {
-        if peers.is_empty() {
+    pub fn stopper(&self) -> Arc<Notify> {
+        self.barrier.clone()
+    }
+
+    pub async fn run(&mut self, socket: UdpSocket) -> Result<()> {
+        if self.peers_by_idx.is_empty() {
             return Err(anyhow!("No WireGuard peers."));
         }
 
-        let socket = UdpSocket::bind(addr).await?;
+        let mut udp_buf = [0; 1500];
+        let mut stop = false;
 
-        let public_key = Arc::new(private_key.public_key());
-
-        let mut peers_by_idx = HashMap::with_capacity(peers.len());
-        let mut peers_by_key = HashMap::with_capacity(peers.len());
-        let peers_by_ip = HashMap::with_capacity(peers.len());
-
-        for (i, (peer_pubkey, peer_psk)) in peers.into_iter().enumerate() {
-            let i = i as u32;
-            let tunnel = Tunn::new(private_key.clone(), peer_pubkey.clone(), peer_psk, Some(25), i, None)
-                .map_err(|error: &str| anyhow!(error))?;
-            let peer = Arc::new(WireguardPeer {
-                tunnel,
-                endpoint: RwLock::new(None),
-            });
-            peers_by_idx.insert(i, peer.clone());
-            peers_by_key.insert(peer_pubkey, peer);
-        }
-
-        let buf = [0u8; 1500];
-
-        Ok(Self {
-            socket,
-            peers_by_idx,
-            peers_by_key,
-            peers_by_ip,
-            private_key,
-            public_key,
-            net_tx,
-            net_rx,
-            buf,
-        })
-    }
-
-    pub async fn run(&mut self) -> Result<()> {
-        let mut buf = [0; 1500];
-        loop {
+        while !stop {
             tokio::select! {
-                Ok((len, src_addr)) = self.socket.recv_from(&mut buf) => {
-                    self.process_incoming_datagram(&buf[..len], src_addr).await?;
+                _ = self.barrier.notified() => {
+                    stop = true;
+                }
+                Ok((len, src_addr)) = socket.recv_from(&mut udp_buf) => {
+                    self.process_incoming_datagram(&socket, &udp_buf[..len], src_addr).await?;
                 },
                 Some(e) = self.net_rx.recv() => {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
-                            self.process_outgoing_packet(packet).await?;
+                            self.process_outgoing_packet(&socket, packet).await?;
                         }
                     }
                 }
             }
         }
-    }
 
-    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
-        self.socket.local_addr()
+        // process outgoing packets that remain in the queue
+        while let Some(e) = self.net_rx.recv().await {
+            match e {
+                NetworkCommand::SendPacket(packet) => {
+                    self.process_outgoing_packet(&socket, packet).await?;
+                },
+            }
+        }
+
+        log::info!("WireGuard server shutting down.");
+
+        Ok(())
     }
 
     fn find_peer_for_datagram(&self, data: &[u8]) -> Option<Arc<WireguardPeer>> {
@@ -149,20 +190,20 @@ impl WireguardServer {
     }
 
     /// process WireGuard datagrams and forward the decrypted packets.
-    async fn process_incoming_datagram(&mut self, data: &[u8], src_addr: SocketAddr) -> Result<()> {
+    async fn process_incoming_datagram(&mut self, socket: &UdpSocket, data: &[u8], src_addr: SocketAddr) -> Result<()> {
         let peer = match self.find_peer_for_datagram(data) {
             Some(p) => p,
             None => return Ok(()),
         };
 
         peer.set_endpoint(src_addr).await;
-        let mut result = peer.tunnel.decapsulate(Some(src_addr.ip()), data, &mut self.buf);
+        let mut result = peer.tunnel.decapsulate(Some(src_addr.ip()), data, &mut self.wg_buf);
 
         while let TunnResult::WriteToNetwork(b) = result {
             log::debug!("process_incoming_datagram: WriteToNetwork");
-            self.socket.send_to(b, src_addr).await?;
+            socket.send_to(b, src_addr).await?;
             // check if there are more things to be handled
-            result = peer.tunnel.decapsulate(None, &[0; 0], &mut self.buf);
+            result = peer.tunnel.decapsulate(None, &[0; 0], &mut self.wg_buf);
         }
 
         match result {
@@ -228,7 +269,7 @@ impl WireguardServer {
     }
 
     /// process packets and send the encrypted WireGuard datagrams to the peer.
-    async fn process_outgoing_packet(&mut self, packet: IpPacket) -> Result<()> {
+    async fn process_outgoing_packet(&mut self, socket: &UdpSocket, packet: IpPacket) -> Result<()> {
         let peer = self
             .peers_by_ip
             .get(&packet.dst_ip())
@@ -241,7 +282,7 @@ impl WireguardServer {
         let src_ip = packet.src_ip();
         let dst_ip = packet.dst_ip();
 
-        match peer.tunnel.encapsulate(&packet.into_inner(), &mut self.buf) {
+        match peer.tunnel.encapsulate(&packet.into_inner(), &mut self.wg_buf) {
             TunnResult::Done => {
                 log::debug!("process_incoming_packet: Done");
             },
@@ -256,7 +297,7 @@ impl WireguardServer {
                     dst_ip,
                     dst_addr
                 );
-                self.socket.send_to(buf, dst_addr).await?;
+                socket.send_to(buf, dst_addr).await?;
             },
             // IPv4 packet
             TunnResult::WriteToTunnelV4(_, _) => {
