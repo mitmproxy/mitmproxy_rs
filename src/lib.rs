@@ -28,12 +28,14 @@ use wireguard::WireGuardTaskBuilder;
 
 #[pyclass]
 struct WireguardServer {
+    /// queue of events to be sent to the Python interop task
     event_tx: mpsc::UnboundedSender<TransportCommand>,
+    /// local address of the WireGuard UDP socket
     local_addr: SocketAddr,
-    py_stopper: Arc<Notify>,
-    wg_stopper: Arc<Notify>,
-    nw_stopper: Arc<Notify>,
+    /// barrier for notifying subtasks of requested server shutdown
     sd_trigger: Arc<Notify>,
+    /// barrier for getting notified of successful server shutdown
+    sd_handler: Arc<Notify>,
 }
 
 #[pymethods]
@@ -53,11 +55,19 @@ impl WireguardServer {
     /// Terminate the WireGuard server.
     fn stop(&self) {
         // notify tasks to shut down
-        self.py_stopper.notify_one();
-        self.nw_stopper.notify_one();
-        self.wg_stopper.notify_one();
-        // notify shutdown handler
-        self.sd_trigger.notify_one();
+        self.sd_trigger.notify_waiters();
+        // notify waiters of server shutdown
+        self.sd_handler.notify_one();
+    }
+
+    /// Wait until the WireGuard server terminates.
+    fn wait<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+        let barrier = self.sd_handler.clone();
+
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            barrier.notified().await;
+            Ok(())
+        })
     }
 
     /// Get the local address the WireGuard server is listening on.
@@ -107,17 +117,26 @@ impl WireguardServer {
         let socket = UdpSocket::bind((host, port)).await?;
         let local_addr = socket.local_addr()?;
 
+        // initialize barriers for handling graceful shutdown
+        let sd_trigger = Arc::new(Notify::new());
+        let sd_handler = Arc::new(Notify::new());
+
         // initialize WireGuard server
-        let mut wg_task_builder = WireGuardTaskBuilder::new(private_key, wg_to_smol_tx, smol_to_wg_rx);
+        let mut wg_task_builder =
+            WireGuardTaskBuilder::new(private_key, wg_to_smol_tx, smol_to_wg_rx, sd_trigger.clone());
         for (peer_public_key, preshared_key) in peers {
             wg_task_builder.add_peer(peer_public_key, preshared_key)?;
         }
         let wg_task = wg_task_builder.build()?;
-        let wg_stopper = wg_task.stopper();
 
         // initialize virtual network device
-        let nw_task = NetworkTask::new(smol_to_wg_tx, wg_to_smol_rx, smol_to_py_tx, py_to_smol_rx)?;
-        let nw_stopper = nw_task.stopper();
+        let nw_task = NetworkTask::new(
+            smol_to_wg_tx,
+            wg_to_smol_rx,
+            smol_to_py_tx,
+            py_to_smol_rx,
+            sd_trigger.clone(),
+        )?;
 
         // initialize Python interop task
         // Note: Calling into the Python runtime needs to happen on the main thread, it doesn't
@@ -136,8 +155,8 @@ impl WireguardServer {
             smol_to_py_rx,
             py_tcp_handler,
             py_udp_handler,
+            sd_trigger.clone(),
         );
-        let py_stopper = py_task.stopper();
 
         // spawn tasks
         let wg_handle = tokio::spawn(async move { wg_task.run(socket).await });
@@ -145,17 +164,14 @@ impl WireguardServer {
         let py_handle = tokio::spawn(async move { py_task.run().await });
 
         // initialize and run shutdown handler
-        let sd_handler = ShutdownTask::new(py_handle, wg_handle, net_handle);
-        let sd_trigger = sd_handler.trigger();
-        tokio::spawn(async move { sd_handler.run().await });
+        let sd_task = ShutdownTask::new(py_handle, wg_handle, net_handle, sd_trigger.clone(), sd_handler.clone());
+        tokio::spawn(async move { sd_task.run().await });
 
         Ok(WireguardServer {
             event_tx,
             local_addr,
-            py_stopper,
-            wg_stopper,
-            nw_stopper,
             sd_trigger,
+            sd_handler,
         })
     }
 }

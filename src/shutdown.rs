@@ -9,7 +9,8 @@ pub struct ShutdownTask {
     py_handle: JoinHandle<Result<()>>,
     wg_handle: JoinHandle<Result<()>>,
     nw_handle: JoinHandle<Result<()>>,
-    trigger: Arc<Notify>,
+    sd_trigger: Arc<Notify>,
+    sd_handler: Arc<Notify>,
 }
 
 impl ShutdownTask {
@@ -17,21 +18,20 @@ impl ShutdownTask {
         py_handle: JoinHandle<Result<()>>,
         wg_handle: JoinHandle<Result<()>>,
         nw_handle: JoinHandle<Result<()>>,
+        sd_trigger: Arc<Notify>,
+        sd_handler: Arc<Notify>,
     ) -> Self {
         ShutdownTask {
             py_handle,
             wg_handle,
             nw_handle,
-            trigger: Arc::new(Notify::new()),
+            sd_trigger,
+            sd_handler,
         }
     }
 
-    pub fn trigger(&self) -> Arc<Notify> {
-        self.trigger.clone()
-    }
-
     pub async fn run(self) {
-        self.trigger.notified().await;
+        self.sd_trigger.notified().await;
 
         // wait for all tasks to terminate and log any errors
         if let Err(error) = self.py_handle.await {
@@ -45,5 +45,6 @@ impl ShutdownTask {
         }
 
         log::info!("Shutting down.");
+        self.sd_handler.notify_one();
     }
 }

@@ -40,6 +40,8 @@ pub struct WireGuardTaskBuilder {
 
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
+
+    sd_trigger: Arc<Notify>,
 }
 
 impl WireGuardTaskBuilder {
@@ -47,6 +49,7 @@ impl WireGuardTaskBuilder {
         private_key: Arc<X25519SecretKey>,
         net_tx: Sender<NetworkEvent>,
         net_rx: Receiver<NetworkCommand>,
+        sd_trigger: Arc<Notify>,
     ) -> Self {
         WireGuardTaskBuilder {
             private_key,
@@ -57,6 +60,8 @@ impl WireGuardTaskBuilder {
 
             net_tx,
             net_rx,
+
+            sd_trigger,
         }
     }
 
@@ -99,7 +104,7 @@ impl WireGuardTaskBuilder {
             net_rx: self.net_rx,
 
             wg_buf: [0u8; 1500],
-            barrier: Arc::new(Notify::new()),
+            sd_trigger: self.sd_trigger,
         })
     }
 }
@@ -116,14 +121,10 @@ pub struct WireGuardTask {
     net_rx: Receiver<NetworkCommand>,
 
     wg_buf: [u8; 1500],
-    barrier: Arc<Notify>,
+    sd_trigger: Arc<Notify>,
 }
 
 impl WireGuardTask {
-    pub fn stopper(&self) -> Arc<Notify> {
-        self.barrier.clone()
-    }
-
     pub async fn run(mut self, socket: UdpSocket) -> Result<()> {
         if self.peers_by_idx.is_empty() {
             return Err(anyhow!("No WireGuard peers."));
@@ -134,7 +135,7 @@ impl WireGuardTask {
 
         while !stop {
             tokio::select! {
-                _ = self.barrier.notified() => {
+                _ = self.sd_trigger.notified() => {
                     stop = true;
                 }
                 Ok((len, src_addr)) = socket.recv_from(&mut udp_buf) => {

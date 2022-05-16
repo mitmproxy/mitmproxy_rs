@@ -60,7 +60,7 @@ pub struct NetworkTask<'a> {
     next_connection_id: ConnectionId,
     socket_data: HashMap<ConnectionId, SocketData>,
 
-    barrier: Arc<Notify>,
+    sd_trigger: Arc<Notify>,
 }
 
 impl<'a> NetworkTask<'a> {
@@ -69,6 +69,7 @@ impl<'a> NetworkTask<'a> {
         net_rx: Receiver<NetworkEvent>,
         py_tx: Sender<TransportEvent>,
         py_rx: UnboundedReceiver<TransportCommand>,
+        sd_trigger: Arc<Notify>,
     ) -> Result<Self> {
         let device = VirtualDevice::new(net_tx.clone());
 
@@ -88,12 +89,8 @@ impl<'a> NetworkTask<'a> {
             py_rx,
             next_connection_id: 0,
             socket_data: HashMap::new(),
-            barrier: Arc::new(Notify::new()),
+            sd_trigger,
         })
-    }
-
-    pub fn stopper(&self) -> Arc<Notify> {
-        self.barrier.clone()
     }
 
     pub async fn run(mut self) -> Result<()> {
@@ -118,7 +115,7 @@ impl<'a> NetworkTask<'a> {
             );
 
             tokio::select! {
-                _ = self.barrier.notified() => {
+                _ = self.sd_trigger.notified() => {
                     stop = true;
                 },
                 _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},

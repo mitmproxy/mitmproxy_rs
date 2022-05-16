@@ -81,39 +81,40 @@ async def main():
         signal.signal(signal.SIGINT, lambda *_: sys.exit())
 
     signal.signal(signal.SIGINT, stop)
-    await asyncio.sleep(9999)
+
+    await server.wait()
 
 
-async def handle_connection(r: asyncio.StreamReader, w: asyncio.StreamWriter):
-    print(f"connection task {w=}")
-    print(f"{w.get_extra_info('peername')=}")
+async def handle_connection(rw: mitmproxy_wireguard.TcpStream):
+    print(f"connection task {rw=}")
+    print(f"{rw.get_extra_info('peername')=}")
 
-    w.write("Hi, I'm an echo server! 🦄\n".encode())
+    rw.write("Hi, I'm an echo server! 🦄\n".encode())
 
     for _ in range(2):
         print("reading...")
         try:
-            data = await r.read(4096)
+            data = await rw.read(4096)
         except Exception as exc:
             print(f"read {exc=}")
             data = b""
         print(f"read complete. writing... {len(data)=} {data[:10]=} ")
 
         try:
-            w.write(data.upper())
+            rw.write(data.upper())
         except Exception as exc:
             print(f"write {exc=}")
         print("write complete. draining...")
 
         try:
-            await w.drain()
+            await rw.drain()
         except Exception as exc:
             print(f"drain {exc=}")
         print("drained.")
 
     print("closing...")
     try:
-        w.close()
+        rw.close()
     except Exception as exc:
         print(f"close {exc=}")
     print("closed.")

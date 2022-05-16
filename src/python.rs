@@ -22,7 +22,9 @@ pub fn connection_closed(_: RecvError) -> PyErr {
     PyOSError::new_err("connection closed")
 }
 
-/// An individual TCP stream with an API similar to `asyncio.StreamReader`/`asyncio.StreamWriter`.
+/// An individual TCP stream with an API similar to `asyncio.StreamReader`/`asyncio.StreamWriter`:
+///
+/// <https://docs.python.org/3/library/asyncio-stream.html>
 #[pyclass]
 pub struct TcpStream {
     connection_id: ConnectionId,
@@ -144,7 +146,7 @@ pub struct PyInteropTask {
     smol_to_py_rx: mpsc::Receiver<TransportEvent>,
     py_tcp_handler: PyObject,
     py_udp_handler: PyObject,
-    barrier: Arc<Notify>,
+    sd_trigger: Arc<Notify>,
 }
 
 impl PyInteropTask {
@@ -156,6 +158,7 @@ impl PyInteropTask {
         smol_to_py_rx: mpsc::Receiver<TransportEvent>,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
+        sd_trigger: Arc<Notify>,
     ) -> Self {
         PyInteropTask {
             local_addr,
@@ -165,19 +168,15 @@ impl PyInteropTask {
             smol_to_py_rx,
             py_tcp_handler,
             py_udp_handler,
-            barrier: Arc::new(Notify::new()),
+            sd_trigger,
         }
-    }
-
-    pub fn stopper(&self) -> Arc<Notify> {
-        self.barrier.clone()
     }
 
     pub async fn run(mut self) -> Result<()> {
         let mut stop = false;
         while !stop {
             tokio::select!(
-                _ = self.barrier.notified() => {
+                _ = self.sd_trigger.notified() => {
                     stop = true;
                 },
                 event = self.smol_to_py_rx.recv() => {
@@ -199,10 +198,7 @@ impl PyInteropTask {
                                 Python::with_gil(|py| {
                                     let stream = stream.into_py(py);
 
-                                    let coro = match self.py_tcp_handler.call1(
-                                        py,
-                                        (stream.clone_ref(py), stream)
-                                    ) {
+                                    let coro = match self.py_tcp_handler.call1(py,(stream,)) {
                                         Ok(coro) => coro,
                                         Err(err) => {
                                             err.print(py);
