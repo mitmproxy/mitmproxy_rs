@@ -26,6 +26,9 @@ use python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInte
 use shutdown::ShutdownTask;
 use wireguard::WireGuardTaskBuilder;
 
+/// A running WireGuard server.
+///
+/// A new server can be started by calling the `start_server` coroutine.
 #[pyclass]
 struct WireguardServer {
     /// queue of events to be sent to the Python interop task
@@ -52,7 +55,7 @@ impl WireguardServer {
         Ok(())
     }
 
-    /// Terminate the WireGuard server.
+    /// Request the WireGuard server to gracefully shut down.
     fn stop(&self) {
         // notify tasks to shut down
         self.sd_trigger.notify_waiters();
@@ -60,7 +63,7 @@ impl WireguardServer {
         self.sd_handler.notify_one();
     }
 
-    /// Wait until the WireGuard server terminates.
+    /// Wait until the WireGuard server has shut down.
     fn wait<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         let barrier = self.sd_handler.clone();
 
@@ -70,7 +73,7 @@ impl WireguardServer {
         })
     }
 
-    /// Get the local address the WireGuard server is listening on.
+    /// Get the local socket address that the WireGuard server is listening on.
     fn getsockname(&self, py: Python) -> PyObject {
         socketaddr_to_py(py, self.local_addr)
     }
@@ -81,6 +84,7 @@ impl WireguardServer {
 }
 
 impl WireguardServer {
+    /// Set up and initialize a new WireGuard server.
     pub async fn init(
         host: String,
         port: u16,
@@ -182,7 +186,25 @@ impl Drop for WireguardServer {
     }
 }
 
-/// Start a WireGuard server.
+/// Start a WireGuard server that is configured with the given parameters:
+///
+/// - `host`: The host address for the WireGuard UDP socket.
+/// - `port`: The port number for the WireGuard UDP socket. The default port for WireGuard servers
+///   is `51820`.
+/// - `private_key`: The base64-encoded private key for the WireGuard server. This can be a fixed
+///   value, or randomly generated each time by calling the `genkey` function.
+/// - `peer_public_keys`: Public keys and preshared keys of the WireGuard peers that will be
+///   configured. The argument is expected to be a list of tuples, where the first tuple element
+///   must the the base64-encoded public key of the peer, and the second tuple element must either
+///   be the preshared key (a `bytes` object with length 32), or `None`.
+/// - `handle_connection`: A coroutine that will be called for each new `TcpStream`.
+/// - `receive_datagram`: A function that will be called for each received UDP datagram.
+///
+/// The `receive_datagram` function will be called with the following arguments:
+///
+/// - payload of the UDP datagram as `bytes`
+/// - source address as `(host: str, port: int)` tuple
+/// - destination address as `(host: str, port: int)` tuple
 #[pyfunction]
 fn start_server(
     py: Python<'_>,
@@ -207,13 +229,21 @@ fn start_server(
     })
 }
 
-/// Generate a WireGuard private key and return its base64-encoded representation.
+/// Generate a private X25519 key for a WireGuard server or client.
+///
+/// The return value is the base64-encoded value of the new private key.
 #[pyfunction]
 fn genkey() -> String {
     base64::encode(X25519SecretKey::new().as_bytes())
 }
 
-/// Return the base64-encoded public key for the passed private key.
+/// Calculate the public X25519 key for the given private X25519 key.
+///
+/// The argument is expected to be the base64-encoded private key, and the return value is a
+/// base64-encoded public key.
+///
+/// This function raises a `ValueError` if the private key is not a valid base64-encoded X25519
+/// private key.
 #[pyfunction]
 fn pubkey(private_key: String) -> PyResult<String> {
     let private_key: X25519SecretKey = private_key
@@ -222,6 +252,9 @@ fn pubkey(private_key: String) -> PyResult<String> {
     Ok(base64::encode(private_key.public_key().as_bytes()))
 }
 
+/// This package contains a cross-platform, user-space WireGuard server implementation in Rust,
+/// which provides a Python interface that is intended to be similar to the one provided by
+/// `asyncio.start_server` from the Python standard library.
 #[pymodule]
 fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     // set up the Rust logger to send messages to the Python logger

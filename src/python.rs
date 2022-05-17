@@ -22,9 +22,10 @@ pub fn connection_closed(_: RecvError) -> PyErr {
     PyOSError::new_err("connection closed")
 }
 
-/// An individual TCP stream with an API similar to `asyncio.StreamReader`/`asyncio.StreamWriter`:
+/// An individual TCP stream with an API that is similar to `asyncio.StreamReader` and
+/// `asyncio.StreamWriter` from the Python standard library.
 ///
-/// <https://docs.python.org/3/library/asyncio-stream.html>
+/// c.f. <https://docs.python.org/3/library/asyncio-stream.html>
 #[pyclass]
 pub struct TcpStream {
     connection_id: ConnectionId,
@@ -36,6 +37,9 @@ pub struct TcpStream {
 
 #[pymethods]
 impl TcpStream {
+    /// Read up to `n` bytes from the TCP stream.
+    ///
+    /// If the connection was closed, this returns an empty bytes object.
     fn read<'p>(&self, py: Python<'p>, n: u32) -> PyResult<&'p PyAny> {
         let (tx, rx) = oneshot::channel();
 
@@ -50,6 +54,10 @@ impl TcpStream {
         })
     }
 
+    /// Write bytes onto the TCP stream.
+    ///
+    /// This queues the data into a write buffer. To wait until the TCP connection can be written to
+    /// again, use the [`TcpStream::drain`] method.
     fn write(&self, data: Vec<u8>) -> PyResult<()> {
         self.event_tx
             .send(TransportCommand::WriteData(self.connection_id, data))
@@ -58,6 +66,7 @@ impl TcpStream {
         Ok(())
     }
 
+    /// Wait until the TCP stream can be written to again.
     fn drain<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         let (tx, rx) = oneshot::channel();
 
@@ -71,6 +80,7 @@ impl TcpStream {
         })
     }
 
+    /// Close the stream after flushing the write buffer.
     fn write_eof(&self) -> PyResult<()> {
         self.event_tx
             .send(TransportCommand::CloseConnection(self.connection_id, true))
@@ -79,6 +89,7 @@ impl TcpStream {
         Ok(())
     }
 
+    /// Close the TCP stream and the underlying socket immediately.
     fn close(&self) -> PyResult<()> {
         self.event_tx
             .send(TransportCommand::CloseConnection(self.connection_id, false))
@@ -87,7 +98,9 @@ impl TcpStream {
         Ok(())
     }
 
-    /// Supported values: peername, sockname, original_dst.
+    /// Query the TCP stream for details of the underlying network connection.
+    ///
+    /// Supported values: `peername`, `sockname`, `original_dst`.
     fn get_extra_info(&self, py: Python, name: String) -> PyResult<PyObject> {
         match name.as_str() {
             "peername" => Ok(socketaddr_to_py(py, self.peername)),
