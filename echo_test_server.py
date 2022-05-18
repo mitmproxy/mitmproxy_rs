@@ -76,13 +76,13 @@ async def main():
 
     def stop(*_):
         print("Stopping server...")
-        server.stop()
+        server.close()
         print("Stopped.")
         signal.signal(signal.SIGINT, lambda *_: sys.exit())
 
     signal.signal(signal.SIGINT, stop)
 
-    await server.wait()
+    await server.wait_closed()
 
 
 async def handle_connection(rw: mitmproxy_wireguard.TcpStream):

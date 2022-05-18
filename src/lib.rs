@@ -28,7 +28,10 @@ use wireguard::WireGuardTaskBuilder;
 
 /// A running WireGuard server.
 ///
-/// A new server can be started by calling the `start_server` coroutine.
+/// A new server can be started by calling the `start_server` coroutine. Its public API is intended
+/// to be similar to the API provided by
+/// [`asyncio.Server`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.Server)
+/// from the Python standard library.
 #[pyclass]
 struct WireguardServer {
     /// queue of events to be sent to the Python interop task
@@ -44,6 +47,8 @@ struct WireguardServer {
 #[pymethods]
 impl WireguardServer {
     /// Send an individual UDP datagram using the specified source and destination addresses.
+    ///
+    /// The `src_addr` and `dst_addr` arguments are expected to be `(host: str, port: int)` tuples.
     fn send_datagram(&self, data: Vec<u8>, src_addr: &PyTuple, dst_addr: &PyTuple) -> PyResult<()> {
         let cmd = TransportCommand::SendDatagram {
             data,
@@ -56,7 +61,10 @@ impl WireguardServer {
     }
 
     /// Request the WireGuard server to gracefully shut down.
-    fn stop(&self) {
+    ///
+    /// The server will stop accepting new connections on its UDP socket, but will flush pending
+    /// outgoing data before shutting down.
+    fn close(&self) {
         // notify tasks to shut down
         self.sd_trigger.notify_waiters();
         // notify waiters of server shutdown
@@ -64,7 +72,10 @@ impl WireguardServer {
     }
 
     /// Wait until the WireGuard server has shut down.
-    fn wait<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+    ///
+    /// This coroutine will yield once pending data has been flushed and all server tasks have
+    /// successfully terminated after calling the `WireguardServer.close` method.
+    fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         let barrier = self.sd_handler.clone();
 
         pyo3_asyncio::tokio::future_into_py(py, async move {
@@ -180,12 +191,6 @@ impl WireguardServer {
     }
 }
 
-impl Drop for WireguardServer {
-    fn drop(&mut self) {
-        self.stop();
-    }
-}
-
 /// Start a WireGuard server that is configured with the given parameters:
 ///
 /// - `host`: The host address for the WireGuard UDP socket.
@@ -254,7 +259,8 @@ fn pubkey(private_key: String) -> PyResult<String> {
 
 /// This package contains a cross-platform, user-space WireGuard server implementation in Rust,
 /// which provides a Python interface that is intended to be similar to the one provided by
-/// `asyncio.start_server` from the Python standard library.
+/// [`asyncio.start_server`](https://docs.python.org/3/library/asyncio-stream.html#asyncio.start_server)
+/// from the Python standard library.
 #[pymodule]
 fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     // set up the Rust logger to send messages to the Python logger
