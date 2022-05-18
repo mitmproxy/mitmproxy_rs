@@ -104,6 +104,8 @@ impl WireguardServer {
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
     ) -> Result<WireguardServer> {
+        log::debug!("Initializing WireGuard server ...");
+
         let private_key: Arc<X25519SecretKey> = Arc::new(private_key.parse().map_err(|error: &str| anyhow!(error))?);
 
         // configure WireGuard peers
@@ -129,8 +131,11 @@ impl WireguardServer {
         let event_tx = py_to_smol_tx.clone();
 
         // bind to UDP socket
-        let socket = UdpSocket::bind((host, port)).await?;
+        let socket_addr = SocketAddr::new(host.parse()?, port);
+        let socket = UdpSocket::bind(socket_addr).await?;
         let local_addr = socket.local_addr()?;
+
+        log::debug!("WireGuard server listening for UDP connections on {} ...", socket_addr);
 
         // initialize barriers for handling graceful shutdown
         let sd_trigger = Arc::new(Notify::new());
@@ -181,6 +186,8 @@ impl WireguardServer {
         // initialize and run shutdown handler
         let sd_task = ShutdownTask::new(py_handle, wg_handle, net_handle, sd_trigger.clone(), sd_handler.clone());
         tokio::spawn(async move { sd_task.run().await });
+
+        log::debug!("WireGuard server successfully initialized.");
 
         Ok(WireguardServer {
             event_tx,

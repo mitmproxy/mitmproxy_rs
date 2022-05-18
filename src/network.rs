@@ -105,20 +105,19 @@ impl<'a> NetworkTask<'a> {
 
             let delay = self.iface.poll_delay(Instant::now());
 
-            log::debug!(
-                "{:?}: {}",
-                &self,
-                match delay {
-                    Some(d) => format!("poll in {}", d),
-                    _ => "idle".to_string(),
-                }
-            );
+            match delay {
+                Some(d) => log::debug!("{:?}: poll in {}", self, d),
+                None => log::debug!("{:?}: idle", self),
+            }
 
             tokio::select! {
+                // wait for graceful shutdown
                 _ = self.sd_trigger.notified() => {
                     stop = true;
                 },
+                // wait for timeouts when the device is idle
                 _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
+                // wait for incoming packages
                 Some(e) = self.net_rx.recv() => {
                     match e {
                         NetworkEvent::ReceivePacket(packet) => {
@@ -126,6 +125,7 @@ impl<'a> NetworkTask<'a> {
                         }
                     }
                 },
+                // wait for outgoing packages
                 Some(e) = self.py_rx.recv() => {
                     match e {
                         TransportCommand::ReadData(id, n, tx) => {
@@ -145,6 +145,7 @@ impl<'a> NetworkTask<'a> {
                         },
                     }
                 },
+                // wait for channel capacity
                 Ok(()) = wait_for_channel_capacity(self.net_tx.clone()), if self.net_tx.capacity() == 0 => {
                     log::debug!("regained channel capacity");
                 },
@@ -168,6 +169,7 @@ impl<'a> NetworkTask<'a> {
             for (connection_id, data) in self.socket_data.iter_mut() {
                 let sock = self.iface.get_socket::<TcpSocket>(data.handle);
 
+                // receive data over the socket
                 if data.recv_waiter.is_some() {
                     if sock.can_recv() {
                         let (n, tx) = data.recv_waiter.take().unwrap();
@@ -177,30 +179,29 @@ impl<'a> NetworkTask<'a> {
                         let bytes_read = sock.recv_slice(&mut buf)?;
 
                         buf.truncate(bytes_read);
-                        tx.send(buf).map_err(|_| anyhow!("cannot send read() bytes"))?;
+                        tx.send(buf).unwrap();
                     } else {
                         // We can't use .may_recv() here as it returns false during establishment.
+                        use TcpState::*;
                         match sock.state() {
                             // can we still receive something in the future?
-                            TcpState::CloseWait
-                            | TcpState::LastAck
-                            | TcpState::Closed
-                            | TcpState::Closing
-                            | TcpState::TimeWait => {
+                            CloseWait | LastAck | Closed | Closing | TimeWait => {
                                 let (_, tx) = data.recv_waiter.take().unwrap();
-                                tx.send(Vec::new()).map_err(|_| anyhow!("cannot send read() bytes"))?;
+                                tx.send(Vec::new()).unwrap();
                             },
                             _ => {},
                         }
                     }
                 }
 
+                // send data over the socket
                 if !data.send_buffer.is_empty() && sock.can_send() {
                     let (a, b) = data.send_buffer.as_slices();
                     let sent = sock.send_slice(a)? + sock.send_slice(b)?;
                     data.send_buffer.drain(..sent);
                 }
 
+                // if necessary, drain write buffers
                 // TODO: benchmark different variants here. (e.g. only return on half capacity)
                 if !data.drain_waiter.is_empty() && sock.send_queue() < sock.send_capacity() {
                     for waiter in data.drain_waiter.drain(..) {
@@ -208,6 +209,7 @@ impl<'a> NetworkTask<'a> {
                     }
                 }
 
+                // if requested, close socket
                 if data.send_buffer.is_empty() && data.write_eof {
                     // needs test: Is smoltcp smart enough to send out its own send buffer first?
                     sock.close();
@@ -216,6 +218,7 @@ impl<'a> NetworkTask<'a> {
                     continue;
                 }
 
+                // if socket is closed, mark connection for removal
                 if sock.state() == TcpState::Closed {
                     remove_conns.push(*connection_id);
                 }
@@ -229,7 +232,7 @@ impl<'a> NetworkTask<'a> {
 
         // TODO: process remaining pending data after the shutdown request was received?
 
-        log::info!("Virtual Network device shutting down.");
+        log::debug!("Virtual Network device task shutting down.");
         Ok(())
     }
 
@@ -238,7 +241,10 @@ impl<'a> NetworkTask<'a> {
             IpProtocol::Tcp => self.receive_packet_tcp(packet).await,
             IpProtocol::Udp => self.receive_packet_udp(packet).await,
             _ => {
-                log::debug!("Unhandled protocol: {}", packet.transport_protocol());
+                log::debug!(
+                    "Received IP packet for unknown protocol: {}",
+                    packet.transport_protocol()
+                );
                 Ok(())
             },
         }
@@ -251,10 +257,11 @@ impl<'a> NetworkTask<'a> {
         let mut udp_packet = match UdpPacket::new_checked(packet.payload_mut()) {
             Ok(p) => p,
             Err(e) => {
-                log::debug!("Invalid UDP packet: {}", e);
+                log::debug!("Received invalid UDP packet: {}", e);
                 return Ok(());
             },
         };
+
         let src_addr = SocketAddr::new(src_ip, udp_packet.src_port());
         let dst_addr = SocketAddr::new(dst_ip, udp_packet.dst_port());
 
@@ -275,7 +282,7 @@ impl<'a> NetworkTask<'a> {
         let tcp_packet = match TcpPacket::new_checked(packet.payload_mut()) {
             Ok(p) => p,
             Err(e) => {
-                log::debug!("Invalid TCP packet: {}", e);
+                log::debug!("Received invalid TCP packet: {}", e);
                 return Ok(());
             },
         };
@@ -283,17 +290,16 @@ impl<'a> NetworkTask<'a> {
         let src_addr = SocketAddr::new(src_ip, tcp_packet.src_port());
         let dst_addr = SocketAddr::new(dst_ip, tcp_packet.dst_port());
 
-        let syn = tcp_packet.syn();
-        let _fin = tcp_packet.fin();
-
-        if syn {
+        if tcp_packet.syn() {
             let mut socket = TcpSocket::new(
                 TcpSocketBuffer::new(vec![0u8; 64 * 1024]),
                 TcpSocketBuffer::new(vec![0u8; 64 * 1024]),
             );
+
             socket.listen(dst_addr)?;
             socket.set_timeout(Some(Duration::from_secs(60)));
             socket.set_keep_alive(Some(Duration::from_secs(28)));
+
             let handle = self.iface.add_socket(socket);
 
             let connection_id = self.next_connection_id;
@@ -308,17 +314,15 @@ impl<'a> NetworkTask<'a> {
             };
             self.socket_data.insert(connection_id, data);
 
-            self.py_tx
-                .send(TransportEvent::ConnectionEstablished {
-                    connection_id,
-                    src_addr,
-                    dst_addr,
-                })
-                .await?;
+            let event = TransportEvent::ConnectionEstablished {
+                connection_id,
+                src_addr,
+                dst_addr,
+            };
+            self.py_tx.send(event).await?;
         }
 
         self.iface.device_mut().receive_packet(packet);
-
         Ok(())
     }
 
@@ -396,7 +400,7 @@ impl<'a> NetworkTask<'a> {
                 hop_limit: 255,
             }),
             _ => {
-                log::error!("A datagram's src_addr and dst_addr must agree on IP version.");
+                log::error!("Failed to assemble UDP datagram: mismatched IP address versions");
                 return;
             },
         };

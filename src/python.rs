@@ -162,6 +162,7 @@ pub struct PyInteropTask {
 }
 
 impl PyInteropTask {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         local_addr: SocketAddr,
         py_loop: PyObject,
@@ -188,9 +189,11 @@ impl PyInteropTask {
         let mut stop = false;
         while !stop {
             tokio::select!(
+                // wait for graceful shutdown
                 _ = self.sd_trigger.notified() => {
                     stop = true;
                 },
+                // wait for network events
                 event = self.smol_to_py_rx.recv() => {
                     if let Some(event) = event {
                         match event {
@@ -257,7 +260,7 @@ impl PyInteropTask {
             );
         }
 
-        log::info!("Python interoperability task shutting down.");
+        log::debug!("Python interoperability task shutting down.");
         Ok(())
     }
 }
