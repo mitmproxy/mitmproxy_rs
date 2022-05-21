@@ -56,6 +56,7 @@ async def main():
     [Interface]
     PrivateKey = {client_keypair[0]}
     Address = 10.0.0.1/32
+    MTU = 1420
     
     [Peer]
     PublicKey = {server_keypair[1]}
