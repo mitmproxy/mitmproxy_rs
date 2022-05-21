@@ -42,6 +42,8 @@ struct WireguardServer {
     sd_trigger: Arc<Notify>,
     /// barrier for getting notified of successful server shutdown
     sd_handler: Arc<Notify>,
+    /// flag to indicate whether server shutdown is in progress
+    closing: bool,
 }
 
 #[pymethods]
@@ -64,11 +66,16 @@ impl WireguardServer {
     ///
     /// The server will stop accepting new connections on its UDP socket, but will flush pending
     /// outgoing data before shutting down.
-    fn close(&self) {
-        // notify tasks to shut down
-        self.sd_trigger.notify_waiters();
-        // notify waiters of server shutdown
-        self.sd_handler.notify_one();
+    fn close(&mut self) {
+        if !self.closing {
+            self.closing = true;
+            log::info!("Shutting down.");
+
+            // notify tasks to shut down
+            self.sd_trigger.notify_waiters();
+            // notify waiters of server shutdown
+            self.sd_handler.notify_one();
+        }
     }
 
     /// Wait until the WireGuard server has shut down.
@@ -194,7 +201,14 @@ impl WireguardServer {
             local_addr,
             sd_trigger,
             sd_handler,
+            closing: false,
         })
+    }
+}
+
+impl Drop for WireguardServer {
+    fn drop(&mut self) {
+        self.close()
     }
 }
 

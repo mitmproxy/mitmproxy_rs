@@ -44,7 +44,6 @@ impl ShutdownTask {
             log::error!("Virtual network stack task failed: {}", error);
         }
 
-        log::info!("Shutting down.");
         self.sd_handler.notify_one();
     }
 }
