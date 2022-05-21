@@ -96,8 +96,7 @@ impl<'a> NetworkTask<'a> {
     pub async fn run(mut self) -> Result<()> {
         let mut remove_conns = Vec::new();
 
-        let mut stop = false;
-        while !stop {
+        loop {
             // On a high level, we do three things in our main loop:
             // 1. Wait for an event from either side and handle it, or wait until the next smoltcp timeout.
             // 2. `.poll()` the smoltcp interface until it's finished with everything for now.
@@ -105,15 +104,10 @@ impl<'a> NetworkTask<'a> {
 
             let delay = self.iface.poll_delay(Instant::now());
 
-            match delay {
-                Some(d) => log::debug!("{:?}: poll in {}", self, d),
-                None => log::debug!("{:?}: idle", self),
-            }
-
             tokio::select! {
                 // wait for graceful shutdown
                 _ = self.sd_trigger.notified() => {
-                    stop = true;
+                    break;
                 },
                 // wait for timeouts when the device is idle
                 _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
@@ -129,7 +123,7 @@ impl<'a> NetworkTask<'a> {
                 Some(e) = self.py_rx.recv() => {
                     match e {
                         TransportCommand::ReadData(id, n, tx) => {
-                            self.read_data(id,n,tx);
+                            self.read_data(id, n, tx);
                         },
                         TransportCommand::WriteData(id, buf) => {
                             self.write_data(id, buf);
