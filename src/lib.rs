@@ -1,10 +1,9 @@
 use std::net::SocketAddr;
-use std::str::FromStr;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 
-use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
+use boringtun::crypto::X25519SecretKey;
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -14,12 +13,14 @@ use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{self, channel, unbounded_channel};
 use tokio::sync::Notify;
 
+mod conf;
 mod messages;
 mod network;
 mod python;
 mod shutdown;
 mod wireguard;
 
+use conf::WireguardConf;
 use messages::TransportCommand;
 use network::NetworkTask;
 use python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask, TcpStream};
@@ -105,24 +106,11 @@ impl WireguardServer {
     /// Set up and initialize a new WireGuard server.
     pub async fn init(
         host: String,
-        port: u16,
-        private_key: String,
-        peer_public_keys: Vec<(String, Option<[u8; 32]>)>,
+        conf: WireguardConf,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
     ) -> Result<WireguardServer> {
         log::debug!("Initializing WireGuard server ...");
-
-        let private_key: Arc<X25519SecretKey> = Arc::new(private_key.parse().map_err(|error: &str| anyhow!(error))?);
-
-        // configure WireGuard peers
-        let peers = peer_public_keys
-            .into_iter()
-            .map(|(peer_public_key, preshared_key)| {
-                let key = Arc::new(X25519PublicKey::from_str(&peer_public_key).map_err(|error: &str| anyhow!(error))?);
-                Ok((key, preshared_key))
-            })
-            .collect::<Result<Vec<(Arc<X25519PublicKey>, Option<[u8; 32]>)>>>()?;
 
         // initialize channels between the WireGuard server and the virtual network device
         let (wg_to_smol_tx, wg_to_smol_rx) = channel(16);
@@ -138,7 +126,7 @@ impl WireguardServer {
         let event_tx = py_to_smol_tx.clone();
 
         // bind to UDP socket
-        let socket_addr = SocketAddr::new(host.parse()?, port);
+        let socket_addr = SocketAddr::new(host.parse()?, conf.interface.listen_port);
         let socket = UdpSocket::bind(socket_addr).await?;
         let local_addr = socket.local_addr()?;
 
@@ -149,10 +137,14 @@ impl WireguardServer {
         let sd_handler = Arc::new(Notify::new());
 
         // initialize WireGuard server
-        let mut wg_task_builder =
-            WireGuardTaskBuilder::new(private_key, wg_to_smol_tx, smol_to_wg_rx, sd_trigger.clone());
-        for (peer_public_key, preshared_key) in peers {
-            wg_task_builder.add_peer(peer_public_key, preshared_key)?;
+        let mut wg_task_builder = WireGuardTaskBuilder::new(
+            conf.interface.private_key,
+            wg_to_smol_tx,
+            smol_to_wg_rx,
+            sd_trigger.clone(),
+        );
+        for peer in conf.peers {
+            wg_task_builder.add_peer(peer.public_key, peer.preshared_key)?;
         }
         let wg_task = wg_task_builder.build()?;
 
@@ -215,14 +207,7 @@ impl Drop for WireguardServer {
 /// Start a WireGuard server that is configured with the given parameters:
 ///
 /// - `host`: The host address for the WireGuard UDP socket.
-/// - `port`: The port number for the WireGuard UDP socket. The default port for WireGuard servers
-///   is `51820`.
-/// - `private_key`: The base64-encoded private key for the WireGuard server. This can be a fixed
-///   value, or randomly generated each time by calling the `genkey` function.
-/// - `peer_public_keys`: Public keys and preshared keys of the WireGuard peers that will be
-///   configured. The argument is expected to be a list of tuples, where the first tuple element
-///   must the the base64-encoded public key of the peer, and the second tuple element must either
-///   be the preshared key (a `bytes` object with length 32), or `None`.
+/// - `conf`: The WireGuard server configuration.
 /// - `handle_connection`: A coroutine that will be called for each new `TcpStream`.
 /// - `receive_datagram`: A function that will be called for each received UDP datagram.
 ///
@@ -235,22 +220,12 @@ impl Drop for WireguardServer {
 fn start_server(
     py: Python<'_>,
     host: String,
-    port: u16,
-    private_key: String,
-    peer_public_keys: Vec<(String, Option<[u8; 32]>)>,
+    conf: WireguardConf,
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        let server = WireguardServer::init(
-            host,
-            port,
-            private_key,
-            peer_public_keys,
-            handle_connection,
-            receive_datagram,
-        )
-        .await?;
+        let server = WireguardServer::init(host, conf, handle_connection, receive_datagram).await?;
         Ok(server)
     })
 }
@@ -296,5 +271,6 @@ fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pubkey, m)?)?;
     m.add_class::<WireguardServer>()?;
     m.add_class::<TcpStream>()?;
+    m.add_class::<WireguardConf>()?;
     Ok(())
 }

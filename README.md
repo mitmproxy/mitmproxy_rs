@@ -17,6 +17,7 @@ Transparently proxy any device that can be configured as a WireGuard client!
 * basic TCP/IPv4 functionality, IPv6 only partially supported
 * basic UDP functionality
 * Python interface similar to the one provided by `asyncio.start_server`
+* basic support for reading WireGuard configuration files
 
 ## TODO
 
