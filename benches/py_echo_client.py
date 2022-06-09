@@ -7,22 +7,26 @@ import time
 import timeit
 
 
-async def main():
+def gen_data() -> list[bytes]:
+    data = []
+    for i in range(10000):
+        packet = f"{i:04d}".encode() * 256
+        data.append(packet)
+    return data
+
+
+async def main(bytes_out: list[bytes]):
     r, w = await asyncio.open_connection("0.0.0.0", 51820)
 
-    bytes_out = []
     bytes_back = []
 
     # send and receive 10000 packets of 1 KiB each
-    for i in range(10000):
-        data = f"{i:04d}".encode() * 256
-
-        w.write(data)
-        bytes_out.extend(data)
+    for packet in bytes_out:
+        w.write(packet)
         await w.drain()
 
         read = await r.read(4096)
-        bytes_back.extend(read)
+        bytes_back.append(read)
 
     w.close()
     await w.wait_closed()
@@ -31,10 +35,14 @@ async def main():
         assert bytes_out == bytes_back
 
     except AssertionError:
-        print(f"Bytes Sent: {len(bytes_out)}")
-        print(f"Bytes Received: {len(bytes_back)}")
-        print(f"Difference: {len(bytes_out) - len(bytes_back)}")
+        bytes_sent = sum(map(len, bytes_out))
+        bytes_received = sum(map(len, bytes_back))
+
+        print(f"Bytes Sent: {bytes_sent}")
+        print(f"Bytes Received: {bytes_received}")
+        print(f"Difference: {bytes_sent - bytes_received}")
 
 
 if __name__ == "__main__":
-    print(timeit.timeit(lambda: asyncio.run(main(), debug=True), number=10))
+    bytes_out = gen_data()
+    print(timeit.timeit(lambda: asyncio.run(main(bytes_out), debug=True), number=10))
