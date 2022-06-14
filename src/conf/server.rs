@@ -9,7 +9,7 @@ use ini::{Ini, Properties, SectionEntry};
 use pyo3::exceptions::PyIOError;
 use pyo3::prelude::*;
 
-use super::client::{WireguardClientConf, ClientPeer, PeerInterface};
+use super::client::{ClientPeer, PeerInterface, WireguardClientConf};
 use super::error::WireguardConfError;
 
 /// WireGuard server configuration.
@@ -72,9 +72,7 @@ impl WireguardServerConf {
             // configuration file already exists: attempt to parse
             Ok(contents) => Ok(WireguardServerConf::from_str(&contents).map_err(|error| error.into_py(py))?),
             // configuration file does not exist yet: generate new ones
-            Err(error) if error.kind() == ErrorKind::NotFound => {
-                Self::generate(py, name, peers)
-            },
+            Err(error) if error.kind() == ErrorKind::NotFound => Self::generate(py, name, peers),
             // configuration file could not be read
             Err(error) => Err(PyIOError::new_err(error.to_string())),
         }
@@ -247,7 +245,10 @@ impl FromStr for WireguardServerConf {
                         return Err(WireguardConfError::missing_keys("Interface", vec!["PrivateKey"]));
                     },
                     (None, None) => {
-                        return Err(WireguardConfError::missing_keys("Interface", vec!["PrivateKey", "ListenPort"]));
+                        return Err(WireguardConfError::missing_keys(
+                            "Interface",
+                            vec!["PrivateKey", "ListenPort"],
+                        ));
                     },
                 }
             },
@@ -309,7 +310,9 @@ impl FromStr for WireguardServerConf {
     }
 }
 
-pub fn generate_default_configs(peer_number: usize) -> Result<(WireguardServerConf, Vec<WireguardClientConf>), WireguardConfError> {
+pub fn generate_default_configs(
+    peer_number: usize,
+) -> Result<(WireguardServerConf, Vec<WireguardClientConf>), WireguardConfError> {
     if peer_number == 0 {
         return Err(WireguardConfError::NoPeers);
     }

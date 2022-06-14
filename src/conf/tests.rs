@@ -76,7 +76,10 @@ PresharedKey = sN7qr4ejf5jdc+Z25FFmEiVrGwyPM0d1FaSca/JaIHQ=
 fn invalid_empty() {
     let string = "";
 
-    assert!(matches!(WireguardServerConf::from_str(string), Err(WireguardConfError::NoInterface)));
+    assert!(matches!(
+        WireguardServerConf::from_str(string),
+        Err(WireguardConfError::NoInterface)
+    ));
 }
 
 #[test]
@@ -86,7 +89,10 @@ fn invalid_missing_interface() {
 PublicKey = xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg=
 ";
 
-    assert!(matches!(WireguardServerConf::from_str(string), Err(WireguardConfError::NoInterface)));
+    assert!(matches!(
+        WireguardServerConf::from_str(string),
+        Err(WireguardConfError::NoInterface)
+    ));
 }
 
 #[test]
@@ -115,7 +121,10 @@ PrivateKey = yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk=
 ListenPort = 51820
 ";
 
-    assert!(matches!(WireguardServerConf::from_str(string), Err(WireguardConfError::NoPeers)));
+    assert!(matches!(
+        WireguardServerConf::from_str(string),
+        Err(WireguardConfError::NoPeers)
+    ));
 }
 
 #[test]

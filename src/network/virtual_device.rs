@@ -57,7 +57,7 @@ impl<'a> Device<'a> for VirtualDevice {
     fn capabilities(&self) -> DeviceCapabilities {
         let mut capabilities = DeviceCapabilities::default();
         capabilities.medium = Medium::Ip;
-        capabilities.max_transmission_unit = 1500;
+        capabilities.max_transmission_unit = 1420;
         capabilities
     }
 }

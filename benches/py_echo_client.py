@@ -7,12 +7,15 @@ import time
 import timeit
 
 
-def gen_data() -> list[bytes]:
-    data = []
+# generate 10000 unique test packets with the given length
+def gen_data(psize: int) -> list[bytes]:
+    packets = []
+
     for i in range(10000):
-        packet = f"{i:04d}".encode() * 256
-        data.append(packet)
-    return data
+        packet = (f"{i:04d}".encode() * (psize // 4 + 1))[:psize]
+        packets.append(packet)
+
+    return packets
 
 
 async def main(bytes_out: list[bytes]):
@@ -44,5 +47,10 @@ async def main(bytes_out: list[bytes]):
 
 
 if __name__ == "__main__":
-    bytes_out = gen_data()
-    print(timeit.timeit(lambda: asyncio.run(main(bytes_out), debug=True), number=10))
+    sizes = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000]
+
+    for size in sizes:
+        data = gen_data(size)
+        timer = timeit.Timer(lambda: asyncio.run(main(data), debug=True))
+        print(f"Packet size: {size} bytes")
+        print(timer.repeat(10, number=1))
