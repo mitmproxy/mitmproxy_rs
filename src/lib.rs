@@ -1,11 +1,11 @@
+#![warn(missing_debug_implementations)]
+#![allow(clippy::borrow_deref_ref)]
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Result;
 
-use boringtun::crypto::X25519SecretKey;
-
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
@@ -20,7 +20,7 @@ mod python;
 mod shutdown;
 mod wireguard;
 
-use conf::WireguardConf;
+use conf::WireguardServerConf;
 use messages::TransportCommand;
 use network::NetworkTask;
 use python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask, TcpStream};
@@ -52,6 +52,7 @@ impl WireguardServer {
     /// Send an individual UDP datagram using the specified source and destination addresses.
     ///
     /// The `src_addr` and `dst_addr` arguments are expected to be `(host: str, port: int)` tuples.
+    // ignore false positive clippy warning
     fn send_datagram(&self, data: Vec<u8>, src_addr: &PyTuple, dst_addr: &PyTuple) -> PyResult<()> {
         let cmd = TransportCommand::SendDatagram {
             data,
@@ -106,7 +107,7 @@ impl WireguardServer {
     /// Set up and initialize a new WireGuard server.
     pub async fn init(
         host: String,
-        conf: WireguardConf,
+        conf: WireguardServerConf,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
     ) -> Result<WireguardServer> {
@@ -220,7 +221,7 @@ impl Drop for WireguardServer {
 fn start_server(
     py: Python<'_>,
     host: String,
-    conf: WireguardConf,
+    conf: WireguardServerConf,
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
@@ -228,29 +229,6 @@ fn start_server(
         let server = WireguardServer::init(host, conf, handle_connection, receive_datagram).await?;
         Ok(server)
     })
-}
-
-/// Generate a private X25519 key for a WireGuard server or client.
-///
-/// The return value is the base64-encoded value of the new private key.
-#[pyfunction]
-fn genkey() -> String {
-    base64::encode(X25519SecretKey::new().as_bytes())
-}
-
-/// Calculate the public X25519 key for the given private X25519 key.
-///
-/// The argument is expected to be the base64-encoded private key, and the return value is a
-/// base64-encoded public key.
-///
-/// This function raises a `ValueError` if the private key is not a valid base64-encoded X25519
-/// private key.
-#[pyfunction]
-fn pubkey(private_key: String) -> PyResult<String> {
-    let private_key: X25519SecretKey = private_key
-        .parse()
-        .map_err(|_| PyValueError::new_err("Invalid private key."))?;
-    Ok(base64::encode(private_key.public_key().as_bytes()))
 }
 
 /// This package contains a cross-platform, user-space WireGuard server implementation in Rust,
@@ -267,10 +245,8 @@ fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     console_subscriber::init();
 
     m.add_function(wrap_pyfunction!(start_server, m)?)?;
-    m.add_function(wrap_pyfunction!(genkey, m)?)?;
-    m.add_function(wrap_pyfunction!(pubkey, m)?)?;
     m.add_class::<WireguardServer>()?;
     m.add_class::<TcpStream>()?;
-    m.add_class::<WireguardConf>()?;
+    m.add_class::<WireguardServerConf>()?;
     Ok(())
 }

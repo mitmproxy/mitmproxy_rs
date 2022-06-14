@@ -26,6 +26,7 @@ pub fn connection_closed(_: RecvError) -> PyErr {
 /// [`asyncio.StreamReader` and `asyncio.StreamWriter`](https://docs.python.org/3/library/asyncio-stream.html)
 /// from the Python standard library.
 #[pyclass]
+#[derive(Debug)]
 pub struct TcpStream {
     connection_id: ConnectionId,
     event_tx: mpsc::UnboundedSender<TransportCommand>,
