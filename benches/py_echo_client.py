@@ -1,14 +1,10 @@
 import asyncio
-import logging
+import json
 import pprint
-import signal
-import sys
-import textwrap
-import time
 import timeit
 
 
-# generate 10000 unique test packets with the given length
+# generate unique test packets with the given length
 def gen_data(pnum: int, psize: int) -> list[bytes]:
     packets = []
 
@@ -19,13 +15,12 @@ def gen_data(pnum: int, psize: int) -> list[bytes]:
     return packets
 
 
-async def work(bytes_out: list[bytes]):
+async def work(packets: list[bytes]):
     r, w = await asyncio.open_connection("0.0.0.0", 51820)
 
     bytes_back = []
 
-    # send and receive 10000 packets of 1 KiB each
-    for packet in bytes_out:
+    for packet in packets:
         w.write(packet)
         await w.drain()
 
@@ -43,13 +38,13 @@ async def work(bytes_out: list[bytes]):
     await w.wait_closed()
 
     try:
-        assert bytes_out == bytes_back
+        assert packets == bytes_back
 
     except AssertionError:
-        bytes_sent = sum(map(len, bytes_out))
+        bytes_sent = sum(map(len, packets))
         bytes_received = sum(map(len, bytes_back))
 
-        pprint.pprint(bytes_out)
+        pprint.pprint(packets)
         pprint.pprint(bytes_back)
 
         print(f"Bytes Sent: {bytes_sent}")
@@ -59,15 +54,35 @@ async def work(bytes_out: list[bytes]):
         raise
 
 
-if __name__ == "__main__":
-    numbs = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]
-    sizes = [10, 20, 50, 100, 200, 500, 1000, 2000, 4096]
+def main():
+    reps = 10
+    numbs = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000]
+    sizes = [1000]
+
+    x = list()
+    ys = dict()
 
     for numb in numbs:
-        for size in sizes:
+        x.extend([numb] * reps)
+
+    for size in sizes:
+        ys[size] = list()
+
+        for numb in numbs:
             data = gen_data(numb, size)
             timer = timeit.Timer(lambda: asyncio.run(work(data), debug=True))
+
             print(f"Packet number: {numb}")
             print(f"Packet size: {size} bytes")
-            print(timer.repeat(10, number=1))
+
+            times = timer.repeat(reps, number=1)
+            ys[size].extend(times)
+
             print()
+
+    with open("py_data.json", "w") as file:
+        json.dump(dict(x=x, ys=ys, sizes=sizes), file, indent=4)
+
+
+if __name__ == "__main__":
+    main()
