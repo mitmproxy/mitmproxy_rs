@@ -20,7 +20,7 @@ def plot_time(data, name, title):
     for i, size in enumerate(sizes):
         d, k = Poly.fit(x, ys[str(size)], 1).convert().coef
 
-        xhat = np.logspace(1, 5)
+        xhat = np.logspace(3, 5)
         yhat = xhat * k + d
 
         ax.plot(x, ys[str(size)], "o", color=COLORS[i], alpha=0.3, label="Measured runtime")
@@ -49,13 +49,13 @@ def plot_throughput(data, name, title):
         d, k = Poly.fit(x, y, 1).convert().coef
         pps = x / y
 
-        xhat = np.logspace(1, 5)
+        xhat = np.logspace(3, 5)
         yhat = xhat / (xhat * k + d)
 
         ax.plot(x, pps, "o", color=COLORS[i], alpha=0.3, label="Measured throughput")
         ax.plot(xhat, yhat, "-", color=COLORS[i], label="Linear model")
         ax.hlines(
-            xmin=1e1,
+            xmin=1e3,
             xmax=1e5,
             y=1 / k,
             linestyles="dashed",
@@ -76,7 +76,7 @@ def plot_throughput(data, name, title):
     fig.savefig(name, dpi=fig.dpi * 2)
 
 
-def plot2_time(py_data, wg_data):
+def plot2_time(py_data, wg_data, suffix):
     py_x = py_data["x"]
     py_ys = py_data["ys"]
     py_sizes = py_data["sizes"]
@@ -92,7 +92,7 @@ def plot2_time(py_data, wg_data):
         py_d, py_k = Poly.fit(py_x, py_ys[str(size)], 1).convert().coef
         wg_d, wg_k = Poly.fit(wg_x, wg_ys[str(size)], 1).convert().coef
 
-        xhat = np.logspace(1, 5)
+        xhat = np.logspace(3, 5)
         py_yhat = xhat * py_k + py_d
         wg_yhat = xhat * wg_k + wg_d
 
@@ -111,10 +111,10 @@ def plot2_time(py_data, wg_data):
     ax.set_yscale("log")
     ax.legend()
 
-    fig.savefig("comp_data.png", dpi=fig.dpi * 2)
+    fig.savefig(f"comp_data_{suffix}.png", dpi=fig.dpi * 2)
 
 
-def plot2_throughput(py_data, wg_data):
+def plot2_throughput(py_data, wg_data, suffix):
     py_x = py_data["x"]
     py_ys = py_data["ys"]
     py_sizes = py_data["sizes"]
@@ -136,18 +136,18 @@ def plot2_throughput(py_data, wg_data):
         py_pps = py_x / py_y
         wg_pps = wg_x / wg_y
 
-        xhat = np.logspace(1, 5)
+        xhat = np.logspace(3, 5)
         py_yhat = xhat / (xhat * py_k + py_d)
         wg_yhat = xhat / (xhat * wg_k + wg_d)
 
         ax.plot(py_x, py_pps, "o", color=COLORS[i], alpha=0.3, label="Python asyncio")
         ax.plot(xhat, py_yhat, color=COLORS[i])
-        ax.hlines(xmin=1e1, xmax=1e5, y=1 / py_k, linestyles="dashed", color=COLORS[i], alpha=0.3, linewidth=2)
+        ax.hlines(xmin=1e3, xmax=1e5, y=1 / py_k, linestyles="dashed", color=COLORS[i], alpha=0.3, linewidth=2)
 
         ax.plot(wg_x, wg_pps, "o", color=COLORS[len(COLORS) - i - 1], alpha=0.3, label="mitmproxy_wireguard")
         ax.plot(xhat, wg_yhat, color=COLORS[len(COLORS) - i - 1])
         ax.hlines(
-            xmin=1e1,
+            xmin=1e3,
             xmax=1e5,
             y=1 / wg_k,
             linestyles="dashed",
@@ -164,24 +164,26 @@ def plot2_throughput(py_data, wg_data):
     ax.set_xscale("log")
     ax.legend()
 
-    fig.savefig("comp_tp.png", dpi=fig.dpi * 2)
+    fig.savefig(f"comp_tp_{suffix}.png", dpi=fig.dpi * 2)
 
 
 def main():
-    with open("py_data.json") as file:
-        py_data = json.load(file)
+    for suffix in ["local", "nonlocal"]:
 
-    with open("wg_data.json") as file:
-        wg_data = json.load(file)
+        with open(f"py_data_{suffix}.json") as file:
+            py_data = json.load(file)
 
-    plot_time(py_data, "py_data.png", "Python asyncio")
-    plot_time(wg_data, "wg_data.png", "mitmproxy_wireguard")
+        with open(f"wg_data_{suffix}.json") as file:
+            wg_data = json.load(file)
 
-    plot_throughput(py_data, "py_tp.png", "Python asyncio")
-    plot_throughput(wg_data, "wg_tp.png", "mitmproxy_wireguard")
+        plot_time(py_data, f"py_data_{suffix}.png", "Python asyncio")
+        plot_time(wg_data, f"wg_data_{suffix}.png", "mitmproxy_wireguard")
 
-    plot2_time(py_data, wg_data)
-    plot2_throughput(py_data, wg_data)
+        plot_throughput(py_data, f"py_tp_{suffix}.png", "Python asyncio")
+        plot_throughput(wg_data, f"wg_tp_{suffix}.png", "mitmproxy_wireguard")
+
+        plot2_time(py_data, wg_data, suffix)
+        plot2_throughput(py_data, wg_data, suffix)
 
 
 if __name__ == "__main__":

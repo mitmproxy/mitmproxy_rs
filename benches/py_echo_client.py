@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import json
 import pprint
@@ -10,13 +11,14 @@ def gen_data(pnum: int, psize: int) -> list[bytes]:
 
     for i in range(pnum):
         packet = (f"{i:04d}".encode() * (psize // 4 + 1))[:psize]
+        assert len(packet) == psize
         packets.append(packet)
 
     return packets
 
 
-async def work(packets: list[bytes]):
-    r, w = await asyncio.open_connection("0.0.0.0", 51820)
+async def work(host: str, port: int, packets: list[bytes]):
+    r, w = await asyncio.open_connection(host, port)
 
     bytes_back = []
 
@@ -55,8 +57,19 @@ async def work(packets: list[bytes]):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("name", choices=["local", "nonlocal"])
+    parser.add_argument("host", default="0.0.0.0")
+    parser.add_argument("port", default=51820)
+    args = parser.parse_args()
+
+    #host = "192.168.86.134"
+    name = args.name
+    host = args.host
+    port = args.port
+
     reps = 10
-    numbs = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000]
+    numbs = [1000, 2000, 5000, 10000, 20000, 50000, 100000]
     sizes = [1000]
 
     x = list()
@@ -70,7 +83,7 @@ def main():
 
         for numb in numbs:
             data = gen_data(numb, size)
-            timer = timeit.Timer(lambda: asyncio.run(work(data), debug=True))
+            timer = timeit.Timer(lambda: asyncio.run(work(host, port, data), debug=True))
 
             print(f"Packet number: {numb}")
             print(f"Packet size: {size} bytes")
@@ -80,7 +93,7 @@ def main():
 
             print()
 
-    with open("py_data.json", "w") as file:
+    with open(f"py_data_{name}.json", "w") as file:
         json.dump(dict(x=x, ys=ys, sizes=sizes), file, indent=4)
 
 
