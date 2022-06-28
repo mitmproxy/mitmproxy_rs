@@ -31,7 +31,7 @@ console-subscriber = "0.1.4"
 ini = { version = "0.18.0", package = "rust-ini" }
 log = "0.4.16"
 pretty-hex = "0.3.0"
-pyo3 = { version = "0.16.4", features = ["extension-module", "anyhow"] }
+pyo3 = { version = "0.16.4", features = ["abi3", "abi3-py37", "extension-module", "anyhow"] }
 pyo3-asyncio = { version = "0.16", features = ["tokio-runtime"] }
 pyo3-log = "0.6.0"
 smoltcp = "0.8"
