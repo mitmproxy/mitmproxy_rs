@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin>=0.12.15,<0.13"]
+requires = ["maturin>=0.13,<0.14"]
 build-backend = "maturin"
 
 [project]
@@ -9,6 +9,11 @@ classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
 ]
 
 [tool.black]

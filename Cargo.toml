@@ -13,6 +13,7 @@ authors = [
     "Maximilian Hils <cargo@maximilianhils.com>",
 ]
 exclude = [
+    "/benches/",
     "/venv/",
     "/architecture.png",
     "/echo_test_server.py",
