@@ -1,5 +1,11 @@
 # mitmproxy_wireguard
 
+![PyPI](https://img.shields.io/pypi/v/mitmproxy_wireguard)
+![PyPI - License](https://img.shields.io/pypi/l/mitmproxy_wireguard)
+![PyPI - Status](https://img.shields.io/pypi/status/mitmproxy_wireguard)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mitmproxy_wireguard)
+![PyPI - Wheel](https://img.shields.io/pypi/wheel/mitmproxy_wireguard)
+
 Transparently proxy any device that can be configured as a WireGuard client!
 
 *Work-In-Progress.*
