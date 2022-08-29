@@ -117,5 +117,5 @@ The format for Python code (i.e. the test echo server and the type stubs in
 `mitmproxy_wireguard.pyi`) is enforced with `black` and can be applied with:
 
 ```shell
-black echo_test_server.py mitmproxy_wireguard.pyi
+black echo_test_server.py mitmproxy_wireguard.pyi benches/*.py
 ```

@@ -261,20 +261,23 @@ PresharedKey = HELLOWORLD
 
 #[test]
 fn generate_no_peers() {
-    assert!(matches!(generate_default_configs(0), Err(WireGuardConfError::NoPeers)));
+    assert!(matches!(
+        generate_default_configs(51820, 0),
+        Err(WireGuardConfError::NoPeers)
+    ));
 }
 
 #[test]
 fn generate_with_peers() {
     // none of these should fail
     for i in 1..=10 {
-        generate_default_configs(i).unwrap();
+        generate_default_configs(51820, i).unwrap();
     }
 }
 
 #[test]
 fn generate_and_read_one_peer() {
-    let (server_conf, _peer_confs) = generate_default_configs(1).unwrap();
+    let (server_conf, _peer_confs) = generate_default_configs(51820, 1).unwrap();
 
     let string = server_conf.to_string();
     let parsed = WireGuardServerConf::from_str(&string).unwrap();
@@ -284,7 +287,7 @@ fn generate_and_read_one_peer() {
 
 #[test]
 fn generate_and_read_two_peers() {
-    let (server_conf, _peer_confs) = generate_default_configs(2).unwrap();
+    let (server_conf, _peer_confs) = generate_default_configs(51820, 2).unwrap();
 
     let string = server_conf.to_string();
     let parsed = WireGuardServerConf::from_str(&string).unwrap();

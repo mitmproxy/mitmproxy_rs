@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 use std::fs::read_to_string;
-use std::io::{Cursor, ErrorKind};
+use std::io::Cursor;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -8,6 +8,7 @@ use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
 use ini::{Ini, Properties, SectionEntry};
 use pyo3::exceptions::PyIOError;
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 
 use super::client::{ClientPeer, PeerInterface, WireGuardClientConf};
 use super::error::WireGuardConfError;
@@ -52,7 +53,7 @@ pub struct ServerPeer {
 }
 
 impl ServerPeer {
-    pub fn from_private_key(private_key: &X25519SecretKey) -> Self {
+    fn from_private_key(private_key: &X25519SecretKey) -> Self {
         ServerPeer {
             public_key: Arc::new(private_key.public_key()),
             preshared_key: None,
@@ -62,73 +63,67 @@ impl ServerPeer {
 
 #[pymethods]
 impl WireGuardServerConf {
-    /// Initialize WireGuard configuration
+    /// Initialize a new WireGuard configuration
     ///
-    /// This method will attempt to read WireGuard configuration files that have already been
-    /// written to disk, and will fall back to generating new configuration files.
+    /// Default settings can be overriden by using keyword arguments:
+    ///
+    /// - `name`: file name prefix for the configuration files that are written to disk (default:
+    ///   `mitmproxy_wireguard`)
+    /// - `listen_port`: port on which the WireGuard server will listen for incoming connections
+    /// - `peers`: number of peers which will be configured (default: 1)
+    #[new]
+    #[args(kwargs = "**")]
+    pub fn new(py: Python<'_>, kwargs: Option<&PyDict>) -> PyResult<Self> {
+        let default_name = String::from("mitmproxy_wireguard");
+        let default_port = 51820u16;
+        let default_peers = 1usize;
+
+        if let Some(kwargs) = kwargs {
+            let name: String = match kwargs.get_item("name") {
+                Some(name) => name.extract()?,
+                None => default_name,
+            };
+
+            let port: u16 = match kwargs.get_item("listen_port") {
+                Some(port) => port.extract()?,
+                None => default_port,
+            };
+
+            let peers: usize = match kwargs.get_item("peers") {
+                Some(peers) => peers.extract()?,
+                None => default_peers,
+            };
+
+            Self::generate(name, port, peers).map_err(|error| error.into_py(py))
+        } else {
+            Self::generate(default_name, default_port, default_peers).map_err(|error| error.into_py(py))
+        }
+    }
+
+    /// Read an existing WireGuard server configuration from disk.
     #[staticmethod]
-    pub fn default(py: Python<'_>, name: String, peers: usize) -> PyResult<Self> {
+    pub fn load(py: Python<'_>, name: String) -> PyResult<Self> {
         match read_to_string(server_conf_path(&name)) {
             // configuration file already exists: attempt to parse
             Ok(contents) => Ok(WireGuardServerConf::from_str(&contents).map_err(|error| error.into_py(py))?),
-            // configuration file does not exist yet: generate new ones
-            Err(error) if error.kind() == ErrorKind::NotFound => Self::generate(py, name, peers),
             // configuration file could not be read
             Err(error) => Err(PyIOError::new_err(error.to_string())),
         }
     }
 
-    /// Generate new WireGuard configurations with default settings.
-    ///
-    /// - listen on default port 51820 for incoming WireGuard connections
-    /// - generate random keypairs for server and the specified number of clients
-    /// - writes files to disk as `$name.conf`, `$name_peer1.conf`, `$name_peer2.conf`, etc.
+    /// Create a custom WireGuard server configuration (mostly useful for testing).
     #[staticmethod]
-    pub fn generate(py: Python<'_>, name: String, peers: usize) -> PyResult<Self> {
-        let (server_conf, peer_confs) = generate_default_configs(peers).map_err(|error| error.into_py(py))?;
-
-        std::fs::write(server_conf_path(&name), server_conf.to_string())
-            .map_err(|error| PyIOError::new_err(error.to_string()))?;
-
-        for (i, peer_conf) in peer_confs.iter().enumerate() {
-            std::fs::write(peer_conf_path(&name, i), peer_conf.to_string())
-                .map_err(|error| PyIOError::new_err(error.to_string()))?;
-        }
-
-        Ok(server_conf)
-    }
-
-    /// Build a new WireGuard server configuration manually.
-    ///
-    /// - `listen_port`: The port number for the WireGuard UDP socket. The default port for
-    ///   WireGuard servers is `51820`.
-    /// - `server_private_key`: The base64-encoded private key for the WireGuard server. This can be
-    ///   a fixed value, or randomly generated each time by calling the `genkey` function.
-    /// - `peer_keys`: Public keys and optional preshared keys of the WireGuard peers that will be
-    ///   configured. The argument is expected to be a list of tuples, where the first tuple element
-    ///   must the the base64-encoded public key of the peer, and the second tuple element must
-    ///   either be a base64-encoded preshared key (32 bytes), or `None`.
-    #[staticmethod]
-    pub fn build(
+    pub fn custom(
         py: Python<'_>,
         listen_port: u16,
         server_private_key: String,
-        peer_keys: Vec<(String, Option<String>)>,
+        peer_keys: Vec<String>,
     ) -> PyResult<Self> {
-        Self::new(listen_port, server_private_key, peer_keys).map_err(|error| error.into_py(py))
-    }
-}
-
-impl WireGuardServerConf {
-    pub fn new(
-        listen_port: u16,
-        server_private_key: String,
-        peer_keys: Vec<(String, Option<String>)>,
-    ) -> Result<Self, WireGuardConfError> {
-        let private_key: Arc<X25519SecretKey> = match server_private_key.parse() {
-            Ok(private_key) => Arc::new(private_key),
-            Err(error) => return Err(WireGuardConfError::invalid_private_key(error)),
-        };
+        let private_key: Arc<X25519SecretKey> = Arc::new(
+            server_private_key
+                .parse()
+                .map_err(|s| WireGuardConfError::invalid_private_key(s).into_py(py))?,
+        );
 
         let interface = ServerInterface {
             private_key,
@@ -136,41 +131,42 @@ impl WireGuardServerConf {
         };
 
         let mut peers: Vec<ServerPeer> = Vec::new();
-        for (i, (public_key, preshared_key)) in peer_keys.into_iter().enumerate() {
-            let public_key: Arc<X25519PublicKey> = match public_key.parse() {
-                Ok(public_key) => Arc::new(public_key),
-                Err(error) => return Err(WireGuardConfError::invalid_public_key(i, error)),
-            };
-
-            let preshared_key: Option<[u8; 32]> = if let Some(preshared_key) = preshared_key {
-                let preshared_key = match base64::decode(preshared_key) {
-                    Ok(preshared_key) => preshared_key,
-                    Err(error) => return Err(WireGuardConfError::invalid_preshared_key(i, error.to_string())),
-                };
-
-                match preshared_key.try_into() {
-                    Ok(preshared_key) => Some(preshared_key),
-                    Err(invalid_bytes) => {
-                        return Err(WireGuardConfError::invalid_preshared_key(
-                            i,
-                            format!("Length {} instead of 32 bytes", invalid_bytes.len()),
-                        ))
-                    },
-                }
-            } else {
-                None
-            };
-
-            peers.push(ServerPeer {
+        for key in peer_keys {
+            let public_key: Arc<X25519PublicKey> = Arc::new(
+                key.parse()
+                    .map_err(|s| WireGuardConfError::invalid_private_key(s).into_py(py))?,
+            );
+            let peer = ServerPeer {
                 public_key,
-                preshared_key,
-            })
+                preshared_key: None,
+            };
+            peers.push(peer);
         }
 
         Ok(WireGuardServerConf { interface, peers })
     }
 }
 
+impl WireGuardServerConf {
+    /// Generate new WireGuard configurations with default settings.
+    ///
+    /// - listen on default port 51820 for incoming WireGuard connections
+    /// - generate random keypairs for server and the specified number of clients
+    /// - writes files to disk as `$name.conf`, `$name_peer1.conf`, `$name_peer2.conf`, etc.
+    fn generate(name: String, listen_port: u16, peers: usize) -> Result<Self, WireGuardConfError> {
+        let (server_conf, peer_confs) = generate_default_configs(listen_port, peers)?;
+
+        std::fs::write(server_conf_path(&name), server_conf.to_string())?;
+
+        for (i, peer_conf) in peer_confs.iter().enumerate() {
+            std::fs::write(peer_conf_path(&name, i), peer_conf.to_string())?;
+        }
+
+        Ok(server_conf)
+    }
+}
+
+// logic for printing / writing a WireGuard server configuration
 impl Display for WireGuardServerConf {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut conf = Ini::new();
@@ -208,6 +204,7 @@ impl Display for WireGuardServerConf {
     }
 }
 
+// logic for parsing a WireGuard server configuration
 impl FromStr for WireGuardServerConf {
     type Err = WireGuardConfError;
 
@@ -310,14 +307,19 @@ impl FromStr for WireGuardServerConf {
     }
 }
 
-pub fn generate_default_configs(
+pub(crate) fn generate_default_configs(
+    listen_port: u16,
     peer_number: usize,
 ) -> Result<(WireGuardServerConf, Vec<WireGuardClientConf>), WireGuardConfError> {
     if peer_number == 0 {
         return Err(WireGuardConfError::NoPeers);
     }
 
-    let interface = ServerInterface::default();
+    let private_key: Arc<X25519SecretKey> = Arc::new(X25519SecretKey::new());
+    let interface = ServerInterface {
+        private_key,
+        listen_port,
+    };
 
     let peer_private_keys: Vec<Arc<X25519SecretKey>> =
         (0..peer_number).map(|_| Arc::new(X25519SecretKey::new())).collect();

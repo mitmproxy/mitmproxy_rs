@@ -19,6 +19,11 @@ pub enum WireGuardConfError {
     InvalidPrivateKey { inner: &'static str },
     #[error("Invalid public X25519 key in [Peer] section {peer}: {inner}")]
     InvalidPublicKey { peer: usize, inner: &'static str },
+    #[error("I/O error: {inner}")]
+    IOError {
+        #[from]
+        inner: std::io::Error,
+    },
     #[error("Missing key(s) in [{section}]: {names}")]
     MissingKeys { section: &'static str, names: String },
     #[error("Section [Interface] was specified multiple times.")]

@@ -39,7 +39,7 @@ async def main():
         server.send_datagram(data.upper(), dst_addr, src_addr)
         logger.debug("Echoed datagram.")
 
-    conf = mitmproxy_wireguard.WireGuardServerConf.build(51820, server_keypair[0], [(client_keypair[1], None)])
+    conf = mitmproxy_wireguard.WireGuardServerConf.custom(51820, server_keypair[0], [client_keypair[1]])
     server = await mitmproxy_wireguard.start_server("0.0.0.0", conf, handle_connection, receive_datagram)
 
     print(
