@@ -8,7 +8,7 @@ use ini::Ini;
 
 /// WireGuard client configuration.
 #[derive(Clone, Debug)]
-pub struct WireguardClientConf {
+pub struct WireGuardClientConf {
     pub interface: PeerInterface,
     pub peer: ClientPeer,
 }
@@ -26,7 +26,7 @@ pub struct ClientPeer {
     pub endpoint: SocketAddr,
 }
 
-impl Display for WireguardClientConf {
+impl Display for WireGuardClientConf {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut conf = Ini::new();
 

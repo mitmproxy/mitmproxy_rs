@@ -9,13 +9,13 @@ use ini::{Ini, Properties, SectionEntry};
 use pyo3::exceptions::PyIOError;
 use pyo3::prelude::*;
 
-use super::client::{ClientPeer, PeerInterface, WireguardClientConf};
-use super::error::WireguardConfError;
+use super::client::{ClientPeer, PeerInterface, WireGuardClientConf};
+use super::error::WireGuardConfError;
 
 /// WireGuard server configuration.
 #[pyclass]
 #[derive(Clone, Debug, PartialEq)]
-pub struct WireguardServerConf {
+pub struct WireGuardServerConf {
     pub interface: ServerInterface,
     pub peers: Vec<ServerPeer>,
 }
@@ -61,7 +61,7 @@ impl ServerPeer {
 }
 
 #[pymethods]
-impl WireguardServerConf {
+impl WireGuardServerConf {
     /// Initialize WireGuard configuration
     ///
     /// This method will attempt to read WireGuard configuration files that have already been
@@ -70,7 +70,7 @@ impl WireguardServerConf {
     pub fn default(py: Python<'_>, name: String, peers: usize) -> PyResult<Self> {
         match read_to_string(server_conf_path(&name)) {
             // configuration file already exists: attempt to parse
-            Ok(contents) => Ok(WireguardServerConf::from_str(&contents).map_err(|error| error.into_py(py))?),
+            Ok(contents) => Ok(WireGuardServerConf::from_str(&contents).map_err(|error| error.into_py(py))?),
             // configuration file does not exist yet: generate new ones
             Err(error) if error.kind() == ErrorKind::NotFound => Self::generate(py, name, peers),
             // configuration file could not be read
@@ -119,15 +119,15 @@ impl WireguardServerConf {
     }
 }
 
-impl WireguardServerConf {
+impl WireGuardServerConf {
     pub fn new(
         listen_port: u16,
         server_private_key: String,
         peer_keys: Vec<(String, Option<String>)>,
-    ) -> Result<Self, WireguardConfError> {
+    ) -> Result<Self, WireGuardConfError> {
         let private_key: Arc<X25519SecretKey> = match server_private_key.parse() {
             Ok(private_key) => Arc::new(private_key),
-            Err(error) => return Err(WireguardConfError::invalid_private_key(error)),
+            Err(error) => return Err(WireGuardConfError::invalid_private_key(error)),
         };
 
         let interface = ServerInterface {
@@ -139,19 +139,19 @@ impl WireguardServerConf {
         for (i, (public_key, preshared_key)) in peer_keys.into_iter().enumerate() {
             let public_key: Arc<X25519PublicKey> = match public_key.parse() {
                 Ok(public_key) => Arc::new(public_key),
-                Err(error) => return Err(WireguardConfError::invalid_public_key(i, error)),
+                Err(error) => return Err(WireGuardConfError::invalid_public_key(i, error)),
             };
 
             let preshared_key: Option<[u8; 32]> = if let Some(preshared_key) = preshared_key {
                 let preshared_key = match base64::decode(preshared_key) {
                     Ok(preshared_key) => preshared_key,
-                    Err(error) => return Err(WireguardConfError::invalid_preshared_key(i, error.to_string())),
+                    Err(error) => return Err(WireGuardConfError::invalid_preshared_key(i, error.to_string())),
                 };
 
                 match preshared_key.try_into() {
                     Ok(preshared_key) => Some(preshared_key),
                     Err(invalid_bytes) => {
-                        return Err(WireguardConfError::invalid_preshared_key(
+                        return Err(WireGuardConfError::invalid_preshared_key(
                             i,
                             format!("Length {} instead of 32 bytes", invalid_bytes.len()),
                         ))
@@ -167,11 +167,11 @@ impl WireguardServerConf {
             })
         }
 
-        Ok(WireguardServerConf { interface, peers })
+        Ok(WireGuardServerConf { interface, peers })
     }
 }
 
-impl Display for WireguardServerConf {
+impl Display for WireGuardServerConf {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut conf = Ini::new();
 
@@ -208,8 +208,8 @@ impl Display for WireguardServerConf {
     }
 }
 
-impl FromStr for WireguardServerConf {
-    type Err = WireguardConfError;
+impl FromStr for WireGuardServerConf {
+    type Err = WireGuardConfError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let conf = Ini::load_from_str(s)?;
@@ -226,11 +226,11 @@ impl FromStr for WireguardServerConf {
                     (Some(private_key), Some(listen_port)) => {
                         let private_key: Arc<X25519SecretKey> = match private_key.parse() {
                             Ok(private_key) => Arc::new(private_key),
-                            Err(error) => return Err(WireguardConfError::invalid_private_key(error)),
+                            Err(error) => return Err(WireGuardConfError::invalid_private_key(error)),
                         };
                         let listen_port: u16 = match listen_port.parse() {
                             Ok(listen_port) => listen_port,
-                            Err(error) => return Err(WireguardConfError::invalid_port(error)),
+                            Err(error) => return Err(WireGuardConfError::invalid_port(error)),
                         };
                         Ok(ServerInterface {
                             private_key,
@@ -239,25 +239,25 @@ impl FromStr for WireguardServerConf {
                     },
                     // sad path: at least one required key is missing
                     (Some(_), None) => {
-                        return Err(WireguardConfError::missing_keys("Interface", vec!["ListenPort"]));
+                        return Err(WireGuardConfError::missing_keys("Interface", vec!["ListenPort"]));
                     },
                     (None, Some(_)) => {
-                        return Err(WireguardConfError::missing_keys("Interface", vec!["PrivateKey"]));
+                        return Err(WireGuardConfError::missing_keys("Interface", vec!["PrivateKey"]));
                     },
                     (None, None) => {
-                        return Err(WireguardConfError::missing_keys(
+                        return Err(WireGuardConfError::missing_keys(
                             "Interface",
                             vec!["PrivateKey", "ListenPort"],
                         ));
                     },
                 }
             },
-            None => Err(WireguardConfError::NoInterface),
+            None => Err(WireGuardConfError::NoInterface),
         }?;
 
         // error if the [Interface] section was specified multiple times
         if interface_section.next().is_some() {
-            return Err(WireguardConfError::MultipleInterfaces);
+            return Err(WireGuardConfError::MultipleInterfaces);
         }
 
         // parse [Peer] sections
@@ -271,19 +271,19 @@ impl FromStr for WireguardServerConf {
             if let Some(public_key) = public_key {
                 let public_key: Arc<X25519PublicKey> = match public_key.parse() {
                     Ok(public_key) => Arc::new(public_key),
-                    Err(error) => return Err(WireguardConfError::invalid_public_key(i, error)),
+                    Err(error) => return Err(WireGuardConfError::invalid_public_key(i, error)),
                 };
 
                 let preshared_key: Option<[u8; 32]> = if let Some(preshared_key) = preshared_key {
                     let preshared_key = match base64::decode(preshared_key) {
                         Ok(preshared_key) => preshared_key,
-                        Err(error) => return Err(WireguardConfError::invalid_preshared_key(i, error.to_string())),
+                        Err(error) => return Err(WireGuardConfError::invalid_preshared_key(i, error.to_string())),
                     };
 
                     match preshared_key.try_into() {
                         Ok(preshared_key) => Some(preshared_key),
                         Err(invalid_bytes) => {
-                            return Err(WireguardConfError::invalid_preshared_key(
+                            return Err(WireGuardConfError::invalid_preshared_key(
                                 i,
                                 format!("Length {} instead of 32 bytes", invalid_bytes.len()),
                             ))
@@ -298,23 +298,23 @@ impl FromStr for WireguardServerConf {
                     preshared_key,
                 })
             } else {
-                return Err(WireguardConfError::missing_keys("Peer", vec!["PublicKey"]));
+                return Err(WireGuardConfError::missing_keys("Peer", vec!["PublicKey"]));
             }
         }
 
         if peers.is_empty() {
-            return Err(WireguardConfError::NoPeers);
+            return Err(WireGuardConfError::NoPeers);
         }
 
-        Ok(WireguardServerConf { interface, peers })
+        Ok(WireGuardServerConf { interface, peers })
     }
 }
 
 pub fn generate_default_configs(
     peer_number: usize,
-) -> Result<(WireguardServerConf, Vec<WireguardClientConf>), WireguardConfError> {
+) -> Result<(WireGuardServerConf, Vec<WireGuardClientConf>), WireGuardConfError> {
     if peer_number == 0 {
-        return Err(WireguardConfError::NoPeers);
+        return Err(WireGuardConfError::NoPeers);
     }
 
     let interface = ServerInterface::default();
@@ -326,9 +326,9 @@ pub fn generate_default_configs(
         .map(|private_key| ServerPeer::from_private_key(private_key))
         .collect();
 
-    let peer_confs: Vec<WireguardClientConf> = peer_private_keys
+    let peer_confs: Vec<WireGuardClientConf> = peer_private_keys
         .iter()
-        .map(|private_key| WireguardClientConf {
+        .map(|private_key| WireGuardClientConf {
             interface: PeerInterface {
                 private_key: private_key.clone(),
             },
@@ -341,7 +341,7 @@ pub fn generate_default_configs(
         })
         .collect();
 
-    let conf = WireguardServerConf { interface, peers };
+    let conf = WireGuardServerConf { interface, peers };
 
     Ok((conf, peer_confs))
 }

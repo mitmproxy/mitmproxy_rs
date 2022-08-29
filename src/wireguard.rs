@@ -19,12 +19,12 @@ use tokio::sync::{Notify, RwLock};
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};
 
 /// A WireGuard peer. We keep track of the tunnel state and the peer address.
-pub struct WireguardPeer {
+pub struct WireGuardPeer {
     tunnel: Box<Tunn>,
     endpoint: RwLock<Option<SocketAddr>>,
 }
 
-impl WireguardPeer {
+impl WireGuardPeer {
     pub async fn set_endpoint(&self, addr: SocketAddr) {
         let mut endpoint = self.endpoint.write().await;
         *endpoint = Some(addr);
@@ -34,9 +34,9 @@ impl WireguardPeer {
 pub struct WireGuardTaskBuilder {
     private_key: Arc<X25519SecretKey>,
 
-    peers_by_idx: HashMap<u32, Arc<WireguardPeer>>,
-    peers_by_key: HashMap<Arc<X25519PublicKey>, Arc<WireguardPeer>>,
-    peers_by_ip: HashMap<IpAddr, Arc<WireguardPeer>>,
+    peers_by_idx: HashMap<u32, Arc<WireGuardPeer>>,
+    peers_by_key: HashMap<Arc<X25519PublicKey>, Arc<WireGuardPeer>>,
+    peers_by_ip: HashMap<IpAddr, Arc<WireGuardPeer>>,
 
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
@@ -78,7 +78,7 @@ impl WireGuardTaskBuilder {
         )
         .map_err(|error| anyhow!(error))?;
 
-        let peer = Arc::new(WireguardPeer {
+        let peer = Arc::new(WireGuardPeer {
             tunnel,
             endpoint: RwLock::new(None),
         });
@@ -113,9 +113,9 @@ pub struct WireGuardTask {
     private_key: Arc<X25519SecretKey>,
     public_key: Arc<X25519PublicKey>,
 
-    peers_by_idx: HashMap<u32, Arc<WireguardPeer>>,
-    peers_by_key: HashMap<Arc<X25519PublicKey>, Arc<WireguardPeer>>,
-    peers_by_ip: HashMap<IpAddr, Arc<WireguardPeer>>,
+    peers_by_idx: HashMap<u32, Arc<WireGuardPeer>>,
+    peers_by_key: HashMap<Arc<X25519PublicKey>, Arc<WireGuardPeer>>,
+    peers_by_ip: HashMap<IpAddr, Arc<WireGuardPeer>>,
 
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
@@ -167,7 +167,7 @@ impl WireGuardTask {
         Ok(())
     }
 
-    fn find_peer_for_datagram(&self, data: &[u8]) -> Option<Arc<WireguardPeer>> {
+    fn find_peer_for_datagram(&self, data: &[u8]) -> Option<Arc<WireGuardPeer>> {
         let packet = match Tunn::parse_incoming_packet(data) {
             Ok(p) => p,
             Err(error) => {

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use super::error::WireguardConfError;
-use super::server::{generate_default_configs, WireguardServerConf};
+use super::error::WireGuardConfError;
+use super::server::{generate_default_configs, WireGuardServerConf};
 
 // example configurations are derived from the wg(8) and wg-quick(8) manpages
 
@@ -16,7 +16,7 @@ ListenPort = 51820
 PublicKey = xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg=
 ";
 
-    let conf = WireguardServerConf::from_str(string).unwrap();
+    let conf = WireGuardServerConf::from_str(string).unwrap();
 
     assert_eq!(conf.interface.listen_port, 51820);
     assert_eq!(
@@ -47,7 +47,7 @@ PublicKey = TrMvSoP4jYQlY6RIzBgbssQqY3vxI2Pi+y71lOWWXX0=
 PresharedKey = sN7qr4ejf5jdc+Z25FFmEiVrGwyPM0d1FaSca/JaIHQ=
 ";
 
-    let conf = WireguardServerConf::from_str(string).unwrap();
+    let conf = WireGuardServerConf::from_str(string).unwrap();
 
     assert_eq!(conf.interface.listen_port, 51820);
     assert_eq!(
@@ -77,8 +77,8 @@ fn invalid_empty() {
     let string = "";
 
     assert!(matches!(
-        WireguardServerConf::from_str(string),
-        Err(WireguardConfError::NoInterface)
+        WireGuardServerConf::from_str(string),
+        Err(WireGuardConfError::NoInterface)
     ));
 }
 
@@ -90,8 +90,8 @@ PublicKey = xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg=
 ";
 
     assert!(matches!(
-        WireguardServerConf::from_str(string),
-        Err(WireguardConfError::NoInterface)
+        WireGuardServerConf::from_str(string),
+        Err(WireGuardConfError::NoInterface)
     ));
 }
 
@@ -108,8 +108,8 @@ ListenPort = 51821
 ";
 
     assert!(matches!(
-        WireguardServerConf::from_str(string),
-        Err(WireguardConfError::MultipleInterfaces)
+        WireGuardServerConf::from_str(string),
+        Err(WireGuardConfError::MultipleInterfaces)
     ));
 }
 
@@ -122,8 +122,8 @@ ListenPort = 51820
 ";
 
     assert!(matches!(
-        WireguardServerConf::from_str(string),
-        Err(WireguardConfError::NoPeers)
+        WireGuardServerConf::from_str(string),
+        Err(WireGuardConfError::NoPeers)
     ));
 }
 
@@ -138,8 +138,8 @@ PublicKey = xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg=
 ";
 
     assert!(matches!(
-        WireguardServerConf::from_str(string),
-        Err(WireguardConfError::MissingKeys { section, names }) if section == "Interface" && names == "PrivateKey"),);
+        WireGuardServerConf::from_str(string),
+        Err(WireGuardConfError::MissingKeys { section, names }) if section == "Interface" && names == "PrivateKey"),);
 }
 
 #[test]
@@ -153,8 +153,8 @@ PublicKey = xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg=
 ";
 
     assert!(matches!(
-        WireguardServerConf::from_str(string),
-        Err(WireguardConfError::MissingKeys { section, names }) if section == "Interface" && names == "ListenPort"),);
+        WireGuardServerConf::from_str(string),
+        Err(WireGuardConfError::MissingKeys { section, names }) if section == "Interface" && names == "ListenPort"),);
 }
 
 #[test]
@@ -169,8 +169,8 @@ PresharedKey = sN7qr4ejf5jdc+Z25FFmEiVrGwyPM0d1FaSca/JaIHQ=
 ";
 
     assert!(matches!(
-        WireguardServerConf::from_str(string),
-        Err(WireguardConfError::MissingKeys { section, names }) if section == "Peer" && names == "PublicKey"),);
+        WireGuardServerConf::from_str(string),
+        Err(WireGuardConfError::MissingKeys { section, names }) if section == "Peer" && names == "PublicKey"),);
 }
 
 #[test]
@@ -185,8 +185,8 @@ PublicKey = xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg=
 ";
 
     assert!(matches!(
-        WireguardServerConf::from_str(string),
-        Err(WireguardConfError::InvalidPrivateKey { .. })
+        WireGuardServerConf::from_str(string),
+        Err(WireGuardConfError::InvalidPrivateKey { .. })
     ));
 }
 
@@ -202,8 +202,8 @@ PublicKey = xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg=
 ";
 
     assert!(matches!(
-        WireguardServerConf::from_str(string),
-        Err(WireguardConfError::InvalidPort { .. })
+        WireGuardServerConf::from_str(string),
+        Err(WireGuardConfError::InvalidPort { .. })
     ));
 }
 
@@ -219,8 +219,8 @@ PublicKey = xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg=
 ";
 
     assert!(matches!(
-        WireguardServerConf::from_str(string),
-        Err(WireguardConfError::InvalidPort { .. })
+        WireGuardServerConf::from_str(string),
+        Err(WireGuardConfError::InvalidPort { .. })
     ));
 }
 
@@ -236,8 +236,8 @@ PublicKey = HELLOWORLD
 ";
 
     assert!(matches!(
-        WireguardServerConf::from_str(string),
-        Err(WireguardConfError::InvalidPublicKey { .. })
+        WireGuardServerConf::from_str(string),
+        Err(WireGuardConfError::InvalidPublicKey { .. })
     ));
 }
 
@@ -254,14 +254,14 @@ PresharedKey = HELLOWORLD
 ";
 
     assert!(matches!(
-        WireguardServerConf::from_str(string),
-        Err(WireguardConfError::InvalidPresharedKey { .. })
+        WireGuardServerConf::from_str(string),
+        Err(WireGuardConfError::InvalidPresharedKey { .. })
     ));
 }
 
 #[test]
 fn generate_no_peers() {
-    assert!(matches!(generate_default_configs(0), Err(WireguardConfError::NoPeers)));
+    assert!(matches!(generate_default_configs(0), Err(WireGuardConfError::NoPeers)));
 }
 
 #[test]
@@ -277,7 +277,7 @@ fn generate_and_read_one_peer() {
     let (server_conf, _peer_confs) = generate_default_configs(1).unwrap();
 
     let string = server_conf.to_string();
-    let parsed = WireguardServerConf::from_str(&string).unwrap();
+    let parsed = WireGuardServerConf::from_str(&string).unwrap();
 
     assert_eq!(server_conf, parsed);
 }
@@ -287,7 +287,7 @@ fn generate_and_read_two_peers() {
     let (server_conf, _peer_confs) = generate_default_configs(2).unwrap();
 
     let string = server_conf.to_string();
-    let parsed = WireguardServerConf::from_str(&string).unwrap();
+    let parsed = WireGuardServerConf::from_str(&string).unwrap();
 
     assert_eq!(server_conf, parsed);
 }

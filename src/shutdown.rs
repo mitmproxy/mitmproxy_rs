@@ -38,7 +38,7 @@ impl ShutdownTask {
             log::error!("Python interop task failed: {}", error);
         }
         if let Err(error) = self.wg_handle.await {
-            log::error!("Wireguard server task failed: {}", error);
+            log::error!("WireGuard server task failed: {}", error);
         }
         if let Err(error) = self.nw_handle.await {
             log::error!("Virtual network stack task failed: {}", error);

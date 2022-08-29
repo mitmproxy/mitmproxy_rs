@@ -2,7 +2,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 #[derive(Debug, thiserror::Error)]
-pub enum WireguardConfError {
+pub enum WireGuardConfError {
     #[error("Invalid configuration format: {inner}")]
     InvalidFormat {
         #[from]
@@ -29,32 +29,32 @@ pub enum WireguardConfError {
     NoPeers,
 }
 
-impl WireguardConfError {
+impl WireGuardConfError {
     pub fn invalid_port(inner: std::num::ParseIntError) -> Self {
-        WireguardConfError::InvalidPort { inner }
+        WireGuardConfError::InvalidPort { inner }
     }
 
     pub fn invalid_preshared_key(peer: usize, inner: String) -> Self {
-        WireguardConfError::InvalidPresharedKey { peer, inner }
+        WireGuardConfError::InvalidPresharedKey { peer, inner }
     }
 
     pub fn invalid_private_key(inner: &'static str) -> Self {
-        WireguardConfError::InvalidPrivateKey { inner }
+        WireGuardConfError::InvalidPrivateKey { inner }
     }
 
     pub fn invalid_public_key(peer: usize, inner: &'static str) -> Self {
-        WireguardConfError::InvalidPublicKey { peer, inner }
+        WireGuardConfError::InvalidPublicKey { peer, inner }
     }
 
     pub fn missing_keys(section: &'static str, names: Vec<&'static str>) -> Self {
-        WireguardConfError::MissingKeys {
+        WireGuardConfError::MissingKeys {
             section,
             names: names.join(", "),
         }
     }
 }
 
-impl IntoPy<PyErr> for WireguardConfError {
+impl IntoPy<PyErr> for WireGuardConfError {
     fn into_py(self, _py: Python<'_>) -> PyErr {
         PyValueError::new_err(self.to_string())
     }
