@@ -80,7 +80,7 @@ async def handle_connection(rw: mitmproxy_wireguard.TcpStream):
     logger.debug(f"Connection closed: {rw}")
 
 
-def receive_datagram(_data, _src_addr, _dst_addr):
+async def receive_datagram(_stream):
     pass
 
 
