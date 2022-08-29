@@ -52,7 +52,6 @@ impl WireGuardServer {
     /// Send an individual UDP datagram using the specified source and destination addresses.
     ///
     /// The `src_addr` and `dst_addr` arguments are expected to be `(host: str, port: int)` tuples.
-    // ignore false positive clippy warning
     fn send_datagram(&self, data: Vec<u8>, src_addr: &PyTuple, dst_addr: &PyTuple) -> PyResult<()> {
         let cmd = TransportCommand::SendDatagram {
             data,

@@ -65,13 +65,14 @@ impl ServerPeer {
 impl WireGuardServerConf {
     /// Initialize a new WireGuard configuration
     ///
-    /// Default settings can be overriden by using keyword arguments:
+    /// Default settings can be overridden by using keyword arguments:
     ///
     /// - `name`: file name prefix for the configuration files that are written to disk (default:
     ///   `mitmproxy_wireguard`)
     /// - `listen_port`: port on which the WireGuard server will listen for incoming connections
-    /// - `peers`: number of peers which will be configured (default: 1)
-    #[new]
+    ///   (default: *51820*)
+    /// - `peers`: number of peers which will be configured (default: *1*)
+    #[staticmethod]
     #[args(kwargs = "**")]
     pub fn new(py: Python<'_>, kwargs: Option<&PyDict>) -> PyResult<Self> {
         let default_name = String::from("mitmproxy_wireguard");
