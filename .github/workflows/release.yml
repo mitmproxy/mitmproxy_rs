@@ -17,13 +17,13 @@ jobs:
         with:
           python-version: 3.7
           architecture: x64
-      - name: build wheels
+      - name: Build wheels
         uses: messense/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           manylinux: auto
           args: --release --out dist --sdist
-      - name: upload wheels
+      - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
           name: wheels
@@ -40,18 +40,18 @@ jobs:
         with:
           python-version: 3.7
           architecture: ${{ matrix.target }}
-      - name: install Rust toolchain
+      - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
           default: true
-      - name: build wheels
+      - name: Build wheels
         uses: messense/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           args: --release --out dist
-      - name: upload wheels
+      - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
           name: wheels
@@ -65,23 +65,23 @@ jobs:
         with:
           python-version: 3.7
           architecture: x64
-      - name: install Rust toolchain
+      - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: aarch64-apple-darwin
           profile: minimal
           default: true
-      - name: build wheels - x86_64
+      - name: Build wheels (x86_64)
         uses: messense/maturin-action@v1
         with:
           target: x86_64
           args: --release --out dist
-      - name: build wheels - universal2
+      - name: Build wheels (universal2)
         uses: messense/maturin-action@v1
         with:
           args: --release --universal2 --out dist
-      - name: upload wheels
+      - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
           name: wheels
