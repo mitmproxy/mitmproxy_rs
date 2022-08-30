@@ -694,7 +694,7 @@ dependencies = [
 
 [[package]]
 name = "mitmproxy_wireguard"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 dependencies = [
  "anyhow",
  "base64",
