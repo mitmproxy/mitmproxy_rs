@@ -1,4 +1,4 @@
-name: maturin
+name: wheels
 
 on:
   push:
