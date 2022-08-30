@@ -15,6 +15,7 @@ authors = [
 exclude = [
     "/benches/",
     "/venv/",
+    "/PUBLISHING.md",
     "/architecture.png",
     "/echo_test_server.py",
     "/rustfmt.toml",
