@@ -1,4 +1,4 @@
-name: wheels
+name: publish
 
 on:
   push:
@@ -86,3 +86,32 @@ jobs:
         with:
           name: wheels
           path: dist
+
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    env:
+      TWINE_USERNAME: __token__
+      TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+    needs: [linux, windows, macos]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - uses: actions/download-artifact@v2
+        with:
+          name: wheels
+          path: dist
+      - name: Install twine
+        run: |
+          python3.7 -m venv venv
+          source venv/bin/activate
+          pip install --upgrade twine
+          deactivate
+      - name: Upload artifacts
+        run: |
+          source venv/bin/activate
+          twine check dist/*
+          twine upload dist/*
+          deactivate
