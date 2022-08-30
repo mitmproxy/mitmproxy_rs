@@ -125,12 +125,27 @@ impl WireGuardServer {
 
         let event_tx = py_to_smol_tx.clone();
 
-        // bind to UDP socket
-        let socket_addr = SocketAddr::new(host.parse()?, conf.interface.listen_port);
-        let socket = UdpSocket::bind(socket_addr).await?;
+        // bind to UDP socket(s)
+        let socket_addrs = if host.is_empty() {
+            vec![
+                SocketAddr::new("0.0.0.0".parse().unwrap(), conf.interface.listen_port),
+                SocketAddr::new("::".parse().unwrap(), conf.interface.listen_port),
+            ]
+        } else {
+            vec![SocketAddr::new(host.parse()?, conf.interface.listen_port)]
+        };
+
+        let socket = UdpSocket::bind(socket_addrs.as_slice()).await?;
         let local_addr = socket.local_addr()?;
 
-        log::debug!("WireGuard server listening for UDP connections on {} ...", socket_addr);
+        log::debug!(
+            "WireGuard server listening for UDP connections on {} ...",
+            socket_addrs
+                .iter()
+                .map(|addr| addr.to_string())
+                .collect::<Vec<String>>()
+                .join(" and ")
+        );
 
         // initialize barriers for handling graceful shutdown
         let sd_trigger = Arc::new(Notify::new());
