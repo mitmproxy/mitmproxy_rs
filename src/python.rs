@@ -101,11 +101,13 @@ impl TcpStream {
     /// Query the TCP stream for details of the underlying network connection.
     ///
     /// Supported values: `peername`, `sockname`, `original_dst`.
-    fn get_extra_info(&self, py: Python, name: String) -> PyResult<PyObject> {
-        match name.as_str() {
-            "peername" => Ok(socketaddr_to_py(py, self.peername)),
-            "sockname" => Ok(socketaddr_to_py(py, self.sockname)),
-            "original_dst" => Ok(socketaddr_to_py(py, self.original_dst)),
+    #[args(default = "None")]
+    fn get_extra_info(&self, py: Python, name: String, default: Option<PyObject>) -> PyResult<PyObject> {
+        match (name.as_str(), default) {
+            ("peername", _) => Ok(socketaddr_to_py(py, self.peername)),
+            ("sockname", _) => Ok(socketaddr_to_py(py, self.sockname)),
+            ("original_dst", _) => Ok(socketaddr_to_py(py, self.original_dst)),
+            (_, Some(default)) => Ok(default),
             _ => Err(PyKeyError::new_err(name)),
         }
     }
