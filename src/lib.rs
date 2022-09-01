@@ -23,7 +23,7 @@ mod wireguard;
 use conf::WireGuardServerConf;
 use messages::TransportCommand;
 use network::NetworkTask;
-use python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask, TcpStream, UdpStream};
+use python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask, TcpStream};
 use shutdown::ShutdownTask;
 use wireguard::WireGuardTaskBuilder;
 
@@ -236,11 +236,11 @@ fn start_server(
     py: Python<'_>,
     host: String,
     conf: WireGuardServerConf,
-    tcp_handler: PyObject,
-    udp_handler: PyObject,
+    handle_connection: PyObject,
+    receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        let server = WireGuardServer::init(host, conf, tcp_handler, udp_handler).await?;
+        let server = WireGuardServer::init(host, conf, handle_connection, receive_datagram).await?;
         Ok(server)
     })
 }
@@ -262,7 +262,6 @@ fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<WireGuardServer>()?;
     m.add_class::<WireGuardServerConf>()?;
     m.add_class::<TcpStream>()?;
-    m.add_class::<UdpStream>()?;
 
     Ok(())
 }

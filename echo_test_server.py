@@ -34,8 +34,13 @@ logger.setLevel(logging.DEBUG)
 
 
 async def main():
+    def receive_datagram(data, src_addr, dst_addr):
+        logger.debug(f"Received datagram: {data=} {src_addr=} {dst_addr=}")
+        server.send_datagram(data.upper(), dst_addr, src_addr)
+        logger.debug("Echoed datagram.")
+
     conf = mitmproxy_wireguard.WireGuardServerConf.custom(51820, server_keypair[0], [client_keypair[1]])
-    server = await mitmproxy_wireguard.start_server("0.0.0.0", conf, handle_tcp, handle_udp)
+    server = await mitmproxy_wireguard.start_server("0.0.0.0", conf, handle_connection, receive_datagram)
 
     print(
         textwrap.dedent(
@@ -67,7 +72,7 @@ async def main():
     await server.wait_closed()
 
 
-async def handle_tcp(rw: mitmproxy_wireguard.TcpStream):
+async def handle_connection(rw: mitmproxy_wireguard.TcpStream):
     logger.debug(f"connection task {rw=}")
     logger.debug(f"{rw.get_extra_info('peername')=}")
 
@@ -100,24 +105,6 @@ async def handle_tcp(rw: mitmproxy_wireguard.TcpStream):
     except Exception as exc:
         logger.debug(f"close {exc=}")
     logger.debug("closed.")
-
-
-async def handle_udp(rw: mitmproxy_wireguard.UdpStream):
-    logger.debug(f"datagram task {rw=}")
-    logger.debug(f"{rw.get_extra_info('peername')=}")
-
-    try:
-        data = await rw.read(4096)
-    except Exception as exc:
-        logger.debug(f"read {exc=}")
-        data = b""
-    logger.debug(f"read complete. writing... {len(data)=} {data[:10]=} ")
-
-    try:
-        rw.write(data.upper())
-    except Exception as exc:
-        logger.debug(f"write {exc=}")
-    logger.debug("write complete.")
 
 
 if __name__ == "__main__":

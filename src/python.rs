@@ -126,94 +126,6 @@ impl Drop for TcpStream {
     }
 }
 
-
-#[pyclass]
-#[derive(Clone, Debug)]
-pub struct UdpStream {
-    data: Vec<u8>,
-    event_tx: mpsc::UnboundedSender<TransportCommand>,
-    peername: SocketAddr,
-    sockname: SocketAddr,
-    original_dst: SocketAddr,
-}
-
-#[pymethods]
-impl UdpStream {
-    /// Fake `read` method for UDP streams. This method will return the payload of the initially
-    /// received UDP packet, and zero bytes after this payload has been read.
-    fn read<'p>(&mut self, py: Python<'p>, n: u32) -> PyResult<&'p PyAny> {
-        let bytes = if self.data.is_empty() {
-            // entire payload has been read, return zero bytes
-            Vec::new()
-        } else {
-            // drain at most all remaining elements but never more
-            let l = self.data.len();
-            let r = if n as usize >= l { l } else { n as usize };
-            self.data.drain(0..r).collect()
-        };
-
-        pyo3_asyncio::tokio::future_into_py(py, async move {
-            let bytes: Py<PyBytes> = Python::with_gil(|py| PyBytes::new(py, &bytes).into_py(py));
-            Ok(bytes)
-        })
-    }
-
-    /// Send a UDP datagram with data as a response to a datagram that was previously received.
-    fn write(&self, data: Vec<u8>) -> PyResult<()> {
-        self.event_tx
-            .send(TransportCommand::SendDatagram {
-                data,
-                src_addr: self.original_dst,
-                dst_addr: self.peername,
-            })
-            .map_err(event_queue_unavailable)?;
-
-        Ok(())
-    }
-
-    /// Fake `drain` method for UDP streams. This method returns immediately, since UDP packets
-    /// are either sent immediately or are dropped if the send queue is full.
-    fn drain<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
-        pyo3_asyncio::tokio::future_into_py(py, async move { Ok(()) })
-    }
-
-    /// Fake `write_eof` method for UDP streams. This method does nothing, since UDP is not
-    /// connection-based.
-    fn write_eof(&self) -> PyResult<()> {
-        Ok(())
-    }
-
-    /// Fake `close` method for UDP streams. This method returns immediately since there is no
-    /// connection to close.
-    fn close(&self) -> PyResult<()> {
-        Ok(())
-    }
-
-    /// Query the UDP stream for details of the underlying network connection.
-    ///
-    /// Supported values: `peername`, `sockname`, `original_dst`.
-    fn get_extra_info(&self, py: Python, name: String) -> PyResult<PyObject> {
-        match name.as_str() {
-            "peername" => Ok(socketaddr_to_py(py, self.peername)),
-            "sockname" => Ok(socketaddr_to_py(py, self.sockname)),
-            "original_dst" => Ok(socketaddr_to_py(py, self.original_dst)),
-            _ => Err(PyKeyError::new_err(name)),
-        }
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "UdpStream(peer={}, sock={}, dst={})",
-            self.peername, self.sockname, self.original_dst
-        )
-    }
-}
-
-impl Drop for UdpStream {
-    fn drop(&mut self) {}
-}
-
-
 pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
     match s {
         SocketAddr::V4(addr) => (addr.ip().to_string(), addr.port()).into_py(py),
@@ -323,28 +235,18 @@ impl PyInteropTask {
                                 src_addr,
                                 dst_addr,
                             } => {
-                                let stream = UdpStream {
-                                    data,
-                                    event_tx: self.py_to_smol_tx.clone(),
-                                    peername: src_addr,
-                                    sockname: self.local_addr,
-                                    original_dst: dst_addr,
-                                };
-
                                 Python::with_gil(|py| {
-                                    let stream = stream.into_py(py);
+                                    let bytes: Py<PyBytes> = PyBytes::new(py, &data).into_py(py);
 
-                                    let coro = match self.py_udp_handler.call1(py, (stream,)) {
-                                        Ok(coro) => coro,
-                                        Err(err) => {
-                                            err.print(py);
-                                            return;
-                                        },
-                                    };
-
-                                    if let Err(err) = self.run_coroutine_threadsafe.call1(
+                                    if let Err(err) = self.py_loop.call_method1(
                                         py,
-                                        (coro, self.py_loop.as_ref(py))
+                                        "call_soon_threadsafe",
+                                        (
+                                            self.py_udp_handler.as_ref(py),
+                                            bytes,
+                                            socketaddr_to_py(py, src_addr),
+                                            socketaddr_to_py(py, dst_addr),
+                                        ),
                                     ) {
                                         err.print(py);
                                     }
