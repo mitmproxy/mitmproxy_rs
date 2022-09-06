@@ -34,7 +34,8 @@ use wireguard::WireGuardTaskBuilder;
 /// [`asyncio.Server`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.Server)
 /// from the Python standard library.
 #[pyclass]
-struct WireGuardServer {
+#[derive(Debug)]
+pub struct WireGuardServer {
     /// queue of events to be sent to the Python interop task
     event_tx: mpsc::UnboundedSender<TransportCommand>,
     /// local address of the WireGuard UDP socket
@@ -52,7 +53,7 @@ impl WireGuardServer {
     /// Send an individual UDP datagram using the specified source and destination addresses.
     ///
     /// The `src_addr` and `dst_addr` arguments are expected to be `(host: str, port: int)` tuples.
-    fn send_datagram(&self, data: Vec<u8>, src_addr: &PyTuple, dst_addr: &PyTuple) -> PyResult<()> {
+    pub fn send_datagram(&self, data: Vec<u8>, src_addr: &PyTuple, dst_addr: &PyTuple) -> PyResult<()> {
         let cmd = TransportCommand::SendDatagram {
             data,
             src_addr: py_to_socketaddr(src_addr)?,
@@ -67,7 +68,7 @@ impl WireGuardServer {
     ///
     /// The server will stop accepting new connections on its UDP socket, but will flush pending
     /// outgoing data before shutting down.
-    fn close(&mut self) {
+    pub fn close(&mut self) {
         if !self.closing {
             self.closing = true;
             log::info!("Shutting down.");
@@ -83,7 +84,7 @@ impl WireGuardServer {
     ///
     /// This coroutine will yield once pending data has been flushed and all server tasks have
     /// successfully terminated after calling the `WireGuardServer.close` method.
-    fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+    pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         let barrier = self.sd_handler.clone();
 
         pyo3_asyncio::tokio::future_into_py(py, async move {
@@ -93,11 +94,11 @@ impl WireGuardServer {
     }
 
     /// Get the local socket address that the WireGuard server is listening on.
-    fn getsockname(&self, py: Python) -> PyObject {
+    pub fn getsockname(&self, py: Python) -> PyObject {
         socketaddr_to_py(py, self.local_addr)
     }
 
-    fn __repr__(&self) -> String {
+    pub fn __repr__(&self) -> String {
         format!("WireGuardServer({})", self.local_addr)
     }
 }
@@ -232,7 +233,7 @@ impl Drop for WireGuardServer {
 /// - source address as `(host: str, port: int)` tuple
 /// - destination address as `(host: str, port: int)` tuple
 #[pyfunction]
-fn start_server(
+pub fn start_server(
     py: Python<'_>,
     host: String,
     conf: WireGuardServerConf,
@@ -250,7 +251,7 @@ fn start_server(
 /// [`asyncio.start_server`](https://docs.python.org/3/library/asyncio-stream.html#asyncio.start_server)
 /// from the Python standard library.
 #[pymodule]
-fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
+pub fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     // set up the Rust logger to send messages to the Python logger
     pyo3_log::init();
 

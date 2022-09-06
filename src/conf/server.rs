@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::fs::read_to_string;
 use std::io::Cursor;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -8,7 +9,6 @@ use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
 use ini::{Ini, Properties, SectionEntry};
 use pyo3::exceptions::PyIOError;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
 
 use super::client::{ClientPeer, PeerInterface, WireGuardClientConf};
 use super::error::WireGuardConfError;
@@ -63,48 +63,23 @@ impl ServerPeer {
 
 #[pymethods]
 impl WireGuardServerConf {
-    /// Initialize a new WireGuard configuration
+    /// Initialize a new WireGuard configuration.
     ///
-    /// Default settings can be overridden by using keyword arguments:
-    ///
-    /// - `name`: file name prefix for the configuration files that are written to disk (default:
-    ///   `mitmproxy_wireguard`)
+    /// - `conf_dir`: path to the directory in which new configuration files will be written
     /// - `listen_port`: port on which the WireGuard server will listen for incoming connections
     ///   (default: *51820*)
     /// - `peers`: number of peers which will be configured (default: *1*)
     #[staticmethod]
-    #[args(kwargs = "**")]
-    pub fn new(py: Python<'_>, kwargs: Option<&PyDict>) -> PyResult<Self> {
-        let default_name = String::from("mitmproxy_wireguard");
-        let default_port = 51820u16;
-        let default_peers = 1usize;
-
-        if let Some(kwargs) = kwargs {
-            let name: String = match kwargs.get_item("name") {
-                Some(name) => name.extract()?,
-                None => default_name,
-            };
-
-            let port: u16 = match kwargs.get_item("listen_port") {
-                Some(port) => port.extract()?,
-                None => default_port,
-            };
-
-            let peers: usize = match kwargs.get_item("peers") {
-                Some(peers) => peers.extract()?,
-                None => default_peers,
-            };
-
-            Self::generate(name, port, peers).map_err(|error| error.into_py(py))
-        } else {
-            Self::generate(default_name, default_port, default_peers).map_err(|error| error.into_py(py))
-        }
+    pub fn new(py: Python<'_>, conf_dir: String, listen_port: u16, peers: usize) -> PyResult<Self> {
+        Self::generate(conf_dir, listen_port, peers).map_err(|error| error.into_py(py))
     }
 
     /// Read an existing WireGuard server configuration from disk.
+    ///
+    /// Configuration files will be read from `conf_dir` directory.
     #[staticmethod]
-    pub fn load(py: Python<'_>, name: String) -> PyResult<Self> {
-        match read_to_string(server_conf_path(&name)) {
+    pub fn load(py: Python<'_>, conf_dir: String) -> PyResult<Self> {
+        match read_to_string(server_conf_path(&conf_dir)) {
             // configuration file already exists: attempt to parse
             Ok(contents) => Ok(WireGuardServerConf::from_str(&contents).map_err(|error| error.into_py(py))?),
             // configuration file could not be read
@@ -153,14 +128,15 @@ impl WireGuardServerConf {
     ///
     /// - listen on default port 51820 for incoming WireGuard connections
     /// - generate random keypairs for server and the specified number of clients
-    /// - writes files to disk as `$name.conf`, `$name_peer1.conf`, `$name_peer2.conf`, etc.
-    fn generate(name: String, listen_port: u16, peers: usize) -> Result<Self, WireGuardConfError> {
+    /// - writes files to disk as `mitmproxy_wireguard.conf`, `mitmproxy_wireguard_peer0.conf`,
+    ///   `mitmproxy_wireguard_peer2.conf`, etc.
+    fn generate(conf_dir: String, listen_port: u16, peers: usize) -> Result<Self, WireGuardConfError> {
         let (server_conf, peer_confs) = generate_default_configs(listen_port, peers)?;
 
-        std::fs::write(server_conf_path(&name), server_conf.to_string())?;
+        std::fs::write(server_conf_path(&conf_dir), server_conf.to_string())?;
 
         for (i, peer_conf) in peer_confs.iter().enumerate() {
-            std::fs::write(peer_conf_path(&name, i), peer_conf.to_string())?;
+            std::fs::write(peer_conf_path(&conf_dir, i), peer_conf.to_string())?;
         }
 
         Ok(server_conf)
@@ -349,10 +325,14 @@ pub(crate) fn generate_default_configs(
     Ok((conf, peer_confs))
 }
 
-fn server_conf_path(name: &str) -> String {
-    format!("{}.conf", name)
+fn server_conf_path(conf_dir: &str) -> String {
+    let mut path = PathBuf::from(conf_dir);
+    path.push("mitmproxy_wireguard.conf");
+    path.to_string_lossy().to_string()
 }
 
-fn peer_conf_path(name: &str, number: usize) -> String {
-    format!("{}_peer{}.conf", name, number)
+fn peer_conf_path(conf_dir: &str, number: usize) -> String {
+    let mut path = PathBuf::from(conf_dir);
+    path.push(format!("mitmproxy_wireguard_peer{}.conf", number));
+    path.to_string_lossy().to_string()
 }
