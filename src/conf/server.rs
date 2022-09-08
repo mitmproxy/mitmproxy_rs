@@ -292,9 +292,10 @@ pub(crate) fn generate_default_configs(
         return Err(WireGuardConfError::NoPeers);
     }
 
-    let private_key: Arc<X25519SecretKey> = Arc::new(X25519SecretKey::new());
+    let server_private_key: Arc<X25519SecretKey> = Arc::new(X25519SecretKey::new());
+    let server_public_key: Arc<X25519PublicKey> = Arc::new(server_private_key.public_key());
     let interface = ServerInterface {
-        private_key,
+        private_key: server_private_key,
         listen_port,
     };
 
@@ -312,7 +313,7 @@ pub(crate) fn generate_default_configs(
                 private_key: private_key.clone(),
             },
             peer: ClientPeer {
-                public_key: Arc::new(private_key.public_key()),
+                public_key: server_public_key.clone(),
                 preshared_key: None,
                 allowed_ips: vec![String::from("0.0.0.0/0")],
                 endpoint: format!("127.0.0.1:{}", interface.listen_port).parse().unwrap(),
