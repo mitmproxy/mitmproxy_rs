@@ -181,7 +181,9 @@ impl<'a> NetworkTask<'a> {
                             // can we still receive something in the future?
                             CloseWait | LastAck | Closed | Closing | TimeWait => {
                                 let (_, tx) = data.recv_waiter.take().unwrap();
-                                tx.send(Vec::new()).unwrap();
+                                if tx.send(Vec::new()).is_err() {
+                                    log::debug!("Cannot send data, channel was already closed.");
+                                }
                             },
                             _ => {},
                         }
