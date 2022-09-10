@@ -13,14 +13,14 @@ use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{self, channel, unbounded_channel};
 use tokio::sync::Notify;
 
-mod conf;
+mod cfg;
 mod messages;
 mod network;
 mod python;
 mod shutdown;
 mod wireguard;
 
-use conf::WireGuardServerConf;
+use cfg::Configuration;
 use messages::TransportCommand;
 use network::NetworkTask;
 use python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask, TcpStream};
@@ -107,7 +107,7 @@ impl WireGuardServer {
     /// Set up and initialize a new WireGuard server.
     pub async fn init(
         host: String,
-        conf: WireGuardServerConf,
+        cfg: Configuration,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
     ) -> Result<WireGuardServer> {
@@ -129,11 +129,11 @@ impl WireGuardServer {
         // bind to UDP socket(s)
         let socket_addrs = if host.is_empty() {
             vec![
-                SocketAddr::new("0.0.0.0".parse().unwrap(), conf.interface.listen_port),
-                SocketAddr::new("::".parse().unwrap(), conf.interface.listen_port),
+                SocketAddr::new("0.0.0.0".parse().unwrap(), cfg.server_listen_port),
+                SocketAddr::new("::".parse().unwrap(), cfg.server_listen_port),
             ]
         } else {
-            vec![SocketAddr::new(host.parse()?, conf.interface.listen_port)]
+            vec![SocketAddr::new(host.parse()?, cfg.server_listen_port)]
         };
 
         let socket = UdpSocket::bind(socket_addrs.as_slice()).await?;
@@ -153,14 +153,10 @@ impl WireGuardServer {
         let sd_handler = Arc::new(Notify::new());
 
         // initialize WireGuard server
-        let mut wg_task_builder = WireGuardTaskBuilder::new(
-            conf.interface.private_key,
-            wg_to_smol_tx,
-            smol_to_wg_rx,
-            sd_trigger.clone(),
-        );
-        for peer in conf.peers {
-            wg_task_builder.add_peer(peer.public_key, peer.preshared_key)?;
+        let mut wg_task_builder =
+            WireGuardTaskBuilder::new(cfg.server_private_key, wg_to_smol_tx, smol_to_wg_rx, sd_trigger.clone());
+        for client in cfg.clients {
+            wg_task_builder.add_peer(Arc::new(client.private_key.public_key()), None)?;
         }
         let wg_task = wg_task_builder.build()?;
 
@@ -236,7 +232,7 @@ impl Drop for WireGuardServer {
 pub fn start_server(
     py: Python<'_>,
     host: String,
-    conf: WireGuardServerConf,
+    conf: Configuration,
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
@@ -261,7 +257,7 @@ pub fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
 
     m.add_function(wrap_pyfunction!(start_server, m)?)?;
     m.add_class::<WireGuardServer>()?;
-    m.add_class::<WireGuardServerConf>()?;
+    m.add_class::<Configuration>()?;
     m.add_class::<TcpStream>()?;
 
     Ok(())
