@@ -35,7 +35,7 @@ use wireguard::WireGuardTaskBuilder;
 /// from the Python standard library.
 #[pyclass]
 #[derive(Debug)]
-pub struct WireGuardServer {
+pub struct Server {
     /// queue of events to be sent to the Python interop task
     event_tx: mpsc::UnboundedSender<TransportCommand>,
     /// local address of the WireGuard UDP socket
@@ -49,7 +49,7 @@ pub struct WireGuardServer {
 }
 
 #[pymethods]
-impl WireGuardServer {
+impl Server {
     /// Send an individual UDP datagram using the specified source and destination addresses.
     ///
     /// The `src_addr` and `dst_addr` arguments are expected to be `(host: str, port: int)` tuples.
@@ -83,7 +83,7 @@ impl WireGuardServer {
     /// Wait until the WireGuard server has shut down.
     ///
     /// This coroutine will yield once pending data has been flushed and all server tasks have
-    /// successfully terminated after calling the `WireGuardServer.close` method.
+    /// successfully terminated after calling the `Server.close` method.
     pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         let barrier = self.sd_handler.clone();
 
@@ -99,18 +99,18 @@ impl WireGuardServer {
     }
 
     pub fn __repr__(&self) -> String {
-        format!("WireGuardServer({})", self.local_addr)
+        format!("Server({})", self.local_addr)
     }
 }
 
-impl WireGuardServer {
+impl Server {
     /// Set up and initialize a new WireGuard server.
     pub async fn init(
         host: String,
         cfg: Configuration,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
-    ) -> Result<WireGuardServer> {
+    ) -> Result<Self> {
         log::debug!("Initializing WireGuard server ...");
 
         // initialize channels between the WireGuard server and the virtual network device
@@ -200,7 +200,7 @@ impl WireGuardServer {
 
         log::debug!("WireGuard server successfully initialized.");
 
-        Ok(WireGuardServer {
+        Ok(Server {
             event_tx,
             local_addr,
             sd_trigger,
@@ -210,7 +210,7 @@ impl WireGuardServer {
     }
 }
 
-impl Drop for WireGuardServer {
+impl Drop for Server {
     fn drop(&mut self) {
         self.close()
     }
@@ -237,7 +237,7 @@ pub fn start_server(
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        let server = WireGuardServer::init(host, conf, handle_connection, receive_datagram).await?;
+        let server = Server::init(host, conf, handle_connection, receive_datagram).await?;
         Ok(server)
     })
 }
@@ -256,7 +256,7 @@ pub fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     console_subscriber::init();
 
     m.add_function(wrap_pyfunction!(start_server, m)?)?;
-    m.add_class::<WireGuardServer>()?;
+    m.add_class::<Server>()?;
     m.add_class::<Configuration>()?;
     m.add_class::<TcpStream>()?;
 

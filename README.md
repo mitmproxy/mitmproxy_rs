@@ -14,16 +14,15 @@ Transparently proxy any device that can be configured as a WireGuard client!
 
 The API interface of the PyO3 module is documented in `mitmproxy_wireguard.pyi`:
 
-- `WireGuardServer` class: a running WireGuard server instance, with methods for
+- `Server` class: a running WireGuard server instance, with methods for
   - graceful shutdown (`close` / `wait_closed`)
   - sending UDP packets
-- `WireGuardServerConfig` class: minimal configuration support compatible with
+- `Configuration` class: minimal configuration support compatible with
   standard WireGuard configuration files
 - `TcpStream` class: an established TCP connection (provides APIs identical to
   Python's)
   `asyncio.StreamReader` and `asyncio.StreamWriter`)
-- `start_server` function: initialize, start, and return a `WireGuardServer`
-  instance
+- `start_server` coroutine: initialize, start, and return a `Server` instance
 
 ## Architecture
 
