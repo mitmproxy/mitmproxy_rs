@@ -31,7 +31,6 @@ crate-type = ["cdylib"]
 anyhow = "1.0.56"
 base64 = "0.13"
 boringtun = { version = "0.4", default-features = false }
-console-subscriber = "0.1.4"
 ini = { version = "0.18.0", package = "rust-ini" }
 log = "0.4.16"
 pretty-hex = "0.3.0"
@@ -42,8 +41,13 @@ smoltcp = "0.8"
 thiserror = "1.0.31"
 tokio = { version = "1.17", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 
+# optional dependencies for tracing support
+console-subscriber = { version = "0.1.4", optional = true }
+
 [profile.release]
 codegen-units = 1
 lto = true
 opt-level = 3
 
+[features]
+tracing = ["console-subscriber"]

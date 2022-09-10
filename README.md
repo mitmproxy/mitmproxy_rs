@@ -102,8 +102,8 @@ supports generating documentation for "native-only" Python modules (like our
 
 ## Introspecting the tokio runtime
 
-The asynchronous runtime can be introspected using `tokio-console` when using
-a debug build of the native module:
+The asynchronous runtime can be introspected using `tokio-console` if the crate
+was built with the `tracing` feature:
 
 ```shell
 tokio-console http://localhost:6669

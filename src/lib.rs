@@ -256,7 +256,7 @@ pub fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     pyo3_log::init();
 
     // set up tracing subscriber for introspection with tokio-console
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "tracing")]
     console_subscriber::init();
 
     m.add_function(wrap_pyfunction!(start_server, m)?)?;
