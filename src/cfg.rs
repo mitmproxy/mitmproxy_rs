@@ -140,7 +140,7 @@ impl Configuration {
         let server_private_key = Arc::new(X25519SecretKey::new());
 
         let client_private_keys: Vec<Arc<X25519SecretKey>> =
-            (0..=peers).map(|_| Arc::new(X25519SecretKey::new())).collect();
+            (0..=peers - 1).map(|_| Arc::new(X25519SecretKey::new())).collect();
 
         Self::new(server_listen_port, server_private_key, &client_private_keys)
     }
