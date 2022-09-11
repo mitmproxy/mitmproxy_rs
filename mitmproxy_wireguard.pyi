@@ -18,7 +18,7 @@ class TcpStream:
 async def start_server(
     host: str,
     port: int,
-    mitmproxy_key: str,
+    private_key: str,
     peer_public_keys: list[str],
     handle_connection: Callable[[TcpStream], Awaitable[None]],
     receive_datagram: Callable[[bytes, tuple[str, int], tuple[str, int]], None],
