@@ -220,7 +220,9 @@ impl Drop for Server {
 /// Start a WireGuard server that is configured with the given parameters:
 ///
 /// - `host`: The host address for the WireGuard UDP socket.
-/// - `conf`: The WireGuard server configuration.
+/// - `port`: The listen port for the WireGuard server. The default port for WireGuard is `51820`.
+/// - `private_key`: The private X25519 key for the WireGuard server as a base64-encoded string.
+/// - `peer_public_keys`: List of public X25519 keys for WireGuard peers as base64-encoded strings.
 /// - `handle_connection`: A coroutine that will be called for each new `TcpStream`.
 /// - `receive_datagram`: A function that will be called for each received UDP datagram.
 ///
