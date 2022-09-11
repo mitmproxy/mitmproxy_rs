@@ -1,10 +1,13 @@
+use std::io::Cursor;
 use std::sync::Arc;
 
 use boringtun::crypto::X25519SecretKey;
+use ini::Ini;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use serde::{Deserialize, Serialize};
 
+/// WireGuard configuration for both servers and clients.
 #[pyclass]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Configuration {
@@ -16,15 +19,60 @@ pub struct Configuration {
 
 #[pymethods]
 impl Configuration {
+    /// Deserialize WireGuard configuration from JSON.
     pub fn to_json(&self) -> PyResult<String> {
         serde_json::to_string_pretty(self).map_err(invalid_json)
     }
 
+    /// Pretty-print configuration file contents for WireGuard clients.
+    pub fn pretty_print(
+        &self,
+        address: Vec<String>,
+        allowed_ips: Vec<String>,
+        endpoint: (String, u16),
+    ) -> PyResult<Vec<String>> {
+        let mut outputs = Vec::new();
+
+        let public_key = base64::encode(self.server_private_key.public_key().as_bytes());
+        let address_str = address.join(", ");
+        let allowed_ips_str = allowed_ips.join(", ");
+        let endpoint_str = format!("{}:{}", endpoint.0, endpoint.1);
+
+        for client in &self.clients {
+            let mut conf = Ini::new();
+
+            let private_key = base64::encode(client.private_key.as_bytes());
+
+            // fill [Interface] section
+            conf.with_section(Some("Interface"))
+                .set("PrivateKey", &private_key)
+                .set("Address", &address_str);
+
+            // fill [Peer] section
+            conf.with_section(Some("Peer"))
+                .set("PublicKey", &public_key)
+                .set("AllowedIPs", &allowed_ips_str)
+                .set("Endpoint", &endpoint_str);
+
+            // write to an in-memory buffer instead of to a file
+            let mut out: Vec<u8> = Vec::new();
+            let mut buf = Cursor::new(&mut out);
+
+            // both writing to our own buffer and decoding our own UTF-8 data should be safe
+            conf.write_to(&mut buf).unwrap();
+            outputs.push(String::from_utf8(out).unwrap());
+        }
+
+        Ok(outputs)
+    }
+
+    /// Deserialize WireGuard configuration to JSON.
     #[staticmethod]
     pub fn from_json(string: String) -> PyResult<Self> {
         serde_json::from_str(&string).map_err(invalid_json)
     }
 
+    /// Instantiate a custom WireGuard configuration.
     #[staticmethod]
     pub fn custom(
         server_listen_port: u16,

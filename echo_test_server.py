@@ -43,25 +43,17 @@ async def main():
     server = await mitmproxy_wireguard.start_server("0.0.0.0", conf, handle_connection, receive_datagram)
 
     print(
-        textwrap.dedent(
-            f"""
-    :white_check_mark: Server started. Use the following WireGuard config for testing:
-    ------------------------------------------------------------
-    [Interface]
-    PrivateKey = {client_keypair[0]}
-    Address = 10.0.0.1/32
-    MTU = 1420
-    
-    [Peer]
-    PublicKey = {server_keypair[1]}
-    AllowedIPs = 10.0.0.0/24
-    Endpoint = 127.0.0.1:51820
-    ------------------------------------------------------------
-    
-    And then run `nc 10.0.0.42 1234` or `nc -u 10.0.0.42 1234` to talk to the echo server.
-    """
-        )
+        f"""\
+:white_check_mark: Server started. Use the following WireGuard config for testing:
+------------------------------------------------------------
+{conf.pretty_print(["10.0.0.1/32"], ["10.0.0.0/24"], ("127.0.0.1", 51820))[0]}
+------------------------------------------------------------
+
+And then run `nc 10.0.0.42 1234` or `nc -u 10.0.0.42 1234` to talk to the echo server.
+"""
     )
+
+    print()
 
     def stop(*_):
         server.close()
