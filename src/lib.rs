@@ -7,7 +7,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
 use pyo3::exceptions::PyValueError;
-
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
@@ -25,7 +24,6 @@ use messages::TransportCommand;
 use network::NetworkTask;
 use python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask, TcpStream};
 use shutdown::ShutdownTask;
-use std::str::FromStr;
 use wireguard::WireGuardTaskBuilder;
 
 /// A running WireGuard server.
@@ -241,18 +239,18 @@ pub fn start_server(
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
-    let private_key = Arc::new(
-        private_key
-            .parse()
-            .map_err(|_| PyValueError::new_err("Invalid private key."))?,
-    );
+    let private_key = private_key
+        .parse()
+        .map(Arc::new)
+        .map_err(|_| PyValueError::new_err("Invalid private key."))?;
 
     let peer_public_keys = peer_public_keys
         .into_iter()
-        .map(|peer| {
-            Ok(Arc::new(
-                X25519PublicKey::from_str(&peer).map_err(|_| PyValueError::new_err("Invalid public key."))?,
-            ))
+        .map(|public_key| {
+            Ok(public_key
+                .parse()
+                .map(Arc::new)
+                .map_err(|_| PyValueError::new_err("Invalid public key."))?)
         })
         .collect::<Result<Vec<Arc<X25519PublicKey>>>>()?;
 
@@ -270,6 +268,7 @@ pub fn start_server(
     })
 }
 
+
 /// Generate a WireGuard private key, analogous to the `wg genkey` command.
 #[pyfunction]
 fn genkey() -> String {
@@ -279,8 +278,9 @@ fn genkey() -> String {
 /// Derive a WireGuard public key from a private key, analogous to the `wg pubkey` command.
 #[pyfunction]
 fn pubkey(private_key: String) -> PyResult<String> {
-    let private_key =
-        X25519SecretKey::from_str(&private_key).map_err(|_| PyValueError::new_err("Invalid private key."))?;
+    let private_key: X25519SecretKey = private_key
+        .parse()
+        .map_err(|_| PyValueError::new_err("Invalid private key."))?;
     Ok(base64::encode(private_key.public_key().as_bytes()))
 }
 
