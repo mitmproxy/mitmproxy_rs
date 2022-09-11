@@ -4,7 +4,7 @@ description = "WireGuard interface for mitmproxy"
 license = "MIT"
 publish = false
 
-version = "0.1.0-alpha.11"
+version = "0.1.0"
 edition = "2021"
 rust-version = "1.56.0"
 
