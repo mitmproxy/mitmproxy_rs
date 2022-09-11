@@ -21,12 +21,9 @@ pub struct Configuration {
 impl Configuration {
     /// Build a new WireGuard configuration with randomly generated encryption keys.
     #[staticmethod]
-    #[args(listen_port = "51820")]
-    pub fn generate(listen_port: u16) -> PyResult<Self> {
-        let server_private_key = Arc::new(X25519SecretKey::new());
-        let client_private_key = Arc::new(X25519SecretKey::new());
-
-        Ok(Self::new(listen_port, server_private_key, &[client_private_key]))
+    #[args(listen_port = 51820, peers = 1)]
+    pub fn generate(listen_port: u16, peers: usize) -> PyResult<Self> {
+        Ok(Self::build(listen_port, peers))
     }
 
     /// Deserialize WireGuard configuration from JSON.
@@ -138,6 +135,15 @@ impl Configuration {
                 .collect(),
         }
     }
+
+    pub fn build(server_listen_port: u16, peers: usize) -> Self {
+        let server_private_key = Arc::new(X25519SecretKey::new());
+
+        let client_private_keys: Vec<Arc<X25519SecretKey>> =
+            (0..=peers).map(|_| Arc::new(X25519SecretKey::new())).collect();
+
+        Self::new(server_listen_port, server_private_key, &client_private_keys)
+    }
 }
 
 fn invalid_key(error: &str) -> PyErr {
@@ -194,8 +200,18 @@ mod tests {
     }
 
     #[test]
-    fn json_roundtrip() {
+    fn json_roundtrip_default() {
         let cfg = Configuration::default();
+
+        assert_eq!(
+            cfg,
+            serde_json::from_str(&serde_json::to_string_pretty(&cfg).unwrap()).unwrap()
+        );
+    }
+
+    #[test]
+    fn json_roundtrip_custom() {
+        let cfg = Configuration::build(51821, 2);
 
         assert_eq!(
             cfg,
