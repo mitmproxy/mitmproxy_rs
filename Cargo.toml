@@ -31,16 +31,12 @@ crate-type = ["cdylib"]
 anyhow = "1.0.56"
 base64 = "0.13"
 boringtun = { version = "0.4", default-features = false }
-ini = { version = "0.18.0", package = "rust-ini" }
 log = "0.4.16"
 pretty-hex = "0.3.0"
 pyo3 = { version = "0.16.4", features = ["abi3", "abi3-py37", "extension-module", "anyhow"] }
 pyo3-asyncio = { version = "0.16", features = ["tokio-runtime"] }
 pyo3-log = "0.6.0"
-serde = { version = "1.0.104", features = ["derive"] }
-serde_json = { version = "1.0.40", features = ["preserve_order"] }
 smoltcp = "0.8"
-thiserror = "1.0.31"
 tokio = { version = "1.17", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 
 # optional dependencies for tracing support

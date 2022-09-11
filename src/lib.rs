@@ -5,6 +5,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Result;
+use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
+use pyo3::exceptions::PyValueError;
 
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
@@ -13,18 +15,17 @@ use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{self, channel, unbounded_channel};
 use tokio::sync::Notify;
 
-mod cfg;
 mod messages;
 mod network;
 mod python;
 mod shutdown;
 mod wireguard;
 
-use cfg::Configuration;
 use messages::TransportCommand;
 use network::NetworkTask;
 use python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask, TcpStream};
 use shutdown::ShutdownTask;
+use std::str::FromStr;
 use wireguard::WireGuardTaskBuilder;
 
 /// A running WireGuard server.
@@ -107,7 +108,9 @@ impl Server {
     /// Set up and initialize a new WireGuard server.
     pub async fn init(
         host: String,
-        cfg: Configuration,
+        port: u16,
+        private_key: Arc<X25519SecretKey>,
+        peer_public_keys: Vec<Arc<X25519PublicKey>>,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
     ) -> Result<Self> {
@@ -129,11 +132,11 @@ impl Server {
         // bind to UDP socket(s)
         let socket_addrs = if host.is_empty() {
             vec![
-                SocketAddr::new("0.0.0.0".parse().unwrap(), cfg.server_listen_port),
-                SocketAddr::new("::".parse().unwrap(), cfg.server_listen_port),
+                SocketAddr::new("0.0.0.0".parse().unwrap(), port),
+                SocketAddr::new("::".parse().unwrap(), port),
             ]
         } else {
-            vec![SocketAddr::new(host.parse()?, cfg.server_listen_port)]
+            vec![SocketAddr::new(host.parse()?, port)]
         };
 
         let socket = UdpSocket::bind(socket_addrs.as_slice()).await?;
@@ -154,9 +157,9 @@ impl Server {
 
         // initialize WireGuard server
         let mut wg_task_builder =
-            WireGuardTaskBuilder::new(cfg.server_private_key, wg_to_smol_tx, smol_to_wg_rx, sd_trigger.clone());
-        for client in cfg.clients {
-            wg_task_builder.add_peer(Arc::new(client.private_key.public_key()), None)?;
+            WireGuardTaskBuilder::new(private_key, wg_to_smol_tx, smol_to_wg_rx, sd_trigger.clone());
+        for key in peer_public_keys {
+            wg_task_builder.add_peer(key, None)?;
         }
         let wg_task = wg_task_builder.build()?;
 
@@ -232,15 +235,55 @@ impl Drop for Server {
 pub fn start_server(
     py: Python<'_>,
     host: String,
-    conf: Configuration,
+    port: u16,
+    private_key: String,
+    peer_public_keys: Vec<String>,
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
+    let private_key = Arc::new(
+        private_key
+            .parse()
+            .map_err(|_| PyValueError::new_err("Invalid private key."))?,
+    );
+
+    let peer_public_keys = peer_public_keys
+        .into_iter()
+        .map(|peer| {
+            Ok(Arc::new(
+                X25519PublicKey::from_str(&peer).map_err(|_| PyValueError::new_err("Invalid public key."))?,
+            ))
+        })
+        .collect::<Result<Vec<Arc<X25519PublicKey>>>>()?;
+
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        let server = Server::init(host, conf, handle_connection, receive_datagram).await?;
+        let server = Server::init(
+            host,
+            port,
+            private_key,
+            peer_public_keys,
+            handle_connection,
+            receive_datagram,
+        )
+        .await?;
         Ok(server)
     })
 }
+
+/// Generate a WireGuard private key, analogous to the `wg genkey` command.
+#[pyfunction]
+fn genkey() -> String {
+    base64::encode(X25519SecretKey::new().as_bytes())
+}
+
+/// Derive a WireGuard public key from a private key, analogous to the `wg pubkey` command.
+#[pyfunction]
+fn pubkey(private_key: String) -> PyResult<String> {
+    let private_key =
+        X25519SecretKey::from_str(&private_key).map_err(|_| PyValueError::new_err("Invalid private key."))?;
+    Ok(base64::encode(private_key.public_key().as_bytes()))
+}
+
 
 /// This package contains a cross-platform, user-space WireGuard server implementation in Rust,
 /// which provides a Python interface that is intended to be similar to the one provided by
@@ -256,8 +299,9 @@ pub fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     console_subscriber::init();
 
     m.add_function(wrap_pyfunction!(start_server, m)?)?;
+    m.add_function(wrap_pyfunction!(genkey, m)?)?;
+    m.add_function(wrap_pyfunction!(pubkey, m)?)?;
     m.add_class::<Server>()?;
-    m.add_class::<Configuration>()?;
     m.add_class::<TcpStream>()?;
 
     Ok(())

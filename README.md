@@ -18,8 +18,6 @@ The API interface of the PyO3 module is documented in `mitmproxy_wireguard.pyi`:
 - `Server` class: a running WireGuard server instance, with methods for
   - graceful shutdown (`close` / `wait_closed`)
   - sending UDP packets
-- `Configuration` class: minimal configuration support compatible with
-  standard WireGuard configuration files
 - `TcpStream` class: an established TCP connection (provides APIs identical to
   Python's)
   `asyncio.StreamReader` and `asyncio.StreamWriter`)
