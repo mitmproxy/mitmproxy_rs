@@ -19,6 +19,16 @@ pub struct Configuration {
 
 #[pymethods]
 impl Configuration {
+    /// Build a new WireGuard configuration with randomly generated encryption keys.
+    #[staticmethod]
+    #[args(listen_port = "51820")]
+    pub fn generate(listen_port: u16) -> PyResult<Self> {
+        let server_private_key = Arc::new(X25519SecretKey::new());
+        let client_private_key = Arc::new(X25519SecretKey::new());
+
+        Ok(Self::new(listen_port, server_private_key, &[client_private_key]))
+    }
+
     /// Deserialize WireGuard configuration from JSON.
     pub fn to_json(&self) -> PyResult<String> {
         serde_json::to_string_pretty(self).map_err(invalid_json)
