@@ -3,17 +3,14 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-
-use boringtun::noise::handshake::parse_handshake_anon;
-use boringtun::noise::{Packet, Tunn, TunnResult};
-
+use boringtun::noise::{handshake::parse_handshake_anon, Packet, Tunn, TunnResult};
 use pretty_hex::pretty_hex;
-
 use smoltcp::wire::{Ipv4Packet, Ipv6Packet};
-
-use tokio::net::UdpSocket;
-use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::{Notify, RwLock};
+use tokio::{
+    net::UdpSocket,
+    sync::mpsc::{Receiver, Sender},
+    sync::{Notify, RwLock},
+};
 use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};

@@ -9,10 +9,11 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use rand_core::OsRng;
-
-use tokio::net::UdpSocket;
-use tokio::sync::mpsc::{self, channel, unbounded_channel};
-use tokio::sync::Notify;
+use tokio::{
+    net::UdpSocket,
+    sync::mpsc::{self, channel, unbounded_channel},
+    sync::Notify,
+};
 use x25519_dalek::{PublicKey, StaticSecret};
 
 mod messages;
