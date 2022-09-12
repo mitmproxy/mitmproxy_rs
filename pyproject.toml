@@ -17,6 +17,9 @@ classifiers = [
     "Development Status :: 3 - Alpha",
 ]
 
+[tool.maturin]
+no-default-features = true
+
 [tool.black]
 line-length = 120
 target-version = ['py37']
