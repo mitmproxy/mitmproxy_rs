@@ -82,8 +82,6 @@ async def handle_connection(rw: mitmproxy_wireguard.TcpStream):
     logger.debug(f"connection task {rw=}")
     logger.debug(f"{rw.get_extra_info('peername')=}")
 
-    rw.write("Hi, I'm an echo server! 🦄\n".encode())
-
     for _ in range(2):
         logger.debug("reading...")
         try:

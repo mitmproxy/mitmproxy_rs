@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use smoltcp::phy::{Device, DeviceCapabilities, Medium, RxToken, TxToken};
+use smoltcp::phy::{ChecksumCapabilities, Device, DeviceCapabilities, Medium, RxToken, TxToken};
 use smoltcp::time::Instant;
 
 use tokio::sync::mpsc::{Permit, Sender};
@@ -56,6 +56,7 @@ impl<'a> Device<'a> for VirtualDevice {
 
     fn capabilities(&self) -> DeviceCapabilities {
         let mut capabilities = DeviceCapabilities::default();
+        capabilities.checksum = ChecksumCapabilities::ignored();
         capabilities.medium = Medium::Ip;
         capabilities.max_transmission_unit = 1420;
         capabilities
