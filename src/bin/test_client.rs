@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{bail, Result};
-use boringtun_0_5::noise::{Tunn, TunnResult};
+use boringtun::noise::{Tunn, TunnResult};
 use x25519_dalek::{PublicKey, StaticSecret};
 
 fn main() -> Result<()> {

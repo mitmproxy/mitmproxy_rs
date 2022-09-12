@@ -5,14 +5,15 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Result;
-use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
+use rand_core::OsRng;
 
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{self, channel, unbounded_channel};
 use tokio::sync::Notify;
+use x25519_dalek::{PublicKey, StaticSecret};
 
 mod messages;
 mod network;
@@ -107,8 +108,8 @@ impl Server {
     pub async fn init(
         host: String,
         port: u16,
-        private_key: Arc<X25519SecretKey>,
-        peer_public_keys: Vec<Arc<X25519PublicKey>>,
+        private_key: StaticSecret,
+        peer_public_keys: Vec<PublicKey>,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
     ) -> Result<Self> {
@@ -241,20 +242,12 @@ pub fn start_server(
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
-    let private_key = private_key
-        .parse()
-        .map(Arc::new)
-        .map_err(|_| PyValueError::new_err("Invalid private key."))?;
+    let private_key = string_to_key(private_key)?;
 
     let peer_public_keys = peer_public_keys
         .into_iter()
-        .map(|public_key| {
-            Ok(public_key
-                .parse()
-                .map(Arc::new)
-                .map_err(|_| PyValueError::new_err("Invalid public key."))?)
-        })
-        .collect::<Result<Vec<Arc<X25519PublicKey>>>>()?;
+        .map(string_to_key)
+        .collect::<PyResult<Vec<PublicKey>>>()?;
 
     pyo3_asyncio::tokio::future_into_py(py, async move {
         let server = Server::init(
@@ -270,22 +263,29 @@ pub fn start_server(
     })
 }
 
+fn string_to_key<T>(data: String) -> PyResult<T>
+where
+    T: From<[u8; 32]>,
+{
+    base64::decode(data)
+        .ok()
+        .and_then(|bytes| <[u8; 32]>::try_from(bytes).ok())
+        .map(T::from)
+        .ok_or_else(|| PyValueError::new_err("Invalid key."))
+}
 
 /// Generate a WireGuard private key, analogous to the `wg genkey` command.
 #[pyfunction]
 fn genkey() -> String {
-    base64::encode(X25519SecretKey::new().as_bytes())
+    base64::encode(StaticSecret::new(OsRng).to_bytes())
 }
 
 /// Derive a WireGuard public key from a private key, analogous to the `wg pubkey` command.
 #[pyfunction]
 fn pubkey(private_key: String) -> PyResult<String> {
-    let private_key: X25519SecretKey = private_key
-        .parse()
-        .map_err(|_| PyValueError::new_err("Invalid private key."))?;
-    Ok(base64::encode(private_key.public_key().as_bytes()))
+    let private_key: StaticSecret = string_to_key(private_key)?;
+    Ok(base64::encode(PublicKey::from(&private_key).as_bytes()))
 }
-
 
 /// This package contains a cross-platform, user-space WireGuard server implementation in Rust,
 /// which provides a Python interface that is intended to be similar to the one provided by

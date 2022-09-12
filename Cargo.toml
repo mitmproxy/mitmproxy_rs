@@ -35,7 +35,7 @@ required-features = ["test-client"]
 [dependencies]
 anyhow = "1.0.56"
 base64 = "0.13"
-boringtun = { version = "0.4", default-features = false }
+boringtun = { version = "0.5", default-features = false }
 log = "0.4.16"
 pretty-hex = "0.3.0"
 pyo3 = { version = "0.16.4", features = ["abi3", "abi3-py37", "extension-module", "anyhow"] }
@@ -43,11 +43,11 @@ pyo3-asyncio = { version = "0.16", features = ["tokio-runtime"] }
 pyo3-log = "0.6.0"
 smoltcp = "0.8"
 tokio = { version = "1.17", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
+x25519-dalek = "2.0.0-pre.1"
+rand_core = { version = "0.6.3", features = ["getrandom"] }
 
 # optional dependencies for the test client
-boringtun_0_5 = { package = "boringtun", version = "0.5", default-features = false, optional = true}
 hex = { version = "0.4", optional = true }
-x25519-dalek = { version = "2.0.0-pre.1", optional = true }
 
 # optional dependencies for tracing support
 console-subscriber = { version = "0.1.4", optional = true }
@@ -59,5 +59,5 @@ opt-level = 3
 
 [features]
 default = ["test-client"]
-test-client = ["boringtun_0_5", "hex", "x25519-dalek"]
+test-client = ["hex"]
 tracing = ["console-subscriber"]

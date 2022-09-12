@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 
-use boringtun::crypto::{X25519PublicKey, X25519SecretKey};
 use boringtun::noise::handshake::parse_handshake_anon;
 use boringtun::noise::{Packet, Tunn, TunnResult};
 
@@ -15,6 +14,7 @@ use smoltcp::wire::{Ipv4Packet, Ipv6Packet};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::{Notify, RwLock};
+use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};
 
@@ -32,10 +32,10 @@ impl WireGuardPeer {
 }
 
 pub struct WireGuardTaskBuilder {
-    private_key: Arc<X25519SecretKey>,
+    private_key: StaticSecret,
 
     peers_by_idx: HashMap<u32, Arc<WireGuardPeer>>,
-    peers_by_key: HashMap<Arc<X25519PublicKey>, Arc<WireGuardPeer>>,
+    peers_by_key: HashMap<PublicKey, Arc<WireGuardPeer>>,
     peers_by_ip: HashMap<IpAddr, Arc<WireGuardPeer>>,
 
     net_tx: Sender<NetworkEvent>,
@@ -46,7 +46,7 @@ pub struct WireGuardTaskBuilder {
 
 impl WireGuardTaskBuilder {
     pub fn new(
-        private_key: Arc<X25519SecretKey>,
+        private_key: StaticSecret,
         net_tx: Sender<NetworkEvent>,
         net_rx: Receiver<NetworkCommand>,
         sd_trigger: Arc<Notify>,
@@ -65,12 +65,12 @@ impl WireGuardTaskBuilder {
         }
     }
 
-    pub fn add_peer(&mut self, public_key: Arc<X25519PublicKey>, preshared_key: Option<[u8; 32]>) -> Result<()> {
+    pub fn add_peer(&mut self, public_key: PublicKey, preshared_key: Option<[u8; 32]>) -> Result<()> {
         let index = self.peers_by_idx.len() as u32;
 
         let tunnel = Tunn::new(
             self.private_key.clone(),
-            public_key.clone(),
+            public_key,
             preshared_key,
             Some(25),
             index,
@@ -90,7 +90,7 @@ impl WireGuardTaskBuilder {
     }
 
     pub fn build(self) -> Result<WireGuardTask> {
-        let public_key = Arc::new(self.private_key.public_key());
+        let public_key = PublicKey::from(&self.private_key);
 
         Ok(WireGuardTask {
             private_key: self.private_key,
@@ -110,11 +110,11 @@ impl WireGuardTaskBuilder {
 }
 
 pub struct WireGuardTask {
-    private_key: Arc<X25519SecretKey>,
-    public_key: Arc<X25519PublicKey>,
+    private_key: StaticSecret,
+    public_key: PublicKey,
 
     peers_by_idx: HashMap<u32, Arc<WireGuardPeer>>,
-    peers_by_key: HashMap<Arc<X25519PublicKey>, Arc<WireGuardPeer>>,
+    peers_by_key: HashMap<PublicKey, Arc<WireGuardPeer>>,
     peers_by_ip: HashMap<IpAddr, Arc<WireGuardPeer>>,
 
     net_tx: Sender<NetworkEvent>,
@@ -188,7 +188,7 @@ impl WireGuardTask {
                     },
                 };
 
-                let peer_public_key = X25519PublicKey::from(handshake.peer_static_public.as_slice());
+                let peer_public_key = PublicKey::from(handshake.peer_static_public);
                 self.peers_by_key.get(&peer_public_key)
             },
             Packet::HandshakeResponse(p) => self.peers_by_idx.get(&(p.receiver_idx >> 8)),
