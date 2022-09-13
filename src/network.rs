@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-
+use pretty_hex::pretty_hex;
 use smoltcp::iface::{Interface, InterfaceBuilder, Routes, SocketHandle};
 use smoltcp::phy::ChecksumCapabilities;
 use smoltcp::socket::{Socket, TcpSocket, TcpSocketBuffer, TcpState};
@@ -26,7 +26,6 @@ use smoltcp::wire::{
     UdpRepr,
 };
 use smoltcp::Error;
-
 use tokio::sync::mpsc::{Receiver, Sender, UnboundedReceiver};
 use tokio::sync::{oneshot, Notify};
 
@@ -276,9 +275,21 @@ impl<'a> NetworkTask<'a> {
         let dst_ip = packet.dst_ip();
 
         let tcp_packet = match TcpPacket::new_checked(packet.payload_mut()) {
-            Ok(p) => p,
+            // packet with correct length
+            Ok(p) => {
+                // packet with correct checksum
+                if p.verify_checksum(&src_ip.into(), &dst_ip.into()) {
+                    p
+                } else {
+                    // packet with incorrect checksum
+                    log::debug!("Received invalid TCP packet (checksum error).");
+                    return Ok(());
+                }
+            },
+            // packet with incorrect length
             Err(e) => {
-                log::debug!("Received invalid TCP packet: {}", e);
+                log::debug!("Received invalid TCP packet ({}) with payload:", e);
+                log::debug!("{}", pretty_hex(&packet.payload_mut()));
                 return Ok(());
             },
         };
