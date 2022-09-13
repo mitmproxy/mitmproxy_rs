@@ -123,7 +123,7 @@ impl TcpStream {
 impl Drop for TcpStream {
     fn drop(&mut self) {
         if let Err(error) = self.close() {
-            log::error!("Failed to close TCP stream during clean up: {}", error);
+            log::debug!("Failed to close TCP stream during clean up: {}", error);
         }
     }
 }
