@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use anyhow::{bail, Result};
 use boringtun::noise::{Tunn, TunnResult};
+use smoltcp::wire::{Ipv4Packet, TcpPacket, TcpSeqNumber};
 use x25519_dalek::{PublicKey, StaticSecret};
 
 fn main() -> Result<()> {
@@ -25,19 +26,21 @@ fn main() -> Result<()> {
     socket.connect(SocketAddr::new(IpAddr::from_str("127.0.0.1")?, port))?;
 
     // IPv4 + UDP + data
-    let udp_dgram = hex::decode(
+    let mut udp_dgram = Ipv4Packet::new_checked(hex::decode(
         "450000218d6600008011307f0a0000010a00002a\
     04d27a69000d253f\
     68656c6c6f",
-    )?;
-    // IPv4 + TCP SYN
-    let ip_hdr_tcp = hex::decode("45000034d97b40008006FFFF0a0000010a00002a")?;
-    let mut tcp_syn = ip_hdr_tcp.clone();
-    tcp_syn.append(&mut hex::decode(
-        "cafe005012345678000000008002faf0FFFF0000020405b40103030801010402",
-    )?);
+    )?)?;
+    udp_dgram.fill_checksum();
 
-    let mut packets_to_do = vec![tcp_syn, udp_dgram];
+    // IPv4 + TCP SYN
+    let mut tcp_syn = Ipv4Packet::new_checked(hex::decode(
+        "45000034d97b40008006FFFF0a0000010a00002a\
+    cafe005012345678000000008002faf0FFFF0000020405b40103030801010402",
+    )?)?;
+    tcp_syn.fill_checksum();
+
+    let mut packets_to_do = vec![tcp_syn.into_inner(), udp_dgram.into_inner()];
 
     let mut buf_in = [0u8; 1500];
     let mut buf_out = [0u8; 1500];
@@ -80,15 +83,21 @@ fn main() -> Result<()> {
                     if buf[33] & 0x12 == 0x12 {
                         println!("It's a TCP SYN/ACK.");
 
-                        let mut tcp_ack = ip_hdr_tcp.clone();
-                        tcp_ack.append(&mut hex::decode(
-                            "cafe0050123456790000000050100204FFFF0000\
+                        let mut tcp_ack = Ipv4Packet::new_checked(hex::decode(
+                            "45000034d97b40008006FFFF0a0000010a00002a\
+                            cafe0050123456790000000050100204FFFF0000\
                             68656c6c6f20776f726c6421",
-                        )?);
+                        )?)?;
+
                         // Update ACK number
-                        let ack = u32::from_be_bytes(buf[24..28].try_into().unwrap()) + 1;
-                        tcp_ack.splice(28..32, ack.to_be_bytes());
-                        packets_to_do.push(tcp_ack);
+                        let ack = i32::from_be_bytes(buf[24..28].try_into().unwrap()) + 1;
+                        let (src_addr, dst_addr) = (tcp_ack.src_addr(), tcp_ack.dst_addr());
+                        let mut tcp_ack_inner = TcpPacket::new_checked(tcp_ack.payload_mut())?;
+                        tcp_ack_inner.set_ack_number(TcpSeqNumber(ack));
+                        tcp_ack_inner.fill_checksum(&src_addr.into(), &dst_addr.into());
+                        tcp_ack.fill_checksum();
+
+                        packets_to_do.push(tcp_ack.into_inner());
                     } else if buf[33] & 0x10 == 0x10 {
                         if buf.len() == 40 {
                             println!("It's a TCP ACK with no data.");
