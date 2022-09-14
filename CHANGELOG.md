@@ -1,3 +1,11 @@
+## Unreleased
+
+- Build test client binaries in the `publish` GitHub Action.
+- Stop building binary wheels for 32-bit Linux and Windows targets.
+- Validate TCP checksums and reject invalid incoming packets early.
+- Lower priority of log messages for non-fatal `TcpStream` cleanup errors during
+  server shutdown.
+
 ## 0.1.2
 
 - Revert addition of `ChecksumCapabilities::ignored` to the virtual network device.

@@ -8,38 +8,12 @@ on:
 jobs:
   linux:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target: [x86_64, i686]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
           python-version: 3.7
           architecture: x64
-      - name: Build wheels
-        uses: messense/maturin-action@v1
-        with:
-          target: ${{ matrix.target }}
-          manylinux: auto
-          args: --release --out dist --sdist
-      - name: Upload wheels
-        uses: actions/upload-artifact@v2
-        with:
-          name: wheels
-          path: dist
-
-  windows:
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        target: [x64, x86]
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: 3.7
-          architecture: ${{ matrix.target }}
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -49,13 +23,65 @@ jobs:
       - name: Build wheels
         uses: messense/maturin-action@v1
         with:
-          target: ${{ matrix.target }}
-          args: --release --out dist
+          target: x86_64-unknown-linux-gnu
+          manylinux: auto
+          args: --release --out dist --sdist
+      - name: Build test client
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --path . --root out/linux-x86_64/
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
           name: wheels
           path: dist
+      - name: Upload binaries
+        uses: actions/upload-artifact@v2
+        with:
+          name: binaries
+          path: out
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+          architecture: x64
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          default: true
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          default: true
+      - name: Build wheels
+        uses: messense/maturin-action@v1
+        with:
+          target: x64
+          args: --release --out dist
+      - name: Build test client
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --path . --root out/windows-x86_64/
+      - name: Upload wheels
+        uses: actions/upload-artifact@v2
+        with:
+          name: wheels
+          path: dist
+      - name: Upload binaries
+        uses: actions/upload-artifact@v2
+        with:
+          name: binaries
+          path: out
 
   macos:
     runs-on: macos-latest
@@ -81,11 +107,26 @@ jobs:
         uses: messense/maturin-action@v1
         with:
           args: --release --universal2 --out dist
+      - name: Build test client (x86_64)
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --path . --root out/macos-x86_64/
+      - name: Build test client (aarch64)
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --target aarch64-apple-darwin --path . --root out/macos-aarch64/
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
           name: wheels
           path: dist
+      - name: Upload binaries
+        uses: actions/upload-artifact@v2
+        with:
+          name: binaries
+          path: out
 
   publish:
     runs-on: ubuntu-latest
