@@ -27,11 +27,6 @@ exclude = [
 name = "mitmproxy_wireguard"
 crate-type = ["cdylib"]
 
-[[bin]]
-name = "mitm-wg-test-client"
-path = "src/bin/test_client.rs"
-required-features = ["test-client"]
-
 [dependencies]
 anyhow = "1.0.56"
 base64 = "0.13"
@@ -46,9 +41,6 @@ smoltcp = "0.8"
 tokio = { version = "1.17", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 x25519-dalek = "2.0.0-pre.1"
 
-# optional dependencies for the test client
-hex = { version = "0.4", optional = true }
-
 # optional dependencies for tracing support
 console-subscriber = { version = "0.1.4", optional = true }
 
@@ -58,6 +50,10 @@ lto = true
 opt-level = 3
 
 [features]
-default = ["test-client"]
-test-client = ["hex"]
 tracing = ["console-subscriber"]
+
+[workspace]
+members = [
+    ".",
+    "test-client",
+]

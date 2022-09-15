@@ -30,7 +30,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --path . --root out/linux-x86_64/
+          args: --path test-client --root out/linux-x86_64/
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
@@ -71,7 +71,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --path . --root out/windows-x86_64/
+          args: --path test-client --root out/windows-x86_64/
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
@@ -111,12 +111,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --path . --root out/macos-x86_64/
+          args: --path test-client --root out/macos-x86_64/
       - name: Build test client (aarch64)
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --target aarch64-apple-darwin --path . --root out/macos-aarch64/
+          args: --target aarch64-apple-darwin --path test-client --root out/macos-aarch64/
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
