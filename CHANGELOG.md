@@ -1,5 +1,6 @@
-## Unreleased
+## 0.1.3
 
+- Adapt test client to produce packets with correct checksums.
 - Build test client binaries in the `publish` GitHub Action.
 - Stop building binary wheels for 32-bit Linux and Windows targets.
 - Validate TCP checksums and reject invalid incoming packets early.
