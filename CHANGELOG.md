@@ -1,3 +1,8 @@
+## 0.1.4
+
+- Split test client into separate workspace crate to speed up builds and
+  and hopefully fix them on macos.
+
 ## 0.1.3
 
 - Adapt test client to produce packets with correct checksums.
