@@ -61,7 +61,12 @@ fn main() -> Result<()> {
             };
         }
 
-        let len = socket.recv(&mut buf_in)?;
+        let len = match socket.recv(&mut buf_in) {
+            Ok(len) => len,
+            // errno == EAGAIN / Resource Temporarily Unavailable: just try again later
+            Err(err) if matches!(err.raw_os_error(), Some(11)) => continue,
+            Err(err) => return Err(err.into()),
+        };
         let mut result = tunn.decapsulate(None, &buf_in[..len], &mut buf_out);
 
         while let TunnResult::WriteToNetwork(b) = result {

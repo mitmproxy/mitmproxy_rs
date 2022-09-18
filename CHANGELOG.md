@@ -1,3 +1,7 @@
+## Unreleased
+
+- Adapt the test client to handle EAGAIN gracefully.
+
 ## 0.1.4
 
 - Split test client into separate workspace crate to speed up builds and
