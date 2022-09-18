@@ -117,11 +117,11 @@ of the `console_subscriber` for `tokio-console`, which requires using the
 
 ## Code style
 
-The format for Rust code is enforced by `rustfmt.toml`. Some used configuration
-options are only available on nightly Rust. To apply the formatting rules, use:
+The format for Rust code is enforced by `rustfmt`.
+To apply the formatting rules, use:
 
 ```shell
-cargo +nightly fmt
+cargo fmt
 ```
 
 The format for Python code (i.e. the test echo server and the type stubs in

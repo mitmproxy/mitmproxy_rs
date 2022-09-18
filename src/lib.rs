@@ -24,7 +24,9 @@ mod wireguard;
 
 use messages::TransportCommand;
 use network::NetworkTask;
-use python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask, TcpStream};
+use python::{
+    event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask, TcpStream,
+};
 use shutdown::ShutdownTask;
 use wireguard::WireGuardTaskBuilder;
 
@@ -54,7 +56,12 @@ impl Server {
     /// Send an individual UDP datagram using the specified source and destination addresses.
     ///
     /// The `src_addr` and `dst_addr` arguments are expected to be `(host: str, port: int)` tuples.
-    pub fn send_datagram(&self, data: Vec<u8>, src_addr: &PyTuple, dst_addr: &PyTuple) -> PyResult<()> {
+    pub fn send_datagram(
+        &self,
+        data: Vec<u8>,
+        src_addr: &PyTuple,
+        dst_addr: &PyTuple,
+    ) -> PyResult<()> {
         let cmd = TransportCommand::SendDatagram {
             data,
             src_addr: py_to_socketaddr(src_addr)?,
@@ -154,8 +161,12 @@ impl Server {
         let sd_handler = Arc::new(Notify::new());
 
         // initialize WireGuard server
-        let mut wg_task_builder =
-            WireGuardTaskBuilder::new(private_key, wg_to_smol_tx, smol_to_wg_rx, sd_trigger.clone());
+        let mut wg_task_builder = WireGuardTaskBuilder::new(
+            private_key,
+            wg_to_smol_tx,
+            smol_to_wg_rx,
+            sd_trigger.clone(),
+        );
         for key in peer_public_keys {
             wg_task_builder.add_peer(key, None)?;
         }
@@ -173,11 +184,15 @@ impl Server {
         // initialize Python interop task
         // Note: Calling into the Python runtime needs to happen on the main thread, it doesn't
         //       seem to work when called from a different task.
-        let (py_loop, run_coroutine_threadsafe) = Python::with_gil(|py| -> Result<(PyObject, PyObject)> {
-            let py_loop = pyo3_asyncio::tokio::get_current_loop(py)?.into();
-            let run_coroutine_threadsafe = py.import("asyncio")?.getattr("run_coroutine_threadsafe")?.into();
-            Ok((py_loop, run_coroutine_threadsafe))
-        })?;
+        let (py_loop, run_coroutine_threadsafe) =
+            Python::with_gil(|py| -> Result<(PyObject, PyObject)> {
+                let py_loop = pyo3_asyncio::tokio::get_current_loop(py)?.into();
+                let run_coroutine_threadsafe = py
+                    .import("asyncio")?
+                    .getattr("run_coroutine_threadsafe")?
+                    .into();
+                Ok((py_loop, run_coroutine_threadsafe))
+            })?;
 
         let py_task = PyInteropTask::new(
             local_addr,
@@ -196,7 +211,13 @@ impl Server {
         let py_handle = tokio::spawn(async move { py_task.run().await });
 
         // initialize and run shutdown handler
-        let sd_task = ShutdownTask::new(py_handle, wg_handle, net_handle, sd_trigger.clone(), sd_handler.clone());
+        let sd_task = ShutdownTask::new(
+            py_handle,
+            wg_handle,
+            net_handle,
+            sd_trigger.clone(),
+            sd_handler.clone(),
+        );
         tokio::spawn(async move { sd_task.run().await });
 
         log::debug!("WireGuard server successfully initialized.");

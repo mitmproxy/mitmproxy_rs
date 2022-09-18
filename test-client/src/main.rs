@@ -15,10 +15,17 @@ fn main() -> Result<()> {
         .unwrap_or(51820);
 
     let static_private = StaticSecret::from(
-        <[u8; 32]>::try_from(base64::decode("qG8b7LI/s+ezngWpXqj5A7Nj988hbGL+eQ8ePki0iHk=")?).unwrap(),
+        <[u8; 32]>::try_from(base64::decode(
+            "qG8b7LI/s+ezngWpXqj5A7Nj988hbGL+eQ8ePki0iHk=",
+        )?)
+        .unwrap(),
     );
-    let peer_static_public =
-        PublicKey::from(<[u8; 32]>::try_from(base64::decode("mitmV5Wo7pRJrHNAKhZEI0nzqqeO8u4fXG+zUbZEXA0=")?).unwrap());
+    let peer_static_public = PublicKey::from(
+        <[u8; 32]>::try_from(base64::decode(
+            "mitmV5Wo7pRJrHNAKhZEI0nzqqeO8u4fXG+zUbZEXA0=",
+        )?)
+        .unwrap(),
+    );
     let tunn = Tunn::new(static_private, peer_static_public, None, None, 0, None).unwrap();
 
     let socket = UdpSocket::bind("127.0.0.1:0")?;
@@ -67,7 +74,7 @@ cafe005012345678000000008002faf0FFFF0000020405b40103030801010402",
             match tunn.encapsulate(&packet, &mut buf_out) {
                 TunnResult::WriteToNetwork(b) => {
                     socket.send(b)?;
-                },
+                }
                 TunnResult::Done => (),
                 _ => unreachable!("encapsulate"),
             };
@@ -133,7 +140,7 @@ cafe0050123456790000000050100204FFFF0000\
                 } else {
                     println!("It's neither TCP nor UDP.");
                 }
-            },
+            }
             TunnResult::Done => (),
             _ => bail!("Unexpected decapsulatation result: {:?}", result),
         }

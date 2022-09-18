@@ -75,7 +75,9 @@ impl<'a> TxToken for VirtualTxToken<'a> {
         let result = f(&mut buffer);
 
         if result.is_ok() {
-            let cmd = NetworkCommand::SendPacket(IpPacket::try_from(buffer).map_err(|_| smoltcp::Error::Malformed)?);
+            let cmd = NetworkCommand::SendPacket(
+                IpPacket::try_from(buffer).map_err(|_| smoltcp::Error::Malformed)?,
+            );
             self.permit.send(cmd);
         }
         result

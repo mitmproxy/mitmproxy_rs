@@ -11,25 +11,16 @@ use smoltcp::phy::ChecksumCapabilities;
 use smoltcp::socket::{Socket, TcpSocket, TcpSocketBuffer, TcpState};
 use smoltcp::time::{Duration, Instant};
 use smoltcp::wire::{
-    IpAddress,
-    IpCidr,
-    IpProtocol,
-    IpRepr,
-    Ipv4Address,
-    Ipv4Packet,
-    Ipv4Repr,
-    Ipv6Address,
-    Ipv6Packet,
-    Ipv6Repr,
-    TcpPacket,
-    UdpPacket,
-    UdpRepr,
+    IpAddress, IpCidr, IpProtocol, IpRepr, Ipv4Address, Ipv4Packet, Ipv4Repr, Ipv6Address,
+    Ipv6Packet, Ipv6Repr, TcpPacket, UdpPacket, UdpRepr,
 };
 use smoltcp::Error;
 use tokio::sync::mpsc::{Receiver, Sender, UnboundedReceiver};
 use tokio::sync::{oneshot, Notify};
 
-use crate::messages::{ConnectionId, IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent};
+use crate::messages::{
+    ConnectionId, IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent,
+};
 
 mod virtual_device;
 use virtual_device::VirtualDevice;
@@ -76,9 +67,15 @@ impl<'a> NetworkTask<'a> {
         let ip_addrs = [IpCidr::new(IpAddress::v4(0, 0, 0, 1), 0)];
         let mut routes = Routes::new(BTreeMap::new());
         // TODO: v6
-        routes.add_default_ipv4_route(Ipv4Address::new(0, 0, 0, 1)).unwrap();
+        routes
+            .add_default_ipv4_route(Ipv4Address::new(0, 0, 0, 1))
+            .unwrap();
 
-        let iface = builder.any_ip(true).ip_addrs(ip_addrs).routes(routes).finalize();
+        let iface = builder
+            .any_ip(true)
+            .ip_addrs(ip_addrs)
+            .routes(routes)
+            .finalize();
 
         Ok(Self {
             iface,
@@ -150,12 +147,12 @@ impl<'a> NetworkTask<'a> {
                     Err(Error::Exhausted) => {
                         log::debug!("smoltcp: exhausted.");
                         break;
-                    },
+                    }
                     Err(e) => {
                         // these can happen for "normal" reasons such as invalid packets,
                         // we just write a log message and keep going.
                         log::debug!("smoltcp network error: {}", e)
-                    },
+                    }
                 }
             }
 
@@ -183,8 +180,8 @@ impl<'a> NetworkTask<'a> {
                                 if tx.send(Vec::new()).is_err() {
                                     log::debug!("Cannot send data, channel was already closed.");
                                 }
-                            },
-                            _ => {},
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -243,7 +240,7 @@ impl<'a> NetworkTask<'a> {
                     packet.transport_protocol()
                 );
                 Ok(())
-            },
+            }
         }
     }
 
@@ -256,7 +253,7 @@ impl<'a> NetworkTask<'a> {
             Err(e) => {
                 log::debug!("Received invalid UDP packet: {}", e);
                 return Ok(());
-            },
+            }
         };
 
         let src_addr = SocketAddr::new(src_ip, udp_packet.src_port());
@@ -287,13 +284,13 @@ impl<'a> NetworkTask<'a> {
                     log::debug!("Received invalid TCP packet (checksum error).");
                     return Ok(());
                 }
-            },
+            }
             // packet with incorrect length
             Err(e) => {
                 log::debug!("Received invalid TCP packet ({}) with payload:", e);
                 log::debug!("{}", pretty_hex(&packet.payload_mut()));
                 return Ok(());
-            },
+            }
         };
 
         let src_addr = SocketAddr::new(src_ip, tcp_packet.src_port());
@@ -382,7 +379,7 @@ impl<'a> NetworkTask<'a> {
             Err(_) => {
                 log::debug!("Channel full, discarding UDP packet.");
                 return;
-            },
+            }
         };
 
         // We now know that there's space for us to send,
@@ -411,7 +408,7 @@ impl<'a> NetworkTask<'a> {
             _ => {
                 log::error!("Failed to assemble UDP datagram: mismatched IP address versions");
                 return;
-            },
+            }
         };
 
         let buf = vec![0u8; ip_repr.total_len()];
@@ -421,12 +418,12 @@ impl<'a> NetworkTask<'a> {
                 let mut packet = Ipv4Packet::new_unchecked(buf);
                 repr.emit(&mut packet, &ChecksumCapabilities::default());
                 IpPacket::from(packet)
-            },
+            }
             IpRepr::Ipv6(repr) => {
                 let mut packet = Ipv6Packet::new_unchecked(buf);
                 repr.emit(&mut packet);
                 IpPacket::from(packet)
-            },
+            }
             _ => unreachable!(),
         };
 
@@ -462,7 +459,9 @@ impl<'a> fmt::Debug for NetworkTask<'a> {
             })
             .collect();
 
-        f.debug_struct("NetworkTask").field("sockets", &sockets).finish()
+        f.debug_struct("NetworkTask")
+            .field("sockets", &sockets)
+            .finish()
     }
 }
 

@@ -102,7 +102,12 @@ impl TcpStream {
     ///
     /// Supported values: `peername`, `sockname`, `original_dst`.
     #[args(default = "None")]
-    fn get_extra_info(&self, py: Python, name: String, default: Option<PyObject>) -> PyResult<PyObject> {
+    fn get_extra_info(
+        &self,
+        py: Python,
+        name: String,
+        default: Option<PyObject>,
+    ) -> PyResult<PyObject> {
         match (name.as_str(), default) {
             ("peername", _) => Ok(socketaddr_to_py(py, self.peername)),
             ("sockname", _) => Ok(socketaddr_to_py(py, self.sockname)),
@@ -137,7 +142,7 @@ pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
                 (addr.ip().to_string(), addr.port())
             );
             (addr.ip().to_string(), addr.port()).into_py(py)
-        },
+        }
     }
 }
 

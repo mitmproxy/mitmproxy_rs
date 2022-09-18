@@ -47,7 +47,6 @@ pub enum TransportCommand {
     },
 }
 
-
 /// Generic IPv4/IPv6 packet type that wraps both IPv4 and IPv6 packet buffers
 #[derive(Debug)]
 pub enum IpPacket {
@@ -104,7 +103,7 @@ impl IpPacket {
             IpPacket::V6(packet) => {
                 log::debug!("TODO: Implement IPv6 next_header logic.");
                 packet.next_header()
-            },
+            }
         }
     }
 

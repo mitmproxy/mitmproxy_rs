@@ -3,7 +3,9 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use boringtun::noise::{errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult};
+use boringtun::noise::{
+    errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult,
+};
 use pretty_hex::pretty_hex;
 use smoltcp::wire::{Ipv4Packet, Ipv6Packet};
 use tokio::{
@@ -62,7 +64,11 @@ impl WireGuardTaskBuilder {
         }
     }
 
-    pub fn add_peer(&mut self, public_key: PublicKey, preshared_key: Option<[u8; 32]>) -> Result<()> {
+    pub fn add_peer(
+        &mut self,
+        public_key: PublicKey,
+        preshared_key: Option<[u8; 32]>,
+    ) -> Result<()> {
         let index = self.peers_by_idx.len() as u32;
 
         let tunnel = Tunn::new(
@@ -156,7 +162,7 @@ impl WireGuardTask {
             match e {
                 NetworkCommand::SendPacket(packet) => {
                     self.process_outgoing_packet(&socket, packet).await?;
-                },
+                }
             }
         }
 
@@ -170,7 +176,7 @@ impl WireGuardTask {
             Err(error) => {
                 log::error!("Received invalid WireGuard packet: {:?}", error);
                 return None;
-            },
+            }
         };
 
         let peer = match packet {
@@ -180,14 +186,17 @@ impl WireGuardTask {
                 let handshake = match parsed {
                     Ok(hs) => hs,
                     Err(error) => {
-                        log::info!("Failed to process a WireGuard handshake packet: {:?}", error);
+                        log::info!(
+                            "Failed to process a WireGuard handshake packet: {:?}",
+                            error
+                        );
                         return None;
-                    },
+                    }
                 };
 
                 let peer_public_key = PublicKey::from(handshake.peer_static_public);
                 self.peers_by_key.get(&peer_public_key)
-            },
+            }
             Packet::HandshakeResponse(p) => self.peers_by_idx.get(&(p.receiver_idx >> 8)),
             Packet::PacketCookieReply(p) => self.peers_by_idx.get(&(p.receiver_idx >> 8)),
             Packet::PacketData(p) => self.peers_by_idx.get(&(p.receiver_idx >> 8)),
@@ -202,14 +211,21 @@ impl WireGuardTask {
     }
 
     /// process WireGuard datagrams and forward the decrypted packets.
-    async fn process_incoming_datagram(&mut self, socket: &UdpSocket, data: &[u8], src_addr: SocketAddr) -> Result<()> {
+    async fn process_incoming_datagram(
+        &mut self,
+        socket: &UdpSocket,
+        data: &[u8],
+        src_addr: SocketAddr,
+    ) -> Result<()> {
         let peer = match self.find_peer_for_datagram(data) {
             Some(p) => p,
             None => return Ok(()),
         };
 
         peer.set_endpoint(src_addr).await;
-        let mut result = peer.tunnel.decapsulate(Some(src_addr.ip()), data, &mut self.wg_buf);
+        let mut result = peer
+            .tunnel
+            .decapsulate(Some(src_addr.ip()), data, &mut self.wg_buf);
 
         while let TunnResult::WriteToNetwork(b) = result {
             log::trace!("WG::process_incoming_datagram: WriteToNetwork");
@@ -222,7 +238,7 @@ impl WireGuardTask {
         match result {
             TunnResult::Done => {
                 log::trace!("WG::process_incoming_datagram: Done");
-            },
+            }
             TunnResult::Err(error) => {
                 if matches!(error, WireGuardError::NoCurrentSession) {
                     log::info!(
@@ -232,65 +248,78 @@ impl WireGuardTask {
                 } else {
                     log::debug!("WG::process_incoming_datagram: Err: {:?}", error);
                 }
-            },
-            TunnResult::WriteToTunnelV4(buf, src_addr) => match Ipv4Packet::new_checked(buf.to_vec()) {
-                Ok(packet) => {
-                    log::trace!(
-                        "WG::process_incoming_datagram: WriteToTunnelV4
+            }
+            TunnResult::WriteToTunnelV4(buf, src_addr) => {
+                match Ipv4Packet::new_checked(buf.to_vec()) {
+                    Ok(packet) => {
+                        log::trace!(
+                            "WG::process_incoming_datagram: WriteToTunnelV4
                             src_addr: {}, dst_addr: {}, origin: {}
                         {}",
-                        packet.src_addr(),
-                        packet.dst_addr(),
-                        src_addr,
-                        pretty_hex(&buf),
-                    );
+                            packet.src_addr(),
+                            packet.dst_addr(),
+                            src_addr,
+                            pretty_hex(&buf),
+                        );
 
-                    self.peers_by_ip.insert(Ipv4Addr::from(packet.src_addr()).into(), peer);
-                    let event = NetworkEvent::ReceivePacket(IpPacket::from(packet));
+                        self.peers_by_ip
+                            .insert(Ipv4Addr::from(packet.src_addr()).into(), peer);
+                        let event = NetworkEvent::ReceivePacket(IpPacket::from(packet));
 
-                    if self.net_tx.try_send(event).is_err() {
-                        log::warn!("Dropping incoming packet, TCP channel is full.")
-                    };
-                },
-                Err(error) => {
-                    log::warn!("Invalid IPv4 packet: {}", error);
-                },
-            },
-            TunnResult::WriteToTunnelV6(buf, src_addr) => match Ipv6Packet::new_checked(buf.to_vec()) {
-                Ok(packet) => {
-                    log::trace!(
-                        "WG::process_incoming_datagram: WriteToTunnelV6
+                        if self.net_tx.try_send(event).is_err() {
+                            log::warn!("Dropping incoming packet, TCP channel is full.")
+                        };
+                    }
+                    Err(error) => {
+                        log::warn!("Invalid IPv4 packet: {}", error);
+                    }
+                }
+            }
+            TunnResult::WriteToTunnelV6(buf, src_addr) => {
+                match Ipv6Packet::new_checked(buf.to_vec()) {
+                    Ok(packet) => {
+                        log::trace!(
+                            "WG::process_incoming_datagram: WriteToTunnelV6
                             src_addr: {}, dst_addr: {}, origin: {}
                         {}",
-                        packet.src_addr(),
-                        packet.dst_addr(),
-                        src_addr,
-                        pretty_hex(&buf),
-                    );
+                            packet.src_addr(),
+                            packet.dst_addr(),
+                            src_addr,
+                            pretty_hex(&buf),
+                        );
 
-                    self.peers_by_ip.insert(Ipv6Addr::from(packet.src_addr()).into(), peer);
-                    let event = NetworkEvent::ReceivePacket(IpPacket::from(packet));
+                        self.peers_by_ip
+                            .insert(Ipv6Addr::from(packet.src_addr()).into(), peer);
+                        let event = NetworkEvent::ReceivePacket(IpPacket::from(packet));
 
-                    if self.net_tx.try_send(event).is_err() {
-                        log::warn!("Dropping incoming packet, TCP channel is full.")
-                    };
-                },
-                Err(error) => {
-                    log::warn!("Invalid IPv4 packet: {}", error);
-                },
-            },
+                        if self.net_tx.try_send(event).is_err() {
+                            log::warn!("Dropping incoming packet, TCP channel is full.")
+                        };
+                    }
+                    Err(error) => {
+                        log::warn!("Invalid IPv6 packet: {}", error);
+                    }
+                }
+            }
             TunnResult::WriteToNetwork(_) => unreachable!(),
         }
         Ok(())
     }
 
     /// process packets and send the encrypted WireGuard datagrams to the peer.
-    async fn process_outgoing_packet(&mut self, socket: &UdpSocket, packet: IpPacket) -> Result<()> {
+    async fn process_outgoing_packet(
+        &mut self,
+        socket: &UdpSocket,
+        packet: IpPacket,
+    ) -> Result<()> {
         let peer = self
             .peers_by_ip
             .get(&packet.dst_ip())
             .or_else(|| {
-                log::warn!("No peer found for IP {}, falling back to first peer.", packet.dst_ip());
+                log::warn!(
+                    "No peer found for IP {}, falling back to first peer.",
+                    packet.dst_ip()
+                );
                 self.peers_by_idx.values().next()
             })
             .unwrap();
@@ -298,13 +327,16 @@ impl WireGuardTask {
         let src_ip = packet.src_ip();
         let dst_ip = packet.dst_ip();
 
-        match peer.tunnel.encapsulate(&packet.into_inner(), &mut self.wg_buf) {
+        match peer
+            .tunnel
+            .encapsulate(&packet.into_inner(), &mut self.wg_buf)
+        {
             TunnResult::Done => {
                 log::trace!("WG::process_outgoing_packet: Done");
-            },
+            }
             TunnResult::Err(error) => {
                 log::error!("WG::process_outgoing_packet: Err: {:?}", error);
-            },
+            }
             TunnResult::WriteToNetwork(buf) => {
                 let dst_addr = peer.endpoint.read().await.unwrap();
 
@@ -319,15 +351,15 @@ impl WireGuardTask {
                 );
 
                 socket.send_to(buf, dst_addr).await?;
-            },
+            }
             // IPv4 packet
             TunnResult::WriteToTunnelV4(_, _) => {
                 log::warn!("WG::process_outgoing_packet: WriteToTunnelV4: unexpected event");
-            },
+            }
             // IPv6 packet
             TunnResult::WriteToTunnelV6(_, _) => {
                 log::warn!("WG::process_outgoing_packet: WriteToTunnelV6: unexpected event");
-            },
+            }
         }
 
         Ok(())
