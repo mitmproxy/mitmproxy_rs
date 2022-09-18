@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.5
 
 - Adapt the test client to handle EAGAIN gracefully.
 
