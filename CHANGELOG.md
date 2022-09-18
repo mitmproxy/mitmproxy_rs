@@ -1,3 +1,9 @@
+## Unreleased
+
+- Make log messages for "no current WireGuard session" more user-friendly.
+- Attempt to build binary wheels for `aarch64-unknown-linux-gnu` for Raspberry
+  Pi support.
+
 ## 0.1.6
 
 - Fix test client to only send valid packets.

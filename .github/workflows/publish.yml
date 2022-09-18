@@ -8,29 +8,33 @@ on:
 jobs:
   linux:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x86_64, aarch64]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
           python-version: 3.7
-          architecture: x64
+          architecture: ${{ matrix.arch }}
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
+          target: ${{ matrix.arch }}-unknown-linux-gnu
           toolchain: stable
           profile: minimal
           default: true
       - name: Build wheels
         uses: messense/maturin-action@v1
         with:
-          target: x86_64-unknown-linux-gnu
+          target: ${{ matrix.arch }}-unknown-linux-gnu
           manylinux: auto
           args: --release --out dist --sdist
       - name: Build test client
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --path test-client --root out/linux-x86_64/
+          args: --path test-client --root out/linux-${{ matrix.arch }}/
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
