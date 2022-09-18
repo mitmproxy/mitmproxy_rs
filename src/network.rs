@@ -4,7 +4,7 @@ use std::fmt;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use pretty_hex::pretty_hex;
 use smoltcp::iface::{Interface, InterfaceBuilder, Routes, SocketHandle};
 use smoltcp::phy::ChecksumCapabilities;
@@ -200,7 +200,9 @@ impl<'a> NetworkTask<'a> {
                 // TODO: benchmark different variants here. (e.g. only return on half capacity)
                 if !data.drain_waiter.is_empty() && sock.send_queue() < sock.send_capacity() {
                     for waiter in data.drain_waiter.drain(..) {
-                        waiter.send(()).map_err(|_| anyhow!("cannot notify drain writer"))?;
+                        if waiter.send(()).is_err() {
+                            log::debug!("TcpStream already closed, cannot send notification about drained buffers.")
+                        }
                     }
                 }
 
