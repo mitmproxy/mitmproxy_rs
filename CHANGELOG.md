@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.7
 
 - Do not exit the network task when a draining TcpStream is already closed. 
 - Make log messages for "no current WireGuard session" more user-friendly.
