@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.8
 
 - Fix building binary wheels for `aarch64-unknown-linux-gnu`.
 
