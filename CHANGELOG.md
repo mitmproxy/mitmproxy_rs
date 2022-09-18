@@ -1,3 +1,7 @@
+## 0.1.6
+
+- Fix test client to only send valid packets.
+
 ## 0.1.5
 
 - Adapt the test client to handle EAGAIN gracefully.
