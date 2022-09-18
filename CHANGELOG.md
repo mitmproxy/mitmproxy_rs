@@ -1,3 +1,7 @@
+## Unreleased
+
+- Fix building binary wheels for `aarch64-unknown-linux-gnu`.
+
 ## 0.1.7
 
 - Do not exit the network task when a draining TcpStream is already closed. 

@@ -8,33 +8,30 @@ on:
 jobs:
   linux:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch: [x86_64, aarch64]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
           python-version: 3.7
-          architecture: ${{ matrix.arch }}
+          architecture: x64
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          target: ${{ matrix.arch }}-unknown-linux-gnu
+          target: x86_64-unknown-linux-gnu
           toolchain: stable
           profile: minimal
           default: true
       - name: Build wheels
         uses: messense/maturin-action@v1
         with:
-          target: ${{ matrix.arch }}-unknown-linux-gnu
+          target: x86_64-unknown-linux-gnu
           manylinux: auto
           args: --release --out dist --sdist
       - name: Build test client
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --path test-client --root out/linux-${{ matrix.arch }}/
+          args: --path test-client --root out/linux-x86_64/
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
@@ -45,6 +42,32 @@ jobs:
         with:
           name: binaries
           path: out
+
+  linux-cross:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          target: aarch64-unknown-linux-gnu
+          toolchain: stable
+          profile: minimal
+          default: true
+      - name: Build wheels
+        uses: messense/maturin-action@v1
+        with:
+          target: aarch64-unknown-linux-gnu
+          manylinux: auto
+          args: --release --out dist
+      - name: Upload wheels
+        uses: actions/upload-artifact@v2
+        with:
+          name: wheels
+          path: dist
 
   windows:
     runs-on: windows-latest
@@ -138,7 +161,7 @@ jobs:
     env:
       TWINE_USERNAME: __token__
       TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
-    needs: [linux, windows, macos]
+    needs: [linux, linux-cross, windows, macos]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
