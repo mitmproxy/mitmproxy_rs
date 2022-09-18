@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use boringtun::noise::{handshake::parse_handshake_anon, Packet, Tunn, TunnResult};
+use boringtun::noise::{errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult};
 use pretty_hex::pretty_hex;
 use smoltcp::wire::{Ipv4Packet, Ipv6Packet};
 use tokio::{
@@ -224,7 +224,14 @@ impl WireGuardTask {
                 log::trace!("WG::process_incoming_datagram: Done");
             },
             TunnResult::Err(error) => {
-                log::error!("WG::process_incoming_datagram: Err: {:?}", error);
+                if matches!(error, WireGuardError::NoCurrentSession) {
+                    log::info!(
+                        "No current session for incoming WireGuard packet: \
+                        Wait for the next session handshake or reconnect your client."
+                    );
+                } else {
+                    log::debug!("WG::process_incoming_datagram: Err: {:?}", error);
+                }
             },
             TunnResult::WriteToTunnelV4(buf, src_addr) => match Ipv4Packet::new_checked(buf.to_vec()) {
                 Ok(packet) => {
