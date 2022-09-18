@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use anyhow::{bail, Result};
 use boringtun::noise::{Tunn, TunnResult};
-use smoltcp::wire::{Ipv4Packet, TcpPacket, TcpSeqNumber};
+use smoltcp::wire::{Ipv4Packet, TcpPacket, TcpSeqNumber, UdpPacket};
 use x25519_dalek::{PublicKey, StaticSecret};
 
 fn main() -> Result<()> {
@@ -26,19 +26,31 @@ fn main() -> Result<()> {
     socket.connect(SocketAddr::new(IpAddr::from_str("127.0.0.1")?, port))?;
 
     // IPv4 + UDP + data
-    let mut udp_dgram = Ipv4Packet::new_checked(hex::decode(
-        "450000218d6600008011307f0a0000010a00002a\
-    04d27a69000d253f\
-    68656c6c6f",
-    )?)?;
-    udp_dgram.fill_checksum();
+    let udp_dgram = {
+        let mut udp_dgram = Ipv4Packet::new_checked(hex::decode(
+            "450000218d6600008011307f0a0000010a00002a\
+04d27a69000d253f\
+68656c6c6f",
+        )?)?;
+        let (src_addr, dst_addr) = (udp_dgram.src_addr(), udp_dgram.dst_addr());
+        let mut udp_dgram_inner = UdpPacket::new_checked(udp_dgram.payload_mut())?;
+        udp_dgram_inner.fill_checksum(&src_addr.into(), &dst_addr.into());
+        udp_dgram.fill_checksum();
+        udp_dgram
+    };
 
     // IPv4 + TCP SYN
-    let mut tcp_syn = Ipv4Packet::new_checked(hex::decode(
-        "45000034d97b40008006FFFF0a0000010a00002a\
-    cafe005012345678000000008002faf0FFFF0000020405b40103030801010402",
-    )?)?;
-    tcp_syn.fill_checksum();
+    let tcp_syn = {
+        let mut tcp_syn = Ipv4Packet::new_checked(hex::decode(
+            "45000034d97b40008006FFFF0a0000010a00002a\
+cafe005012345678000000008002faf0FFFF0000020405b40103030801010402",
+        )?)?;
+        let (src_addr, dst_addr) = (tcp_syn.src_addr(), tcp_syn.dst_addr());
+        let mut tcp_syn_inner = TcpPacket::new_checked(tcp_syn.payload_mut())?;
+        tcp_syn_inner.fill_checksum(&src_addr.into(), &dst_addr.into());
+        tcp_syn.fill_checksum();
+        tcp_syn
+    };
 
     let mut packets_to_do = vec![tcp_syn.into_inner(), udp_dgram.into_inner()];
 
@@ -88,19 +100,22 @@ fn main() -> Result<()> {
                     if buf[33] & 0x12 == 0x12 {
                         println!("It's a TCP SYN/ACK.");
 
-                        let mut tcp_ack = Ipv4Packet::new_checked(hex::decode(
-                            "45000034d97b40008006FFFF0a0000010a00002a\
-                            cafe0050123456790000000050100204FFFF0000\
-                            68656c6c6f20776f726c6421",
-                        )?)?;
+                        let tcp_ack = {
+                            let mut tcp_ack = Ipv4Packet::new_checked(hex::decode(
+                                "45000034d97b40008006FFFF0a0000010a00002a\
+cafe0050123456790000000050100204FFFF0000\
+68656c6c6f20776f726c6421",
+                            )?)?;
 
-                        // Update ACK number
-                        let ack = i32::from_be_bytes(buf[24..28].try_into().unwrap()) + 1;
-                        let (src_addr, dst_addr) = (tcp_ack.src_addr(), tcp_ack.dst_addr());
-                        let mut tcp_ack_inner = TcpPacket::new_checked(tcp_ack.payload_mut())?;
-                        tcp_ack_inner.set_ack_number(TcpSeqNumber(ack));
-                        tcp_ack_inner.fill_checksum(&src_addr.into(), &dst_addr.into());
-                        tcp_ack.fill_checksum();
+                            // Update ACK number
+                            let ack = i32::from_be_bytes(buf[24..28].try_into().unwrap()) + 1;
+                            let (src_addr, dst_addr) = (tcp_ack.src_addr(), tcp_ack.dst_addr());
+                            let mut tcp_ack_inner = TcpPacket::new_checked(tcp_ack.payload_mut())?;
+                            tcp_ack_inner.set_ack_number(TcpSeqNumber(ack));
+                            tcp_ack_inner.fill_checksum(&src_addr.into(), &dst_addr.into());
+                            tcp_ack.fill_checksum();
+                            tcp_ack
+                        };
 
                         packets_to_do.push(tcp_ack.into_inner());
                     } else if buf[33] & 0x10 == 0x10 {
