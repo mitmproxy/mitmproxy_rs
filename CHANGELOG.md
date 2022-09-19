@@ -1,5 +1,6 @@
-## Unreleased
+## 0.1.9
 
+- Simplified GitHub actions for CI and publishing wheels to PyPI.
 - Failed sub-tasks are now handled immediately and cause a server shutdown
   instead of silently returning and only yielding an error when shutting down
   the server manually.
