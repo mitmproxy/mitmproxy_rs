@@ -1,3 +1,9 @@
+## Unreleased
+
+- Failed sub-tasks are now handled immediately and cause a server shutdown
+  instead of silently returning and only yielding an error when shutting down
+  the server manually.
+
 ## 0.1.8
 
 - Fix building binary wheels for `aarch64-unknown-linux-gnu`.

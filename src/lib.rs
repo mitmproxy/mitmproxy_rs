@@ -76,8 +76,6 @@ impl Server {
 
             // notify tasks to shut down
             self.sd_trigger.notify_waiters();
-            // notify waiters of server shutdown
-            self.sd_handler.notify_one();
         }
     }
 
