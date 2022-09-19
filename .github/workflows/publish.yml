@@ -64,6 +64,7 @@ jobs:
         with:
           name: wheels
           path: dist
+      - run: sudo apt-get update
       - run: sudo apt-get install -y twine
       - run: |
           twine check dist/*
