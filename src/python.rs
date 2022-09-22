@@ -33,6 +33,7 @@ pub struct TcpStream {
     peername: SocketAddr,
     sockname: SocketAddr,
     original_dst: SocketAddr,
+    is_closing: bool,
 }
 
 #[pymethods]
@@ -81,7 +82,8 @@ impl TcpStream {
     }
 
     /// Close the stream after flushing the write buffer.
-    fn write_eof(&self) -> PyResult<()> {
+    fn write_eof(&mut self) -> PyResult<()> {
+        self.is_closing = true;
         self.event_tx
             .send(TransportCommand::CloseConnection(self.connection_id, true))
             .map_err(event_queue_unavailable)?;
@@ -90,12 +92,18 @@ impl TcpStream {
     }
 
     /// Close the TCP stream and the underlying socket immediately.
-    fn close(&self) -> PyResult<()> {
+    fn close(&mut self) -> PyResult<()> {
+        self.is_closing = true;
         self.event_tx
             .send(TransportCommand::CloseConnection(self.connection_id, false))
             .map_err(event_queue_unavailable)?;
 
         Ok(())
+    }
+
+    /// Check whether this TCP stream is being closed.
+    fn is_closing(&self) -> PyResult<bool> {
+        Ok(self.is_closing)
     }
 
     /// Query the TCP stream for details of the underlying network connection.
@@ -216,6 +224,7 @@ impl PyInteropTask {
                                     peername: src_addr,
                                     sockname: self.local_addr,
                                     original_dst: dst_addr,
+                                    is_closing: false,
                                 };
 
                                 Python::with_gil(|py| {

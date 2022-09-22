@@ -1,3 +1,7 @@
+## Unreleased
+
+- Implement `is_closing(self) -> bool` method on `TcpStream` to match `asyncio.StreamWriter`.
+
 ## 0.1.9
 
 - Simplified GitHub actions for CI and publishing wheels to PyPI.
