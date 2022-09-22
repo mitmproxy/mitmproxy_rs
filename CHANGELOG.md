@@ -1,5 +1,7 @@
-## Unreleased
+## 0.1.10
 
+- Temporarily use a patched version of `pyo3-asyncio` to fix a race condition in the handling
+  of Python `Future`s which caused frequent race conditions.
 - Implement `is_closing(self) -> bool` method on `TcpStream` to match `asyncio.StreamWriter`.
 
 ## 0.1.9
