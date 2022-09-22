@@ -9,7 +9,53 @@
 
 Transparently proxy any device that can be configured as a WireGuard client!
 
-*Work-In-Progress.*
+## DONE
+
+* multithreaded / asynchronous WireGuard server using tokio:
+  * one worker thread for the user-space WireGuard server
+  * one worker thread for the user-space network stack
+  * one worker thread for communicating with the Python runtime
+* support for IPv4 packets (TCP and UDP)
+* partial support for IPv6 packets
+* Python interface similar to the Python `asyncio` module
+* integration tests in mitmproxy
+
+## TODO
+
+* more complete IPv6 support
+* unit tests (possibly by reusing bits of `test-client`)
+* various other small `TODO` and `FIXME` items
+
+## Architecture support
+
+`mitmproxy_wireguard` should work on most architectures / targets - including,
+but not limited to Windows, macOS, and Linux, running on x86_64 (x64) and
+aarch64 (arm64) CPUs.
+
+Binary wheels for the following targets are available from PyPI:
+
+- Windows / x64 (`x86_64-windows-msvc`)
+- macOS / Intel (`x86_64-apple-darwin`)
+- macos / Apple Silicon (`aarch64-apple-darwin`) via "Universal 2" binaries
+- Linux / x86_64 (`x86_64-unknown-linux-gnu`)
+- Linux / aarch64 (`aarch64-unknown-linux-gnu`), i.e. for Raspberry Pi 2+ and similar devices
+
+## Requirements
+
+`mitmproxy_wireguard` currently requires Python 3.7 or newer at runtime, since
+that is the oldest version of Python that is still supported by PyO3 v0.16.
+mitmproxy already requires Python 3.9 or newer, so this should not be a problem.
+
+Additionally, `mitmproxy_wireguard` currently has the following requirements at
+build-time:
+
+- Python 3.7+ (range of Python versions that is supported by PyO3 v0.16)
+- Rust 1.58.0+ (the oldest supported version of Rust / MSRV is 1.58.0)
+- maturin 0.13.x
+
+## Architecture
+
+![library architecture](architecture.png)
 
 ## Interface
 
@@ -22,27 +68,6 @@ The API interface of the PyO3 module is documented in `mitmproxy_wireguard.pyi`:
   Python's)
   `asyncio.StreamReader` and `asyncio.StreamWriter`)
 - `start_server` coroutine: initialize, start, and return a `Server` instance
-
-## Architecture
-
-![library architecture](architecture.png)
-
-## DONE
-
-* multi-threaded / asynchronous WireGuard server using tokio:
-  * one worker thread for the user-space WireGuard server
-  * one worker thread for the user-space network stack
-  * one worker thread for communicating with the Python runtime
-* basic TCP/IPv4 functionality, IPv6 only partially supported
-* basic UDP functionality
-* Python interface similar to the one provided by `asyncio.start_server`
-* basic support for reading WireGuard configuration files
-
-## TODO
-
-* better and more complete IPv6 support
-* unit tests
-* various other `TODO` and `FIXME` items (documented in the code)
 
 ## Hacking
 
@@ -77,6 +102,10 @@ it over a WireGuard VPN:
 ```shell
 python3 ./echo_test_server.py
 ```
+
+The included `mitm-wg-test-client` binary can be used to test this echo test
+server, which can be built by running `cargo build` inside the `test-client`
+directory, and launched from `target/debug/mitm-wg-test-client`.
 
 ## Docs
 

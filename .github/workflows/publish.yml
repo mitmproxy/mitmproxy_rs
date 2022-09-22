@@ -28,9 +28,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
-      - run: rustup show
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup default stable
       - if: matrix.target
         run: rustup target add ${{ matrix.target }}
+      - run: rustup show
       - run: pip install -r .github/workflows/requirements.txt
       - run: maturin build --release ${{ matrix.args }}
       - uses: actions/upload-artifact@v2
@@ -45,12 +47,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup default stable
+      - run: rustup show
       - run: cargo install --path test-client --root test-client/dist/${{ matrix.os }}/
       - uses: actions/upload-artifact@v2
         with:
           name: binaries
           path: test-client/dist
-
 
   publish:
     runs-on: ubuntu-latest

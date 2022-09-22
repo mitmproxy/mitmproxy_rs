@@ -17,24 +17,51 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        # stable Rust and the oldest Rust version supported by mitmproxy_wireguard
+        rust: ['stable', '1.58.0']
     steps:
       - uses: actions/checkout@v2
-      - run: cargo test --verbose
+      - name: Set up Rust toolchain
+        run: rustup toolchain install ${{ matrix.rust }} --profile minimal
+      - name: Run "cargo check"
+        # the action-rs/cargo action adds inline annotations for "cargo check" output
+        uses: actions-rs/cargo@9e120dd99b0fbad1c065f686657e914e76bd7b72
+        with:
+          toolchain: ${{ matrix.rust }}
+          command: check
+          args: --workspace --verbose
+      - name: Run "cargo test"
+        # the action-rs/cargo action adds inline annotations for "cargo test" output
+        uses: actions-rs/cargo@9e120dd99b0fbad1c065f686657e914e76bd7b72
+        with:
+          toolchain: ${{ matrix.rust }}
+          command: test
+          args: --workspace --verbose
 
   clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      # Use the action as it adds annotations to the GitHub UI.
-      - uses: actions-rs/cargo@9e120dd99b0fbad1c065f686657e914e76bd7b72
+      - name: Set up Rust toolchain
+        run: rustup toolchain install stable --profile minimal
+      - name: Run "cargo clippy"
+        # the action-rs/cargo action adds inline annotations for "cargo clippy" output
+        uses: actions-rs/cargo@9e120dd99b0fbad1c065f686657e914e76bd7b72
         with:
+          toolchain: stable
           command: clippy
+          args: --workspace
 
   rustfmt:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/cargo@9e120dd99b0fbad1c065f686657e914e76bd7b72
+      - name: Set up Rust toolchain
+        run: rustup toolchain install stable --profile minimal
+      - name: Run "cargo fmt"
+        # the action-rs/cargo action adds inline annotations for "cargo fmt" / rustfmt output
+        uses: actions-rs/cargo@9e120dd99b0fbad1c065f686657e914e76bd7b72
         with:
+          toolchain: stable
           command: fmt
           args: -- --check
