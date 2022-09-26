@@ -52,6 +52,10 @@ version = "0.16.0"
 rev = "22f32e8"
 features = ["tokio-runtime"]
 
+[dev-dependencies]
+env_logger = "0.9"
+rand = "0.8"
+
 [profile.release]
 codegen-units = 1
 lto = true
