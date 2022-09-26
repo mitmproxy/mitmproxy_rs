@@ -44,16 +44,16 @@ pub(super) struct SocketData {
 }
 
 pub struct NetworkTask<'a> {
-    pub(super) iface: Interface<'a, VirtualDevice>,
-    pub(super) net_tx: Sender<NetworkCommand>,
-    pub(super) net_rx: Receiver<NetworkEvent>,
-    pub(super) py_tx: Sender<TransportEvent>,
-    pub(super) py_rx: UnboundedReceiver<TransportCommand>,
+    iface: Interface<'a, VirtualDevice>,
+    net_tx: Sender<NetworkCommand>,
+    net_rx: Receiver<NetworkEvent>,
+    py_tx: Sender<TransportEvent>,
+    py_rx: UnboundedReceiver<TransportCommand>,
 
-    pub(super) next_connection_id: ConnectionId,
-    pub(super) socket_data: HashMap<ConnectionId, SocketData>,
+    next_connection_id: ConnectionId,
+    socket_data: HashMap<ConnectionId, SocketData>,
 
-    pub(super) sd_trigger: Arc<Notify>,
+    sd_trigger: Arc<Notify>,
 }
 
 impl<'a> NetworkTask<'a> {
