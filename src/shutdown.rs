@@ -1,8 +1,7 @@
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
-use tokio::sync::Notify;
-use tokio::task::JoinHandle;
+use tokio::{sync::Notify, task::JoinHandle};
 
 pub struct ShutdownTask {
     py_handle: JoinHandle<Result<()>>,

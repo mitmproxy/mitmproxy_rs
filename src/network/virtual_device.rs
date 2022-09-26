@@ -1,8 +1,9 @@
 use std::collections::VecDeque;
 
-use smoltcp::phy::{Device, DeviceCapabilities, Medium, RxToken, TxToken};
-use smoltcp::time::Instant;
-
+use smoltcp::{
+    phy::{Device, DeviceCapabilities, Medium, RxToken, TxToken},
+    time::Instant,
+};
 use tokio::sync::mpsc::{Permit, Sender};
 
 use crate::messages::{IpPacket, NetworkCommand};

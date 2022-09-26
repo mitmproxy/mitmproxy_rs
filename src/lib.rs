@@ -5,9 +5,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Result;
-use pyo3::exceptions::PyValueError;
-use pyo3::prelude::*;
-use pyo3::types::PyTuple;
+use pyo3::{exceptions::PyValueError, prelude::*, types::PyTuple};
 use rand_core::OsRng;
 use tokio::{
     net::UdpSocket,
