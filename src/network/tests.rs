@@ -1,5 +1,6 @@
 use std::net::{SocketAddr, SocketAddrV4};
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use smoltcp::wire::IpRepr;
@@ -51,7 +52,7 @@ impl MockNetwork {
 
         let handle = tokio::spawn(task.run());
 
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_secs(1)).await;
 
         Ok(Self {
             wg_to_smol_tx,
@@ -71,13 +72,13 @@ impl MockNetwork {
     async fn push_wg_packet(&self, packet: IpPacket) -> Result<()> {
         let event = NetworkEvent::ReceivePacket(packet);
         self.wg_to_smol_tx.send(event).await?;
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
         Ok(())
     }
 
     async fn push_py_command(&self, command: TransportCommand) -> Result<()> {
         self.py_to_smol_tx.send(command)?;
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
         Ok(())
     }
 
@@ -177,14 +178,23 @@ fn build_ipv4_udp_packet(
     ip_packet
 }
 
+fn init_logger() {
+    let _ = env_logger::builder()
+        .filter_level(log::LevelFilter::Debug)
+        .is_test(true)
+        .try_init();
+}
+
 #[tokio::test]
 async fn do_nothing() -> Result<()> {
+    init_logger();
     let mock = MockNetwork::init().await?;
     mock.stop().await
 }
 
 #[tokio::test]
 async fn receive_datagram() -> Result<()> {
+    init_logger();
     let mut mock = MockNetwork::init().await?;
 
     let src_addr = Ipv4Address([10, 0, 0, 1]);
@@ -214,6 +224,7 @@ async fn receive_datagram() -> Result<()> {
 
 #[tokio::test]
 async fn send_datagram() -> Result<()> {
+    init_logger();
     let mut mock = MockNetwork::init().await?;
 
     let src_addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Address([10, 0, 0, 42]).into(), 31337));
@@ -253,6 +264,7 @@ async fn send_datagram() -> Result<()> {
 
 #[tokio::test]
 async fn tcp_connection() -> Result<()> {
+    init_logger();
     let mut mock = MockNetwork::init().await?;
     let mut seq = TcpSeqNumber(rand::random::<i32>());
 
@@ -261,6 +273,7 @@ async fn tcp_connection() -> Result<()> {
     let data = "hello world!".as_bytes();
 
     // send TCP SYN
+    log::debug!("Sending TCP SYN");
     let tcp_ip_syn_packet = build_ipv4_tcp_packet(
         src_addr,
         dst_addr,
@@ -295,8 +308,8 @@ async fn tcp_connection() -> Result<()> {
     let ack = tcp_synack_repr.seq_number + 1;
 
     // send TCP ACK
+    log::debug!("Sending TCP ACK");
     seq += 1;
-
     let tcp_ip_ack_packet = build_ipv4_tcp_packet(
         src_addr,
         dst_addr,
@@ -327,6 +340,7 @@ async fn tcp_connection() -> Result<()> {
     };
 
     // expect TCP data
+    log::debug!("Reading from TCP stream");
     let (chan_tx, chan_rx) = oneshot::channel();
     mock.push_py_command(TransportCommand::ReadData(tcp_conn_id, 4096, chan_tx))
         .await?;
@@ -335,11 +349,13 @@ async fn tcp_connection() -> Result<()> {
     assert_eq!(tcp_recv_data, data);
 
     // send response
+    log::debug!("Writing to TCP stream");
     let data_upper = data.to_ascii_uppercase();
     mock.push_py_command(TransportCommand::WriteData(tcp_conn_id, data_upper.clone()))
         .await?;
 
     // drain channels
+    log::debug!("Draining TCP stream");
     let (drain_tx, drain_rx) = oneshot::channel();
     mock.push_py_command(TransportCommand::DrainWriter(tcp_conn_id, drain_tx))
         .await?;
@@ -366,7 +382,7 @@ async fn tcp_connection() -> Result<()> {
         tcp_src_sock.ip().into()
     );
 
-    let tcp_resp_ip_repr = TcpRepr::parse(
+    let tcp_resp_repr = TcpRepr::parse(
         &TcpPacket::new_unchecked(tcp_resp_ip_packet.payload_mut()),
         &tcp_ip_resp_src_addr.into(),
         &tcp_ip_resp_dst_addr.into(),
@@ -374,7 +390,59 @@ async fn tcp_connection() -> Result<()> {
     )
     .unwrap();
 
-    assert_eq!(tcp_resp_ip_repr.payload, data_upper);
+    assert_eq!(tcp_resp_repr.payload, data_upper);
+
+    // close TCP connection
+    log::debug!("Closing TCP stream");
+    mock.push_py_command(TransportCommand::CloseConnection(tcp_conn_id, true))
+        .await?;
+
+    // expect TCP FIN
+    let mut tcp_fin_ip_packet = match mock.pull_wg_packet().await.unwrap() {
+        IpPacket::V4(packet) => packet,
+        IpPacket::V6(_) => return Err(anyhow!("Received unexpected IPv6 packet!")),
+    };
+
+    let tcp_ip_fin_src_addr = tcp_fin_ip_packet.src_addr();
+    let tcp_ip_fin_dst_addr = tcp_fin_ip_packet.dst_addr();
+
+    assert_eq!(
+        IpAddress::Ipv4(tcp_ip_fin_src_addr),
+        tcp_dst_sock.ip().into()
+    );
+    assert_eq!(
+        IpAddress::Ipv4(tcp_ip_fin_dst_addr),
+        tcp_src_sock.ip().into()
+    );
+
+    let tcp_fin_repr = TcpRepr::parse(
+        &TcpPacket::new_unchecked(tcp_fin_ip_packet.payload_mut()),
+        &tcp_ip_fin_src_addr.into(),
+        &tcp_ip_fin_dst_addr.into(),
+        &ChecksumCapabilities::default(),
+    )
+    .unwrap();
+
+    assert_eq!(tcp_fin_repr.control, TcpControl::Fin);
+    let ack = tcp_fin_repr.seq_number + 1;
+
+    // send TCP FIN/ACK
+    log::debug!("Sending TCP FIN/ACK");
+    seq += 12; // FIXME: no idea why this requires incrementing by 12 instead of 1
+    let tcp_ip_syn_packet = build_ipv4_tcp_packet(
+        src_addr,
+        dst_addr,
+        1234,
+        31337,
+        TcpControl::Fin,
+        seq,
+        Some(ack),
+        &[],
+    );
+    mock.push_wg_packet(tcp_ip_syn_packet.into()).await?;
+
+    // wait for socket to get closed
+    tokio::time::sleep(Duration::from_secs(10)).await;
 
     mock.stop().await
 }

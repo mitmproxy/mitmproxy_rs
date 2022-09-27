@@ -196,9 +196,12 @@ impl<'a> NetworkTask<'a> {
                     data.send_buffer.drain(..sent);
                 }
 
-                // if necessary, drain write buffers
+                // if necessary, drain write buffers:
+                // either when drain has been requested explicitly, or when socket is being closed
                 // TODO: benchmark different variants here. (e.g. only return on half capacity)
-                if !data.drain_waiter.is_empty() && sock.send_queue() < sock.send_capacity() {
+                if (!data.drain_waiter.is_empty() || data.write_eof)
+                    && sock.send_queue() < sock.send_capacity()
+                {
                     for waiter in data.drain_waiter.drain(..) {
                         if waiter.send(()).is_err() {
                             log::debug!("TcpStream already closed, cannot send notification about drained buffers.")
@@ -206,13 +209,16 @@ impl<'a> NetworkTask<'a> {
                     }
                 }
 
+                log::debug!(
+                    "TCP connection {}: socket state {}",
+                    connection_id,
+                    sock.state()
+                );
+
                 // if requested, close socket
-                if data.send_buffer.is_empty() && data.write_eof {
-                    // needs test: Is smoltcp smart enough to send out its own send buffer first?
+                if data.write_eof && data.send_buffer.is_empty() {
                     sock.close();
                     data.write_eof = false;
-                    // we want one more poll() so that our FIN is sent (TODO: test that)
-                    continue;
                 }
 
                 // if socket is closed, mark connection for removal
