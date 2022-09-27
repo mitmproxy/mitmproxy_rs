@@ -20,6 +20,7 @@ exclude = [
     "/venv/",
     "/PUBLISHING.md",
     "/architecture.png",
+    "/coverage.sh",
     "/echo_test_server.py",
     "/rustfmt.toml",
 ]
