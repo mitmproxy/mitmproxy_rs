@@ -2,7 +2,6 @@ use std::cmp;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fmt;
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use anyhow::Result;
 use pretty_hex::pretty_hex;
@@ -18,8 +17,9 @@ use smoltcp::{
     Error,
 };
 use tokio::sync::{
+    broadcast::Receiver as BroadcastReceiver,
     mpsc::{Receiver, Sender, UnboundedReceiver},
-    oneshot, Notify,
+    oneshot,
 };
 
 use crate::messages::{
@@ -53,7 +53,7 @@ pub struct NetworkTask<'a> {
     next_connection_id: ConnectionId,
     socket_data: HashMap<ConnectionId, SocketData>,
 
-    sd_trigger: Arc<Notify>,
+    sd_watcher: BroadcastReceiver<()>,
 }
 
 impl<'a> NetworkTask<'a> {
@@ -62,7 +62,7 @@ impl<'a> NetworkTask<'a> {
         net_rx: Receiver<NetworkEvent>,
         py_tx: Sender<TransportEvent>,
         py_rx: UnboundedReceiver<TransportCommand>,
-        sd_trigger: Arc<Notify>,
+        sd_watcher: BroadcastReceiver<()>,
     ) -> Result<Self> {
         let device = VirtualDevice::new(net_tx.clone());
 
@@ -88,7 +88,7 @@ impl<'a> NetworkTask<'a> {
             py_rx,
             next_connection_id: 0,
             socket_data: HashMap::new(),
-            sd_trigger,
+            sd_watcher,
         })
     }
 
@@ -105,9 +105,7 @@ impl<'a> NetworkTask<'a> {
 
             tokio::select! {
                 // wait for graceful shutdown
-                _ = self.sd_trigger.notified() => {
-                    break;
-                },
+                _ = self.sd_watcher.recv() => break,
                 // wait for timeouts when the device is idle
                 _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
                 // wait for incoming packages

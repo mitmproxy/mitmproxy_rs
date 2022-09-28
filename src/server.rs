@@ -5,6 +5,7 @@ use anyhow::Result;
 use pyo3::{prelude::*, types::PyTuple};
 use tokio::{
     net::UdpSocket,
+    sync::broadcast::{self, Sender as BroadcastSender},
     sync::mpsc::{self, channel, unbounded_channel},
     sync::Notify,
 };
@@ -30,10 +31,10 @@ pub struct Server {
     event_tx: mpsc::UnboundedSender<TransportCommand>,
     /// local address of the WireGuard UDP socket
     local_addr: SocketAddr,
-    /// barrier for notifying subtasks of requested server shutdown
-    sd_trigger: Arc<Notify>,
-    /// barrier for getting notified of successful server shutdown
-    sd_handler: Arc<Notify>,
+    /// channel for notifying subtasks of requested server shutdown
+    sd_trigger: BroadcastSender<()>,
+    /// channel for getting notified of successful server shutdown
+    sd_barrier: Arc<Notify>,
     /// flag to indicate whether server shutdown is in progress
     closing: bool,
 }
@@ -69,7 +70,7 @@ impl Server {
             log::info!("Shutting down.");
 
             // notify tasks to shut down
-            self.sd_trigger.notify_waiters();
+            let _ = self.sd_trigger.send(());
         }
     }
 
@@ -78,7 +79,7 @@ impl Server {
     /// This coroutine will yield once pending data has been flushed and all server tasks have
     /// successfully terminated after calling the `Server.close` method.
     pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
-        let barrier = self.sd_handler.clone();
+        let barrier = self.sd_barrier.clone();
 
         pyo3_asyncio::tokio::future_into_py(py, async move {
             barrier.notified().await;
@@ -144,15 +145,15 @@ impl Server {
         );
 
         // initialize barriers for handling graceful shutdown
-        let sd_trigger = Arc::new(Notify::new());
-        let sd_handler = Arc::new(Notify::new());
+        let (sd_trigger, _sd_watcher) = broadcast::channel(1);
+        let sd_barrier = Arc::new(Notify::new());
 
         // initialize WireGuard server
         let mut wg_task_builder = WireGuardTaskBuilder::new(
             private_key,
             wg_to_smol_tx,
             smol_to_wg_rx,
-            sd_trigger.clone(),
+            sd_trigger.subscribe(),
         );
         for key in peer_public_keys {
             wg_task_builder.add_peer(key, None)?;
@@ -165,7 +166,7 @@ impl Server {
             wg_to_smol_rx,
             smol_to_py_tx,
             py_to_smol_rx,
-            sd_trigger.clone(),
+            sd_trigger.subscribe(),
         )?;
 
         // initialize Python interop task
@@ -189,7 +190,7 @@ impl Server {
             smol_to_py_rx,
             py_tcp_handler,
             py_udp_handler,
-            sd_trigger.clone(),
+            sd_trigger.subscribe(),
         );
 
         // spawn tasks
@@ -203,7 +204,7 @@ impl Server {
             wg_handle,
             net_handle,
             sd_trigger.clone(),
-            sd_handler.clone(),
+            sd_barrier.clone(),
         );
         tokio::spawn(async move { sd_task.run().await });
 
@@ -213,7 +214,7 @@ impl Server {
             event_tx,
             local_addr,
             sd_trigger,
-            sd_handler,
+            sd_barrier,
             closing: false,
         })
     }

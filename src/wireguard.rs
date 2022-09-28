@@ -10,8 +10,11 @@ use pretty_hex::pretty_hex;
 use smoltcp::wire::{Ipv4Packet, Ipv6Packet};
 use tokio::{
     net::UdpSocket,
-    sync::mpsc::{Receiver, Sender},
-    sync::{Notify, RwLock},
+    sync::{
+        broadcast::Receiver as BroadcastReceiver,
+        mpsc::{Receiver, Sender},
+        RwLock,
+    },
 };
 use x25519_dalek::{PublicKey, StaticSecret};
 
@@ -40,7 +43,7 @@ pub struct WireGuardTaskBuilder {
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
 
-    sd_trigger: Arc<Notify>,
+    sd_watcher: BroadcastReceiver<()>,
 }
 
 impl WireGuardTaskBuilder {
@@ -48,7 +51,7 @@ impl WireGuardTaskBuilder {
         private_key: StaticSecret,
         net_tx: Sender<NetworkEvent>,
         net_rx: Receiver<NetworkCommand>,
-        sd_trigger: Arc<Notify>,
+        sd_watcher: BroadcastReceiver<()>,
     ) -> Self {
         WireGuardTaskBuilder {
             private_key,
@@ -60,7 +63,7 @@ impl WireGuardTaskBuilder {
             net_tx,
             net_rx,
 
-            sd_trigger,
+            sd_watcher,
         }
     }
 
@@ -107,7 +110,7 @@ impl WireGuardTaskBuilder {
             net_rx: self.net_rx,
 
             wg_buf: [0u8; 1500],
-            sd_trigger: self.sd_trigger,
+            sd_watcher: self.sd_watcher,
         })
     }
 }
@@ -124,7 +127,7 @@ pub struct WireGuardTask {
     net_rx: Receiver<NetworkCommand>,
 
     wg_buf: [u8; 1500],
-    sd_trigger: Arc<Notify>,
+    sd_watcher: BroadcastReceiver<()>,
 }
 
 impl WireGuardTask {
@@ -134,14 +137,11 @@ impl WireGuardTask {
         }
 
         let mut udp_buf = [0; 1500];
-        let mut stop = false;
 
-        while !stop {
+        loop {
             tokio::select! {
                 // wait for graceful shutdown
-                _ = self.sd_trigger.notified() => {
-                    stop = true;
-                },
+                _ = self.sd_watcher.recv() => break,
                 // wait for WireGuard packets incoming on the UDP socket
                 Ok((len, src_addr)) = socket.recv_from(&mut udp_buf) => {
                     self.process_incoming_datagram(&socket, &udp_buf[..len], src_addr).await?;

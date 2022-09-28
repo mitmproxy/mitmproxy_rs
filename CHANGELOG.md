@@ -1,5 +1,10 @@
 ## Unreleased
 
+- Fix a race condition in the shutdown code that could cause shutdown to never happen.
+- Make logger setup more robust and only try to initialize once.
+
+## 0.1.11
+
 - Make failures to initialize the Rust -> Python logger non-fatal.
 
 ## 0.1.10

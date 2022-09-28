@@ -1,14 +1,17 @@
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
-use tokio::{sync::Notify, task::JoinHandle};
+use tokio::{
+    sync::{broadcast::Sender as BroadcastSender, Notify},
+    task::JoinHandle,
+};
 
 pub struct ShutdownTask {
     py_handle: JoinHandle<Result<()>>,
     wg_handle: JoinHandle<Result<()>>,
     nw_handle: JoinHandle<Result<()>>,
-    sd_trigger: Arc<Notify>,
-    sd_handler: Arc<Notify>,
+    sd_trigger: BroadcastSender<()>,
+    sd_barrier: Arc<Notify>,
 }
 
 impl ShutdownTask {
@@ -16,19 +19,20 @@ impl ShutdownTask {
         py_handle: JoinHandle<Result<()>>,
         wg_handle: JoinHandle<Result<()>>,
         nw_handle: JoinHandle<Result<()>>,
-        sd_trigger: Arc<Notify>,
-        sd_handler: Arc<Notify>,
+        sd_trigger: BroadcastSender<()>,
+        sd_barrier: Arc<Notify>,
     ) -> Self {
         ShutdownTask {
             py_handle,
             wg_handle,
             nw_handle,
             sd_trigger,
-            sd_handler,
+            sd_barrier,
         }
     }
 
     pub async fn run(self) {
+        let mut sd_watcher = self.sd_trigger.subscribe();
         let shutting_down = Arc::new(RwLock::new(false));
 
         // wait for Python interop task to return
@@ -41,7 +45,7 @@ impl ShutdownTask {
 
             if !*py_shutting_down.clone().read().unwrap() {
                 log::error!("Python interop task shut down early, exiting.");
-                py_sd_trigger.notify_waiters();
+                let _ = py_sd_trigger.send(());
             }
         });
 
@@ -55,7 +59,7 @@ impl ShutdownTask {
 
             if !*wg_shutting_down.clone().read().unwrap() {
                 log::error!("WireGuard server task shut down early, exiting.");
-                wg_sd_trigger.notify_waiters();
+                let _ = wg_sd_trigger.send(());
             }
         });
 
@@ -69,14 +73,14 @@ impl ShutdownTask {
 
             if !*nw_shutting_down.clone().read().unwrap() {
                 log::error!("Networking task shut down early, exiting.");
-                nw_sd_trigger.notify_waiters();
+                let _ = nw_sd_trigger.send(());
             }
         });
 
         // wait for shutdown trigger:
         // - either `Server.stop` was called, or
         // - one of the subtasks failed early
-        self.sd_trigger.notified().await;
+        let _ = sd_watcher.recv().await;
         *shutting_down.write().unwrap() = true;
 
         // wait for all tasks to terminate and log any errors
@@ -91,6 +95,6 @@ impl ShutdownTask {
         }
 
         // make `Server.wait_closed` method yield
-        self.sd_handler.notify_one();
+        self.sd_barrier.notify_one();
     }
 }

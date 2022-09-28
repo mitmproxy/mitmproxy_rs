@@ -1,9 +1,8 @@
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use anyhow::Result;
 use pyo3::{prelude::*, types::PyBytes};
-use tokio::sync::{mpsc, Notify};
+use tokio::sync::{broadcast::Receiver as BroadcastReceiver, mpsc};
 
 use super::{socketaddr_to_py, TcpStream};
 use crate::messages::{TransportCommand, TransportEvent};
@@ -16,7 +15,7 @@ pub struct PyInteropTask {
     smol_to_py_rx: mpsc::Receiver<TransportEvent>,
     py_tcp_handler: PyObject,
     py_udp_handler: PyObject,
-    sd_trigger: Arc<Notify>,
+    sd_watcher: BroadcastReceiver<()>,
 }
 
 impl PyInteropTask {
@@ -29,7 +28,7 @@ impl PyInteropTask {
         smol_to_py_rx: mpsc::Receiver<TransportEvent>,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
-        sd_trigger: Arc<Notify>,
+        sd_watcher: BroadcastReceiver<()>,
     ) -> Self {
         PyInteropTask {
             local_addr,
@@ -39,18 +38,15 @@ impl PyInteropTask {
             smol_to_py_rx,
             py_tcp_handler,
             py_udp_handler,
-            sd_trigger,
+            sd_watcher,
         }
     }
 
     pub async fn run(mut self) -> Result<()> {
-        let mut stop = false;
-        while !stop {
+        loop {
             tokio::select!(
                 // wait for graceful shutdown
-                _ = self.sd_trigger.notified() => {
-                    stop = true;
-                },
+                _ = self.sd_watcher.recv() => break,
                 // wait for network events
                 event = self.smol_to_py_rx.recv() => {
                     if let Some(event) = event {
@@ -113,7 +109,7 @@ impl PyInteropTask {
                         }
                     } else {
                         // channel was closed
-                        stop = true;
+                        break;
                     }
                 },
             );
