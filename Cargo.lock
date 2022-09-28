@@ -863,6 +863,7 @@ dependencies = [
  "console-subscriber",
  "env_logger",
  "log",
+ "once_cell",
  "pretty-hex",
  "pyo3",
  "pyo3-asyncio",

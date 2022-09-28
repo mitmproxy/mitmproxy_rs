@@ -2,10 +2,15 @@
 #![allow(clippy::borrow_deref_ref)]
 
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
-use pyo3::{exceptions::PyValueError, prelude::*, types::PyTuple};
+use once_cell::sync::Lazy;
+use pyo3::{
+    exceptions::{PyException, PyValueError},
+    prelude::*,
+    types::PyTuple,
+};
 use rand_core::OsRng;
 use tokio::{
     net::UdpSocket,
@@ -27,6 +32,24 @@ use python::{
 };
 use shutdown::ShutdownTask;
 use wireguard::WireGuardTaskBuilder;
+
+static LOGGER_INITIALIZED: Lazy<RwLock<bool>> = Lazy::new(|| RwLock::new(false));
+
+fn init_logger() -> PyResult<()> {
+    if *LOGGER_INITIALIZED.read().unwrap() {
+        // logger already initialized
+        Ok(())
+    } else if pyo3_log::try_init().is_ok() {
+        // logger successfully initialized
+        *LOGGER_INITIALIZED.write().unwrap() = true;
+        Ok(())
+    } else {
+        // logger was not initialized and could not be initialized
+        Err(PyException::new_err(
+            "Failed to initialize mitmproxy_wireguard logger.",
+        ))
+    }
+}
 
 /// A running WireGuard server.
 ///
@@ -312,9 +335,7 @@ fn pubkey(private_key: String) -> PyResult<String> {
 #[pymodule]
 pub fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     // set up the Rust logger to send messages to the Python logger
-    if pyo3_log::try_init().is_err() {
-        eprintln!("Failed to initialize mitmproxy_wireguard logger.");
-    }
+    init_logger()?;
 
     // set up tracing subscriber for introspection with tokio-console
     #[cfg(feature = "tracing")]
