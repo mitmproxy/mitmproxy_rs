@@ -1,3 +1,7 @@
+## Unreleased
+
+- Make failures to initialize the Rust -> Python logger non-fatal.
+
 ## 0.1.10
 
 - Temporarily use a patched version of `pyo3-asyncio` to fix a race condition in the handling

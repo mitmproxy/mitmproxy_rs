@@ -312,7 +312,9 @@ fn pubkey(private_key: String) -> PyResult<String> {
 #[pymodule]
 pub fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     // set up the Rust logger to send messages to the Python logger
-    pyo3_log::init();
+    if pyo3_log::try_init().is_err() {
+        eprintln!("Failed to initialize mitmproxy_wireguard logger.");
+    }
 
     // set up tracing subscriber for introspection with tokio-console
     #[cfg(feature = "tracing")]
