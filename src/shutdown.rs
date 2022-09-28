@@ -31,46 +31,45 @@ impl ShutdownTask {
     pub async fn run(self) {
         let shutting_down = Arc::new(RwLock::new(false));
 
-        // wait for Python interop task
-        let py_trigger = self.sd_trigger.clone();
-        let py_sd_arc = shutting_down.clone();
-        let py = tokio::spawn(async move {
+        // wait for Python interop task to return
+        let py_sd_trigger = self.sd_trigger.clone();
+        let py_shutting_down = shutting_down.clone();
+        let py_task_handle = tokio::spawn(async move {
             if let Err(error) = self.py_handle.await {
                 log::error!("Python interop task failed: {}", error);
             }
 
-            if !*py_sd_arc.clone().read().unwrap() {
+            if !*py_shutting_down.clone().read().unwrap() {
                 log::error!("Python interop task shut down early, exiting.");
-                py_trigger.notify_waiters();
+                py_sd_trigger.notify_waiters();
             }
         });
 
-        // wait for WireGuard server task
-        let wg_trigger = self.sd_trigger.clone();
-        let wg_sd_arc = shutting_down.clone();
-        let wg = tokio::spawn(async move {
+        // wait for WireGuard server task to return
+        let wg_sd_trigger = self.sd_trigger.clone();
+        let wg_shutting_down = shutting_down.clone();
+        let wg_task_handle = tokio::spawn(async move {
             if let Err(error) = self.wg_handle.await {
                 log::error!("WireGuard server task failed: {}", error);
             }
 
-            if !*wg_sd_arc.clone().read().unwrap() {
+            if !*wg_shutting_down.clone().read().unwrap() {
                 log::error!("WireGuard server task shut down early, exiting.");
-                wg_trigger.notify_waiters();
+                wg_sd_trigger.notify_waiters();
             }
         });
 
-        // wait for networking task
-        let nw_trigger = self.sd_trigger.clone();
-        let nw_sd_arc = shutting_down.clone();
-        let nw = tokio::spawn(async move {
-            let nw_trigger = nw_trigger;
+        // wait for networking task to return
+        let nw_sd_trigger = self.sd_trigger.clone();
+        let nw_shutting_down = shutting_down.clone();
+        let nw_task_handle = tokio::spawn(async move {
             if let Err(error) = self.nw_handle.await {
                 log::error!("Networking task failed: {}", error);
             }
 
-            if !*nw_sd_arc.clone().read().unwrap() {
+            if !*nw_shutting_down.clone().read().unwrap() {
                 log::error!("Networking task shut down early, exiting.");
-                nw_trigger.notify_waiters();
+                nw_sd_trigger.notify_waiters();
             }
         });
 
@@ -81,13 +80,13 @@ impl ShutdownTask {
         *shutting_down.write().unwrap() = true;
 
         // wait for all tasks to terminate and log any errors
-        if let Err(error) = py.await {
+        if let Err(error) = py_task_handle.await {
             log::error!("Shutdown of Python interop task failed: {}", error);
         }
-        if let Err(error) = wg.await {
+        if let Err(error) = wg_task_handle.await {
             log::error!("Shutdown of WireGuard server task failed: {}", error);
         }
-        if let Err(error) = nw.await {
+        if let Err(error) = nw_task_handle.await {
             log::error!("Shutdown of network task failed: {}", error);
         }
 
