@@ -1,3 +1,10 @@
+## Unreleased
+
+- Update dependencies to the latest versions (pyo3 v0.17, pyo3-asyncio v0.17, pyo3-log v0.7),
+  now that pyo3-asyncio v0.17 was released with pyo3 v0.17 support.
+- Switch back from patched version of pyo3-asyncio to the official releases, since v0.17
+  incorporates our patch.
+
 ## 0.1.12
 
 - Fix a race condition in the shutdown code that could cause shutdown to never happen.
@@ -42,7 +49,7 @@
 ## 0.1.4
 
 - Split test client into separate workspace crate to speed up builds and
-  and hopefully fix them on macos.
+  hopefully fix them on macOS.
 
 ## 0.1.3
 
