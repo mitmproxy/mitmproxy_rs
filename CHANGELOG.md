@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.13
 
 - Update dependencies to the latest versions (pyo3 v0.17, pyo3-asyncio v0.17, pyo3-log v0.7),
   now that pyo3-asyncio v0.17 was released with pyo3 v0.17 support.
