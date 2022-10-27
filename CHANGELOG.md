@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.14
 
 - Increase buffer size for WireGuard packets to accommodate large outgoing packets.
 - Check length of outgoing packets and drop packets that are larger than the maximum
