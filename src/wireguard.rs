@@ -20,6 +20,11 @@ use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};
 
+const MAX_PACKET_SIZE: usize = 65535;
+
+// WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6
+const WG_HEADER_SIZE: usize = 80;
+
 /// A WireGuard peer. We keep track of the tunnel state and the peer address.
 pub struct WireGuardPeer {
     tunnel: Box<Tunn>,
@@ -109,7 +114,7 @@ impl WireGuardTaskBuilder {
             net_tx: self.net_tx,
             net_rx: self.net_rx,
 
-            wg_buf: [0u8; 1500],
+            wg_buf: [0u8; MAX_PACKET_SIZE],
             sd_watcher: self.sd_watcher,
         })
     }
@@ -126,7 +131,7 @@ pub struct WireGuardTask {
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
 
-    wg_buf: [u8; 1500],
+    wg_buf: [u8; MAX_PACKET_SIZE],
     sd_watcher: BroadcastReceiver<()>,
 }
 
@@ -136,7 +141,7 @@ impl WireGuardTask {
             return Err(anyhow!("No WireGuard peers were configured."));
         }
 
-        let mut udp_buf = [0; 1500];
+        let mut udp_buf = [0; MAX_PACKET_SIZE];
 
         loop {
             tokio::select! {
@@ -327,10 +332,21 @@ impl WireGuardTask {
         let src_ip = packet.src_ip();
         let dst_ip = packet.dst_ip();
 
-        match peer
-            .tunnel
-            .encapsulate(&packet.into_inner(), &mut self.wg_buf)
-        {
+        let packet_bytes = packet.into_inner();
+
+        // Tunn.encapsulate panics if the packet is too big for the buffer
+        if packet_bytes.len() > MAX_PACKET_SIZE - WG_HEADER_SIZE {
+            log::error!(
+                "Unable to send packet ({} -> {}), payload too large ({} bytes > {}).",
+                src_ip,
+                dst_ip,
+                packet_bytes.len(),
+                MAX_PACKET_SIZE - WG_HEADER_SIZE,
+            );
+            return Ok(());
+        }
+
+        match peer.tunnel.encapsulate(&packet_bytes, &mut self.wg_buf) {
             TunnResult::Done => {
                 log::trace!("WG::process_outgoing_packet: Done");
             }

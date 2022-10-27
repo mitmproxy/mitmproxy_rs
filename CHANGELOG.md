@@ -1,3 +1,10 @@
+## Unreleased
+
+- Increase buffer size for WireGuard packets to accommodate large outgoing packets.
+- Check length of outgoing packets and drop packets that are larger than the maximum
+  possible WireGuard packet payload (maximum packet size - WireGuard header length)
+  to avoid crashes with super-sized packets.
+
 ## 0.1.13
 
 - Update dependencies to the latest versions (pyo3 v0.17, pyo3-asyncio v0.17, pyo3-log v0.7),
