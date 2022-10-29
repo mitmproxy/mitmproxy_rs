@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.15
 
 - Manually include source files for the test client binary in published `sdist`s to
   ensure the sources which are published on PyPI can actually be built.
