@@ -18,7 +18,9 @@ classifiers = [
 ]
 
 [tool.maturin]
-no-default-features = true
+# include files manually to keep cargo workspace functional:
+# https://github.com/PyO3/maturin/issues/1226
+sdist-include = ["test-client/Cargo.toml", "test-client/src/*.rs"]
 
 [tool.black]
 line-length = 120

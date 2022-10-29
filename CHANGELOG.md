@@ -1,3 +1,8 @@
+## Unreleased
+
+- Manually include source files for the test client binary in published `sdist`s to
+  ensure the sources which are published on PyPI can actually be built.
+
 ## 0.1.14
 
 - Increase buffer size for WireGuard packets to accommodate large outgoing packets.

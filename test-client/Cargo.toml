@@ -12,16 +12,6 @@ authors = [
     "Fabio Valentini <decathorpe@gmail.com>",
     "Maximilian Hils <cargo@maximilianhils.com>",
 ]
-exclude = [
-    "/.github/",
-    "/benches/",
-    "/dist/",
-    "/venv/",
-    "/PUBLISHING.md",
-    "/architecture.png",
-    "/echo_test_server.py",
-    "/rustfmt.toml",
-]
 
 [dependencies]
 anyhow = "1.0.56"
