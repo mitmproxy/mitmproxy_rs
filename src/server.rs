@@ -110,12 +110,12 @@ impl Server {
         log::debug!("Initializing WireGuard server ...");
 
         // initialize channels between the WireGuard server and the virtual network device
-        let (wg_to_smol_tx, wg_to_smol_rx) = channel(16);
-        let (smol_to_wg_tx, smol_to_wg_rx) = channel(16);
+        let (wg_to_smol_tx, wg_to_smol_rx) = channel(256);
+        let (smol_to_wg_tx, smol_to_wg_rx) = channel(256);
 
         // initialize channels between the virtual network device and the python interop task
         // - only used to notify of incoming connections and datagrams
-        let (smol_to_py_tx, smol_to_py_rx) = channel(64);
+        let (smol_to_py_tx, smol_to_py_rx) = channel(256);
         // - used to send data and to ask for packets
         // This channel needs to be unbounded because write() is not async.
         let (py_to_smol_tx, py_to_smol_rx) = unbounded_channel();
