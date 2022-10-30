@@ -1,5 +1,5 @@
 use std::cmp;
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::net::SocketAddr;
 
@@ -41,6 +41,7 @@ pub(super) struct SocketData {
     recv_waiter: Option<(u32, oneshot::Sender<Vec<u8>>)>,
     // Gets notified once there is enough space in the write buffer.
     drain_waiter: Vec<oneshot::Sender<()>>,
+    addr_tuple: (SocketAddr, SocketAddr),
 }
 
 pub struct NetworkTask<'a> {
@@ -52,6 +53,7 @@ pub struct NetworkTask<'a> {
 
     next_connection_id: ConnectionId,
     socket_data: HashMap<ConnectionId, SocketData>,
+    active_connections: HashSet<(SocketAddr, SocketAddr)>,
 
     sd_watcher: BroadcastReceiver<()>,
 }
@@ -88,6 +90,7 @@ impl<'a> NetworkTask<'a> {
             py_rx,
             next_connection_id: 0,
             socket_data: HashMap::new(),
+            active_connections: HashSet::new(),
             sd_watcher,
         })
     }
@@ -211,9 +214,10 @@ impl<'a> NetworkTask<'a> {
 
                 #[cfg(debug_assertions)]
                 log::debug!(
-                    "TCP connection {}: socket state {}",
+                    "TCP connection {}: socket state {} for {:?}",
                     connection_id,
-                    sock.state()
+                    sock.state(),
+                    data.addr_tuple,
                 );
 
                 // if requested, close socket
@@ -231,6 +235,7 @@ impl<'a> NetworkTask<'a> {
             for connection_id in remove_conns.drain(..) {
                 let data = self.socket_data.remove(&connection_id).unwrap();
                 self.iface.remove_socket(data.handle);
+                self.active_connections.remove(&data.addr_tuple);
             }
         }
 
@@ -306,7 +311,7 @@ impl<'a> NetworkTask<'a> {
         let src_addr = SocketAddr::new(src_ip, tcp_packet.src_port());
         let dst_addr = SocketAddr::new(dst_ip, tcp_packet.dst_port());
 
-        if tcp_packet.syn() {
+        if tcp_packet.syn() && !self.active_connections.contains(&(dst_addr, src_addr)) {
             let mut socket = TcpSocket::new(
                 TcpSocketBuffer::new(vec![0u8; 64 * 1024]),
                 TcpSocketBuffer::new(vec![0u8; 64 * 1024]),
@@ -327,8 +332,10 @@ impl<'a> NetworkTask<'a> {
                 write_eof: false,
                 recv_waiter: None,
                 drain_waiter: Vec::new(),
+                addr_tuple: (src_addr, dst_addr),
             };
             self.socket_data.insert(connection_id, data);
+            self.active_connections.insert((src_addr, dst_addr));
 
             let event = TransportEvent::ConnectionEstablished {
                 connection_id,
