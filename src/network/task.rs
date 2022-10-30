@@ -170,7 +170,9 @@ impl<'a> NetworkTask<'a> {
                         let bytes_read = sock.recv_slice(&mut buf)?;
 
                         buf.truncate(bytes_read);
-                        tx.send(buf).unwrap();
+                        if tx.send(buf).is_err() {
+                            log::debug!("Cannot send received data, channel was already closed.");
+                        }
                     } else {
                         // We can't use .may_recv() here as it returns false during establishment.
                         use TcpState::*;
@@ -179,7 +181,7 @@ impl<'a> NetworkTask<'a> {
                             CloseWait | LastAck | Closed | Closing | TimeWait => {
                                 let (_, tx) = data.recv_waiter.take().unwrap();
                                 if tx.send(Vec::new()).is_err() {
-                                    log::debug!("Cannot send data, channel was already closed.");
+                                    log::debug!("Cannot send close, channel was already closed.");
                                 }
                             }
                             _ => {}
