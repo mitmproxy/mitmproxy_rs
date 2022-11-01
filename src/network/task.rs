@@ -209,6 +209,7 @@ impl<'a> NetworkTask<'a> {
                     }
                 }
 
+                #[cfg(debug_assertions)]
                 log::debug!(
                     "TCP connection {}: socket state {}",
                     connection_id,
