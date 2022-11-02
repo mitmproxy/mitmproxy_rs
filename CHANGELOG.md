@@ -1,3 +1,9 @@
+## 0.1.17
+
+- Ensure that the virtual network device does not block unnecessarily and that
+  it is always polled when necessary. Fixes a regression that was introduced
+  in version 0.1.16.
+
 ## 0.1.16
 
 - Optimize event processing in the internal network stack by always consuming as
