@@ -1,3 +1,17 @@
+## 0.1.16
+
+- Optimize event processing in the internal network stack by always consuming as
+  many events as possible before polling the virtual network device and processing
+  open TCP sockets.
+- Ensure that only one TCP socket is created per connection, even if `SYN` packets
+  are resent for some reason.
+- Channel sizes for processing events in the internal network stack are increased
+  to avoid errors with full channels when some tasks don't keep up.
+- Logging calls are removed from the network task's hot loop unless the project
+  is built in `debug` mode.
+- Failures to send to channels that were already closed when processing data
+  that was received for sockets are now ignored to avoid crashes.
+
 ## 0.1.15
 
 - Manually include source files for the test client binary in published `sdist`s to
