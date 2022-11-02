@@ -393,7 +393,7 @@ impl NetworkTask {
         let mut io = NetworkIO::new(self.iface, self.net_tx.clone());
         let mut remove_conns = Vec::new();
 
-        let mut send_py_permit: Option<Permit<TransportEvent>> = None;
+        let mut py_tx_permit: Option<Permit<TransportEvent>> = None;
 
         'task: loop {
             // On a high level, we do three things in our main loop:
@@ -412,10 +412,10 @@ impl NetworkTask {
             #[cfg(debug_assertions)]
             log::debug!("Waiting for events ...");
 
-            if send_py_permit.is_none() {
-                send_py_permit = self.py_tx.try_reserve().ok();
+            if py_tx_permit.is_none() {
+                py_tx_permit = self.py_tx.try_reserve().ok();
             }
-            let can_send_net = self.net_tx.capacity() > 0;
+            let net_tx_full = self.net_tx.capacity() == 0;
 
             tokio::select! {
                 // wait for graceful shutdown
@@ -423,9 +423,9 @@ impl NetworkTask {
                 // wait for timeouts when the device is idle
                 _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
                 // wait for incoming packets
-                Some(e) = self.net_rx.recv(), if send_py_permit.is_some() => {
+                Some(e) = self.net_rx.recv(), if py_tx_permit.is_some() => {
                     // handle pending network events until channel is full
-                    io.handle_network_event(e, send_py_permit.take().unwrap())?;
+                    io.handle_network_event(e, py_tx_permit.take().unwrap())?;
 
                     while let Ok(p) = self.py_tx.try_reserve() {
                         if let Ok(e) = self.net_rx.try_recv() {
@@ -436,7 +436,7 @@ impl NetworkTask {
                     }
                 },
                 // wait for outgoing packets
-                Some(c) = self.py_rx.recv(), if can_send_net => {
+                Some(c) = self.py_rx.recv(), if !net_tx_full => {
                     // handle pending transport commands until channel is full
                     io.handle_transport_command(c);
 
@@ -449,8 +449,8 @@ impl NetworkTask {
                     }
                 },
                 // wait until channels are no longer full
-                Ok(()) = wait_for_channel_capacity(&self.py_tx), if send_py_permit.is_none() => {},
-                Ok(()) = wait_for_channel_capacity(&self.net_tx), if !can_send_net => {},
+                Ok(()) = wait_for_channel_capacity(&self.py_tx), if py_tx_permit.is_none() => {},
+                Ok(()) = wait_for_channel_capacity(&self.net_tx), if net_tx_full => {},
             }
 
             // poll virtual network device
