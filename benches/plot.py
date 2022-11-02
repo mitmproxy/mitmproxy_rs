@@ -156,6 +156,13 @@ def plot2_throughput(py_data, wg_data, suffix):
             linewidth=2,
         )
 
+        print("Throughput ({}, Python asyncio, average): {} ± {}".format(suffix, np.mean(py_pps), np.std(py_pps)))
+        print("Throughput ({}, Python asyncio, estimated): {}".format(suffix, 1 / py_k))
+        print("Startup time ({}, Python asyncio, estimated): {}".format(suffix, py_d))
+        print("Throughput ({}, mitmproxy_wireguard, average): {} ± {}".format(suffix, np.mean(wg_pps), np.std(wg_pps)))
+        print("Throughput ({}, mitmproxy_wireguard, estimated): {}".format(suffix, 1 / wg_k))
+        print("Startup time ({}, mitmproxy_wireguard, estimated): {}".format(suffix, wg_d))
+
     ax.set_title("Echo server throughput comparison")
 
     ax.set_xlabel("Number of packets")
