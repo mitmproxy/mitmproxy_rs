@@ -1,8 +1,8 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use anyhow::Result;
 use tokio::{
-    sync::{broadcast::Sender as BroadcastSender, Notify},
+    sync::{broadcast::Sender as BroadcastSender, Notify, RwLock},
     task::JoinHandle,
 };
 
@@ -43,7 +43,7 @@ impl ShutdownTask {
                 log::error!("Python interop task failed: {}", error);
             }
 
-            if !*py_shutting_down.clone().read().unwrap() {
+            if !*py_shutting_down.read().await {
                 log::error!("Python interop task shut down early, exiting.");
                 let _ = py_sd_trigger.send(());
             }
@@ -57,7 +57,7 @@ impl ShutdownTask {
                 log::error!("WireGuard server task failed: {}", error);
             }
 
-            if !*wg_shutting_down.clone().read().unwrap() {
+            if !*wg_shutting_down.read().await {
                 log::error!("WireGuard server task shut down early, exiting.");
                 let _ = wg_sd_trigger.send(());
             }
@@ -71,7 +71,7 @@ impl ShutdownTask {
                 log::error!("Networking task failed: {}", error);
             }
 
-            if !*nw_shutting_down.clone().read().unwrap() {
+            if !*nw_shutting_down.read().await {
                 log::error!("Networking task shut down early, exiting.");
                 let _ = nw_sd_trigger.send(());
             }
@@ -81,7 +81,7 @@ impl ShutdownTask {
         // - either `Server.stop` was called, or
         // - one of the subtasks failed early
         let _ = sd_watcher.recv().await;
-        *shutting_down.write().unwrap() = true;
+        *shutting_down.write().await = true;
 
         // wait for all tasks to terminate and log any errors
         if let Err(error) = py_task_handle.await {
