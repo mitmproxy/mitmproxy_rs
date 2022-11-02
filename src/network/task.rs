@@ -18,7 +18,7 @@ use smoltcp::{
 };
 use tokio::sync::{
     broadcast::Receiver as BroadcastReceiver,
-    mpsc::{Receiver, Sender, UnboundedReceiver},
+    mpsc::{Permit, Receiver, Sender, UnboundedReceiver},
     oneshot,
 };
 
@@ -47,7 +47,6 @@ pub(super) struct SocketData {
 struct NetworkIO {
     iface: Interface<'static, VirtualDevice>,
     net_tx: Sender<NetworkCommand>,
-    py_tx: Sender<TransportEvent>,
 
     socket_data: HashMap<ConnectionId, SocketData>,
     active_connections: HashSet<(SocketAddr, SocketAddr)>,
@@ -55,25 +54,24 @@ struct NetworkIO {
 }
 
 impl NetworkIO {
-    fn new(
-        iface: Interface<'static, VirtualDevice>,
-        net_tx: Sender<NetworkCommand>,
-        py_tx: Sender<TransportEvent>,
-    ) -> Self {
+    fn new(iface: Interface<'static, VirtualDevice>, net_tx: Sender<NetworkCommand>) -> Self {
         NetworkIO {
             iface,
             net_tx,
-            py_tx,
             socket_data: HashMap::new(),
             active_connections: HashSet::new(),
             next_connection_id: 0,
         }
     }
 
-    async fn receive_packet(&mut self, packet: IpPacket) -> Result<()> {
+    fn receive_packet(
+        &mut self,
+        packet: IpPacket,
+        permit: Permit<'_, TransportEvent>,
+    ) -> Result<()> {
         match packet.transport_protocol() {
-            IpProtocol::Tcp => self.receive_packet_tcp(packet).await,
-            IpProtocol::Udp => self.receive_packet_udp(packet).await,
+            IpProtocol::Tcp => self.receive_packet_tcp(packet, permit),
+            IpProtocol::Udp => self.receive_packet_udp(packet, permit),
             _ => {
                 log::debug!(
                     "Received IP packet for unknown protocol: {}",
@@ -84,7 +82,11 @@ impl NetworkIO {
         }
     }
 
-    async fn receive_packet_udp(&mut self, mut packet: IpPacket) -> Result<()> {
+    fn receive_packet_udp(
+        &mut self,
+        mut packet: IpPacket,
+        permit: Permit<'_, TransportEvent>,
+    ) -> Result<()> {
         let src_ip = packet.src_ip();
         let dst_ip = packet.dst_ip();
 
@@ -105,11 +107,15 @@ impl NetworkIO {
             dst_addr,
         };
 
-        self.py_tx.send(event).await?;
+        permit.send(event);
         Ok(())
     }
 
-    async fn receive_packet_tcp(&mut self, mut packet: IpPacket) -> Result<()> {
+    fn receive_packet_tcp(
+        &mut self,
+        mut packet: IpPacket,
+        permit: Permit<'_, TransportEvent>,
+    ) -> Result<()> {
         let src_ip = packet.src_ip();
         let dst_ip = packet.dst_ip();
 
@@ -167,7 +173,7 @@ impl NetworkIO {
                 src_addr,
                 dst_addr,
             };
-            self.py_tx.send(event).await?;
+            permit.send(event);
         }
 
         self.iface.device_mut().receive_packet(packet);
@@ -281,10 +287,14 @@ impl NetworkIO {
         permit.send(NetworkCommand::SendPacket(ip_packet));
     }
 
-    async fn handle_network_event(&mut self, event: NetworkEvent) -> Result<()> {
+    fn handle_network_event(
+        &mut self,
+        event: NetworkEvent,
+        permit: Permit<'_, TransportEvent>,
+    ) -> Result<()> {
         match event {
             NetworkEvent::ReceivePacket(packet) => {
-                self.receive_packet(packet).await?;
+                self.receive_packet(packet, permit)?;
             }
         }
         Ok(())
@@ -310,6 +320,26 @@ impl NetworkIO {
                 dst_addr,
             } => {
                 self.send_datagram(data, src_addr, dst_addr);
+            }
+        }
+    }
+
+    fn poll_smol(&mut self) {
+        #[cfg(debug_assertions)]
+        log::debug!("Polling virtual network device ...");
+
+        loop {
+            match self.iface.poll(Instant::now()) {
+                Ok(_) => break,
+                Err(Error::Exhausted) => {
+                    log::debug!("smoltcp: exhausted.");
+                    break;
+                }
+                Err(e) => {
+                    // these can happen for "normal" reasons such as invalid packets,
+                    // we just write a log message and keep going.
+                    log::debug!("smoltcp network error: {}", e)
+                }
             }
         }
     }
@@ -360,8 +390,10 @@ impl NetworkTask {
     }
 
     pub async fn run(mut self) -> Result<()> {
-        let mut io = NetworkIO::new(self.iface, self.net_tx.clone(), self.py_tx.clone());
+        let mut io = NetworkIO::new(self.iface, self.net_tx.clone());
         let mut remove_conns = Vec::new();
+
+        let mut send_py_permit: Option<Permit<TransportEvent>> = None;
 
         'task: loop {
             // On a high level, we do three things in our main loop:
@@ -380,26 +412,31 @@ impl NetworkTask {
             #[cfg(debug_assertions)]
             log::debug!("Waiting for events ...");
 
+            if send_py_permit.is_none() {
+                send_py_permit = self.py_tx.try_reserve().ok();
+            }
+            let can_send_net = self.net_tx.capacity() > 0;
+
             tokio::select! {
                 // wait for graceful shutdown
                 _ = self.sd_watcher.recv() => break 'task,
                 // wait for timeouts when the device is idle
                 _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
                 // wait for incoming packets
-                Some(e) = self.net_rx.recv(), if self.py_tx.capacity() > 0 => {
+                Some(e) = self.net_rx.recv(), if send_py_permit.is_some() => {
                     // handle pending network events until channel is full
-                    io.handle_network_event(e).await?;
+                    io.handle_network_event(e, send_py_permit.take().unwrap())?;
 
-                    while self.py_tx.capacity() > 0 {
+                    while let Ok(p) = self.py_tx.try_reserve() {
                         if let Ok(e) = self.net_rx.try_recv() {
-                            io.handle_network_event(e).await?;
+                            io.handle_network_event(e, p)?;
                         } else {
                             break;
                         }
                     }
                 },
                 // wait for outgoing packets
-                Some(c) = self.py_rx.recv(), if self.net_tx.capacity() > 0 => {
+                Some(c) = self.py_rx.recv(), if can_send_net => {
                     // handle pending transport commands until channel is full
                     io.handle_transport_command(c);
 
@@ -412,28 +449,12 @@ impl NetworkTask {
                     }
                 },
                 // wait until channels are no longer full
-                Ok(()) = wait_for_channel_capacity(&self.py_tx), if self.py_tx.capacity() == 0 => {},
-                Ok(()) = wait_for_channel_capacity(&self.net_tx), if self.net_tx.capacity() == 0 => {},
+                Ok(()) = wait_for_channel_capacity(&self.py_tx), if send_py_permit.is_none() => {},
+                Ok(()) = wait_for_channel_capacity(&self.net_tx), if !can_send_net => {},
             }
-
-            #[cfg(debug_assertions)]
-            log::debug!("Polling virtual network device ...");
 
             // poll virtual network device
-            'poll: loop {
-                match io.iface.poll(Instant::now()) {
-                    Ok(_) => break 'poll,
-                    Err(Error::Exhausted) => {
-                        log::debug!("smoltcp: exhausted.");
-                        break 'poll;
-                    }
-                    Err(e) => {
-                        // these can happen for "normal" reasons such as invalid packets,
-                        // we just write a log message and keep going.
-                        log::debug!("smoltcp network error: {}", e)
-                    }
-                }
-            }
+            io.poll_smol();
 
             #[cfg(debug_assertions)]
             log::debug!("Processing TCP connections ...");
@@ -515,6 +536,9 @@ impl NetworkTask {
                 io.iface.remove_socket(data.handle);
                 io.active_connections.remove(&data.addr_tuple);
             }
+
+            // poll again. we may have new stuff to do.
+            io.poll_smol();
         }
 
         // TODO: process remaining pending data after the shutdown request was received?
