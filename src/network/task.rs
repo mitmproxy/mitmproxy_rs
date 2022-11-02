@@ -44,205 +44,30 @@ pub(super) struct SocketData {
     addr_tuple: (SocketAddr, SocketAddr),
 }
 
-pub struct NetworkTask<'a> {
-    iface: Interface<'a, VirtualDevice>,
+struct NetworkIO {
+    iface: Interface<'static, VirtualDevice>,
     net_tx: Sender<NetworkCommand>,
-    net_rx: Receiver<NetworkEvent>,
     py_tx: Sender<TransportEvent>,
-    py_rx: UnboundedReceiver<TransportCommand>,
 
-    next_connection_id: ConnectionId,
     socket_data: HashMap<ConnectionId, SocketData>,
     active_connections: HashSet<(SocketAddr, SocketAddr)>,
-
-    sd_watcher: BroadcastReceiver<()>,
+    next_connection_id: ConnectionId,
 }
 
-impl<'a> NetworkTask<'a> {
-    pub fn new(
+impl NetworkIO {
+    fn new(
+        iface: Interface<'static, VirtualDevice>,
         net_tx: Sender<NetworkCommand>,
-        net_rx: Receiver<NetworkEvent>,
         py_tx: Sender<TransportEvent>,
-        py_rx: UnboundedReceiver<TransportCommand>,
-        sd_watcher: BroadcastReceiver<()>,
-    ) -> Result<Self> {
-        let device = VirtualDevice::new(net_tx.clone());
-
-        let builder = InterfaceBuilder::new(device, vec![]);
-        let ip_addrs = [IpCidr::new(IpAddress::v4(0, 0, 0, 1), 0)];
-        let mut routes = Routes::new(BTreeMap::new());
-        // TODO: v6
-        routes
-            .add_default_ipv4_route(Ipv4Address::new(0, 0, 0, 1))
-            .unwrap();
-
-        let iface = builder
-            .any_ip(true)
-            .ip_addrs(ip_addrs)
-            .routes(routes)
-            .finalize();
-
-        Ok(Self {
+    ) -> Self {
+        NetworkIO {
             iface,
             net_tx,
-            net_rx,
             py_tx,
-            py_rx,
-            next_connection_id: 0,
             socket_data: HashMap::new(),
             active_connections: HashSet::new(),
-            sd_watcher,
-        })
-    }
-
-    pub async fn run(mut self) -> Result<()> {
-        let mut remove_conns = Vec::new();
-
-        loop {
-            // On a high level, we do three things in our main loop:
-            // 1. Wait for an event from either side and handle it, or wait until the next smoltcp timeout.
-            // 2. `.poll()` the smoltcp interface until it's finished with everything for now.
-            // 3. Check if we can wake up any waiters, move more data in the send buffer, or clean up sockets.
-
-            let delay = self.iface.poll_delay(Instant::now());
-
-            tokio::select! {
-                // wait for graceful shutdown
-                _ = self.sd_watcher.recv() => break,
-                // wait for timeouts when the device is idle
-                _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
-                // wait for incoming packages
-                Some(e) = self.net_rx.recv() => {
-                    match e {
-                        NetworkEvent::ReceivePacket(packet) => {
-                            self.receive_packet(packet).await?;
-                        }
-                    }
-                },
-                // wait for outgoing packages
-                Some(e) = self.py_rx.recv() => {
-                    match e {
-                        TransportCommand::ReadData(id, n, tx) => {
-                            self.read_data(id, n, tx);
-                        },
-                        TransportCommand::WriteData(id, buf) => {
-                            self.write_data(id, buf);
-                        },
-                        TransportCommand::DrainWriter(id, tx) => {
-                            self.drain_writer(id, tx);
-                        },
-                        TransportCommand::CloseConnection(id, half_close) => {
-                            self.close_connection(id, half_close);
-                        },
-                        TransportCommand::SendDatagram{data, src_addr, dst_addr} => {
-                            self.send_datagram(data, src_addr, dst_addr);
-                        },
-                    }
-                },
-                // wait for channel capacity
-                Ok(()) = wait_for_channel_capacity(self.net_tx.clone()), if self.net_tx.capacity() == 0 => {
-                    log::debug!("regained channel capacity");
-                },
-            }
-
-            loop {
-                match self.iface.poll(Instant::now()) {
-                    Ok(_) => break,
-                    Err(Error::Exhausted) => {
-                        log::debug!("smoltcp: exhausted.");
-                        break;
-                    }
-                    Err(e) => {
-                        // these can happen for "normal" reasons such as invalid packets,
-                        // we just write a log message and keep going.
-                        log::debug!("smoltcp network error: {}", e)
-                    }
-                }
-            }
-
-            for (connection_id, data) in self.socket_data.iter_mut() {
-                let sock = self.iface.get_socket::<TcpSocket>(data.handle);
-
-                // receive data over the socket
-                if data.recv_waiter.is_some() {
-                    if sock.can_recv() {
-                        let (n, tx) = data.recv_waiter.take().unwrap();
-                        let bytes_available = sock.recv_queue();
-
-                        let mut buf = vec![0u8; cmp::min(bytes_available, n as usize)];
-                        let bytes_read = sock.recv_slice(&mut buf)?;
-
-                        buf.truncate(bytes_read);
-                        if tx.send(buf).is_err() {
-                            log::debug!("Cannot send received data, channel was already closed.");
-                        }
-                    } else {
-                        // We can't use .may_recv() here as it returns false during establishment.
-                        use TcpState::*;
-                        match sock.state() {
-                            // can we still receive something in the future?
-                            CloseWait | LastAck | Closed | Closing | TimeWait => {
-                                let (_, tx) = data.recv_waiter.take().unwrap();
-                                if tx.send(Vec::new()).is_err() {
-                                    log::debug!("Cannot send close, channel was already closed.");
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-
-                // send data over the socket
-                if !data.send_buffer.is_empty() && sock.can_send() {
-                    let (a, b) = data.send_buffer.as_slices();
-                    let sent = sock.send_slice(a)? + sock.send_slice(b)?;
-                    data.send_buffer.drain(..sent);
-                }
-
-                // if necessary, drain write buffers:
-                // either when drain has been requested explicitly, or when socket is being closed
-                // TODO: benchmark different variants here. (e.g. only return on half capacity)
-                if (!data.drain_waiter.is_empty() || data.write_eof)
-                    && sock.send_queue() < sock.send_capacity()
-                {
-                    for waiter in data.drain_waiter.drain(..) {
-                        if waiter.send(()).is_err() {
-                            log::debug!("TcpStream already closed, cannot send notification about drained buffers.")
-                        }
-                    }
-                }
-
-                #[cfg(debug_assertions)]
-                log::debug!(
-                    "TCP connection {}: socket state {} for {:?}",
-                    connection_id,
-                    sock.state(),
-                    data.addr_tuple,
-                );
-
-                // if requested, close socket
-                if data.write_eof && data.send_buffer.is_empty() {
-                    sock.close();
-                    data.write_eof = false;
-                }
-
-                // if socket is closed, mark connection for removal
-                if sock.state() == TcpState::Closed {
-                    remove_conns.push(*connection_id);
-                }
-            }
-
-            for connection_id in remove_conns.drain(..) {
-                let data = self.socket_data.remove(&connection_id).unwrap();
-                self.iface.remove_socket(data.handle);
-                self.active_connections.remove(&data.addr_tuple);
-            }
+            next_connection_id: 0,
         }
-
-        // TODO: process remaining pending data after the shutdown request was received?
-
-        log::debug!("Virtual Network device task shutting down.");
-        Ok(())
     }
 
     async fn receive_packet(&mut self, packet: IpPacket) -> Result<()> {
@@ -455,9 +280,251 @@ impl<'a> NetworkTask<'a> {
 
         permit.send(NetworkCommand::SendPacket(ip_packet));
     }
+
+    async fn handle_network_event(&mut self, event: NetworkEvent) -> Result<()> {
+        match event {
+            NetworkEvent::ReceivePacket(packet) => {
+                self.receive_packet(packet).await?;
+            }
+        }
+        Ok(())
+    }
+
+    fn handle_transport_command(&mut self, command: TransportCommand) {
+        match command {
+            TransportCommand::ReadData(id, n, tx) => {
+                self.read_data(id, n, tx);
+            }
+            TransportCommand::WriteData(id, buf) => {
+                self.write_data(id, buf);
+            }
+            TransportCommand::DrainWriter(id, tx) => {
+                self.drain_writer(id, tx);
+            }
+            TransportCommand::CloseConnection(id, half_close) => {
+                self.close_connection(id, half_close);
+            }
+            TransportCommand::SendDatagram {
+                data,
+                src_addr,
+                dst_addr,
+            } => {
+                self.send_datagram(data, src_addr, dst_addr);
+            }
+        }
+    }
 }
 
-impl<'a> fmt::Debug for NetworkTask<'a> {
+pub struct NetworkTask {
+    iface: Interface<'static, VirtualDevice>,
+    net_tx: Sender<NetworkCommand>,
+    net_rx: Receiver<NetworkEvent>,
+    py_tx: Sender<TransportEvent>,
+    py_rx: UnboundedReceiver<TransportCommand>,
+
+    sd_watcher: BroadcastReceiver<()>,
+}
+
+impl NetworkTask {
+    pub fn new(
+        net_tx: Sender<NetworkCommand>,
+        net_rx: Receiver<NetworkEvent>,
+        py_tx: Sender<TransportEvent>,
+        py_rx: UnboundedReceiver<TransportCommand>,
+        sd_watcher: BroadcastReceiver<()>,
+    ) -> Result<Self> {
+        let device = VirtualDevice::new(net_tx.clone());
+
+        let builder = InterfaceBuilder::new(device, vec![]);
+        let ip_addrs = [IpCidr::new(IpAddress::v4(0, 0, 0, 1), 0)];
+        let mut routes = Routes::new(BTreeMap::new());
+        // TODO: v6
+        routes
+            .add_default_ipv4_route(Ipv4Address::new(0, 0, 0, 1))
+            .unwrap();
+
+        let iface = builder
+            .any_ip(true)
+            .ip_addrs(ip_addrs)
+            .routes(routes)
+            .finalize();
+
+        Ok(Self {
+            iface,
+            net_tx,
+            net_rx,
+            py_tx,
+            py_rx,
+            sd_watcher,
+        })
+    }
+
+    pub async fn run(mut self) -> Result<()> {
+        let mut io = NetworkIO::new(self.iface, self.net_tx.clone(), self.py_tx.clone());
+        let mut remove_conns = Vec::new();
+
+        'task: loop {
+            // On a high level, we do three things in our main loop:
+            // 1. Wait for an event from either side and handle it, or wait until the next smoltcp timeout.
+            // 2. `.poll()` the smoltcp interface until it's finished with everything for now.
+            // 3. Check if we can wake up any waiters, move more data in the send buffer, or clean up sockets.
+
+            // check device for timeouts
+            let delay = io.iface.poll_delay(Instant::now());
+
+            #[cfg(debug_assertions)]
+            if let Some(d) = delay {
+                log::debug!("Waiting for device timeout: {} ...", d);
+            }
+
+            #[cfg(debug_assertions)]
+            log::debug!("Waiting for events ...");
+
+            tokio::select! {
+                // wait for graceful shutdown
+                _ = self.sd_watcher.recv() => break 'task,
+                // wait for timeouts when the device is idle
+                _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
+                // wait for incoming packets
+                Some(e) = self.net_rx.recv(), if self.py_tx.capacity() > 0 => {
+                    // handle pending network events until channel is full
+                    io.handle_network_event(e).await?;
+
+                    while self.py_tx.capacity() > 0 {
+                        if let Ok(e) = self.net_rx.try_recv() {
+                            io.handle_network_event(e).await?;
+                        } else {
+                            break;
+                        }
+                    }
+                },
+                // wait for outgoing packets
+                Some(c) = self.py_rx.recv(), if self.net_tx.capacity() > 0 => {
+                    // handle pending transport commands until channel is full
+                    io.handle_transport_command(c);
+
+                    while self.net_tx.capacity() > 0 {
+                        if let Ok(c) = self.py_rx.try_recv() {
+                            io.handle_transport_command(c);
+                        } else {
+                            break;
+                        }
+                    }
+                },
+                // wait until channels are no longer full
+                Ok(()) = wait_for_channel_capacity(&self.py_tx), if self.py_tx.capacity() == 0 => {},
+                Ok(()) = wait_for_channel_capacity(&self.net_tx), if self.net_tx.capacity() == 0 => {},
+            }
+
+            #[cfg(debug_assertions)]
+            log::debug!("Polling virtual network device ...");
+
+            // poll virtual network device
+            'poll: loop {
+                match io.iface.poll(Instant::now()) {
+                    Ok(_) => break 'poll,
+                    Err(Error::Exhausted) => {
+                        log::debug!("smoltcp: exhausted.");
+                        break 'poll;
+                    }
+                    Err(e) => {
+                        // these can happen for "normal" reasons such as invalid packets,
+                        // we just write a log message and keep going.
+                        log::debug!("smoltcp network error: {}", e)
+                    }
+                }
+            }
+
+            #[cfg(debug_assertions)]
+            log::debug!("Processing TCP connections ...");
+
+            for (connection_id, data) in io.socket_data.iter_mut() {
+                let socket = io.iface.get_socket::<TcpSocket>(data.handle);
+
+                // receive data over the socket
+                if data.recv_waiter.is_some() {
+                    if socket.can_recv() {
+                        let (n, tx) = data.recv_waiter.take().unwrap();
+                        let bytes_available = socket.recv_queue();
+
+                        let mut buf = vec![0u8; cmp::min(bytes_available, n as usize)];
+                        let bytes_read = socket.recv_slice(&mut buf)?;
+
+                        buf.truncate(bytes_read);
+                        if tx.send(buf).is_err() {
+                            log::debug!("Cannot send received data, channel was already closed.");
+                        }
+                    } else {
+                        // We can't use .may_recv() here as it returns false during establishment.
+                        use TcpState::*;
+                        match socket.state() {
+                            // can we still receive something in the future?
+                            CloseWait | LastAck | Closed | Closing | TimeWait => {
+                                let (_, tx) = data.recv_waiter.take().unwrap();
+                                if tx.send(Vec::new()).is_err() {
+                                    log::debug!("Cannot send close, channel was already closed.");
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                // send data over the socket
+                if !data.send_buffer.is_empty() && socket.can_send() {
+                    let (a, b) = data.send_buffer.as_slices();
+                    let sent = socket.send_slice(a)? + socket.send_slice(b)?;
+                    data.send_buffer.drain(..sent);
+                }
+
+                // if necessary, drain write buffers:
+                // either when drain has been requested explicitly, or when socket is being closed
+                // TODO: benchmark different variants here. (e.g. only return on half capacity)
+                if (!data.drain_waiter.is_empty() || data.write_eof)
+                    && socket.send_queue() < socket.send_capacity()
+                {
+                    for waiter in data.drain_waiter.drain(..) {
+                        if waiter.send(()).is_err() {
+                            log::debug!("TcpStream already closed, cannot send notification about drained buffers.")
+                        }
+                    }
+                }
+
+                #[cfg(debug_assertions)]
+                log::debug!(
+                    "TCP connection {}: socket state {} for {:?}",
+                    connection_id,
+                    socket.state(),
+                    data.addr_tuple,
+                );
+
+                // if requested, close socket
+                if data.write_eof && data.send_buffer.is_empty() {
+                    socket.close();
+                    data.write_eof = false;
+                }
+
+                // if socket is closed, mark connection for removal
+                if socket.state() == TcpState::Closed {
+                    remove_conns.push(*connection_id);
+                }
+            }
+
+            for connection_id in remove_conns.drain(..) {
+                let data = io.socket_data.remove(&connection_id).unwrap();
+                io.iface.remove_socket(data.handle);
+                io.active_connections.remove(&data.addr_tuple);
+            }
+        }
+
+        // TODO: process remaining pending data after the shutdown request was received?
+
+        log::debug!("Virtual Network device task shutting down.");
+        Ok(())
+    }
+}
+
+impl fmt::Debug for NetworkTask {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let sockets: Vec<String> = self
             .iface
@@ -482,7 +549,7 @@ impl<'a> fmt::Debug for NetworkTask<'a> {
     }
 }
 
-async fn wait_for_channel_capacity<T>(s: Sender<T>) -> Result<()> {
+async fn wait_for_channel_capacity<T>(s: &Sender<T>) -> Result<()> {
     let permit = s.reserve().await?;
     drop(permit);
     Ok(())
