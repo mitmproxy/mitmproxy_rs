@@ -25,6 +25,7 @@ pub struct TcpStream {
     pub(super) peername: SocketAddr,
     pub(super) sockname: SocketAddr,
     pub(super) original_dst: SocketAddr,
+    pub(super) original_src: SocketAddr,
     pub(super) is_closing: bool,
 }
 
@@ -100,7 +101,7 @@ impl TcpStream {
 
     /// Query the TCP stream for details of the underlying network connection.
     ///
-    /// Supported values: `peername`, `sockname`, `original_dst`.
+    /// Supported values: `peername`, `sockname`, `original_dst`, and `original_src`.
     #[args(default = "None")]
     fn get_extra_info(
         &self,
@@ -112,6 +113,7 @@ impl TcpStream {
             ("peername", _) => Ok(socketaddr_to_py(py, self.peername)),
             ("sockname", _) => Ok(socketaddr_to_py(py, self.sockname)),
             ("original_dst", _) => Ok(socketaddr_to_py(py, self.original_dst)),
+            ("original_src", _) => Ok(socketaddr_to_py(py, self.original_src)),
             (_, Some(default)) => Ok(default),
             _ => Err(PyKeyError::new_err(name)),
         }
@@ -119,8 +121,8 @@ impl TcpStream {
 
     fn __repr__(&self) -> String {
         format!(
-            "TcpStream({}, peer={}, sock={}, dst={})",
-            self.connection_id, self.peername, self.sockname, self.original_dst,
+            "TcpStream({}, peer={}, sock={}, src={}, dst={})",
+            self.connection_id, self.peername, self.sockname, self.original_src, self.original_dst,
         )
     }
 }

@@ -55,6 +55,7 @@ impl PyInteropTask {
                                 connection_id,
                                 src_addr,
                                 dst_addr,
+                                src_orig,
                             } => {
                                 let stream = TcpStream {
                                     connection_id,
@@ -62,6 +63,7 @@ impl PyInteropTask {
                                     peername: src_addr,
                                     sockname: self.local_addr,
                                     original_dst: dst_addr,
+                                    original_src: src_orig,
                                     is_closing: false,
                                 };
 
@@ -88,6 +90,7 @@ impl PyInteropTask {
                                 data,
                                 src_addr,
                                 dst_addr,
+                                ..
                             } => {
                                 Python::with_gil(|py| {
                                     let bytes: Py<PyBytes> = PyBytes::new(py, &data).into_py(py);

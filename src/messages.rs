@@ -7,7 +7,10 @@ use tokio::sync::oneshot;
 /// Events that are sent by WireGuard to the TCP stack.
 #[derive(Debug)]
 pub enum NetworkEvent {
-    ReceivePacket(IpPacket),
+    ReceivePacket {
+        packet: IpPacket,
+        src_orig: SocketAddr,
+    },
 }
 
 /// Commands that are sent by the TCP stack to WireGuard.
@@ -25,11 +28,13 @@ pub enum TransportEvent {
         connection_id: ConnectionId,
         src_addr: SocketAddr,
         dst_addr: SocketAddr,
+        src_orig: SocketAddr,
     },
     DatagramReceived {
         data: Vec<u8>,
         src_addr: SocketAddr,
         dst_addr: SocketAddr,
+        src_orig: SocketAddr,
     },
 }
 

@@ -148,8 +148,8 @@ impl WireGuardTask {
                 // wait for graceful shutdown
                 _ = self.sd_watcher.recv() => break,
                 // wait for WireGuard packets incoming on the UDP socket
-                Ok((len, src_addr)) = socket.recv_from(&mut udp_buf) => {
-                    self.process_incoming_datagram(&socket, &udp_buf[..len], src_addr).await?;
+                Ok((len, src_orig)) = socket.recv_from(&mut udp_buf) => {
+                    self.process_incoming_datagram(&socket, &udp_buf[..len], src_orig).await?;
                 },
                 // wait for outgoing IP packets
                 Some(e) = self.net_rx.recv() => {
@@ -220,21 +220,21 @@ impl WireGuardTask {
         &mut self,
         socket: &UdpSocket,
         data: &[u8],
-        src_addr: SocketAddr,
+        src_orig: SocketAddr,
     ) -> Result<()> {
         let peer = match self.find_peer_for_datagram(data) {
             Some(p) => p,
             None => return Ok(()),
         };
 
-        peer.set_endpoint(src_addr).await;
+        peer.set_endpoint(src_orig).await;
         let mut result = peer
             .tunnel
-            .decapsulate(Some(src_addr.ip()), data, &mut self.wg_buf);
+            .decapsulate(Some(src_orig.ip()), data, &mut self.wg_buf);
 
         while let TunnResult::WriteToNetwork(b) = result {
             log::trace!("WG::process_incoming_datagram: WriteToNetwork");
-            socket.send_to(b, src_addr).await?;
+            socket.send_to(b, src_orig).await?;
 
             // check if there are more things to be handled
             result = peer.tunnel.decapsulate(None, &[0; 0], &mut self.wg_buf);
@@ -269,7 +269,10 @@ impl WireGuardTask {
 
                         self.peers_by_ip
                             .insert(Ipv4Addr::from(packet.src_addr()).into(), peer);
-                        let event = NetworkEvent::ReceivePacket(IpPacket::from(packet));
+                        let event = NetworkEvent::ReceivePacket {
+                            packet: IpPacket::from(packet),
+                            src_orig,
+                        };
 
                         if self.net_tx.try_send(event).is_err() {
                             log::warn!("Dropping incoming packet, TCP channel is full.")
@@ -295,7 +298,10 @@ impl WireGuardTask {
 
                         self.peers_by_ip
                             .insert(Ipv6Addr::from(packet.src_addr()).into(), peer);
-                        let event = NetworkEvent::ReceivePacket(IpPacket::from(packet));
+                        let event = NetworkEvent::ReceivePacket {
+                            packet: IpPacket::from(packet),
+                            src_orig,
+                        };
 
                         if self.net_tx.try_send(event).is_err() {
                             log::warn!("Dropping incoming packet, TCP channel is full.")

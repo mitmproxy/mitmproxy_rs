@@ -67,11 +67,12 @@ impl NetworkIO {
     fn receive_packet(
         &mut self,
         packet: IpPacket,
+        src_orig: SocketAddr,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
         match packet.transport_protocol() {
-            IpProtocol::Tcp => self.receive_packet_tcp(packet, permit),
-            IpProtocol::Udp => self.receive_packet_udp(packet, permit),
+            IpProtocol::Tcp => self.receive_packet_tcp(packet, src_orig, permit),
+            IpProtocol::Udp => self.receive_packet_udp(packet, src_orig, permit),
             _ => {
                 log::debug!(
                     "Received IP packet for unknown protocol: {}",
@@ -85,6 +86,7 @@ impl NetworkIO {
     fn receive_packet_udp(
         &mut self,
         mut packet: IpPacket,
+        src_orig: SocketAddr,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
         let src_ip = packet.src_ip();
@@ -105,6 +107,7 @@ impl NetworkIO {
             data: udp_packet.payload_mut().to_vec(),
             src_addr,
             dst_addr,
+            src_orig,
         };
 
         permit.send(event);
@@ -114,6 +117,7 @@ impl NetworkIO {
     fn receive_packet_tcp(
         &mut self,
         mut packet: IpPacket,
+        src_orig: SocketAddr,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
         let src_ip = packet.src_ip();
@@ -172,6 +176,7 @@ impl NetworkIO {
                 connection_id,
                 src_addr,
                 dst_addr,
+                src_orig,
             };
             permit.send(event);
         }
@@ -293,8 +298,8 @@ impl NetworkIO {
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
         match event {
-            NetworkEvent::ReceivePacket(packet) => {
-                self.receive_packet(packet, permit)?;
+            NetworkEvent::ReceivePacket { packet, src_orig } => {
+                self.receive_packet(packet, src_orig, permit)?;
             }
         }
         Ok(())
