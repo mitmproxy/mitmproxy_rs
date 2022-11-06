@@ -82,7 +82,7 @@ def main():
 
         for numb in numbs:
             data = gen_data(numb, size)
-            timer = timeit.Timer(lambda: asyncio.run(work(host, port, data), debug=True))
+            timer = timeit.Timer(lambda: asyncio.run(work(host, port, data), debug=True), "gc.enable()")
 
             print(f"Packet number: {numb}")
             print(f"Packet size: {size} bytes")

@@ -1,3 +1,4 @@
+import csv
 import json
 import pprint
 import time
@@ -12,21 +13,26 @@ COLORS = ["red", "green", "blue", "orange", "purple", "gray"]
 
 
 def plot_time(data, name, title):
-    x = data["x"]
+    xs = data["x"]
     ys = data["ys"]
     sizes = data["sizes"]
 
+    packet_nums = [*sorted(set(xs))]
+
     fig, ax = plt.subplots()
     for i, size in enumerate(sizes):
-        d, k = Poly.fit(x, ys[str(size)], 1).convert().coef
+        y_means = []
 
-        xhat = np.logspace(3, 5)
-        yhat = xhat * k + d
+        for packet_num in packet_nums:
+            xy = [(x, y) for (x, y) in zip(xs, ys[str(size)]) if x == packet_num]
+            y = np.array([xy[1] for xy in xy])
+            y_means.append(np.mean(y))
 
-        ax.plot(x, ys[str(size)], "o", color=COLORS[i], alpha=0.3, label="Measured runtime")
-        ax.plot(xhat, yhat, "-", color=COLORS[i], label="Linear model")
+        ax.plot(xs, ys[str(size)], "o", color=COLORS[i], alpha=0.3, label="Runtime")
+        ax.plot(packet_nums, y_means, "--", color=COLORS[i], alpha=0.3, linewidth=2, label="Runtime (average)")
 
     ax.set_title(title)
+    ax.set_xlim(min(packet_nums) / 2, 2 * max(packet_nums))
 
     ax.set_xlabel("Number of packets")
     ax.set_ylabel("Execution time /s")
@@ -39,33 +45,31 @@ def plot_time(data, name, title):
 
 
 def plot_throughput(data, name, title):
-    x = data["x"]
+    xs = data["x"]
     ys = data["ys"]
     sizes = data["sizes"]
 
+    packet_nums = [*sorted(set(xs))]
+
     fig, ax = plt.subplots()
     for i, size in enumerate(sizes):
+        pps_means = []
+
+        for packet_num in packet_nums:
+            xy = [(x, y) for (x, y) in zip(xs, ys[str(size)]) if x == packet_num]
+            x = np.array([xy[0] for xy in xy])
+            y = np.array([xy[1] for xy in xy])
+            pps = x / y
+            pps_means.append(np.mean(pps))
+
         y = np.array(ys[str(size)])
-        d, k = Poly.fit(x, y, 1).convert().coef
-        pps = x / y
+        pps = xs / y
 
-        xhat = np.logspace(3, 5)
-        yhat = xhat / (xhat * k + d)
-
-        ax.plot(x, pps, "o", color=COLORS[i], alpha=0.3, label="Measured throughput")
-        ax.plot(xhat, yhat, "-", color=COLORS[i], label="Linear model")
-        ax.hlines(
-            xmin=1e3,
-            xmax=1e5,
-            y=1 / k,
-            linestyles="dashed",
-            color=COLORS[i],
-            alpha=0.3,
-            linewidth=2,
-            label="Estimated maximum throughput",
-        )
+        ax.plot(xs, pps, "o", color=COLORS[i], alpha=0.3, label="Throughput")
+        ax.plot(packet_nums, pps_means, "--", color=COLORS[i], alpha=0.3, linewidth=2, label="Throughput (average)")
 
     ax.set_title(title)
+    ax.set_xlim(min(packet_nums) / 2, 2 * max(packet_nums))
 
     ax.set_xlabel("Number of packets")
     ax.set_ylabel("Throughput /(packets/s)")
@@ -77,32 +81,43 @@ def plot_throughput(data, name, title):
 
 
 def plot2_time(py_data, wg_data, suffix):
-    py_x = py_data["x"]
+    py_xs = py_data["x"]
     py_ys = py_data["ys"]
     py_sizes = py_data["sizes"]
 
-    wg_x = wg_data["x"]
+    wg_xs = wg_data["x"]
     wg_ys = wg_data["ys"]
     wg_sizes = wg_data["sizes"]
 
     assert py_sizes == wg_sizes
+    packet_nums = [*sorted(set.union(set(py_xs), set(wg_xs)))]
 
     fig, ax = plt.subplots()
     for i, size in enumerate(py_sizes):
-        py_d, py_k = Poly.fit(py_x, py_ys[str(size)], 1).convert().coef
-        wg_d, wg_k = Poly.fit(wg_x, wg_ys[str(size)], 1).convert().coef
+        py_means = []
+        wg_means = []
 
-        xhat = np.logspace(3, 5)
-        py_yhat = xhat * py_k + py_d
-        wg_yhat = xhat * wg_k + wg_d
+        for packet_num in packet_nums:
+            py_xy = [(x, y) for (x, y) in zip(py_xs, py_ys[str(size)]) if x == packet_num]
+            py_y = np.array([xy[1] for xy in py_xy])
+            py_means.append(np.mean(py_y))
 
-        ax.plot(py_x, py_ys[str(size)], "o", color=COLORS[i], alpha=0.3, label="Python asyncio")
-        ax.plot(xhat, py_yhat, "-", color=COLORS[i])
+            wg_xy = [(x, y) for (x, y) in zip(wg_xs, wg_ys[str(size)]) if x == packet_num]
+            wg_y = np.array([xy[1] for xy in wg_xy])
+            wg_means.append(np.mean(wg_y))
 
-        ax.plot(wg_x, wg_ys[str(size)], "o", color=COLORS[len(COLORS) - i - 1], alpha=0.3, label="mitmproxy_wireguard")
-        ax.plot(xhat, wg_yhat, "-", color=COLORS[len(COLORS) - i - 1])
+        py_color = COLORS[i]
+        ax.plot(py_xs, py_ys[str(size)], "o", color=py_color, alpha=0.3, label="Python asyncio")
+        ax.plot(packet_nums, py_means, "--", color=py_color, alpha=0.3, linewidth=2, label="Python asyncio (average)")
+
+        wg_color = COLORS[len(COLORS) - i - 1]
+        ax.plot(wg_xs, wg_ys[str(size)], "o", color=wg_color, alpha=0.3, label="mitmproxy_wireguard")
+        ax.plot(
+            packet_nums, wg_means, "--", color=wg_color, alpha=0.3, linewidth=2, label="mitmproxy_wireguard (average)"
+        )
 
     ax.set_title("Echo server runtime comparison")
+    ax.set_xlim(min(packet_nums) / 2, 2 * max(packet_nums))
 
     ax.set_xlabel("Number of packets")
     ax.set_ylabel("Execution time /s")
@@ -115,55 +130,74 @@ def plot2_time(py_data, wg_data, suffix):
 
 
 def plot2_throughput(py_data, wg_data, suffix):
-    py_x = py_data["x"]
+    py_xs = py_data["x"]
     py_ys = py_data["ys"]
     py_sizes = py_data["sizes"]
 
-    wg_x = wg_data["x"]
+    wg_xs = wg_data["x"]
     wg_ys = wg_data["ys"]
     wg_sizes = wg_data["sizes"]
 
     assert py_sizes == wg_sizes
+    packet_nums = [*sorted(set.union(set(py_xs), set(wg_xs)))]
 
     fig, ax = plt.subplots()
     for i, size in enumerate(py_sizes):
+        py_means = []
+        wg_means = []
+
+        for packet_num in packet_nums:
+            py_xy = [(x, y) for (x, y) in zip(py_xs, py_ys[str(size)]) if x == packet_num]
+            py_x = np.array([xy[0] for xy in py_xy])
+            py_y = np.array([xy[1] for xy in py_xy])
+            py_means.append(np.mean(py_x / py_y))
+
+            wg_xy = [(x, y) for (x, y) in zip(wg_xs, wg_ys[str(size)]) if x == packet_num]
+            wg_x = np.array([xy[0] for xy in wg_xy])
+            wg_y = np.array([xy[1] for xy in wg_xy])
+            wg_means.append(np.mean(wg_x / wg_y))
+
         py_y = np.array(py_ys[str(size)])
         wg_y = np.array(wg_ys[str(size)])
 
-        py_d, py_k = Poly.fit(py_x, py_y, 1).convert().coef
-        wg_d, wg_k = Poly.fit(wg_x, wg_y, 1).convert().coef
+        py_pps = py_xs / py_y
+        wg_pps = wg_xs / wg_y
 
-        py_pps = py_x / py_y
-        wg_pps = wg_x / wg_y
+        py_max = np.max(py_pps)
+        wg_max = np.max(wg_pps)
 
-        xhat = np.logspace(3, 5)
-        py_yhat = xhat / (xhat * py_k + py_d)
-        wg_yhat = xhat / (xhat * wg_k + wg_d)
-
-        ax.plot(py_x, py_pps, "o", color=COLORS[i], alpha=0.3, label="Python asyncio")
-        ax.plot(xhat, py_yhat, color=COLORS[i])
-        ax.hlines(xmin=1e3, xmax=1e5, y=1 / py_k, linestyles="dashed", color=COLORS[i], alpha=0.3, linewidth=2)
-
-        ax.plot(wg_x, wg_pps, "o", color=COLORS[len(COLORS) - i - 1], alpha=0.3, label="mitmproxy_wireguard")
-        ax.plot(xhat, wg_yhat, color=COLORS[len(COLORS) - i - 1])
+        py_color = COLORS[i]
+        ax.plot(py_xs, py_pps, "o", color=py_color, alpha=0.3, label="Python asyncio")
+        ax.plot(packet_nums, py_means, "--", color=py_color, alpha=0.3, linewidth=2, label="Python asyncio (average)")
         ax.hlines(
-            xmin=1e3,
-            xmax=1e5,
-            y=1 / wg_k,
-            linestyles="dashed",
-            color=COLORS[len(COLORS) - i - 1],
+            xmin=1e2,
+            xmax=1e6,
+            y=py_max,
+            linestyles="solid",
+            color=py_color,
             alpha=0.3,
             linewidth=2,
+            label="Python asyncio (best)",
         )
 
-        print("Throughput ({}, Python asyncio, average): {} ± {}".format(suffix, np.mean(py_pps), np.std(py_pps)))
-        print("Throughput ({}, Python asyncio, estimated): {}".format(suffix, 1 / py_k))
-        print("Startup time ({}, Python asyncio, estimated): {}".format(suffix, py_d))
-        print("Throughput ({}, mitmproxy_wireguard, average): {} ± {}".format(suffix, np.mean(wg_pps), np.std(wg_pps)))
-        print("Throughput ({}, mitmproxy_wireguard, estimated): {}".format(suffix, 1 / wg_k))
-        print("Startup time ({}, mitmproxy_wireguard, estimated): {}".format(suffix, wg_d))
+        wg_color = COLORS[len(COLORS) - i - 1]
+        ax.plot(wg_xs, wg_pps, "o", color=wg_color, alpha=0.3, label="mitmproxy_wireguard")
+        ax.plot(
+            packet_nums, wg_means, "--", color=wg_color, alpha=0.3, linewidth=2, label="mitmproxy_wireguard (average)"
+        )
+        ax.hlines(
+            xmin=1e2,
+            xmax=1e6,
+            y=wg_max,
+            linestyles="solid",
+            color=wg_color,
+            alpha=0.3,
+            linewidth=2,
+            label="mitmproxy_wireguard (best)",
+        )
 
     ax.set_title("Echo server throughput comparison")
+    ax.set_xlim(min(packet_nums) / 2, 2 * max(packet_nums))
 
     ax.set_xlabel("Number of packets")
     ax.set_ylabel("Throughput /(packets/s)")
@@ -172,6 +206,90 @@ def plot2_throughput(py_data, wg_data, suffix):
     ax.legend()
 
     fig.savefig(f"comp_tp_{suffix}.png", dpi=fig.dpi * 2)
+
+
+def stats_throughput(py_data, wg_data, suffix):
+    py_xs = py_data["x"]
+    py_ys = py_data["ys"]
+    py_sizes = py_data["sizes"]
+
+    wg_xs = wg_data["x"]
+    wg_ys = wg_data["ys"]
+    wg_sizes = wg_data["sizes"]
+
+    assert py_sizes == wg_sizes
+
+    packet_nums = [*sorted(set.union(set(wg_xs), set(py_xs)))]
+
+    print(suffix)
+    for size in py_sizes:
+        py_file = open(f"py_{suffix}_{size}B.csv", "w", newline="")
+        wg_file = open(f"wg_{suffix}_{size}B.csv", "w", newline="")
+
+        columns = ["packets", "tp_avg", "tp_sdv", "tp_min", "tp_max"]
+        py_csv = csv.DictWriter(py_file, columns, delimiter=",")
+        wg_csv = csv.DictWriter(wg_file, columns, delimiter=",")
+
+        py_csv.writeheader()
+        wg_csv.writeheader()
+
+        for packet_num in packet_nums:
+            py_xy = [(x, y) for (x, y) in zip(py_xs, py_ys[str(size)]) if x == packet_num]
+            wg_xy = [(x, y) for (x, y) in zip(wg_xs, wg_ys[str(size)]) if x == packet_num]
+
+            py_x = np.array([xy[0] for xy in py_xy])
+            py_y = np.array([xy[1] for xy in py_xy])
+            wg_x = np.array([xy[0] for xy in wg_xy])
+            wg_y = np.array([xy[1] for xy in wg_xy])
+
+            py_pps = py_x / py_y
+            wg_pps = wg_x / wg_y
+
+            py_mean = np.mean(py_pps)
+            py_sdev = np.std(py_pps)
+            py_min = np.min(py_pps)
+            py_max = np.max(py_pps)
+
+            wg_mean = np.mean(wg_pps)
+            wg_min = np.min(wg_pps)
+            wg_max = np.max(wg_pps)
+            wg_sdev = np.std(wg_pps)
+
+            print(" \tnum\tavg\tsdv\tmin\tmax")
+            print(f"py\t{packet_num}\t{py_mean}\t{py_sdev}\t{py_min}\t{py_max}")
+            print(f"wg\t{packet_num}\t{wg_mean}\t{wg_sdev}\t{wg_min}\t{wg_max}")
+
+            py_csv.writerow(dict(packets=packet_num, tp_avg=py_mean, tp_sdv=py_sdev, tp_min=py_min, tp_max=py_max))
+            wg_csv.writerow(dict(packets=packet_num, tp_avg=wg_mean, tp_sdv=wg_sdev, tp_min=wg_min, tp_max=wg_max))
+
+        py_x = np.array(py_xs)
+        py_y = np.array(py_ys[str(size)])
+
+        wg_x = np.array(wg_xs)
+        wg_y = np.array(wg_ys[str(size)])
+
+        py_pps = py_x / py_y
+        wg_pps = wg_x / wg_y
+
+        py_mean = np.mean(py_pps)
+        py_sdev = np.std(py_pps)
+        py_min = np.min(py_pps)
+        py_max = np.max(py_pps)
+
+        wg_mean = np.mean(wg_pps)
+        wg_min = np.min(wg_pps)
+        wg_max = np.max(wg_pps)
+        wg_sdev = np.std(wg_pps)
+
+        print(" \ttotal\tavg\tsdv\tmin\tmax")
+        print(f"py\t \t{py_mean}\t{py_sdev}\t{py_min}\t{py_max}")
+        print(f"wg\t \t{wg_mean}\t{wg_sdev}\t{wg_min}\t{wg_max}")
+
+        py_csv.writerow(dict(packets="total", tp_avg=py_mean, tp_sdv=py_sdev, tp_min=py_min, tp_max=py_max))
+        wg_csv.writerow(dict(packets="total", tp_avg=wg_mean, tp_sdv=wg_sdev, tp_min=wg_min, tp_max=wg_max))
+
+        py_file.close()
+        wg_file.close()
 
 
 def main():
@@ -183,14 +301,20 @@ def main():
         with open(f"wg_data_{suffix}.json") as file:
             wg_data = json.load(file)
 
+        # plot raw runtime data
         plot_time(py_data, f"py_data_{suffix}.png", "Python asyncio")
         plot_time(wg_data, f"wg_data_{suffix}.png", "mitmproxy_wireguard")
 
+        # plot throughput data
         plot_throughput(py_data, f"py_tp_{suffix}.png", "Python asyncio")
         plot_throughput(wg_data, f"wg_tp_{suffix}.png", "mitmproxy_wireguard")
 
+        # plot runtime and throughput comparisons
         plot2_time(py_data, wg_data, suffix)
         plot2_throughput(py_data, wg_data, suffix)
+
+        # write throughput statistics
+        stats_throughput(py_data, wg_data, suffix)
 
 
 if __name__ == "__main__":
