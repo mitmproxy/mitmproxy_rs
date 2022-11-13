@@ -56,6 +56,7 @@ impl PyInteropTask {
                                 dst_addr,
                                 src_orig,
                             } => {
+                                // initialize new TCP stream
                                 let stream = TcpStream {
                                     connection_id,
                                     event_tx: self.py_to_smol_tx.clone(),
@@ -66,21 +67,19 @@ impl PyInteropTask {
                                     is_closing: false,
                                 };
 
-                                Python::with_gil(|py| {
+                                // spawn TCP connection handler coroutine
+                                if let Err(err) = Python::with_gil(|py| -> Result<(), PyErr> {
                                     let stream = stream.into_py(py);
 
-                                    let coro = match self.py_tcp_handler.call1(py,(stream,)) {
-                                        Ok(coro) => coro,
-                                        Err(err) => {
-                                            err.print(py);
-                                            return;
-                                        },
-                                    };
+                                    // calling Python coroutine object yields an awaitable object
+                                    let coro = self.py_tcp_handler.call1(py, (stream, ))?;
 
+                                    // convert Python awaitable into Rust Future
                                     let locals = pyo3_asyncio::TaskLocals::new(self.py_loop.as_ref(py))
-                                        .copy_context(self.py_loop.as_ref(py).py()).unwrap();
-                                    let future = pyo3_asyncio::into_future_with_locals(&locals, coro.as_ref(py)).unwrap();
+                                        .copy_context(self.py_loop.as_ref(py).py())?;
+                                    let future = pyo3_asyncio::into_future_with_locals(&locals, coro.as_ref(py))?;
 
+                                    // run Future on a new Tokio task
                                     let handle = tokio::spawn(async {
                                         if let Err(err) = future.await {
                                             log::error!("TCP connection handler coroutine raised an exception:\n{}", err)}
@@ -88,7 +87,11 @@ impl PyInteropTask {
                                     );
 
                                     tcp_connection_handler_tasks.push(handle);
-                                });
+
+                                    Ok(())
+                                }) {
+                                    log::error!("Failed to spawn TCP connection handler coroutine:\n{}", err);
+                                };
                             },
                             TransportEvent::DatagramReceived {
                                 data,
