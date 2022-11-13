@@ -1,3 +1,13 @@
+## 0.1.18
+
+- Expose the "original" (i.e. not the address inside the WireGuard tunnel) source address
+  of WireGuard UDP packets in TcpStream via `TcpStream.get_extra_info("original_src")`.
+- Internal refactoring to simplify code for spawning TCP connection handler coroutines,
+  which makes it possible to check whether they raised an exception (which were previously
+  just silently ignored).
+- Update all Rust dependencies, including an update to PyO3 v0.17.3, which is the first
+  release that marked support for Python 3.11 as official.
+
 ## 0.1.17
 
 - Ensure that the virtual network device does not block unnecessarily and that
