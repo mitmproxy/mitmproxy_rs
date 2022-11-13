@@ -10,7 +10,6 @@ use crate::messages::{TransportCommand, TransportEvent};
 pub struct PyInteropTask {
     local_addr: SocketAddr,
     py_loop: PyObject,
-    run_coroutine_threadsafe: PyObject,
     py_to_smol_tx: mpsc::UnboundedSender<TransportCommand>,
     smol_to_py_rx: mpsc::Receiver<TransportEvent>,
     py_tcp_handler: PyObject,
@@ -23,7 +22,6 @@ impl PyInteropTask {
     pub fn new(
         local_addr: SocketAddr,
         py_loop: PyObject,
-        run_coroutine_threadsafe: PyObject,
         py_to_smol_tx: mpsc::UnboundedSender<TransportCommand>,
         smol_to_py_rx: mpsc::Receiver<TransportEvent>,
         py_tcp_handler: PyObject,
@@ -33,7 +31,6 @@ impl PyInteropTask {
         PyInteropTask {
             local_addr,
             py_loop,
-            run_coroutine_threadsafe,
             py_to_smol_tx,
             smol_to_py_rx,
             py_tcp_handler,
@@ -43,6 +40,8 @@ impl PyInteropTask {
     }
 
     pub async fn run(mut self) -> Result<()> {
+        let mut tcp_connection_handler_tasks = Vec::new();
+
         loop {
             tokio::select!(
                 // wait for graceful shutdown
@@ -78,12 +77,17 @@ impl PyInteropTask {
                                         },
                                     };
 
-                                    if let Err(err) = self.run_coroutine_threadsafe.call1(
-                                        py,
-                                        (coro, self.py_loop.as_ref(py))
-                                    ) {
-                                        err.print(py);
-                                    }
+                                    let locals = pyo3_asyncio::TaskLocals::new(self.py_loop.as_ref(py))
+                                        .copy_context(self.py_loop.as_ref(py).py()).unwrap();
+                                    let future = pyo3_asyncio::into_future_with_locals(&locals, coro.as_ref(py)).unwrap();
+
+                                    let handle = tokio::spawn(async {
+                                        if let Err(err) = future.await {
+                                            log::error!("TCP connection handler coroutine raised an exception:\n{}", err)}
+                                        }
+                                    );
+
+                                    tcp_connection_handler_tasks.push(handle);
                                 });
                             },
                             TransportEvent::DatagramReceived {
@@ -119,6 +123,31 @@ impl PyInteropTask {
         }
 
         log::debug!("Python interoperability task shutting down.");
+
+        // clean up TCP connection handler coroutines
+        for handle in tcp_connection_handler_tasks {
+            if handle.is_finished() {
+                // Future is already finished: just await;
+                // Python exceptions are already logged by the wrapper coroutine
+                if let Err(err) = handle.await {
+                    log::warn!(
+                        "TCP connection handler coroutine could not be joined: {}",
+                        err
+                    );
+                }
+            } else {
+                // Future is not finished: abort tokio task
+                handle.abort();
+
+                if let Err(err) = handle.await {
+                    if !err.is_cancelled() {
+                        // JoinError was not caused by cancellation: coroutine panicked, log error
+                        log::error!("TCP connection handler coroutine panicked: {}", err);
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 }

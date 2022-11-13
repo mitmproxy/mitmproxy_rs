@@ -170,22 +170,15 @@ impl Server {
         )?;
 
         // initialize Python interop task
-        // Note: Calling into the Python runtime needs to happen on the main thread, it doesn't
-        //       seem to work when called from a different task.
-        let (py_loop, run_coroutine_threadsafe) =
-            Python::with_gil(|py| -> Result<(PyObject, PyObject)> {
-                let py_loop = pyo3_asyncio::tokio::get_current_loop(py)?.into();
-                let run_coroutine_threadsafe = py
-                    .import("asyncio")?
-                    .getattr("run_coroutine_threadsafe")?
-                    .into();
-                Ok((py_loop, run_coroutine_threadsafe))
-            })?;
+        // Note: The current asyncio event loop needs to be determined here on the main thread.
+        let py_loop: PyObject = Python::with_gil(|py| {
+            let py_loop = pyo3_asyncio::tokio::get_current_loop(py)?.into_py(py);
+            Ok::<PyObject, PyErr>(py_loop)
+        })?;
 
         let py_task = PyInteropTask::new(
             local_addr,
             py_loop,
-            run_coroutine_threadsafe,
             py_to_smol_tx,
             smol_to_py_rx,
             py_tcp_handler,
