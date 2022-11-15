@@ -150,6 +150,7 @@ impl Server {
 
         // initialize WireGuard server
         let mut wg_task_builder = WireGuardTaskBuilder::new(
+            socket,
             private_key,
             wg_to_smol_tx,
             smol_to_wg_rx,
@@ -187,7 +188,7 @@ impl Server {
         );
 
         // spawn tasks
-        let wg_handle = tokio::spawn(async move { wg_task.run(socket).await });
+        let wg_handle = tokio::spawn(async move { wg_task.run().await });
         let net_handle = tokio::spawn(async move { nw_task.run().await });
         let py_handle = tokio::spawn(async move { py_task.run().await });
 

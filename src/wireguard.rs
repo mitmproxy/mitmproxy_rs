@@ -39,6 +39,7 @@ impl WireGuardPeer {
 }
 
 pub struct WireGuardTaskBuilder {
+    socket: UdpSocket,
     private_key: StaticSecret,
 
     peers_by_idx: HashMap<u32, Arc<WireGuardPeer>>,
@@ -53,12 +54,14 @@ pub struct WireGuardTaskBuilder {
 
 impl WireGuardTaskBuilder {
     pub fn new(
+        socket: UdpSocket,
         private_key: StaticSecret,
         net_tx: Sender<NetworkEvent>,
         net_rx: Receiver<NetworkCommand>,
         sd_watcher: BroadcastReceiver<()>,
     ) -> Self {
         WireGuardTaskBuilder {
+            socket,
             private_key,
 
             peers_by_idx: HashMap::new(),
@@ -104,6 +107,7 @@ impl WireGuardTaskBuilder {
         let public_key = PublicKey::from(&self.private_key);
 
         Ok(WireGuardTask {
+            socket: self.socket,
             private_key: self.private_key,
             public_key,
 
@@ -121,6 +125,7 @@ impl WireGuardTaskBuilder {
 }
 
 pub struct WireGuardTask {
+    socket: UdpSocket,
     private_key: StaticSecret,
     public_key: PublicKey,
 
@@ -136,7 +141,7 @@ pub struct WireGuardTask {
 }
 
 impl WireGuardTask {
-    pub async fn run(mut self, socket: UdpSocket) -> Result<()> {
+    pub async fn run(mut self) -> Result<()> {
         if self.peers_by_idx.is_empty() {
             return Err(anyhow!("No WireGuard peers were configured."));
         }
@@ -148,14 +153,14 @@ impl WireGuardTask {
                 // wait for graceful shutdown
                 _ = self.sd_watcher.recv() => break,
                 // wait for WireGuard packets incoming on the UDP socket
-                Ok((len, src_orig)) = socket.recv_from(&mut udp_buf) => {
-                    self.process_incoming_datagram(&socket, &udp_buf[..len], src_orig).await?;
+                Ok((len, src_orig)) = self.socket.recv_from(&mut udp_buf) => {
+                    self.process_incoming_datagram(&udp_buf[..len], src_orig).await?;
                 },
                 // wait for outgoing IP packets
                 Some(e) = self.net_rx.recv() => {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
-                            self.process_outgoing_packet(&socket, packet).await?;
+                            self.process_outgoing_packet(packet).await?;
                         }
                     }
                 }
@@ -166,7 +171,7 @@ impl WireGuardTask {
         while let Some(e) = self.net_rx.recv().await {
             match e {
                 NetworkCommand::SendPacket(packet) => {
-                    self.process_outgoing_packet(&socket, packet).await?;
+                    self.process_outgoing_packet(packet).await?;
                 }
             }
         }
@@ -218,7 +223,6 @@ impl WireGuardTask {
     /// process WireGuard datagrams and forward the decrypted packets.
     async fn process_incoming_datagram(
         &mut self,
-        socket: &UdpSocket,
         data: &[u8],
         src_orig: SocketAddr,
     ) -> Result<()> {
@@ -234,7 +238,7 @@ impl WireGuardTask {
 
         while let TunnResult::WriteToNetwork(b) = result {
             log::trace!("WG::process_incoming_datagram: WriteToNetwork");
-            socket.send_to(b, src_orig).await?;
+            self.socket.send_to(b, src_orig).await?;
 
             // check if there are more things to be handled
             result = peer.tunnel.decapsulate(None, &[0; 0], &mut self.wg_buf);
@@ -320,7 +324,6 @@ impl WireGuardTask {
     /// process packets and send the encrypted WireGuard datagrams to the peer.
     async fn process_outgoing_packet(
         &mut self,
-        socket: &UdpSocket,
         packet: IpPacket,
     ) -> Result<()> {
         let peer = self
@@ -372,7 +375,7 @@ impl WireGuardTask {
                     pretty_hex(&buf),
                 );
 
-                socket.send_to(buf, dst_addr).await?;
+                self.socket.send_to(buf, dst_addr).await?;
             }
             // IPv4 packet
             TunnResult::WriteToTunnelV4(_, _) => {
