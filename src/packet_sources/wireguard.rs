@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use anyhow::{anyhow, Result};
 use boringtun::noise::{
     errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult,
@@ -19,6 +20,7 @@ use tokio::{
 use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};
+use crate::packet_sources::{PacketSourceBuilder, PacketSourceTask};
 
 const MAX_PACKET_SIZE: usize = 65535;
 
@@ -45,20 +47,12 @@ pub struct WireGuardTaskBuilder {
     peers_by_idx: HashMap<u32, Arc<WireGuardPeer>>,
     peers_by_key: HashMap<PublicKey, Arc<WireGuardPeer>>,
     peers_by_ip: HashMap<IpAddr, Arc<WireGuardPeer>>,
-
-    net_tx: Sender<NetworkEvent>,
-    net_rx: Receiver<NetworkCommand>,
-
-    sd_watcher: BroadcastReceiver<()>,
 }
 
 impl WireGuardTaskBuilder {
     pub fn new(
         socket: UdpSocket,
         private_key: StaticSecret,
-        net_tx: Sender<NetworkEvent>,
-        net_rx: Receiver<NetworkCommand>,
-        sd_watcher: BroadcastReceiver<()>,
     ) -> Self {
         WireGuardTaskBuilder {
             socket,
@@ -67,11 +61,6 @@ impl WireGuardTaskBuilder {
             peers_by_idx: HashMap::new(),
             peers_by_key: HashMap::new(),
             peers_by_ip: HashMap::new(),
-
-            net_tx,
-            net_rx,
-
-            sd_watcher,
         }
     }
 
@@ -90,7 +79,7 @@ impl WireGuardTaskBuilder {
             index,
             None,
         )
-        .map_err(|error| anyhow!(error))?;
+            .map_err(|error| anyhow!(error))?;
 
         let peer = Arc::new(WireGuardPeer {
             tunnel,
@@ -102,11 +91,19 @@ impl WireGuardTaskBuilder {
 
         Ok(())
     }
+}
 
-    pub fn build(self) -> Result<WireGuardTask> {
+impl PacketSourceBuilder for WireGuardTaskBuilder {
+    type Task = WireGuardTask;
+    fn build(
+        self,
+        net_tx: Sender<NetworkEvent>,
+        net_rx: Receiver<NetworkCommand>,
+        sd_watcher: BroadcastReceiver<()>,
+    ) -> WireGuardTask {
         let public_key = PublicKey::from(&self.private_key);
 
-        Ok(WireGuardTask {
+        WireGuardTask {
             socket: self.socket,
             private_key: self.private_key,
             public_key,
@@ -114,13 +111,12 @@ impl WireGuardTaskBuilder {
             peers_by_idx: self.peers_by_idx,
             peers_by_key: self.peers_by_key,
             peers_by_ip: self.peers_by_ip,
-
-            net_tx: self.net_tx,
-            net_rx: self.net_rx,
-
             wg_buf: [0u8; MAX_PACKET_SIZE],
-            sd_watcher: self.sd_watcher,
-        })
+
+            net_tx: net_tx,
+            net_rx: net_rx,
+            sd_watcher: sd_watcher,
+        }
     }
 }
 
@@ -140,8 +136,9 @@ pub struct WireGuardTask {
     sd_watcher: BroadcastReceiver<()>,
 }
 
-impl WireGuardTask {
-    pub async fn run(mut self) -> Result<()> {
+#[async_trait]
+impl PacketSourceTask for WireGuardTask {
+    async fn run(mut self) -> Result<()> {
         if self.peers_by_idx.is_empty() {
             return Err(anyhow!("No WireGuard peers were configured."));
         }
@@ -179,7 +176,8 @@ impl WireGuardTask {
         log::debug!("WireGuard server task shutting down.");
         Ok(())
     }
-
+}
+impl WireGuardTask {
     fn find_peer_for_datagram(&self, data: &[u8]) -> Option<Arc<WireGuardPeer>> {
         let packet = match Tunn::parse_incoming_packet(data) {
             Ok(p) => p,

@@ -857,6 +857,7 @@ name = "mitmproxy_wireguard"
 version = "0.1.18"
 dependencies = [
  "anyhow",
+ "async-trait",
  "base64",
  "boringtun",
  "console-subscriber",

@@ -16,7 +16,7 @@ use crate::network::NetworkTask;
 use crate::python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask};
 use crate::shutdown::ShutdownTask;
 use crate::util::string_to_key;
-use crate::wireguard::WireGuardTaskBuilder;
+use crate::packet_sources::{PacketSourceBuilder, PacketSourceTask, WireGuardTaskBuilder};
 
 /// A running WireGuard server.
 ///
@@ -152,14 +152,15 @@ impl Server {
         let mut wg_task_builder = WireGuardTaskBuilder::new(
             socket,
             private_key,
-            wg_to_smol_tx,
-            smol_to_wg_rx,
-            sd_trigger.subscribe(),
         );
         for key in peer_public_keys {
             wg_task_builder.add_peer(key, None)?;
         }
-        let wg_task = wg_task_builder.build()?;
+        let wg_task = wg_task_builder.build(
+            wg_to_smol_tx,
+            smol_to_wg_rx,
+            sd_trigger.subscribe(),
+        );
 
         // initialize virtual network device
         let nw_task = NetworkTask::new(

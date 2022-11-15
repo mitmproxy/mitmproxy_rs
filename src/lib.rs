@@ -12,7 +12,7 @@ mod python;
 mod server;
 mod shutdown;
 mod util;
-mod wireguard;
+mod packet_sources;
 
 static LOGGER_INITIALIZED: Lazy<RwLock<bool>> = Lazy::new(|| RwLock::new(false));
 
