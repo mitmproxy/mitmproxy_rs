@@ -12,7 +12,7 @@ use smoltcp::wire::{Ipv4Packet, Ipv6Packet};
 use tokio::{
     net::UdpSocket,
     sync::{
-        broadcast::Receiver as BroadcastReceiver,
+        broadcast,
         mpsc::{Receiver, Sender},
         RwLock,
     },
@@ -40,7 +40,7 @@ impl WireGuardPeer {
     }
 }
 
-pub struct WireGuardTaskBuilder {
+pub struct WireGuardBuilder {
     socket: UdpSocket,
     private_key: StaticSecret,
 
@@ -49,12 +49,12 @@ pub struct WireGuardTaskBuilder {
     peers_by_ip: HashMap<IpAddr, Arc<WireGuardPeer>>,
 }
 
-impl WireGuardTaskBuilder {
+impl WireGuardBuilder {
     pub fn new(
         socket: UdpSocket,
         private_key: StaticSecret,
     ) -> Self {
-        WireGuardTaskBuilder {
+        WireGuardBuilder {
             socket,
             private_key,
 
@@ -93,13 +93,13 @@ impl WireGuardTaskBuilder {
     }
 }
 
-impl PacketSourceBuilder for WireGuardTaskBuilder {
+impl PacketSourceBuilder for WireGuardBuilder {
     type Task = WireGuardTask;
     fn build(
         self,
         net_tx: Sender<NetworkEvent>,
         net_rx: Receiver<NetworkCommand>,
-        sd_watcher: BroadcastReceiver<()>,
+        sd_watcher: broadcast::Receiver<()>,
     ) -> WireGuardTask {
         let public_key = PublicKey::from(&self.private_key);
 
@@ -113,9 +113,9 @@ impl PacketSourceBuilder for WireGuardTaskBuilder {
             peers_by_ip: self.peers_by_ip,
             wg_buf: [0u8; MAX_PACKET_SIZE],
 
-            net_tx: net_tx,
-            net_rx: net_rx,
-            sd_watcher: sd_watcher,
+            net_tx,
+            net_rx,
+            sd_watcher,
         }
     }
 }
@@ -133,7 +133,7 @@ pub struct WireGuardTask {
     net_rx: Receiver<NetworkCommand>,
 
     wg_buf: [u8; MAX_PACKET_SIZE],
-    sd_watcher: BroadcastReceiver<()>,
+    sd_watcher: broadcast::Receiver<()>,
 }
 
 #[async_trait]

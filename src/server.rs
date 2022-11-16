@@ -13,7 +13,7 @@ use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::messages::TransportCommand;
 use crate::network::NetworkTask;
-use crate::packet_sources::{PacketSourceBuilder, PacketSourceTask, WireGuardTaskBuilder};
+use crate::packet_sources::{PacketSourceBuilder, PacketSourceTask, WindowsBuilder, WireGuardBuilder};
 use crate::python::{event_queue_unavailable, py_to_socketaddr, PyInteropTask, socketaddr_to_py};
 use crate::shutdown::ShutdownTask;
 use crate::util::string_to_key;
@@ -156,6 +156,46 @@ impl Drop for Server {
     }
 }
 
+#[pyclass]
+#[derive(Debug)]
+pub struct WindowsProxy {
+    server: Server
+}
+
+#[pymethods]
+impl WindowsProxy {
+    pub fn send_datagram(
+        &self,
+        data: Vec<u8>,
+        src_addr: &PyTuple,
+        dst_addr: &PyTuple,
+    ) -> PyResult<()> {
+        self.server.send_datagram(data, src_addr, dst_addr)
+    }
+
+    pub fn close(&mut self) {
+        self.server.close()
+    }
+
+    pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+        self.server.wait_closed(py)
+    }
+}
+
+impl WindowsProxy {
+    pub async fn init(
+        py_tcp_handler: PyObject,
+        py_udp_handler: PyObject,
+    ) -> Result<Self> {
+        let windows_task_builder = WindowsBuilder::new();
+
+        let server = Server::init(windows_task_builder, py_tcp_handler, py_udp_handler).await?;
+        Ok(WindowsProxy {
+            server,
+        })
+    }
+}
+
 /// A running WireGuard server.
 ///
 /// A new server can be started by calling the `start_server` coroutine. Its public API is intended
@@ -243,7 +283,7 @@ impl WireGuardServer {
         );
 
         // initialize WireGuard server
-        let mut wg_task_builder = WireGuardTaskBuilder::new(
+        let mut wg_task_builder = WireGuardBuilder::new(
             socket,
             private_key,
         );
@@ -296,6 +336,23 @@ pub fn start_wireguard_server(
             port,
             private_key,
             peer_public_keys,
+            handle_connection,
+            receive_datagram,
+        )
+            .await?;
+        Ok(server)
+    })
+}
+
+
+#[pyfunction]
+pub fn start_windows_transparent_proxy(
+    py: Python<'_>,
+    handle_connection: PyObject,
+    receive_datagram: PyObject,
+) -> PyResult<&PyAny> {
+    pyo3_asyncio::tokio::future_into_py(py, async move {
+        let server = WindowsProxy::init(
             handle_connection,
             receive_datagram,
         )

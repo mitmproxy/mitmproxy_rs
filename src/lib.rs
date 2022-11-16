@@ -46,9 +46,11 @@ pub fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     console_subscriber::init();
 
     m.add_function(wrap_pyfunction!(server::start_wireguard_server, m)?)?;
+    m.add_function(wrap_pyfunction!(server::start_windows_transparent_proxy, m)?)?;
     m.add_function(wrap_pyfunction!(util::genkey, m)?)?;
     m.add_function(wrap_pyfunction!(util::pubkey, m)?)?;
     m.add_class::<server::WireGuardServer>()?;
+    m.add_class::<server::WindowsProxy>()?;
     m.add_class::<python::TcpStream>()?;
 
     Ok(())
