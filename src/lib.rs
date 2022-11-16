@@ -8,11 +8,11 @@ use pyo3::{exceptions::PyException, prelude::*};
 
 mod messages;
 mod network;
+mod packet_sources;
 mod python;
 mod server;
 mod shutdown;
 mod util;
-mod packet_sources;
 
 static LOGGER_INITIALIZED: Lazy<RwLock<bool>> = Lazy::new(|| RwLock::new(false));
 
@@ -45,8 +45,11 @@ pub fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     #[cfg(feature = "tracing")]
     console_subscriber::init();
 
-    m.add_function(wrap_pyfunction!(server::start_wireguard_server, m)?)?;
-    m.add_function(wrap_pyfunction!(server::start_windows_transparent_proxy, m)?)?;
+    m.add_function(wrap_pyfunction!(server::start_server, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        server::start_windows_transparent_proxy,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(util::genkey, m)?)?;
     m.add_function(wrap_pyfunction!(util::pubkey, m)?)?;
     m.add_class::<server::WireGuardServer>()?;

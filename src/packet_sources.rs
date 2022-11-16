@@ -2,13 +2,13 @@ use anyhow::Result;
 use async_trait::async_trait;
 use tokio::sync::{broadcast, mpsc};
 
-pub use wireguard::WireGuardBuilder;
 pub use windows::WindowsBuilder;
+pub use wireguard::WireGuardBuilder;
 
 use crate::messages::{NetworkCommand, NetworkEvent};
 
-mod wireguard;
 mod windows;
+mod wireguard;
 
 pub trait PacketSourceBuilder {
     type Task: PacketSourceTask + Send + 'static;

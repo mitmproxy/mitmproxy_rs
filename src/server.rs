@@ -9,12 +9,14 @@ use tokio::{
     sync::mpsc::{self, channel, unbounded_channel},
     sync::Notify,
 };
-use x25519_dalek::{PublicKey, StaticSecret};
+use x25519_dalek::PublicKey;
 
 use crate::messages::TransportCommand;
 use crate::network::NetworkTask;
-use crate::packet_sources::{PacketSourceBuilder, PacketSourceTask, WindowsBuilder, WireGuardBuilder};
-use crate::python::{event_queue_unavailable, py_to_socketaddr, PyInteropTask, socketaddr_to_py};
+use crate::packet_sources::{
+    PacketSourceBuilder, PacketSourceTask, WindowsBuilder, WireGuardBuilder,
+};
+use crate::python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask};
 use crate::shutdown::ShutdownTask;
 use crate::util::string_to_key;
 
@@ -93,11 +95,8 @@ impl Server {
         let (sd_trigger, _sd_watcher) = broadcast::channel(1);
         let sd_barrier = Arc::new(Notify::new());
 
-        let wg_task = packet_source_builder.build(
-            wg_to_smol_tx,
-            smol_to_wg_rx,
-            sd_trigger.subscribe(),
-        );
+        let wg_task =
+            packet_source_builder.build(wg_to_smol_tx, smol_to_wg_rx, sd_trigger.subscribe());
 
         // initialize virtual network device
         let nw_task = NetworkTask::new(
@@ -159,7 +158,7 @@ impl Drop for Server {
 #[pyclass]
 #[derive(Debug)]
 pub struct WindowsProxy {
-    server: Server
+    server: Server,
 }
 
 #[pymethods]
@@ -183,16 +182,11 @@ impl WindowsProxy {
 }
 
 impl WindowsProxy {
-    pub async fn init(
-        py_tcp_handler: PyObject,
-        py_udp_handler: PyObject,
-    ) -> Result<Self> {
-        let windows_task_builder = WindowsBuilder::new();
+    pub async fn init(py_tcp_handler: PyObject, py_udp_handler: PyObject) -> Result<Self> {
+        let windows_task_builder = WindowsBuilder::new()?;
 
         let server = Server::init(windows_task_builder, py_tcp_handler, py_udp_handler).await?;
-        Ok(WindowsProxy {
-            server,
-        })
+        Ok(WindowsProxy { server })
     }
 }
 
@@ -254,11 +248,17 @@ impl WireGuardServer {
     pub async fn init(
         host: String,
         port: u16,
-        private_key: StaticSecret,
-        peer_public_keys: Vec<PublicKey>,
+        private_key: String,
+        peer_public_keys: Vec<String>,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
     ) -> Result<Self> {
+        let private_key = string_to_key(private_key)?;
+
+        let peer_public_keys = peer_public_keys
+            .into_iter()
+            .map(string_to_key)
+            .collect::<PyResult<Vec<PublicKey>>>()?;
 
         // bind to UDP socket(s)
         let socket_addrs = if host.is_empty() {
@@ -283,19 +283,13 @@ impl WireGuardServer {
         );
 
         // initialize WireGuard server
-        let mut wg_task_builder = WireGuardBuilder::new(
-            socket,
-            private_key,
-        );
+        let mut wg_task_builder = WireGuardBuilder::new(socket, private_key);
         for key in peer_public_keys {
             wg_task_builder.add_peer(key, None)?;
         }
 
         let server = Server::init(wg_task_builder, py_tcp_handler, py_udp_handler).await?;
-        Ok(WireGuardServer {
-            local_addr,
-            server,
-        })
+        Ok(WireGuardServer { local_addr, server })
     }
 }
 
@@ -314,7 +308,7 @@ impl WireGuardServer {
 /// - source address as `(host: str, port: int)` tuple
 /// - destination address as `(host: str, port: int)` tuple
 #[pyfunction]
-pub fn start_wireguard_server(
+pub fn start_server(
     py: Python<'_>,
     host: String,
     port: u16,
@@ -323,13 +317,6 @@ pub fn start_wireguard_server(
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
-    let private_key = string_to_key(private_key)?;
-
-    let peer_public_keys = peer_public_keys
-        .into_iter()
-        .map(string_to_key)
-        .collect::<PyResult<Vec<PublicKey>>>()?;
-
     pyo3_asyncio::tokio::future_into_py(py, async move {
         let server = WireGuardServer::init(
             host,
@@ -339,11 +326,10 @@ pub fn start_wireguard_server(
             handle_connection,
             receive_datagram,
         )
-            .await?;
+        .await?;
         Ok(server)
     })
 }
-
 
 #[pyfunction]
 pub fn start_windows_transparent_proxy(
@@ -352,11 +338,7 @@ pub fn start_windows_transparent_proxy(
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        let server = WindowsProxy::init(
-            handle_connection,
-            receive_datagram,
-        )
-            .await?;
+        let server = WindowsProxy::init(handle_connection, receive_datagram).await?;
         Ok(server)
     })
 }

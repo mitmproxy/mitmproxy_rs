@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use boringtun::noise::{
     errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult,
 };
@@ -20,9 +20,8 @@ use tokio::{
 use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};
+use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceBuilder, PacketSourceTask};
-
-const MAX_PACKET_SIZE: usize = 65535;
 
 // WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6
 const WG_HEADER_SIZE: usize = 80;
@@ -50,10 +49,7 @@ pub struct WireGuardBuilder {
 }
 
 impl WireGuardBuilder {
-    pub fn new(
-        socket: UdpSocket,
-        private_key: StaticSecret,
-    ) -> Self {
+    pub fn new(socket: UdpSocket, private_key: StaticSecret) -> Self {
         WireGuardBuilder {
             socket,
             private_key,
@@ -79,7 +75,7 @@ impl WireGuardBuilder {
             index,
             None,
         )
-            .map_err(|error| anyhow!(error))?;
+        .map_err(|error| anyhow!(error))?;
 
         let peer = Arc::new(WireGuardPeer {
             tunnel,
@@ -219,11 +215,7 @@ impl WireGuardTask {
     }
 
     /// process WireGuard datagrams and forward the decrypted packets.
-    async fn process_incoming_datagram(
-        &mut self,
-        data: &[u8],
-        src_orig: SocketAddr,
-    ) -> Result<()> {
+    async fn process_incoming_datagram(&mut self, data: &[u8], src_orig: SocketAddr) -> Result<()> {
         let peer = match self.find_peer_for_datagram(data) {
             Some(p) => p,
             None => return Ok(()),
@@ -320,10 +312,7 @@ impl WireGuardTask {
     }
 
     /// process packets and send the encrypted WireGuard datagrams to the peer.
-    async fn process_outgoing_packet(
-        &mut self,
-        packet: IpPacket,
-    ) -> Result<()> {
+    async fn process_outgoing_packet(&mut self, packet: IpPacket) -> Result<()> {
         let peer = self
             .peers_by_ip
             .get(&packet.dst_ip())
