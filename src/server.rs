@@ -13,24 +13,15 @@ use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::messages::TransportCommand;
 use crate::network::NetworkTask;
-use crate::python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask};
+use crate::packet_sources::{PacketSourceBuilder, PacketSourceTask, WireGuardTaskBuilder};
+use crate::python::{event_queue_unavailable, py_to_socketaddr, PyInteropTask, socketaddr_to_py};
 use crate::shutdown::ShutdownTask;
 use crate::util::string_to_key;
-use crate::packet_sources::{PacketSourceBuilder, PacketSourceTask, WireGuardTaskBuilder};
 
-/// A running WireGuard server.
-///
-/// A new server can be started by calling the `start_server` coroutine. Its public API is intended
-/// to be similar to the API provided by
-/// [`asyncio.Server`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.Server)
-/// from the Python standard library.
-#[pyclass]
 #[derive(Debug)]
 pub struct Server {
     /// queue of events to be sent to the Python interop task
     event_tx: mpsc::UnboundedSender<TransportCommand>,
-    /// local address of the WireGuard UDP socket
-    local_addr: SocketAddr,
     /// channel for notifying subtasks of requested server shutdown
     sd_trigger: BroadcastSender<()>,
     /// channel for getting notified of successful server shutdown
@@ -39,11 +30,7 @@ pub struct Server {
     closing: bool,
 }
 
-#[pymethods]
 impl Server {
-    /// Send an individual UDP datagram using the specified source and destination addresses.
-    ///
-    /// The `src_addr` and `dst_addr` arguments are expected to be `(host: str, port: int)` tuples.
     pub fn send_datagram(
         &self,
         data: Vec<u8>,
@@ -60,10 +47,6 @@ impl Server {
         Ok(())
     }
 
-    /// Request the WireGuard server to gracefully shut down.
-    ///
-    /// The server will stop accepting new connections on its UDP socket, but will flush pending
-    /// outgoing data before shutting down.
     pub fn close(&mut self) {
         if !self.closing {
             self.closing = true;
@@ -74,10 +57,6 @@ impl Server {
         }
     }
 
-    /// Wait until the WireGuard server has shut down.
-    ///
-    /// This coroutine will yield once pending data has been flushed and all server tasks have
-    /// successfully terminated after calling the `Server.close` method.
     pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         let barrier = self.sd_barrier.clone();
 
@@ -86,24 +65,12 @@ impl Server {
             Ok(())
         })
     }
-
-    /// Get the local socket address that the WireGuard server is listening on.
-    pub fn getsockname(&self, py: Python) -> PyObject {
-        socketaddr_to_py(py, self.local_addr)
-    }
-
-    pub fn __repr__(&self) -> String {
-        format!("Server({})", self.local_addr)
-    }
 }
 
 impl Server {
     /// Set up and initialize a new WireGuard server.
     pub async fn init(
-        host: String,
-        port: u16,
-        private_key: StaticSecret,
-        peer_public_keys: Vec<PublicKey>,
+        packet_source_builder: impl PacketSourceBuilder,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
     ) -> Result<Self> {
@@ -122,41 +89,11 @@ impl Server {
 
         let event_tx = py_to_smol_tx.clone();
 
-        // bind to UDP socket(s)
-        let socket_addrs = if host.is_empty() {
-            vec![
-                SocketAddr::new("0.0.0.0".parse().unwrap(), port),
-                SocketAddr::new("::".parse().unwrap(), port),
-            ]
-        } else {
-            vec![SocketAddr::new(host.parse()?, port)]
-        };
-
-        let socket = UdpSocket::bind(socket_addrs.as_slice()).await?;
-        let local_addr = socket.local_addr()?;
-
-        log::debug!(
-            "WireGuard server listening for UDP connections on {} ...",
-            socket_addrs
-                .iter()
-                .map(|addr| addr.to_string())
-                .collect::<Vec<String>>()
-                .join(" and ")
-        );
-
         // initialize barriers for handling graceful shutdown
         let (sd_trigger, _sd_watcher) = broadcast::channel(1);
         let sd_barrier = Arc::new(Notify::new());
 
-        // initialize WireGuard server
-        let mut wg_task_builder = WireGuardTaskBuilder::new(
-            socket,
-            private_key,
-        );
-        for key in peer_public_keys {
-            wg_task_builder.add_peer(key, None)?;
-        }
-        let wg_task = wg_task_builder.build(
+        let wg_task = packet_source_builder.build(
             wg_to_smol_tx,
             smol_to_wg_rx,
             sd_trigger.subscribe(),
@@ -179,7 +116,6 @@ impl Server {
         })?;
 
         let py_task = PyInteropTask::new(
-            local_addr,
             py_loop,
             py_to_smol_tx,
             smol_to_py_rx,
@@ -207,7 +143,6 @@ impl Server {
 
         Ok(Server {
             event_tx,
-            local_addr,
             sd_trigger,
             sd_barrier,
             closing: false,
@@ -218,6 +153,109 @@ impl Server {
 impl Drop for Server {
     fn drop(&mut self) {
         self.close()
+    }
+}
+
+/// A running WireGuard server.
+///
+/// A new server can be started by calling the `start_server` coroutine. Its public API is intended
+/// to be similar to the API provided by
+/// [`asyncio.Server`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.Server)
+/// from the Python standard library.
+#[pyclass]
+#[derive(Debug)]
+pub struct WireGuardServer {
+    /// local address of the WireGuard UDP socket
+    local_addr: SocketAddr,
+    server: Server,
+}
+
+#[pymethods]
+impl WireGuardServer {
+    /// Send an individual UDP datagram using the specified source and destination addresses.
+    ///
+    /// The `src_addr` and `dst_addr` arguments are expected to be `(host: str, port: int)` tuples.
+    pub fn send_datagram(
+        &self,
+        data: Vec<u8>,
+        src_addr: &PyTuple,
+        dst_addr: &PyTuple,
+    ) -> PyResult<()> {
+        self.server.send_datagram(data, src_addr, dst_addr)
+    }
+
+    /// Request the WireGuard server to gracefully shut down.
+    ///
+    /// The server will stop accepting new connections on its UDP socket, but will flush pending
+    /// outgoing data before shutting down.
+    pub fn close(&mut self) {
+        self.server.close()
+    }
+
+    /// Wait until the WireGuard server has shut down.
+    ///
+    /// This coroutine will yield once pending data has been flushed and all server tasks have
+    /// successfully terminated after calling the `Server.close` method.
+    pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+        self.server.wait_closed(py)
+    }
+
+    /// Get the local socket address that the WireGuard server is listening on.
+    pub fn getsockname(&self, py: Python) -> PyObject {
+        socketaddr_to_py(py, self.local_addr)
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("WireGuardServer({})", self.local_addr)
+    }
+}
+
+impl WireGuardServer {
+    pub async fn init(
+        host: String,
+        port: u16,
+        private_key: StaticSecret,
+        peer_public_keys: Vec<PublicKey>,
+        py_tcp_handler: PyObject,
+        py_udp_handler: PyObject,
+    ) -> Result<Self> {
+
+        // bind to UDP socket(s)
+        let socket_addrs = if host.is_empty() {
+            vec![
+                SocketAddr::new("0.0.0.0".parse().unwrap(), port),
+                SocketAddr::new("::".parse().unwrap(), port),
+            ]
+        } else {
+            vec![SocketAddr::new(host.parse()?, port)]
+        };
+
+        let socket = UdpSocket::bind(socket_addrs.as_slice()).await?;
+        let local_addr = socket.local_addr()?;
+
+        log::debug!(
+            "WireGuard server listening for UDP connections on {} ...",
+            socket_addrs
+                .iter()
+                .map(|addr| addr.to_string())
+                .collect::<Vec<String>>()
+                .join(" and ")
+        );
+
+        // initialize WireGuard server
+        let mut wg_task_builder = WireGuardTaskBuilder::new(
+            socket,
+            private_key,
+        );
+        for key in peer_public_keys {
+            wg_task_builder.add_peer(key, None)?;
+        }
+
+        let server = Server::init(wg_task_builder, py_tcp_handler, py_udp_handler).await?;
+        Ok(WireGuardServer {
+            local_addr,
+            server,
+        })
     }
 }
 
@@ -236,7 +274,7 @@ impl Drop for Server {
 /// - source address as `(host: str, port: int)` tuple
 /// - destination address as `(host: str, port: int)` tuple
 #[pyfunction]
-pub fn start_server(
+pub fn start_wireguard_server(
     py: Python<'_>,
     host: String,
     port: u16,
@@ -253,7 +291,7 @@ pub fn start_server(
         .collect::<PyResult<Vec<PublicKey>>>()?;
 
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        let server = Server::init(
+        let server = WireGuardServer::init(
             host,
             port,
             private_key,
@@ -261,7 +299,7 @@ pub fn start_server(
             handle_connection,
             receive_datagram,
         )
-        .await?;
+            .await?;
         Ok(server)
     })
 }

@@ -18,7 +18,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         # stable Rust and the oldest Rust version supported by mitmproxy_wireguard
-        rust: ['stable', '1.58.0']
+        rust: ['stable', '1.65.0']
     steps:
       - uses: actions/checkout@v2
       - name: Set up Rust toolchain

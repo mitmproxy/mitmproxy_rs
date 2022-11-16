@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use anyhow::Result;
 use pyo3::{prelude::*, types::PyBytes};
 use tokio::sync::{broadcast::Receiver as BroadcastReceiver, mpsc};
@@ -8,7 +6,6 @@ use super::{socketaddr_to_py, TcpStream};
 use crate::messages::{TransportCommand, TransportEvent};
 
 pub struct PyInteropTask {
-    local_addr: SocketAddr,
     py_loop: PyObject,
     py_to_smol_tx: mpsc::UnboundedSender<TransportCommand>,
     smol_to_py_rx: mpsc::Receiver<TransportEvent>,
@@ -20,7 +17,6 @@ pub struct PyInteropTask {
 impl PyInteropTask {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        local_addr: SocketAddr,
         py_loop: PyObject,
         py_to_smol_tx: mpsc::UnboundedSender<TransportCommand>,
         smol_to_py_rx: mpsc::Receiver<TransportEvent>,
@@ -29,7 +25,6 @@ impl PyInteropTask {
         sd_watcher: BroadcastReceiver<()>,
     ) -> Self {
         PyInteropTask {
-            local_addr,
             py_loop,
             py_to_smol_tx,
             smol_to_py_rx,
@@ -61,8 +56,8 @@ impl PyInteropTask {
                                     connection_id,
                                     event_tx: self.py_to_smol_tx.clone(),
                                     peername: src_addr,
-                                    sockname: self.local_addr,
-                                    original_dst: dst_addr,
+                                    sockname: dst_addr,
+                                    original_dst: dst_addr, // FIXME
                                     original_src: src_orig,
                                     is_closing: false,
                                 };

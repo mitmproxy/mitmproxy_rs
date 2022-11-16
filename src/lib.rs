@@ -45,10 +45,10 @@ pub fn mitmproxy_wireguard(_py: Python, m: &PyModule) -> PyResult<()> {
     #[cfg(feature = "tracing")]
     console_subscriber::init();
 
-    m.add_function(wrap_pyfunction!(server::start_server, m)?)?;
+    m.add_function(wrap_pyfunction!(server::start_wireguard_server, m)?)?;
     m.add_function(wrap_pyfunction!(util::genkey, m)?)?;
     m.add_function(wrap_pyfunction!(util::pubkey, m)?)?;
-    m.add_class::<server::Server>()?;
+    m.add_class::<server::WireGuardServer>()?;
     m.add_class::<python::TcpStream>()?;
 
     Ok(())

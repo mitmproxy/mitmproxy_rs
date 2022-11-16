@@ -6,13 +6,12 @@ pub use wireguard::WireGuardTaskBuilder;
 
 use crate::messages::{NetworkCommand, NetworkEvent};
 
-pub mod wireguard;
-
+mod wireguard;
 
 pub trait PacketSourceBuilder {
-    type Task: PacketSourceTask;
+    type Task: PacketSourceTask + Send + 'static;
 
-    fn build(
+    fn build<'a>(
         self,
         net_tx: mpsc::Sender<NetworkEvent>,
         net_rx: mpsc::Receiver<NetworkCommand>,
