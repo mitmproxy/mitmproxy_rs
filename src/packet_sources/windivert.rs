@@ -1,3 +1,4 @@
+use std::future::Future;
 use anyhow::Result;
 use async_trait::async_trait;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -13,38 +14,27 @@ use std::net::SocketAddr;
 
 use std::str::FromStr;
 
-pub struct WindowsBuilder {
+pub struct WinDivertBuilder {
     server: NamedPipeServer,
 }
 
-const PIPE_NAME: &str = r"\\.\pipe\mitmproxy-transparent-proxy";
-
-impl WindowsBuilder {
-    pub fn new() -> Result<Self> {
-        let server = ServerOptions::new()
-            .pipe_mode(PipeMode::Message)
-            .first_pipe_instance(true)
-            .max_instances(1)
-            .in_buffer_size((MAX_PACKET_SIZE + 1) as u32)
-            .out_buffer_size((MAX_PACKET_SIZE + 1) as u32)
-            .create(PIPE_NAME)?;
-
-        Ok(WindowsBuilder { server })
+impl WinDivertBuilder {
+    pub fn new(server: NamedPipeServer) -> Self {
+        WinDivertBuilder { server }
     }
 }
 
-impl PacketSourceBuilder for WindowsBuilder {
-    type Task = WindowsTask;
+impl PacketSourceBuilder for WinDivertBuilder {
+    type Task = WinDivertTask;
     fn build(
         self,
         net_tx: Sender<NetworkEvent>,
         net_rx: Receiver<NetworkCommand>,
         sd_watcher: broadcast::Receiver<()>,
-    ) -> WindowsTask {
-        WindowsTask {
+    ) -> WinDivertTask {
+        WinDivertTask {
             server: self.server,
             read_buf: [0u8; MAX_PACKET_SIZE + 1],
-
             net_tx,
             net_rx,
             sd_watcher,
@@ -52,7 +42,7 @@ impl PacketSourceBuilder for WindowsBuilder {
     }
 }
 
-pub struct WindowsTask {
+pub struct WinDivertTask {
     server: NamedPipeServer,
     read_buf: [u8; MAX_PACKET_SIZE + 1],
 
@@ -62,7 +52,7 @@ pub struct WindowsTask {
 }
 
 #[async_trait]
-impl PacketSourceTask for WindowsTask {
+impl PacketSourceTask for WinDivertTask {
     async fn run(mut self) -> Result<()> {
         log::info!("{:?}", self.server.info());
 
@@ -84,7 +74,7 @@ impl PacketSourceTask for WindowsTask {
 
                     let event = NetworkEvent::ReceivePacket {
                         packet,
-                        src_orig: SocketAddr::from_str("0.0.0.0:1234").unwrap(),
+                        src_orig: None,
                     };
 
                     if self.net_tx.try_send(event).is_err() {

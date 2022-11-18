@@ -265,7 +265,7 @@ impl WireGuardTask {
                             .insert(Ipv4Addr::from(packet.src_addr()).into(), peer);
                         let event = NetworkEvent::ReceivePacket {
                             packet: IpPacket::from(packet),
-                            src_orig,
+                            src_orig: Some(src_orig),
                         };
 
                         if self.net_tx.try_send(event).is_err() {
@@ -294,7 +294,7 @@ impl WireGuardTask {
                             .insert(Ipv6Addr::from(packet.src_addr()).into(), peer);
                         let event = NetworkEvent::ReceivePacket {
                             packet: IpPacket::from(packet),
-                            src_orig,
+                            src_orig: Some(src_orig),
                         };
 
                         if self.net_tx.try_send(event).is_err() {

@@ -9,7 +9,7 @@ use tokio::sync::oneshot;
 pub enum NetworkEvent {
     ReceivePacket {
         packet: IpPacket,
-        src_orig: SocketAddr,
+        src_orig: Option<SocketAddr>,
     },
 }
 
@@ -28,13 +28,13 @@ pub enum TransportEvent {
         connection_id: ConnectionId,
         src_addr: SocketAddr,
         dst_addr: SocketAddr,
-        src_orig: SocketAddr,
+        src_orig: Option<SocketAddr>,
     },
     DatagramReceived {
         data: Vec<u8>,
         src_addr: SocketAddr,
         dst_addr: SocketAddr,
-        src_orig: SocketAddr,
+        src_orig: Option<SocketAddr>,
     },
 }
 

@@ -2,12 +2,12 @@ use anyhow::Result;
 use async_trait::async_trait;
 use tokio::sync::{broadcast, mpsc};
 
-pub use windows::WindowsBuilder;
+pub use windivert::WinDivertBuilder;
 pub use wireguard::WireGuardBuilder;
 
 use crate::messages::{NetworkCommand, NetworkEvent};
 
-mod windows;
+mod windivert;
 mod wireguard;
 
 pub trait PacketSourceBuilder {

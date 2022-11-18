@@ -67,7 +67,7 @@ impl NetworkIO {
     fn receive_packet(
         &mut self,
         packet: IpPacket,
-        src_orig: SocketAddr,
+        src_orig: Option<SocketAddr>,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
         match packet.transport_protocol() {
@@ -86,7 +86,7 @@ impl NetworkIO {
     fn receive_packet_udp(
         &mut self,
         mut packet: IpPacket,
-        src_orig: SocketAddr,
+        src_orig: Option<SocketAddr>,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
         let src_ip = packet.src_ip();
@@ -117,7 +117,7 @@ impl NetworkIO {
     fn receive_packet_tcp(
         &mut self,
         mut packet: IpPacket,
-        src_orig: SocketAddr,
+        src_orig: Option<SocketAddr>,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
         let src_ip = packet.src_ip();

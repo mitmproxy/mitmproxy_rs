@@ -65,7 +65,7 @@ impl MockNetwork {
     }
 
     async fn push_wg_packet(&self, packet: IpPacket, src_orig: SocketAddr) -> Result<()> {
-        let event = NetworkEvent::ReceivePacket { packet, src_orig };
+        let event = NetworkEvent::ReceivePacket { packet, src_orig: Some(src_orig) };
         self.wg_to_smol_tx.send(event).await?;
         tokio::time::sleep(Duration::from_millis(100)).await;
         Ok(())
@@ -290,7 +290,7 @@ async fn receive_ipv4_datagram() -> Result<()> {
         data: recv_data,
         src_addr: recv_src_addr,
         dst_addr: recv_dst_addr,
-        src_orig: recv_src_orig,
+        src_orig: Some(recv_src_orig),
     } = event
     {
         assert_eq!(data, recv_data);
@@ -325,7 +325,7 @@ async fn receive_ipv6_datagram() -> Result<()> {
         data: recv_data,
         src_addr: recv_src_addr,
         dst_addr: recv_dst_addr,
-        src_orig: recv_src_orig,
+        src_orig: Some(recv_src_orig),
     } = event
     {
         assert_eq!(data, recv_data);
@@ -500,7 +500,7 @@ async fn tcp_ipv4_connection() -> Result<()> {
         connection_id: tcp_conn_id,
         src_addr: tcp_src_sock,
         dst_addr: tcp_dst_sock,
-        src_orig: tcp_src_orig,
+        src_orig: Some(tcp_src_orig),
     } = event
     {
         assert_eq!(IpAddress::Ipv4(src_addr), tcp_src_sock.ip().into());
@@ -692,7 +692,7 @@ async fn tcp_ipv6_connection() -> Result<()> {
         connection_id: tcp_conn_id,
         src_addr: tcp_src_sock,
         dst_addr: tcp_dst_sock,
-        src_orig: tcp_src_orig,
+        src_orig: Some(tcp_src_orig),
     } = event
     {
         assert_eq!(IpAddress::Ipv6(src_addr), tcp_src_sock.ip().into());

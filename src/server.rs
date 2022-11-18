@@ -9,14 +9,19 @@ use tokio::{
     sync::mpsc::{self, channel, unbounded_channel},
     sync::Notify,
 };
+use tokio::net::windows::named_pipe::{PipeMode, ServerOptions};
+use windows::core::{HSTRING, PCWSTR};
+use windows::w;
+use windows::Win32::UI::Shell::ShellExecuteW;
+use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 use x25519_dalek::PublicKey;
 
 use crate::messages::TransportCommand;
-use crate::network::NetworkTask;
+use crate::network::{MAX_PACKET_SIZE, NetworkTask};
 use crate::packet_sources::{
-    PacketSourceBuilder, PacketSourceTask, WindowsBuilder, WireGuardBuilder,
+    PacketSourceBuilder, PacketSourceTask, WinDivertBuilder, WireGuardBuilder,
 };
-use crate::python::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py, PyInteropTask};
+use crate::python::{event_queue_unavailable, py_to_socketaddr, PyInteropTask, socketaddr_to_py};
 use crate::shutdown::ShutdownTask;
 use crate::util::string_to_key;
 
@@ -183,7 +188,34 @@ impl WindowsProxy {
 
 impl WindowsProxy {
     pub async fn init(py_tcp_handler: PyObject, py_udp_handler: PyObject) -> Result<Self> {
-        let windows_task_builder = WindowsBuilder::new()?;
+        let pipe_name = format!(
+            r"\\.\pipe\mitmproxy-transparent-proxy-{}",
+            std::process::id()
+        );
+
+        let pipe_name = r"\\.\pipe\mitmproxy-transparent-proxy";
+
+        let server = ServerOptions::new()
+            .pipe_mode(PipeMode::Message)
+            .first_pipe_instance(true)
+            .max_instances(1)
+            .in_buffer_size((MAX_PACKET_SIZE + 1) as u32)
+            .out_buffer_size((MAX_PACKET_SIZE + 1) as u32)
+            .create(pipe_name)?;
+
+        unsafe {
+            ShellExecuteW(
+                None,
+                w!("runas"),
+                w!("cmd.exe"),
+                None,
+                None,
+                SW_SHOWNORMAL,
+            );
+        }
+
+
+        let windows_task_builder = WinDivertBuilder::new(server);
 
         let server = Server::init(windows_task_builder, py_tcp_handler, py_udp_handler).await?;
         Ok(WindowsProxy { server })
@@ -326,7 +358,7 @@ pub fn start_server(
             handle_connection,
             receive_datagram,
         )
-        .await?;
+            .await?;
         Ok(server)
     })
 }
