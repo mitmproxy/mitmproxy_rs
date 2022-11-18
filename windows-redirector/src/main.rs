@@ -35,5 +35,5 @@ async fn main() {
 
     let buf = [0u8; MAX_PACKET_SIZE + 1];
 
-    client.write(&buf[..2]).await.unwrap();
+    client.write_all(&buf[..42]).await.unwrap();
 }

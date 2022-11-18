@@ -10,10 +10,10 @@ use tokio::{
     sync::Notify,
 };
 use tokio::net::windows::named_pipe::{PipeMode, ServerOptions};
-use windows::core::{HSTRING, PCWSTR};
+
 use windows::w;
 use windows::Win32::UI::Shell::ShellExecuteW;
-use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
+use windows::Win32::UI::WindowsAndMessaging::{SW_SHOWNORMAL};
 use x25519_dalek::PublicKey;
 use mitmproxy_rs::MAX_PACKET_SIZE;
 use mitmproxy_rs::messages::TransportCommand;
@@ -190,7 +190,7 @@ impl WindowsProxy {
 
 impl WindowsProxy {
     pub async fn init(py_tcp_handler: PyObject, py_udp_handler: PyObject) -> Result<Self> {
-        let pipe_name = format!(
+        let _pipe_name = format!(
             r"\\.\pipe\mitmproxy-transparent-proxy-{}",
             std::process::id()
         );
