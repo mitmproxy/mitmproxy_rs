@@ -2,8 +2,9 @@ use anyhow::Result;
 use pyo3::{prelude::*, types::PyBytes};
 use tokio::sync::{broadcast::Receiver as BroadcastReceiver, mpsc};
 
-use super::{socketaddr_to_py, TcpStream};
-use crate::messages::{TransportCommand, TransportEvent};
+use crate::util::socketaddr_to_py;
+use crate::tcp_stream::TcpStream;
+use mitmproxy_rs::messages::{TransportCommand, TransportEvent};
 
 pub struct PyInteropTask {
     py_loop: PyObject,

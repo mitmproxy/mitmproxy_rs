@@ -10,9 +10,9 @@ use tokio::sync::{
     oneshot::{self, error::RecvError},
 };
 
-use crate::messages::{ConnectionId, TransportCommand};
+use mitmproxy_rs::messages::{ConnectionId, TransportCommand};
 
-use super::socketaddr_to_py;
+use crate::util::socketaddr_to_py;
 
 /// An individual TCP stream with an API that is similar to
 /// [`asyncio.StreamReader` and `asyncio.StreamWriter`](https://docs.python.org/3/library/asyncio-stream.html)
@@ -20,13 +20,13 @@ use super::socketaddr_to_py;
 #[pyclass]
 #[derive(Debug)]
 pub struct TcpStream {
-    pub(super) connection_id: ConnectionId,
-    pub(super) event_tx: mpsc::UnboundedSender<TransportCommand>,
-    pub(super) peername: SocketAddr,
-    pub(super) sockname: SocketAddr,
-    pub(super) original_dst: SocketAddr,
-    pub(super) original_src: Option<SocketAddr>,
-    pub(super) is_closing: bool,
+    pub connection_id: ConnectionId,
+    pub event_tx: mpsc::UnboundedSender<TransportCommand>,
+    pub peername: SocketAddr,
+    pub sockname: SocketAddr,
+    pub original_dst: SocketAddr,
+    pub original_src: Option<SocketAddr>,
+    pub is_closing: bool,
 }
 
 #[pymethods]

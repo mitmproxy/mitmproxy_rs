@@ -3,10 +3,11 @@ use std::sync::RwLock;
 use once_cell::sync::Lazy;
 use pyo3::{exceptions::PyException, prelude::*};
 
-use ::mitmproxy_rs::server;
-use ::mitmproxy_rs::python;
 
-use ::mitmproxy_rs::util;
+mod task;
+mod tcp_stream;
+mod util;
+mod server;
 
 static LOGGER_INITIALIZED: Lazy<RwLock<bool>> = Lazy::new(|| RwLock::new(false));
 
@@ -44,7 +45,7 @@ pub fn mitmproxy_rs(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(util::pubkey, m)?)?;
     m.add_class::<server::WireGuardServer>()?;
     m.add_class::<server::WindowsProxy>()?;
-    m.add_class::<python::TcpStream>()?;
+    m.add_class::<tcp_stream::TcpStream>()?;
 
     Ok(())
 }
