@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.17", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
-mitmproxy_wireguard = { path = "../" }
+mitmproxy-rs = { path = "../" }
 
 
 [dependencies.windows]

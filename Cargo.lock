@@ -389,6 +389,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "ffi"
+version = "0.1.18"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64",
+ "boringtun",
+ "console-subscriber",
+ "env_logger",
+ "log",
+ "mitmproxy-rs",
+ "once_cell",
+ "pretty-hex",
+ "pyo3",
+ "pyo3-asyncio",
+ "pyo3-log",
+ "rand",
+ "rand_core 0.6.4",
+ "smoltcp",
+ "tokio",
+ "windows",
+ "x25519-dalek",
+]
+
+[[package]]
 name = "flate2"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -853,7 +878,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mitmproxy_wireguard"
+name = "mitmproxy-rs"
 version = "0.1.18"
 dependencies = [
  "anyhow",
@@ -1805,6 +1830,15 @@ dependencies = [
  "windows_x86_64_gnu",
  "windows_x86_64_gnullvm",
  "windows_x86_64_msvc",
+]
+
+[[package]]
+name = "windows-redirector"
+version = "0.1.0"
+dependencies = [
+ "mitmproxy-rs",
+ "tokio",
+ "windows",
 ]
 
 [[package]]

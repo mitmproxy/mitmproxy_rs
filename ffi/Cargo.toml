@@ -1,17 +1,9 @@
 [package]
-name = "mitmproxy-rs"
-license = "MIT"
-repository = "https://github.com/mitmproxy/mitmproxy-rs"
-publish = false
-
+name = "ffi"
 version = "0.1.18"
 edition = "2021"
 rust-version = "1.65.0"
 
-authors = [
-    "Fabio Valentini <decathorpe@gmail.com>",
-    "Maximilian Hils <cargo@maximilianhils.com>",
-]
 exclude = [
     "/.github/",
     "/benches/",
@@ -24,7 +16,12 @@ exclude = [
     "/rustfmt.toml",
 ]
 
+[lib]
+name = "mitmproxy_rs"
+crate-type = ["cdylib"]
+
 [dependencies]
+mitmproxy-rs = { path = "../" }
 anyhow = "1.0.56"
 base64 = "0.13"
 boringtun = { version = "0.5", default-features = false }
@@ -56,18 +53,5 @@ features = [
 env_logger = "0.9"
 rand = "0.8"
 
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = 3
-
 [features]
 tracing = ["console-subscriber"]
-
-[workspace]
-members = [
-    ".",
-    "test-client",
-    "ffi",
-    "windows-redirector",
-]

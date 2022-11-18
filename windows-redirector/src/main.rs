@@ -6,7 +6,7 @@ use windows::core::PCWSTR;
 use windows::w;
 use windows::Win32::UI::WindowsAndMessaging::{MB_OK, MessageBoxW};
 
-use mitmproxy_wireguard::MAX_PACKET_SIZE;
+use mitmproxy_rs::MAX_PACKET_SIZE;
 
 fn fail(error: &str) -> ! {
     unsafe {
@@ -33,7 +33,7 @@ async fn main() {
         fail("Failed to open pipe.");
     };
 
-    let mut buf = [0u8; MAX_PACKET_SIZE + 1];
+    let buf = [0u8; MAX_PACKET_SIZE + 1];
 
     client.write(&buf[..2]).await.unwrap();
 }
