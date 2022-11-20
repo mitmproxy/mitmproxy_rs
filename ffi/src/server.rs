@@ -9,6 +9,7 @@ use tokio::{
     sync::mpsc::{self, channel, unbounded_channel},
     sync::Notify,
 };
+use tokio::io::AsyncWriteExt;
 use tokio::net::windows::named_pipe::{PipeMode, ServerOptions};
 
 use windows::w;
@@ -22,6 +23,7 @@ use mitmproxy_rs::network::{NetworkTask};
 use mitmproxy_rs::packet_sources::{
     PacketSourceBuilder, PacketSourceTask, WinDivertBuilder, WireGuardBuilder,
 };
+use mitmproxy_rs::packet_sources::windivert::{IPC_BUF_SIZE, WinDivertIPC};
 use mitmproxy_rs::shutdown::ShutdownTask;
 use crate::task::PyInteropTask;
 use crate::tcp_stream::event_queue_unavailable;
@@ -197,13 +199,15 @@ impl WindowsProxy {
 
         let pipe_name = r"\\.\pipe\mitmproxy-transparent-proxy";
 
-        let server = ServerOptions::new()
+        let mut ipc_server = ServerOptions::new()
             .pipe_mode(PipeMode::Message)
             .first_pipe_instance(true)
             .max_instances(1)
-            .in_buffer_size((MAX_PACKET_SIZE + 1) as u32)
-            .out_buffer_size((MAX_PACKET_SIZE + 1) as u32)
+            .in_buffer_size(IPC_BUF_SIZE as u32)
+            .out_buffer_size(IPC_BUF_SIZE as u32)
             .create(pipe_name)?;
+
+
 
         unsafe {
             ShellExecuteW(
@@ -216,8 +220,12 @@ impl WindowsProxy {
             );
         }
 
+        ipc_server.connect().await?;
+        let msg = WinDivertIPC::InterceptExclude(vec![std::process::id()]);
+        ipc_server.write_all(msg).await?;
 
-        let windows_task_builder = WinDivertBuilder::new(server);
+
+        let windows_task_builder = WinDivertBuilder::new(ipc_server);
 
         let server = Server::init(windows_task_builder, py_tcp_handler, py_udp_handler).await?;
         Ok(WindowsProxy { server })

@@ -7,7 +7,7 @@ pub use wireguard::WireGuardBuilder;
 
 use crate::messages::{NetworkCommand, NetworkEvent};
 
-mod windivert;
+pub mod windivert;
 mod wireguard;
 
 pub trait PacketSourceBuilder {

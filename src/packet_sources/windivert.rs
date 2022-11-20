@@ -1,6 +1,7 @@
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use bincode::{Encode, Decode};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer};
 use tokio::sync::broadcast;
@@ -12,15 +13,28 @@ use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceBuilder, PacketSourceTask};
 
 
+pub const CONF: bincode::config::Configuration = bincode::config::standard();
+pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
+
+
+pub type PID = u32;
+
+#[derive(Decode, Encode, PartialEq, Debug)]
+pub enum WinDivertIPC {
+    Packet(Vec<u8>),
+    InterceptInclude(Vec<PID>),
+    InterceptExclude(Vec<PID>),
+    Shutdown,
+}
 
 
 pub struct WinDivertBuilder {
-    server: NamedPipeServer,
+    ipc_server: NamedPipeServer,
 }
 
 impl WinDivertBuilder {
-    pub fn new(server: NamedPipeServer) -> Self {
-        WinDivertBuilder { server }
+    pub fn new(ipc_server: NamedPipeServer) -> Self {
+        WinDivertBuilder { ipc_server }
     }
 }
 
@@ -33,8 +47,8 @@ impl PacketSourceBuilder for WinDivertBuilder {
         sd_watcher: broadcast::Receiver<()>,
     ) -> WinDivertTask {
         WinDivertTask {
-            server: self.server,
-            read_buf: [0u8; MAX_PACKET_SIZE + 1],
+            ipc_server: self.ipc_server,
+            buf: [0u8; IPC_BUF_SIZE],
             net_tx,
             net_rx,
             sd_watcher,
@@ -43,8 +57,8 @@ impl PacketSourceBuilder for WinDivertBuilder {
 }
 
 pub struct WinDivertTask {
-    server: NamedPipeServer,
-    read_buf: [u8; MAX_PACKET_SIZE + 1],
+    ipc_server: NamedPipeServer,
+    buf: [u8; IPC_BUF_SIZE],
 
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
@@ -54,7 +68,7 @@ pub struct WinDivertTask {
 #[async_trait]
 impl PacketSourceTask for WinDivertTask {
     async fn run(mut self) -> Result<()> {
-        log::info!("{:?}", self.server.info());
+        log::info!("{:?}", self.ipc_server.info());
 
         loop {
             tokio::select! {
@@ -62,21 +76,14 @@ impl PacketSourceTask for WinDivertTask {
                 _ = self.sd_watcher.recv() => break,
                 // wait for WireGuard packets incoming on the UDP socket
 
-                Ok(size) = self.server.read(&mut self.read_buf) => {
-
-                    let packet = match IpPacket::try_from(self.read_buf[..size].to_vec()) {
-                        Ok(packet) => packet,
-                        Err(e) => {
-                            log::error!("Error parsing packet: {}", e);
-                            continue;
-                        }
+                Ok(len) = self.ipc_server.read(&mut self.buf) => {
+                    let WinDivertIPC::Packet(data) = bincode::decode_from_slice(&self.buf[..len], CONF)?.0 else {
+                        return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
                     };
-
                     let event = NetworkEvent::ReceivePacket {
-                        packet,
+                        packet: IpPacket::try_from(data)?,
                         src_orig: None,
                     };
-
                     if self.net_tx.try_send(event).is_err() {
                         log::warn!("Dropping incoming packet, TCP channel is full.")
                     };
@@ -84,7 +91,9 @@ impl PacketSourceTask for WinDivertTask {
                 Some(e) = self.net_rx.recv() => {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
-                            self.server.write(&packet.into_inner()).await?;
+                            let packet = WinDivertIPC::Packet(packet.into_inner());
+                            let msg = bincode::encode_to_vec(packet, CONF)?;
+                            self.ipc_server.write_all(&msg).await?;
                         }
                     }
                 }

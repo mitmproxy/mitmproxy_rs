@@ -2,18 +2,16 @@
 name = "windows-redirector"
 version = "0.1.0"
 edition = "2021"
+license = "LGPL-3.0-or-later"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.17", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 mitmproxy-rs = { path = "../" }
-
-
-[dependencies.windows]
-version = "0.43.0"
-features = [
-    "Win32_UI_Shell",
-    "Win32_Foundation",
-    "Win32_UI_WindowsAndMessaging",
-]
+anyhow = "1.0.66"
+windivert = "0.4.0"
+lru_time_cache = "0.11.11"
+interprocess = "1.2.1"
+bincode = "2.0.0-rc.2"
+log = "0.4.17"
+env_logger = "0.9.3"
