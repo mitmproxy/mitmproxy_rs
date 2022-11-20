@@ -55,7 +55,6 @@ impl PacketSourceConf for WireGuardConf {
         net_rx: Receiver<NetworkCommand>,
         sd_watcher: broadcast::Receiver<()>,
     ) -> Result<WireGuardTask> {
-
         // initialize WireGuard server
         let mut peers_by_idx = HashMap::new();
         let mut peers_by_key = HashMap::new();
@@ -70,7 +69,7 @@ impl PacketSourceConf for WireGuardConf {
                 index,
                 None,
             )
-                .map_err(|error| anyhow!(error))?;
+            .map_err(|error| anyhow!(error))?;
 
             let peer = Arc::new(WireGuardPeer {
                 tunnel,

@@ -1,8 +1,8 @@
+use pyo3::types::{PyString, PyTuple};
+use pyo3::{exceptions::PyValueError, prelude::*};
+use rand_core::OsRng;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
-use pyo3::{exceptions::PyValueError, prelude::*};
-use pyo3::types::{PyString, PyTuple};
-use rand_core::OsRng;
 use x25519_dalek::{PublicKey, StaticSecret};
 
 pub fn string_to_key<T>(data: String) -> PyResult<T>
@@ -15,7 +15,6 @@ where
         .map(T::from)
         .ok_or_else(|| PyValueError::new_err("Invalid key."))
 }
-
 
 pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
     match s {

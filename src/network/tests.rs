@@ -65,7 +65,10 @@ impl MockNetwork {
     }
 
     async fn push_wg_packet(&self, packet: IpPacket, src_orig: SocketAddr) -> Result<()> {
-        let event = NetworkEvent::ReceivePacket { packet, src_orig: Some(src_orig) };
+        let event = NetworkEvent::ReceivePacket {
+            packet,
+            src_orig: Some(src_orig),
+        };
         self.wg_to_smol_tx.send(event).await?;
         tokio::time::sleep(Duration::from_millis(100)).await;
         Ok(())

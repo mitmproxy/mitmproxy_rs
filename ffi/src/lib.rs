@@ -3,11 +3,10 @@ use std::sync::RwLock;
 use once_cell::sync::Lazy;
 use pyo3::{exceptions::PyException, prelude::*};
 
-
+mod server;
 mod task;
 mod tcp_stream;
 mod util;
-mod server;
 
 static LOGGER_INITIALIZED: Lazy<RwLock<bool>> = Lazy::new(|| RwLock::new(false));
 

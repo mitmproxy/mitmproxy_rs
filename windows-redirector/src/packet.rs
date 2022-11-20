@@ -2,8 +2,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 #[repr(u8)]
 pub enum IpVersion {
     V4 = 4,
@@ -53,11 +52,12 @@ pub enum ParseError {
     Malformed,
 }
 
-
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ParseError::UnknownTransportProtocol(proto) => write!(f, "Unknown transport protocol: {}", proto),
+            ParseError::UnknownTransportProtocol(proto) => {
+                write!(f, "Unknown transport protocol: {}", proto)
+            }
             ParseError::Malformed => write!(f, "Malformed packet"),
         }
     }
@@ -66,19 +66,14 @@ impl fmt::Display for ParseError {
 impl std::error::Error for ParseError {}
 
 const IPV6_EXTENSION_HEADERS: [u8; 11] = [
-    0, // Hop-by-Hop Options
+    0,  // Hop-by-Hop Options
     43, // Routing
     44, // Fragment
     50, // Encapsulating Security Payload
     51, // Authentication Header
     60, // Destination Options
-    135,
-    139,
-    140,
-    253,
-    254,
+    135, 139, 140, 253, 254,
 ];
-
 
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd, Debug)]
 pub struct ConnectionId {
@@ -96,7 +91,6 @@ impl ConnectionId {
         }
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct InternetPacket {
@@ -117,7 +111,7 @@ impl InternetPacket {
         let ip_version = match data[0] >> 4 {
             4 => IpVersion::V4,
             6 => IpVersion::V6,
-            _ => return Err(ParseError::Malformed)
+            _ => return Err(ParseError::Malformed),
         };
 
         let (transport_proto, transport_proto_offset) = match ip_version {
@@ -151,17 +145,16 @@ impl InternetPacket {
         let transport_proto = match transport_proto {
             0x06 => TransportProtocol::TCP,
             0x11 => TransportProtocol::UDP,
-            _ => return Err(ParseError::UnknownTransportProtocol(transport_proto))
+            _ => return Err(ParseError::UnknownTransportProtocol(transport_proto)),
         };
 
         let payload_offset = match transport_proto {
             TransportProtocol::TCP => {
-                let data_offset = (data.get(transport_proto_offset + 12).unwrap_or(&0xff) >> 4) as usize * 4;
+                let data_offset =
+                    (data.get(transport_proto_offset + 12).unwrap_or(&0xff) >> 4) as usize * 4;
                 transport_proto_offset + data_offset
             }
-            TransportProtocol::UDP => {
-                transport_proto_offset + 8
-            }
+            TransportProtocol::UDP => transport_proto_offset + 8,
         };
 
         // We currently assume that packets are well-formed.
@@ -169,7 +162,13 @@ impl InternetPacket {
             return Err(ParseError::Malformed);
         }
 
-        Ok(InternetPacket { data, ip_version, transport_proto, transport_proto_offset, payload_offset })
+        Ok(InternetPacket {
+            data,
+            ip_version,
+            transport_proto,
+            transport_proto_offset,
+            payload_offset,
+        })
     }
 
     pub fn src_ip(&self) -> IpAddr {
@@ -228,24 +227,30 @@ impl InternetPacket {
 
     pub fn src_port(&self) -> u16 {
         u16::from_be_bytes(
-            self.data[self.transport_proto_offset..self.transport_proto_offset + 2].try_into().unwrap()
+            self.data[self.transport_proto_offset..self.transport_proto_offset + 2]
+                .try_into()
+                .unwrap(),
         )
     }
 
     pub fn dst_port(&self) -> u16 {
         u16::from_be_bytes(
-            self.data[self.transport_proto_offset + 2..self.transport_proto_offset + 4].try_into().unwrap()
+            self.data[self.transport_proto_offset + 2..self.transport_proto_offset + 4]
+                .try_into()
+                .unwrap(),
         )
     }
 
     #[allow(dead_code)]
     pub fn set_src_port(&mut self, port: u16) {
-        self.data[self.transport_proto_offset..self.transport_proto_offset + 2].copy_from_slice(&port.to_be_bytes());
+        self.data[self.transport_proto_offset..self.transport_proto_offset + 2]
+            .copy_from_slice(&port.to_be_bytes());
     }
 
     #[allow(dead_code)]
     pub fn set_dst_port(&mut self, port: u16) {
-        self.data[self.transport_proto_offset + 2..self.transport_proto_offset + 4].copy_from_slice(&port.to_be_bytes());
+        self.data[self.transport_proto_offset + 2..self.transport_proto_offset + 4]
+            .copy_from_slice(&port.to_be_bytes());
     }
 
     pub fn src(&self) -> SocketAddr {
@@ -279,7 +284,6 @@ impl InternetPacket {
     pub fn inner(self) -> Vec<u8> {
         self.data
     }
-
 
     #[allow(dead_code)]
     pub fn hop_limit(&self) -> u8 {
@@ -322,7 +326,7 @@ impl InternetPacket {
                 }
                 flags.join("/")
             }
-            _ => String::new()
+            _ => String::new(),
         }
     }
 
@@ -339,11 +343,12 @@ impl Display for ConnectionId {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use super::*;
+    use std::str::FromStr;
 
     const TCP_SYN: &str = "45000034d14b4000800680e0c0a8b2145db8d822d92100508ad94999000000008002faf01da30000020405b40103030801010402";
-    const DNS_REQ: &str = "60000000003c33403ffe050700000001020086fffe0580da3ffe0501481900000000000000000042\
+    const DNS_REQ: &str =
+        "60000000003c33403ffe050700000001020086fffe0580da3ffe0501481900000000000000000042\
     11040000000009070000010bbc09dd98f9b0b12e647f4454\
     095c00350024f0090006010000010000000000000669746f6a756e036f72670000ff0001";
 
@@ -351,21 +356,27 @@ mod tests {
     fn parse_udp_ipv6_packet() {
         let mut packet = InternetPacket::new(hex::decode(DNS_REQ).unwrap()).unwrap();
         assert_eq!(packet.ip_version, IpVersion::V6);
-        assert_eq!(packet.connection_id(), ConnectionId {
-            proto: TransportProtocol::UDP,
-            src: SocketAddr::from_str("[3ffe:507:0:1:200:86ff:fe05:80da]:2396").unwrap(),
-            dst: SocketAddr::from_str("[3ffe:501:4819::42]:53").unwrap(),
-        });
+        assert_eq!(
+            packet.connection_id(),
+            ConnectionId {
+                proto: TransportProtocol::UDP,
+                src: SocketAddr::from_str("[3ffe:507:0:1:200:86ff:fe05:80da]:2396").unwrap(),
+                dst: SocketAddr::from_str("[3ffe:501:4819::42]:53").unwrap(),
+            }
+        );
         assert_eq!(packet.hop_limit(), 64);
         assert_eq!(packet.payload().len(), 28);
 
         packet.set_src(&SocketAddr::from_str("[::1]:2").unwrap());
         packet.set_dst(&SocketAddr::from_str("[::3]:4").unwrap());
-        assert_eq!(packet.connection_id(), ConnectionId {
-            proto: TransportProtocol::UDP,
-            src: SocketAddr::from_str("[::1]:2").unwrap(),
-            dst: SocketAddr::from_str("[::3]:4").unwrap(),
-        });
+        assert_eq!(
+            packet.connection_id(),
+            ConnectionId {
+                proto: TransportProtocol::UDP,
+                src: SocketAddr::from_str("[::1]:2").unwrap(),
+                dst: SocketAddr::from_str("[::3]:4").unwrap(),
+            }
+        );
 
         packet.set_hop_limit(42);
         assert_eq!(packet.hop_limit(), 42);
@@ -388,21 +399,27 @@ mod tests {
     fn parse_tcp_ipv4_packet() {
         let mut packet = InternetPacket::new(hex::decode(TCP_SYN).unwrap()).unwrap();
         assert_eq!(packet.ip_version, IpVersion::V4);
-        assert_eq!(packet.connection_id(), ConnectionId {
-            proto: TransportProtocol::TCP,
-            src: SocketAddr::from_str("192.168.178.20:55585").unwrap(),
-            dst: SocketAddr::from_str("93.184.216.34:80").unwrap(),
-        });
+        assert_eq!(
+            packet.connection_id(),
+            ConnectionId {
+                proto: TransportProtocol::TCP,
+                src: SocketAddr::from_str("192.168.178.20:55585").unwrap(),
+                dst: SocketAddr::from_str("93.184.216.34:80").unwrap(),
+            }
+        );
         assert_eq!(packet.hop_limit(), 128);
         assert_eq!(packet.payload(), vec![]);
 
         packet.set_src(&SocketAddr::from_str("1.2.3.4:5").unwrap());
         packet.set_dst(&SocketAddr::from_str("4.3.2.1:0").unwrap());
-        assert_eq!(packet.connection_id(), ConnectionId {
-            proto: TransportProtocol::TCP,
-            src: SocketAddr::from_str("1.2.3.4:5").unwrap(),
-            dst: SocketAddr::from_str("4.3.2.1:0").unwrap(),
-        });
+        assert_eq!(
+            packet.connection_id(),
+            ConnectionId {
+                proto: TransportProtocol::TCP,
+                src: SocketAddr::from_str("1.2.3.4:5").unwrap(),
+                dst: SocketAddr::from_str("4.3.2.1:0").unwrap(),
+            }
+        );
 
         packet.set_hop_limit(42);
         assert_eq!(packet.hop_limit(), 42);

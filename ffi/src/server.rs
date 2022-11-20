@@ -4,31 +4,23 @@ use std::sync::Arc;
 use anyhow::Result;
 use pyo3::{prelude::*, types::PyTuple};
 use tokio::{
-    net::UdpSocket,
     sync::broadcast::{self, Sender as BroadcastSender},
     sync::mpsc::{self, channel, unbounded_channel},
     sync::Notify,
 };
-use tokio::io::AsyncWriteExt;
 
-use windows::w;
-use windows::Win32::UI::Shell::ShellExecuteW;
-use windows::Win32::UI::WindowsAndMessaging::{SW_SHOWNORMAL};
-use x25519_dalek::PublicKey;
 use mitmproxy::messages::TransportCommand;
+use x25519_dalek::PublicKey;
 
-use mitmproxy::network::{NetworkTask};
-use mitmproxy::packet_sources::{
-    PacketSourceConf, PacketSourceTask, WinDivertConf, WireGuardConf,
-};
-use mitmproxy::packet_sources::windivert::{CONF, IPC_BUF_SIZE, WinDivertIPC};
-use mitmproxy::shutdown::ShutdownTask;
+use mitmproxy::network::NetworkTask;
+use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask, WinDivertConf, WireGuardConf};
+
 use crate::task::PyInteropTask;
 use crate::tcp_stream::event_queue_unavailable;
 use crate::util::{py_to_socketaddr, socketaddr_to_py, string_to_key};
+use mitmproxy::shutdown::ShutdownTask;
 // use interprocess::os::windows::named_pipe::{PipeListenerOptions, PipeMode};
 // use interprocess::os::windows::named_pipe::tokio::{DuplexMsgPipeStream, PipeListener, PipeListenerOptionsExt};
-use tokio::net::windows::named_pipe::{ServerOptions, PipeMode};
 
 #[derive(Debug)]
 pub struct Server {
@@ -105,8 +97,9 @@ impl Server {
         let (sd_trigger, _sd_watcher) = broadcast::channel(1);
         let sd_barrier = Arc::new(Notify::new());
 
-        let wg_task =
-            packet_source_conf.build(wg_to_smol_tx, smol_to_wg_rx, sd_trigger.subscribe()).await?;
+        let wg_task = packet_source_conf
+            .build(wg_to_smol_tx, smol_to_wg_rx, sd_trigger.subscribe())
+            .await?;
 
         // initialize virtual network device
         let nw_task = NetworkTask::new(
@@ -253,7 +246,6 @@ impl WireGuardServer {
     }
 }
 
-
 /// Start a WireGuard server that is configured with the given parameters:
 ///
 /// - `host`: The host address for the WireGuard UDP socket.
@@ -278,7 +270,6 @@ pub fn start_server(
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
-
     let private_key = string_to_key(private_key)?;
 
     let peer_public_keys = peer_public_keys
@@ -286,7 +277,12 @@ pub fn start_server(
         .map(string_to_key)
         .collect::<PyResult<Vec<PublicKey>>>()?;
 
-    let conf = WireGuardConf {host, port, private_key, peer_public_keys};
+    let conf = WireGuardConf {
+        host,
+        port,
+        private_key,
+        peer_public_keys,
+    };
 
     pyo3_asyncio::tokio::future_into_py(py, async move {
         Server::init(conf, handle_connection, receive_datagram).await?;

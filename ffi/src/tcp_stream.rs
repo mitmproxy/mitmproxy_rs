@@ -119,7 +119,7 @@ impl TcpStream {
                 } else {
                     Ok(py.None())
                 }
-            },
+            }
             (_, Some(default)) => Ok(default),
             _ => Err(PyKeyError::new_err(name)),
         }

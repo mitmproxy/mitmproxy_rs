@@ -1,7 +1,6 @@
-
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use bincode::{Encode, Decode};
+use bincode::{Decode, Encode};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
 use tokio::sync::broadcast;
@@ -9,28 +8,25 @@ use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::time::{sleep, Duration};
 use windows::w;
-use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 use windows::Win32::UI::Shell::ShellExecuteW;
+use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 
-
 pub const CONF: bincode::config::Configuration = bincode::config::standard();
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
 
-
 pub type PID = u32;
 
-#[derive(Decode, Encode, PartialEq, Debug)]
+#[derive(Decode, Encode, PartialEq, Eq, Debug)]
 pub enum WinDivertIPC {
     Packet(Vec<u8>),
     InterceptInclude(Vec<PID>),
     InterceptExclude(Vec<PID>),
     Shutdown,
 }
-
 
 pub struct WinDivertConf {}
 
@@ -43,14 +39,12 @@ impl PacketSourceConf for WinDivertConf {
         net_rx: Receiver<NetworkCommand>,
         sd_watcher: broadcast::Receiver<()>,
     ) -> Result<WinDivertTask> {
-
         let _pipe_name = format!(
             r"\\.\pipe\mitmproxy-transparent-proxy-{}",
             std::process::id()
         );
         // FIXME
         let pipe_name = r"\\.\pipe\mitmproxy-transparent-proxy";
-
 
         let mut ipc_server = ServerOptions::new()
             .pipe_mode(PipeMode::Message)
@@ -60,22 +54,15 @@ impl PacketSourceConf for WinDivertConf {
             .out_buffer_size(IPC_BUF_SIZE as u32)
             .create(pipe_name)?;
 
-
-
-
         unsafe {
-            ShellExecuteW(
-                None,
-                w!("runas"),
-                w!("cmd.exe"),
-                None,
-                None,
-                SW_SHOWNORMAL,
-            );
+            ShellExecuteW(None, w!("runas"), w!("cmd.exe"), None, None, SW_SHOWNORMAL);
         }
 
         ipc_server.connect().await?;
-        let msg = bincode::encode_to_vec(WinDivertIPC::InterceptExclude(vec![std::process::id()]), CONF)?;
+        let msg = bincode::encode_to_vec(
+            WinDivertIPC::InterceptExclude(vec![std::process::id()]),
+            CONF,
+        )?;
         ipc_server.write_all(&msg).await?;
 
         Ok(WinDivertTask {
