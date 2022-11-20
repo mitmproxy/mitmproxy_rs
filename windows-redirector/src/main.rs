@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use log::{debug, warn};
 use lru_time_cache::LruCache;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};

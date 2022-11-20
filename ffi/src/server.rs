@@ -19,7 +19,7 @@ use mitmproxy::messages::TransportCommand;
 
 use mitmproxy::network::{NetworkTask};
 use mitmproxy::packet_sources::{
-    PacketSourceBuilder, PacketSourceTask, WinDivertBuilder, WireGuardBuilder,
+    PacketSourceConf, PacketSourceTask, WinDivertConf, WireGuardConf,
 };
 use mitmproxy::packet_sources::windivert::{CONF, IPC_BUF_SIZE, WinDivertIPC};
 use mitmproxy::shutdown::ShutdownTask;
@@ -82,7 +82,7 @@ impl Server {
 impl Server {
     /// Set up and initialize a new WireGuard server.
     pub async fn init(
-        packet_source_builder: impl PacketSourceBuilder,
+        packet_source_conf: impl PacketSourceConf,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
     ) -> Result<Self> {
@@ -106,7 +106,7 @@ impl Server {
         let sd_barrier = Arc::new(Notify::new());
 
         let wg_task =
-            packet_source_builder.build(wg_to_smol_tx, smol_to_wg_rx, sd_trigger.subscribe());
+            packet_source_conf.build(wg_to_smol_tx, smol_to_wg_rx, sd_trigger.subscribe()).await?;
 
         // initialize virtual network device
         let nw_task = NetworkTask::new(
@@ -193,54 +193,7 @@ impl WindowsProxy {
 
 impl WindowsProxy {
     pub async fn init(py_tcp_handler: PyObject, py_udp_handler: PyObject) -> Result<Self> {
-        let _pipe_name = format!(
-            r"\\.\pipe\mitmproxy-transparent-proxy-{}",
-            std::process::id()
-        );
-
-        let pipe_name = r"\\.\pipe\mitmproxy-transparent-proxy";
-
-        /*
-        let mut ipc_server: PipeListener<DuplexMsgPipeStream> = PipeListenerOptions::new()
-            .name("mitmproxy-transparent-proxy")
-            .mode(PipeMode::Message)
-            .instance_limit(1)
-            .create_tokio::<DuplexMsgPipeStream>()?;
-
-        ipc_server.accept().await?;
-
-         */
-
-
-        let mut ipc_server = ServerOptions::new()
-            .pipe_mode(PipeMode::Message)
-            .first_pipe_instance(true)
-            //.max_instances(2)
-            .in_buffer_size(IPC_BUF_SIZE as u32)
-            .out_buffer_size(IPC_BUF_SIZE as u32)
-            .create(pipe_name)?;
-
-
-
-
-        unsafe {
-            ShellExecuteW(
-                None,
-                w!("runas"),
-                w!("cmd.exe"),
-                None,
-                None,
-                SW_SHOWNORMAL,
-            );
-        }
-
-        ipc_server.connect().await?;
-        let msg = bincode::encode_to_vec(WinDivertIPC::InterceptExclude(vec![std::process::id()]), CONF)?;
-        dbg!(&msg);
-        ipc_server.write_all(&msg).await?;
-
-        let windows_task_builder = WinDivertBuilder::new(ipc_server);
-
+        let windows_task_builder = WinDivertConf {};
         let server = Server::init(windows_task_builder, py_tcp_handler, py_udp_handler).await?;
         Ok(WindowsProxy { server })
     }
@@ -300,55 +253,6 @@ impl WireGuardServer {
     }
 }
 
-impl WireGuardServer {
-    pub async fn init(
-        host: String,
-        port: u16,
-        private_key: String,
-        peer_public_keys: Vec<String>,
-        py_tcp_handler: PyObject,
-        py_udp_handler: PyObject,
-    ) -> Result<Self> {
-        let private_key = string_to_key(private_key)?;
-
-        let peer_public_keys = peer_public_keys
-            .into_iter()
-            .map(string_to_key)
-            .collect::<PyResult<Vec<PublicKey>>>()?;
-
-        // bind to UDP socket(s)
-        let socket_addrs = if host.is_empty() {
-            vec![
-                SocketAddr::new("0.0.0.0".parse().unwrap(), port),
-                SocketAddr::new("::".parse().unwrap(), port),
-            ]
-        } else {
-            vec![SocketAddr::new(host.parse()?, port)]
-        };
-
-        let socket = UdpSocket::bind(socket_addrs.as_slice()).await?;
-        let local_addr = socket.local_addr()?;
-
-        log::debug!(
-            "WireGuard server listening for UDP connections on {} ...",
-            socket_addrs
-                .iter()
-                .map(|addr| addr.to_string())
-                .collect::<Vec<String>>()
-                .join(" and ")
-        );
-
-        // initialize WireGuard server
-        let mut wg_task_builder = WireGuardBuilder::new(socket, private_key);
-        for key in peer_public_keys {
-            wg_task_builder.add_peer(key, None)?;
-        }
-
-        let server = Server::init(wg_task_builder, py_tcp_handler, py_udp_handler).await?;
-        Ok(WireGuardServer { local_addr, server })
-    }
-}
-
 
 /// Start a WireGuard server that is configured with the given parameters:
 ///
@@ -374,17 +278,19 @@ pub fn start_server(
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
+
+    let private_key = string_to_key(private_key)?;
+
+    let peer_public_keys = peer_public_keys
+        .into_iter()
+        .map(string_to_key)
+        .collect::<PyResult<Vec<PublicKey>>>()?;
+
+    let conf = WireGuardConf {host, port, private_key, peer_public_keys};
+
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        let server = WireGuardServer::init(
-            host,
-            port,
-            private_key,
-            peer_public_keys,
-            handle_connection,
-            receive_datagram,
-        )
-            .await?;
-        Ok(server)
+        Server::init(conf, handle_connection, receive_datagram).await?;
+        Ok(())
     })
 }
 
@@ -394,8 +300,9 @@ pub fn start_windows_transparent_proxy(
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
+    let conf = WinDivertConf {};
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        let server = WindowsProxy::init(handle_connection, receive_datagram).await?;
-        Ok(server)
+        Server::init(conf, handle_connection, receive_datagram).await?;
+        Ok(())
     })
 }

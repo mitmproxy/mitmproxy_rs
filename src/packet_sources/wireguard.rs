@@ -21,7 +21,7 @@ use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};
 use crate::network::MAX_PACKET_SIZE;
-use crate::packet_sources::{PacketSourceBuilder, PacketSourceTask};
+use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 
 // WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6
 const WG_HEADER_SIZE: usize = 80;
@@ -39,80 +39,86 @@ impl WireGuardPeer {
     }
 }
 
-pub struct WireGuardBuilder {
-    socket: UdpSocket,
-    private_key: StaticSecret,
-
-    peers_by_idx: HashMap<u32, Arc<WireGuardPeer>>,
-    peers_by_key: HashMap<PublicKey, Arc<WireGuardPeer>>,
-    peers_by_ip: HashMap<IpAddr, Arc<WireGuardPeer>>,
+pub struct WireGuardConf {
+    pub host: String,
+    pub port: u16,
+    pub private_key: StaticSecret,
+    pub peer_public_keys: Vec<PublicKey>,
 }
 
-impl WireGuardBuilder {
-    pub fn new(socket: UdpSocket, private_key: StaticSecret) -> Self {
-        WireGuardBuilder {
-            socket,
-            private_key,
-
-            peers_by_idx: HashMap::new(),
-            peers_by_key: HashMap::new(),
-            peers_by_ip: HashMap::new(),
-        }
-    }
-
-    pub fn add_peer(
-        &mut self,
-        public_key: PublicKey,
-        preshared_key: Option<[u8; 32]>,
-    ) -> Result<()> {
-        let index = self.peers_by_idx.len() as u32;
-
-        let tunnel = Tunn::new(
-            self.private_key.clone(),
-            public_key,
-            preshared_key,
-            Some(25),
-            index,
-            None,
-        )
-        .map_err(|error| anyhow!(error))?;
-
-        let peer = Arc::new(WireGuardPeer {
-            tunnel,
-            endpoint: RwLock::new(None),
-        });
-
-        self.peers_by_idx.insert(index, peer.clone());
-        self.peers_by_key.insert(public_key, peer);
-
-        Ok(())
-    }
-}
-
-impl PacketSourceBuilder for WireGuardBuilder {
+#[async_trait]
+impl PacketSourceConf for WireGuardConf {
     type Task = WireGuardTask;
-    fn build(
+    async fn build(
         self,
         net_tx: Sender<NetworkEvent>,
         net_rx: Receiver<NetworkCommand>,
         sd_watcher: broadcast::Receiver<()>,
-    ) -> WireGuardTask {
+    ) -> Result<WireGuardTask> {
+
+        // initialize WireGuard server
+        let mut peers_by_idx = HashMap::new();
+        let mut peers_by_key = HashMap::new();
+        for public_key in self.peer_public_keys {
+            let index = peers_by_idx.len() as u32;
+
+            let tunnel = Tunn::new(
+                self.private_key.clone(),
+                public_key,
+                None,
+                Some(25),
+                index,
+                None,
+            )
+                .map_err(|error| anyhow!(error))?;
+
+            let peer = Arc::new(WireGuardPeer {
+                tunnel,
+                endpoint: RwLock::new(None),
+            });
+
+            peers_by_idx.insert(index, peer.clone());
+            peers_by_key.insert(public_key, peer);
+        }
+
+        // bind to UDP socket(s)
+        let socket_addrs = if self.host.is_empty() {
+            vec![
+                SocketAddr::new("0.0.0.0".parse().unwrap(), self.port),
+                SocketAddr::new("::".parse().unwrap(), self.port),
+            ]
+        } else {
+            vec![SocketAddr::new(self.host.parse()?, self.port)]
+        };
+
+        let socket = UdpSocket::bind(socket_addrs.as_slice()).await?;
+        // let local_addr = socket.local_addr()?;
+
+        log::debug!(
+            "WireGuard server listening for UDP connections on {} ...",
+            socket_addrs
+                .iter()
+                .map(|addr| addr.to_string())
+                .collect::<Vec<String>>()
+                .join(" and ")
+        );
+
         let public_key = PublicKey::from(&self.private_key);
 
-        WireGuardTask {
-            socket: self.socket,
+        Ok(WireGuardTask {
+            socket,
             private_key: self.private_key,
             public_key,
 
-            peers_by_idx: self.peers_by_idx,
-            peers_by_key: self.peers_by_key,
-            peers_by_ip: self.peers_by_ip,
+            peers_by_idx,
+            peers_by_key,
+            peers_by_ip: HashMap::new(),
             wg_buf: [0u8; MAX_PACKET_SIZE],
 
             net_tx,
             net_rx,
             sd_watcher,
-        }
+        })
     }
 }
 
@@ -173,6 +179,7 @@ impl PacketSourceTask for WireGuardTask {
         Ok(())
     }
 }
+
 impl WireGuardTask {
     fn find_peer_for_datagram(&self, data: &[u8]) -> Option<Arc<WireGuardPeer>> {
         let packet = match Tunn::parse_incoming_packet(data) {

@@ -2,23 +2,24 @@ use anyhow::Result;
 use async_trait::async_trait;
 use tokio::sync::{broadcast, mpsc};
 
-pub use windivert::WinDivertBuilder;
-pub use wireguard::WireGuardBuilder;
+pub use windivert::WinDivertConf;
+pub use wireguard::WireGuardConf;
 
 use crate::messages::{NetworkCommand, NetworkEvent};
 
 pub mod windivert;
 mod wireguard;
 
-pub trait PacketSourceBuilder {
+#[async_trait]
+pub trait PacketSourceConf {
     type Task: PacketSourceTask + Send + 'static;
 
-    fn build<'a>(
+    async fn build(
         self,
         net_tx: mpsc::Sender<NetworkEvent>,
         net_rx: mpsc::Receiver<NetworkCommand>,
         sd_watcher: broadcast::Receiver<()>,
-    ) -> Self::Task;
+    ) -> Result<Self::Task>;
 }
 
 #[async_trait]
