@@ -26,8 +26,9 @@ use mitmproxy::shutdown::ShutdownTask;
 use crate::task::PyInteropTask;
 use crate::tcp_stream::event_queue_unavailable;
 use crate::util::{py_to_socketaddr, socketaddr_to_py, string_to_key};
-use interprocess::os::windows::named_pipe::{PipeListenerOptions, PipeMode};
-use interprocess::os::windows::named_pipe::tokio::{DuplexMsgPipeStream, PipeListener, PipeListenerOptionsExt};
+// use interprocess::os::windows::named_pipe::{PipeListenerOptions, PipeMode};
+// use interprocess::os::windows::named_pipe::tokio::{DuplexMsgPipeStream, PipeListener, PipeListenerOptionsExt};
+use tokio::net::windows::named_pipe::{ServerOptions, PipeMode};
 
 #[derive(Debug)]
 pub struct Server {

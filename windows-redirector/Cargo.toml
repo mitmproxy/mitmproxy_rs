@@ -8,6 +8,7 @@ license = "LGPL-3.0-or-later"
 
 [dependencies]
 mitmproxy = { path = "../" }
+tokio = { version = "1.17", features = ["macros", "net", "rt-multi-thread", "sync", "io-util"] }
 anyhow = "1.0.66"
 windivert = "0.4.0"
 lru_time_cache = "0.11.11"
@@ -15,3 +16,4 @@ interprocess = "1.2.1"
 bincode = "2.0.0-rc.2"
 log = "0.4.17"
 env_logger = "0.9.3"
+futures = "0.3.25"

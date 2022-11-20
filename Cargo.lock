@@ -2091,10 +2091,12 @@ dependencies = [
  "anyhow",
  "bincode",
  "env_logger",
+ "futures",
  "interprocess",
  "log",
  "lru_time_cache",
  "mitmproxy",
+ "tokio",
  "windivert",
 ]
 

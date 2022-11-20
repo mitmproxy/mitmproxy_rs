@@ -1,14 +1,19 @@
 use std::{env, process, thread};
 use std::collections::HashSet;
 use std::net::SocketAddr;
-use std::sync::mpsc::{sync_channel, SyncSender};
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
-use interprocess::os::windows::named_pipe::{MsgReaderPipeStream, MsgWriterPipeStream};
-use interprocess::{ReliableReadMsg};
+use futures::{
+    io::{AsyncReadExt, AsyncWriteExt},
+};
+use interprocess::os::windows::named_pipe::tokio::{MsgReaderPipeStream, MsgWriterPipeStream};
+use interprocess::os::windows::named_pipe::tokio::DuplexMsgPipeStream;
 use log::{debug, warn};
 use lru_time_cache::LruCache;
+use tokio::net::windows::named_pipe::ClientOptions;
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::UnboundedSender;
 use windivert::{WinDivert, WinDivertEvent, WinDivertFlags, WinDivertLayer, WinDivertPacket, WinDivertParsedPacket};
 use windivert::address::WinDivertNetworkData;
 
@@ -20,6 +25,7 @@ use crate::packet::{ConnectionId, InternetPacket, TransportProtocol};
 mod packet;
 
 
+#[derive(Debug)]
 enum Message {
     /// We have received either a new network packet or a socket event.
     Packet(WinDivertPacket),
@@ -55,11 +61,11 @@ impl Config {
     }
 }
 
-fn handle_ipc(mut ipc: impl ReliableReadMsg, tx: SyncSender<Message>) -> Result<()> {
+async fn handle_ipc(mut ipc: MsgReaderPipeStream, tx: UnboundedSender<Message>) -> Result<()> {
     let mut buf = [0u8; IPC_BUF_SIZE];
     dbg!("handling ipc reads");
     loop {
-        let len = ipc.try_read_msg(&mut buf)?
+        let len = ipc.read(&mut buf).await
             .map_err(|e| anyhow!("IPC message too long: {}", e))?;
         dbg!(&buf[..len]);
         match bincode::decode_from_slice(&buf[..len], CONF)?.0 {
@@ -79,7 +85,9 @@ fn handle_ipc(mut ipc: impl ReliableReadMsg, tx: SyncSender<Message>) -> Result<
     }
 }
 
-fn main() -> Result<()> {
+
+#[tokio::main]
+async fn main() -> Result<()> {
     if cfg!(debug_assertions) {
         // this increases binary size from ~300kb to 1MB for release builds.
         env_logger::init();
@@ -91,36 +99,36 @@ fn main() -> Result<()> {
         .unwrap_or("mitmproxy-transparent-proxy");
         //.context(anyhow!("Usage: {} <pipename>", args[0]))?;
 
-    let ipc_read = MsgReaderPipeStream::connect(pipe_name)
-        .map_err(|e| anyhow!("Failed to connect read pipe: {}", e))?;
+    let ipc = DuplexMsgPipeStream::connect(pipe_name).context("Cannot open pipe")?;
+    let (ipc_read, mut ipc_write) = ipc.split();
 
-
-    let mut ipc_write = MsgWriterPipeStream::connect(pipe_name)
-        .map_err(|e| anyhow!("Failed to connect write pipe: {}", e))?;
-
-
-    let (tx, rx) = sync_channel::<Message>(128);
+    let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
 
     // We currently rely on handles being automatically closed when the program exits.
     // only needed for forward mode
     // let _icmp_handle = WinDivert::new("icmp", WinDivertLayer::Network, 1042, WinDivertFlags::new().set_drop()).context("Error opening WinDivert handle")?;
 
+
+
     let socket_handle = WinDivert::new("tcp || udp", WinDivertLayer::Socket, 1041, WinDivertFlags::new().set_recv_only().set_sniff())?;
     let network_handle = WinDivert::new("tcp || udp", WinDivertLayer::Network, 1040, WinDivertFlags::new())?;
     let inject_handle = WinDivert::new("false", WinDivertLayer::Network, 1039, WinDivertFlags::new().set_send_only())?;
+
 
     let tx_clone = tx.clone();
     thread::spawn(move || relay_events(socket_handle, 0, 32, tx_clone));
     let tx_clone = tx.clone();
     thread::spawn(move || relay_events(network_handle, MAX_PACKET_SIZE, 8, tx_clone));
 
-    thread::spawn(move || handle_ipc(ipc_read, tx));
+
+    tokio::spawn(handle_ipc(ipc_read, tx));
+
 
     let mut connections = LruCache::<ConnectionId, ConnectionState>::with_expiry_duration(Duration::from_secs(60 * 10));
     let mut state = Config::InterceptInclude(HashSet::new());
 
     loop {
-        let result = rx.recv()?;
+        let result = rx.recv().await.unwrap();
         match result {
             Message::Packet(wd_packet) => {
                 match wd_packet.parse() {
@@ -147,7 +155,7 @@ fn main() -> Result<()> {
                             Some(state) => {
                                 match state {
                                     ConnectionState::Known(s) => {
-                                        process_packet(addr, packet, s.clone(), &inject_handle, &mut ipc_write)?;
+                                        process_packet(addr, packet, s.clone(), &inject_handle, &mut ipc_write).await?;
                                     }
                                     ConnectionState::Unknown(packets) => {
                                         packets.push((addr, packet));
@@ -164,9 +172,9 @@ fn main() -> Result<()> {
                                     debug!("Adding inbound redirect: {}", packet.connection_id());
                                     warn!("Unimplemented: No proper handling of inbound connections yet.");
                                     let connection_id = packet.connection_id();
-                                    insert_into_connections(&mut connections, connection_id.reverse(), ConnectionAction::None, &inject_handle, &mut ipc_write)?;
-                                    insert_into_connections(&mut connections, connection_id, ConnectionAction::Intercept, &inject_handle, &mut ipc_write)?;
-                                    process_packet(addr, packet, ConnectionAction::Intercept, &inject_handle, &mut ipc_write)?;
+                                    insert_into_connections(&mut connections, connection_id.reverse(), ConnectionAction::None, &inject_handle, &mut ipc_write).await?;
+                                    insert_into_connections(&mut connections, connection_id, ConnectionAction::Intercept, &inject_handle, &mut ipc_write).await?;
+                                    process_packet(addr, packet, ConnectionAction::Intercept, &inject_handle, &mut ipc_write).await?;
                                 }
                             }
                         }
@@ -213,8 +221,8 @@ fn main() -> Result<()> {
                                         ConnectionAction::None
                                     };
 
-                                    insert_into_connections(&mut connections, connection_id.reverse(), ConnectionAction::None, &inject_handle, &mut ipc_write)?;
-                                    insert_into_connections(&mut connections, connection_id, action, &inject_handle, &mut ipc_write)?;
+                                    insert_into_connections(&mut connections, connection_id.reverse(), ConnectionAction::None, &inject_handle, &mut ipc_write).await?;
+                                    insert_into_connections(&mut connections, connection_id, action, &inject_handle, &mut ipc_write).await?;
                                 }
                             }
                             WinDivertEvent::SocketClose => {
@@ -257,7 +265,7 @@ fn main() -> Result<()> {
 }
 
 /// Repeatedly call WinDivertRecvExt o get packets and feed them into the channel.
-fn relay_events(handle: WinDivert, buffer_size: usize, packet_count: usize, tx: SyncSender<Message>) {
+fn relay_events(handle: WinDivert, buffer_size: usize, packet_count: usize, tx: UnboundedSender<Message>) {
     loop {
         let packets = handle.recv_ex(buffer_size, packet_count);
         match packets {
@@ -276,29 +284,29 @@ fn relay_events(handle: WinDivert, buffer_size: usize, packet_count: usize, tx: 
 }
 
 
-fn insert_into_connections(
-    connections: &mut LruCache<ConnectionId, ConnectionState>,
+async fn insert_into_connections(
+    connections: &mut LruCache<ConnectionId, ConnectionState<'_>>,
     key: ConnectionId,
     state: ConnectionAction,
     inject_handle: &WinDivert,
-    mut ipc_write: &mut impl std::io::Write,
+    ipc_write: &mut MsgWriterPipeStream,
 ) -> Result<()> {
     let existing = connections.insert(key, ConnectionState::Known(state.clone()));
 
     if let Some(ConnectionState::Unknown(packets)) = existing {
         for (addr, p) in packets {
-            process_packet(addr, p, state, &inject_handle, &mut ipc_write)?;
+            process_packet(addr, p, state, &inject_handle, ipc_write).await?;
         }
     }
     Ok(())
 }
 
-fn process_packet(
-    addr: WinDivertNetworkData,
+async fn process_packet(
+    addr: WinDivertNetworkData<'_>,
     packet: InternetPacket,
     action: ConnectionAction,
     inject_handle: &WinDivert,
-    mut ipc_write: &mut impl std::io::Write,
+    ipc_write: &mut MsgWriterPipeStream,
 ) -> Result<()> {
 
 
@@ -314,7 +322,9 @@ fn process_packet(
             inject_handle.send(WinDivertParsedPacket::Network { addr, data: packet.inner() }).context("failed to re-inject packet")?;
         }
         ConnectionAction::Intercept => {
-            bincode::encode_into_std_write(&WinDivertIPC::Packet(packet.inner()), &mut ipc_write, CONF)?;
+            // TODO: Should use existing buffer.
+            let v = bincode::encode_to_vec(&WinDivertIPC::Packet(packet.inner()), CONF)?;
+            ipc_write.write_all(&v).await?;
         }
     }
     Ok(())
