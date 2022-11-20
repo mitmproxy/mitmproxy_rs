@@ -10,7 +10,7 @@ use tokio::sync::{
     oneshot::{self, error::RecvError},
 };
 
-use mitmproxy_rs::messages::{ConnectionId, TransportCommand};
+use mitmproxy::messages::{ConnectionId, TransportCommand};
 
 use crate::util::socketaddr_to_py;
 

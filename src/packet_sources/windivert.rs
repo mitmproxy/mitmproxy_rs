@@ -7,6 +7,7 @@ use tokio::net::windows::named_pipe::{NamedPipeServer};
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
+use tokio::time::{sleep, Duration};
 
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};
 use crate::network::MAX_PACKET_SIZE;
@@ -76,7 +77,19 @@ impl PacketSourceTask for WinDivertTask {
                 _ = self.sd_watcher.recv() => break,
                 // wait for WireGuard packets incoming on the UDP socket
 
-                Ok(len) = self.ipc_server.read(&mut self.buf) => {
+                Ok(()) = self.ipc_server.readable() => {
+                    let len = match self.ipc_server.read(&mut self.buf).await {
+                        Ok(len) => len,
+                        Err(error) => {
+                            log::error!("Failed to read from IPC server: {}", error);
+                            0
+                        }
+                    };
+                    if len == 0 {
+                        log::error!("IPC pipe empty");
+                        sleep(Duration::from_millis(100)).await;
+                        continue;
+                    }
                     let WinDivertIPC::Packet(data) = bincode::decode_from_slice(&self.buf[..len], CONF)?.0 else {
                         return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
                     };
@@ -87,7 +100,7 @@ impl PacketSourceTask for WinDivertTask {
                     if self.net_tx.try_send(event).is_err() {
                         log::warn!("Dropping incoming packet, TCP channel is full.")
                     };
-                }
+                },
                 Some(e) = self.net_rx.recv() => {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
@@ -100,7 +113,7 @@ impl PacketSourceTask for WinDivertTask {
             }
         }
 
-        log::debug!("Windows OS proxy task shutting down.");
+        log::info!("Windows OS proxy task shutting down.");
         Ok(())
     }
 }

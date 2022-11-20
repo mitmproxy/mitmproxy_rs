@@ -1,5 +1,5 @@
 [package]
-name = "ffi"
+name = "mitmproxy_rs"
 version = "0.1.18"
 edition = "2021"
 rust-version = "1.65.0"
@@ -21,7 +21,7 @@ name = "mitmproxy_rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-mitmproxy-rs = { path = "../" }
+mitmproxy = { path = "../" }
 anyhow = "1.0.56"
 base64 = "0.13"
 boringtun = { version = "0.5", default-features = false }
@@ -35,6 +35,8 @@ rand_core = { version = "0.6.3", features = ["getrandom"] }
 smoltcp = "0.8"
 tokio = { version = "1.17", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 x25519-dalek = "2.0.0-pre.1"
+bincode = "2.0.0-rc.2"
+interprocess = { version = "1.2.1", features = ["tokio_support"] }
 
 # optional dependencies for tracing support
 console-subscriber = { version = "0.1.4", optional = true }

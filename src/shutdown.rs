@@ -39,8 +39,10 @@ impl ShutdownTask {
         let py_sd_trigger = self.sd_trigger.clone();
         let py_shutting_down = shutting_down.clone();
         let py_task_handle = tokio::spawn(async move {
-            if let Err(error) = self.py_handle.await {
-                log::error!("Python interop task failed: {}", error);
+            match self.py_handle.await {
+                Ok(Ok(())) => (),
+                Ok(Err(error)) => log::error!("Python interop task failed: {}", error),
+                Err(error) => log::error!("Python interop task panicked: {}", error),
             }
 
             if !*py_shutting_down.read().await {
@@ -53,8 +55,10 @@ impl ShutdownTask {
         let wg_sd_trigger = self.sd_trigger.clone();
         let wg_shutting_down = shutting_down.clone();
         let wg_task_handle = tokio::spawn(async move {
-            if let Err(error) = self.wg_handle.await {
-                log::error!("WireGuard server task failed: {}", error);
+            match self.wg_handle.await {
+                Ok(Ok(())) => (),
+                Ok(Err(error)) => log::error!("WireGuard server task failed: {}", error),
+                Err(error) => log::error!("WireGuard server task panicked: {}", error),
             }
 
             if !*wg_shutting_down.read().await {
@@ -67,8 +71,10 @@ impl ShutdownTask {
         let nw_sd_trigger = self.sd_trigger.clone();
         let nw_shutting_down = shutting_down.clone();
         let nw_task_handle = tokio::spawn(async move {
-            if let Err(error) = self.nw_handle.await {
-                log::error!("Networking task failed: {}", error);
+            match self.nw_handle.await {
+                Ok(Ok(())) => (),
+                Ok(Err(error)) => log::error!("Networking task failed: {}", error),
+                Err(error) => log::error!("Networking task panicked: {}", error),
             }
 
             if !*nw_shutting_down.read().await {

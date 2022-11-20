@@ -10,24 +10,24 @@ use tokio::{
     sync::Notify,
 };
 use tokio::io::AsyncWriteExt;
-use tokio::net::windows::named_pipe::{PipeMode, ServerOptions};
 
 use windows::w;
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::{SW_SHOWNORMAL};
 use x25519_dalek::PublicKey;
-use mitmproxy_rs::MAX_PACKET_SIZE;
-use mitmproxy_rs::messages::TransportCommand;
+use mitmproxy::messages::TransportCommand;
 
-use mitmproxy_rs::network::{NetworkTask};
-use mitmproxy_rs::packet_sources::{
+use mitmproxy::network::{NetworkTask};
+use mitmproxy::packet_sources::{
     PacketSourceBuilder, PacketSourceTask, WinDivertBuilder, WireGuardBuilder,
 };
-use mitmproxy_rs::packet_sources::windivert::{IPC_BUF_SIZE, WinDivertIPC};
-use mitmproxy_rs::shutdown::ShutdownTask;
+use mitmproxy::packet_sources::windivert::{CONF, IPC_BUF_SIZE, WinDivertIPC};
+use mitmproxy::shutdown::ShutdownTask;
 use crate::task::PyInteropTask;
 use crate::tcp_stream::event_queue_unavailable;
 use crate::util::{py_to_socketaddr, socketaddr_to_py, string_to_key};
+use interprocess::os::windows::named_pipe::{PipeListenerOptions, PipeMode};
+use interprocess::os::windows::named_pipe::tokio::{DuplexMsgPipeStream, PipeListener, PipeListenerOptionsExt};
 
 #[derive(Debug)]
 pub struct Server {
@@ -199,13 +199,26 @@ impl WindowsProxy {
 
         let pipe_name = r"\\.\pipe\mitmproxy-transparent-proxy";
 
+        /*
+        let mut ipc_server: PipeListener<DuplexMsgPipeStream> = PipeListenerOptions::new()
+            .name("mitmproxy-transparent-proxy")
+            .mode(PipeMode::Message)
+            .instance_limit(1)
+            .create_tokio::<DuplexMsgPipeStream>()?;
+
+        ipc_server.accept().await?;
+
+         */
+
+
         let mut ipc_server = ServerOptions::new()
             .pipe_mode(PipeMode::Message)
             .first_pipe_instance(true)
-            .max_instances(1)
+            //.max_instances(2)
             .in_buffer_size(IPC_BUF_SIZE as u32)
             .out_buffer_size(IPC_BUF_SIZE as u32)
             .create(pipe_name)?;
+
 
 
 
@@ -221,9 +234,9 @@ impl WindowsProxy {
         }
 
         ipc_server.connect().await?;
-        let msg = WinDivertIPC::InterceptExclude(vec![std::process::id()]);
-        ipc_server.write_all(msg).await?;
-
+        let msg = bincode::encode_to_vec(WinDivertIPC::InterceptExclude(vec![std::process::id()]), CONF)?;
+        dbg!(&msg);
+        ipc_server.write_all(&msg).await?;
 
         let windows_task_builder = WinDivertBuilder::new(ipc_server);
 

@@ -12,8 +12,8 @@ use lru_time_cache::LruCache;
 use windivert::{WinDivert, WinDivertEvent, WinDivertFlags, WinDivertLayer, WinDivertPacket, WinDivertParsedPacket};
 use windivert::address::WinDivertNetworkData;
 
-use mitmproxy_rs::MAX_PACKET_SIZE;
-use mitmproxy_rs::packet_sources::windivert::{CONF, IPC_BUF_SIZE, PID, WinDivertIPC};
+use mitmproxy::MAX_PACKET_SIZE;
+use mitmproxy::packet_sources::windivert::{CONF, IPC_BUF_SIZE, PID, WinDivertIPC};
 
 use crate::packet::{ConnectionId, InternetPacket, TransportProtocol};
 
@@ -57,9 +57,11 @@ impl Config {
 
 fn handle_ipc(mut ipc: impl ReliableReadMsg, tx: SyncSender<Message>) -> Result<()> {
     let mut buf = [0u8; IPC_BUF_SIZE];
+    dbg!("handling ipc reads");
     loop {
         let len = ipc.try_read_msg(&mut buf)?
             .map_err(|e| anyhow!("IPC message too long: {}", e))?;
+        dbg!(&buf[..len]);
         match bincode::decode_from_slice(&buf[..len], CONF)?.0 {
             WinDivertIPC::Packet(p) => {
                 tx.send(Message::Inject(p))?;
@@ -85,11 +87,13 @@ fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     let pipe_name = args
         .get(1)
-        .context(anyhow!("Usage: {} <pipename>", args[0]))?;
-
+        .map(|x| x.trim_start_matches(r"\\.\pipe\"))
+        .unwrap_or("mitmproxy-transparent-proxy");
+        //.context(anyhow!("Usage: {} <pipename>", args[0]))?;
 
     let ipc_read = MsgReaderPipeStream::connect(pipe_name)
         .map_err(|e| anyhow!("Failed to connect read pipe: {}", e))?;
+
 
     let mut ipc_write = MsgWriterPipeStream::connect(pipe_name)
         .map_err(|e| anyhow!("Failed to connect write pipe: {}", e))?;

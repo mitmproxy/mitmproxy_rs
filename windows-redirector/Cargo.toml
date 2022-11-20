@@ -7,7 +7,7 @@ license = "LGPL-3.0-or-later"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-mitmproxy-rs = { path = "../" }
+mitmproxy = { path = "../" }
 anyhow = "1.0.66"
 windivert = "0.4.0"
 lru_time_cache = "0.11.11"
