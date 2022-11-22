@@ -5,7 +5,7 @@ use bincode::{Decode, Encode};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
 use tokio::sync::broadcast;
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::{Receiver, unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::mpsc::Sender;
 use windows::core::PCWSTR;
 use windows::w;
@@ -22,25 +22,27 @@ pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
 pub type PID = u32;
 
 #[derive(Decode, Encode, PartialEq, Eq, Debug)]
-pub enum WinDivertIPC {
+pub enum WindowsIPC {
     Packet(Vec<u8>),
     InterceptInclude(Vec<PID>),
     InterceptExclude(Vec<PID>),
     Shutdown,
 }
 
-pub struct WinDivertConf {}
+pub struct WindowsConf {
+    pub executable_path: String,
+}
 
 #[async_trait]
-impl PacketSourceConf for WinDivertConf {
-    type Task = WinDivertTask;
-    type Data = ();
+impl PacketSourceConf for WindowsConf {
+    type Task = WindowsTask;
+    type Data = UnboundedSender<WindowsIPC>;
     async fn build(
         self,
         net_tx: Sender<NetworkEvent>,
         net_rx: Receiver<NetworkCommand>,
         sd_watcher: broadcast::Receiver<()>,
-    ) -> Result<(WinDivertTask, Self::Data)> {
+    ) -> Result<(WindowsTask, Self::Data)> {
         let pipe_name = format!(
             r"\\.\pipe\mitmproxy-transparent-proxy-{}",
             std::process::id()
@@ -62,62 +64,70 @@ impl PacketSourceConf for WinDivertConf {
             .chain(iter::once(0))
             .collect::<Vec<u16>>();
 
+        let executable_path = self.executable_path
+            .encode_utf16()
+            .chain(iter::once(0))
+            .collect::<Vec<u16>>();
+
         unsafe {
             ShellExecuteW(
                 None,
                 w!("runas"),
-                w!(r"C:\Users\user\git\mitmproxy-wireguard\target\debug\windows-redirector.exe"),
+                PCWSTR::from_raw(executable_path.as_ptr()),
                 PCWSTR::from_raw(pipe_name.as_ptr()),
                 None,
                 if cfg!(debug_assertions) { SW_SHOWNORMAL } else { SW_HIDE }
             );
         }
 
-        Ok((WinDivertTask {
+        let (conf_tx, conf_rx) = unbounded_channel();
+
+        Ok((WindowsTask {
             ipc_server,
             buf: [0u8; IPC_BUF_SIZE],
             net_tx,
             net_rx,
+            conf_rx,
             sd_watcher,
-        }, ()))
+        }, conf_tx))
     }
 }
 
-pub struct WinDivertTask {
+pub struct WindowsTask {
     ipc_server: NamedPipeServer,
     buf: [u8; IPC_BUF_SIZE],
 
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
+    conf_rx: UnboundedReceiver<WindowsIPC>,
     sd_watcher: broadcast::Receiver<()>,
 }
 
 #[async_trait]
-impl PacketSourceTask for WinDivertTask {
+impl PacketSourceTask for WindowsTask {
     async fn run(mut self) -> Result<()> {
 
         log::debug!("Waiting for IPC connection...");
         self.ipc_server.connect().await?;
         log::debug!("IPC connected!");
-        let msg = bincode::encode_to_vec(
-            WinDivertIPC::InterceptExclude(vec![std::process::id()]),
-            //WinDivertIPC::InterceptInclude(vec![8016]),
-            CONF,
-        )?;
-        self.ipc_server.write_all(&msg).await?;
 
         loop {
             tokio::select! {
                 // wait for graceful shutdown
                 _ = self.sd_watcher.recv() => break,
-                // wait for WireGuard packets incoming on the UDP socket
-
+                // pipe through changes to the intercept list
+                Some(cmd) = self.conf_rx.recv() => {
+                    assert!(matches!(cmd, WindowsIPC::InterceptInclude(_) | WindowsIPC::InterceptExclude(_)));
+                    let len = bincode::encode_into_slice(&cmd, &mut self.buf, CONF)?;
+                    self.ipc_server.write_all(&self.buf[..len]).await?;
+                },
+                // read packets from the IPC pipe into our network stack.
                 r = self.ipc_server.read(&mut self.buf) => {
                     let len = r.context("IPC read error.")?;
                     if len == 0 {
                         return Err(anyhow!("Empty IPC read."));
                     }
-                    let Ok((WinDivertIPC::Packet(data), _)) = bincode::decode_from_slice(&self.buf[..len], CONF) else {
+                    let Ok((WindowsIPC::Packet(data), _)) = bincode::decode_from_slice(&self.buf[..len], CONF) else {
                         return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
                     };
                     let Ok(mut packet) = IpPacket::try_from(data) else {
@@ -136,10 +146,11 @@ impl PacketSourceTask for WinDivertTask {
                         log::warn!("Dropping incoming packet, TCP channel is full.")
                     };
                 },
+                // write packets from the network stack to the IPC pipe to be reinjected.
                 Some(e) = self.net_rx.recv() => {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
-                            let packet = WinDivertIPC::Packet(packet.into_inner());
+                            let packet = WindowsIPC::Packet(packet.into_inner());
                             let len = bincode::encode_into_slice(&packet, &mut self.buf, CONF)?;
                             self.ipc_server.write_all(&self.buf[..len]).await?;
                         }

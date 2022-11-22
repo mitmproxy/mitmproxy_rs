@@ -141,8 +141,8 @@ impl Drop for TcpStream {
     }
 }
 
-pub fn event_queue_unavailable(_: SendError<TransportCommand>) -> PyErr {
-    PyOSError::new_err("WireGuard server has been shut down.")
+pub fn event_queue_unavailable<T>(_: SendError<T>) -> PyErr {
+    PyOSError::new_err("Server has been shut down.")
 }
 
 pub fn connection_closed(_: RecvError) -> PyErr {

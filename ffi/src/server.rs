@@ -5,14 +5,16 @@ use anyhow::Result;
 use pyo3::{prelude::*, types::PyTuple};
 use tokio::{
     sync::broadcast::{self, Sender as BroadcastSender},
-    sync::mpsc::{self, channel, unbounded_channel},
+    sync::mpsc::{self, channel, unbounded_channel, UnboundedSender},
     sync::Notify,
 };
 use x25519_dalek::PublicKey;
 
 use mitmproxy::messages::TransportCommand;
 use mitmproxy::network::NetworkTask;
-use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask, WinDivertConf, WireGuardConf};
+use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
+use mitmproxy::packet_sources::windows::{WindowsConf, PID, WindowsIPC};
+use mitmproxy::packet_sources::wireguard::{WireGuardConf};
 use mitmproxy::shutdown::ShutdownTask;
 
 use crate::task::PyInteropTask;
@@ -162,10 +164,29 @@ impl Drop for Server {
 #[derive(Debug)]
 pub struct WindowsProxy {
     server: Server,
+    conf_tx: UnboundedSender<WindowsIPC>
 }
 
 #[pymethods]
 impl WindowsProxy {
+    pub fn set_intercept(&self, spec: String) -> PyResult<()> {
+
+        let cmd = if spec.is_empty() {
+            WindowsIPC::InterceptExclude(vec![
+                std::process::id()
+            ])
+        } else {
+            let pids = spec
+                .split(",")
+                .map(|s| s.trim().parse::<PID>())
+                .collect::<Result<Vec<PID>, _>>()?;
+            WindowsIPC::InterceptInclude(pids)
+        };
+
+        self.conf_tx.send(cmd).map_err(event_queue_unavailable)?;
+        Ok(())
+    }
+
     pub fn send_datagram(
         &self,
         data: Vec<u8>,
@@ -181,14 +202,6 @@ impl WindowsProxy {
 
     pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         self.server.wait_closed(py)
-    }
-}
-
-impl WindowsProxy {
-    pub async fn init(py_tcp_handler: PyObject, py_udp_handler: PyObject) -> Result<Self> {
-        let windows_task_builder = WinDivertConf {};
-        let server = Server::init(windows_task_builder, py_tcp_handler, py_udp_handler).await?.0;
-        Ok(WindowsProxy { server })
     }
 }
 
@@ -293,13 +306,16 @@ pub fn start_server(
 #[pyfunction]
 pub fn start_windows_transparent_proxy(
     py: Python<'_>,
+    executable_path: String,
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
-    let conf = WinDivertConf {};
+    let conf = WindowsConf {
+        executable_path
+    };
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        let server = Server::init(conf, handle_connection, receive_datagram).await?.0;
+        let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
 
-        Ok(WindowsProxy { server })
+        Ok(WindowsProxy { server, conf_tx })
     })
 }

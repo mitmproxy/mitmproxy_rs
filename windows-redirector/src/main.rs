@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow};
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use lru_time_cache::LruCache;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
@@ -17,7 +17,7 @@ use windivert::{
 use windivert::address::WinDivertNetworkData;
 
 use mitmproxy::MAX_PACKET_SIZE;
-use mitmproxy::packet_sources::windivert::{CONF, IPC_BUF_SIZE, PID, WinDivertIPC};
+use mitmproxy::packet_sources::windows::{CONF, IPC_BUF_SIZE, PID, WindowsIPC};
 
 use crate::packet::{ConnectionId, InternetPacket, TransportProtocol};
 
@@ -26,7 +26,7 @@ mod packet;
 #[derive(Debug)]
 enum Event {
     Packet(WinDivertPacket),
-    Ipc(WinDivertIPC),
+    Ipc(WindowsIPC),
 }
 
 #[derive(Debug)]
@@ -73,7 +73,7 @@ async fn main() -> Result<()> {
         .context("Cannot open pipe")?;
 
     let (event_tx, mut event_rx) = mpsc::unbounded_channel::<Event>();
-    let (mut ipc_tx, ipc_rx) = mpsc::unbounded_channel::<WinDivertIPC>();
+    let (mut ipc_tx, ipc_rx) = mpsc::unbounded_channel::<WindowsIPC>();
 
     // We currently rely on handles being automatically closed when the program exits.
     // only needed for forward mode
@@ -290,7 +290,7 @@ async fn main() -> Result<()> {
                     _ => unreachable!(),
                 }
             }
-            Event::Ipc(WinDivertIPC::Packet(buf)) => {
+            Event::Ipc(WindowsIPC::Packet(buf)) => {
                 let mut addr = WinDivertNetworkData::default();
                 // if outbound is false, incoming connections are not re-injected into the right iface.
                 addr.set_outbound(true);
@@ -319,15 +319,15 @@ async fn main() -> Result<()> {
 
                 inject_handle.send(packet)?;
             }
-            Event::Ipc(WinDivertIPC::InterceptInclude(a)) => {
+            Event::Ipc(WindowsIPC::InterceptInclude(a)) => {
                 info!("Intercepting only the following PIDs: {:?}", &a);
                 state = Config::InterceptInclude(HashSet::from_iter(a.into_iter()));
             }
-            Event::Ipc(WinDivertIPC::InterceptExclude(a)) => {
+            Event::Ipc(WindowsIPC::InterceptExclude(a)) => {
                 info!("Intercepting everything but the following PIDs: {:?}", &a);
                 state = Config::InterceptExclude(HashSet::from_iter(a.into_iter()));
             }
-            Event::Ipc(WinDivertIPC::Shutdown) => {
+            Event::Ipc(WindowsIPC::Shutdown) => {
                 info!("Shutting down.");
                 process::exit(0);
             }
@@ -338,7 +338,7 @@ async fn main() -> Result<()> {
 
 async fn handle_ipc(
     mut ipc: NamedPipeClient,
-    mut ipc_rx: UnboundedReceiver<WinDivertIPC>,
+    mut ipc_rx: UnboundedReceiver<WindowsIPC>,
     tx: UnboundedSender<Event>,
 ) -> Result<()> {
     let mut buf = [0u8; IPC_BUF_SIZE];
@@ -389,7 +389,7 @@ async fn insert_into_connections(
     key: ConnectionId,
     state: ConnectionAction,
     inject_handle: &WinDivert,
-    ipc_tx: &mut UnboundedSender<WinDivertIPC>,
+    ipc_tx: &mut UnboundedSender<WindowsIPC>,
 ) -> Result<()> {
     let existing = connections.insert(key, ConnectionState::Known(state));
 
@@ -406,7 +406,7 @@ async fn process_packet(
     packet: InternetPacket,
     action: ConnectionAction,
     inject_handle: &WinDivert,
-    ipc_tx: &mut UnboundedSender<WinDivertIPC>,
+    ipc_tx: &mut UnboundedSender<WindowsIPC>,
 ) -> Result<()> {
     match action {
         ConnectionAction::None => {
@@ -431,7 +431,7 @@ async fn process_packet(
                 addr.outbound(),
                 addr.loopback()
             );
-            ipc_tx.send(WinDivertIPC::Packet(packet.inner()))?;
+            ipc_tx.send(WindowsIPC::Packet(packet.inner()))?;
         }
     }
     Ok(())

@@ -2,13 +2,10 @@ use anyhow::Result;
 use async_trait::async_trait;
 use tokio::sync::{broadcast, mpsc};
 
-pub use windivert::WinDivertConf;
-pub use wireguard::WireGuardConf;
-
 use crate::messages::{NetworkCommand, NetworkEvent};
 
-pub mod windivert;
-mod wireguard;
+pub mod windows;
+pub mod wireguard;
 
 #[async_trait]
 pub trait PacketSourceConf {
