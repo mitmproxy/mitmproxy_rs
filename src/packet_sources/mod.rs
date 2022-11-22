@@ -13,13 +13,14 @@ mod wireguard;
 #[async_trait]
 pub trait PacketSourceConf {
     type Task: PacketSourceTask + Send + 'static;
+    type Data: Send + 'static;
 
     async fn build(
         self,
         net_tx: mpsc::Sender<NetworkEvent>,
         net_rx: mpsc::Receiver<NetworkCommand>,
         sd_watcher: broadcast::Receiver<()>,
-    ) -> Result<Self::Task>;
+    ) -> Result<(Self::Task, Self::Data)>;
 }
 
 #[async_trait]

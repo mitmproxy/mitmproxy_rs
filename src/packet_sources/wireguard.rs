@@ -49,12 +49,13 @@ pub struct WireGuardConf {
 #[async_trait]
 impl PacketSourceConf for WireGuardConf {
     type Task = WireGuardTask;
+    type Data = SocketAddr;
     async fn build(
         self,
         net_tx: Sender<NetworkEvent>,
         net_rx: Receiver<NetworkCommand>,
         sd_watcher: broadcast::Receiver<()>,
-    ) -> Result<WireGuardTask> {
+    ) -> Result<(WireGuardTask, Self::Data)> {
         // initialize WireGuard server
         let mut peers_by_idx = HashMap::new();
         let mut peers_by_key = HashMap::new();
@@ -91,7 +92,7 @@ impl PacketSourceConf for WireGuardConf {
         };
 
         let socket = UdpSocket::bind(socket_addrs.as_slice()).await?;
-        // let local_addr = socket.local_addr()?;
+        let local_addr = socket.local_addr()?;
 
         log::debug!(
             "WireGuard server listening for UDP connections on {} ...",
@@ -104,7 +105,7 @@ impl PacketSourceConf for WireGuardConf {
 
         let public_key = PublicKey::from(&self.private_key);
 
-        Ok(WireGuardTask {
+        Ok((WireGuardTask {
             socket,
             private_key: self.private_key,
             public_key,
@@ -117,7 +118,7 @@ impl PacketSourceConf for WireGuardConf {
             net_tx,
             net_rx,
             sd_watcher,
-        })
+        },local_addr))
     }
 }
 

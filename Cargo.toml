@@ -25,30 +25,23 @@ exclude = [
 ]
 
 [dependencies]
-anyhow = "1.0.56"
+anyhow = { version = "1.0.66", features = ["backtrace"] }
 base64 = "0.13"
-boringtun = { version = "0.5", default-features = false }
 log = "0.4.16"
 once_cell = "1"
 pretty-hex = "0.3.0"
 rand_core = { version = "0.6.3", features = ["getrandom"] }
 smoltcp = "0.8"
 tokio = { version = "1.17", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util"] }
+boringtun = { version = "0.5", default-features = false }
 x25519-dalek = "2.0.0-pre.1"
-
-# optional dependencies for tracing support
-console-subscriber = { version = "0.1.4", optional = true }
 async-trait = "0.1.58"
+console-subscriber = { version = "0.1.4", optional = true }
+
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.43.0", features = ["Win32_UI_Shell", "Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 bincode = "2.0.0-rc.2"
-
-[dependencies.windows]
-version = "0.43.0"
-features = [
-    "Win32_UI_Shell",
-    "Win32_Foundation",
-    "Win32_UI_WindowsAndMessaging",
-]
-
 
 [dev-dependencies]
 env_logger = "0.9"

@@ -1,3 +1,5 @@
+extern crate core;
+
 use std::sync::RwLock;
 
 use once_cell::sync::Lazy;

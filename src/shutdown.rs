@@ -57,12 +57,12 @@ impl ShutdownTask {
         let wg_task_handle = tokio::spawn(async move {
             match self.wg_handle.await {
                 Ok(Ok(())) => (),
-                Ok(Err(error)) => log::error!("WireGuard server task failed: {}", error),
-                Err(error) => log::error!("WireGuard server task panicked: {}", error),
+                Ok(Err(error)) => log::error!("Proxy server task failed: {}", error),
+                Err(error) => log::error!("Proxy server task panicked: {}", error),
             }
 
             if !*wg_shutting_down.read().await {
-                log::error!("WireGuard server task shut down early, exiting.");
+                log::error!("Proxy server task shut down early, exiting.");
                 let _ = wg_sd_trigger.send(());
             }
         });

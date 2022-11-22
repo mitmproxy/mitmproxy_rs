@@ -125,4 +125,11 @@ impl IpPacket {
             IpPacket::V6(packet) => packet.into_inner(),
         }
     }
+
+    pub fn fill_ip_checksum(&mut self) {
+        match self {
+            IpPacket::V4(packet) => packet.fill_checksum(),
+            IpPacket::V6(_) => (),
+        }
+    }
 }

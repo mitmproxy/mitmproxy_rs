@@ -21,15 +21,15 @@ impl Display for IpVersion {
 #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd, Debug)]
 #[repr(u8)]
 pub enum TransportProtocol {
-    TCP = 0x06,
-    UDP = 0x11,
+    Tcp = 0x06,
+    Udp = 0x11,
 }
 
 impl Display for TransportProtocol {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            TransportProtocol::TCP => write!(f, "TCP"),
-            TransportProtocol::UDP => write!(f, "UDP"),
+            TransportProtocol::Tcp => write!(f, "TCP"),
+            TransportProtocol::Udp => write!(f, "UDP"),
         }
     }
 }
@@ -39,8 +39,8 @@ impl TryFrom<u8> for TransportProtocol {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0x06 => Ok(TransportProtocol::TCP),
-            0x11 => Ok(TransportProtocol::UDP),
+            0x06 => Ok(TransportProtocol::Tcp),
+            0x11 => Ok(TransportProtocol::Udp),
             proto => Err(ParseError::UnknownTransportProtocol(proto)),
         }
     }
@@ -143,18 +143,18 @@ impl InternetPacket {
         };
 
         let transport_proto = match transport_proto {
-            0x06 => TransportProtocol::TCP,
-            0x11 => TransportProtocol::UDP,
+            0x06 => TransportProtocol::Tcp,
+            0x11 => TransportProtocol::Udp,
             _ => return Err(ParseError::UnknownTransportProtocol(transport_proto)),
         };
 
         let payload_offset = match transport_proto {
-            TransportProtocol::TCP => {
+            TransportProtocol::Tcp => {
                 let data_offset =
                     (data.get(transport_proto_offset + 12).unwrap_or(&0xff) >> 4) as usize * 4;
                 transport_proto_offset + data_offset
             }
-            TransportProtocol::UDP => transport_proto_offset + 8,
+            TransportProtocol::Udp => transport_proto_offset + 8,
         };
 
         // We currently assume that packets are well-formed.
@@ -303,7 +303,7 @@ impl InternetPacket {
 
     pub fn tcp_flag_str(&self) -> String {
         match self.transport_proto {
-            TransportProtocol::TCP => {
+            TransportProtocol::Tcp => {
                 let mut flags: Vec<&str> = vec![];
                 let flag_bits = self.data[self.transport_proto_offset + 13];
                 if flag_bits & 0x01 != 0 {
@@ -359,7 +359,7 @@ mod tests {
         assert_eq!(
             packet.connection_id(),
             ConnectionId {
-                proto: TransportProtocol::UDP,
+                proto: TransportProtocol::Udp,
                 src: SocketAddr::from_str("[3ffe:507:0:1:200:86ff:fe05:80da]:2396").unwrap(),
                 dst: SocketAddr::from_str("[3ffe:501:4819::42]:53").unwrap(),
             }
@@ -372,7 +372,7 @@ mod tests {
         assert_eq!(
             packet.connection_id(),
             ConnectionId {
-                proto: TransportProtocol::UDP,
+                proto: TransportProtocol::Udp,
                 src: SocketAddr::from_str("[::1]:2").unwrap(),
                 dst: SocketAddr::from_str("[::3]:4").unwrap(),
             }
@@ -402,7 +402,7 @@ mod tests {
         assert_eq!(
             packet.connection_id(),
             ConnectionId {
-                proto: TransportProtocol::TCP,
+                proto: TransportProtocol::Tcp,
                 src: SocketAddr::from_str("192.168.178.20:55585").unwrap(),
                 dst: SocketAddr::from_str("93.184.216.34:80").unwrap(),
             }
@@ -415,7 +415,7 @@ mod tests {
         assert_eq!(
             packet.connection_id(),
             ConnectionId {
-                proto: TransportProtocol::TCP,
+                proto: TransportProtocol::Tcp,
                 src: SocketAddr::from_str("1.2.3.4:5").unwrap(),
                 dst: SocketAddr::from_str("4.3.2.1:0").unwrap(),
             }
