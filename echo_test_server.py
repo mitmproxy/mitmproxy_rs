@@ -39,7 +39,7 @@ async def main():
         server.send_datagram(data.upper(), dst_addr, src_addr)
         logger.debug("Echoed datagram.")
 
-    server = await mitmproxy_wireguard.start_server(
+    server = await mitmproxy_rs.start_server(
         "0.0.0.0",
         51820,
         server_keypair[0],
@@ -78,7 +78,7 @@ async def main():
     await server.wait_closed()
 
 
-async def handle_connection(rw: mitmproxy_wireguard.TcpStream):
+async def handle_connection(rw: mitmproxy_rs.TcpStream):
     logger.debug(f"connection task {rw=}")
     logger.debug(f"{rw.get_extra_info('peername')=}")
 

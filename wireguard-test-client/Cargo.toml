@@ -1,17 +1,13 @@
 [package]
 name = "mitm-wg-test-client"
-description = "Test client for mitmproxy_rs's WireGuard functionality"
 license = "MIT"
-publish = false
-
-version = "0.1.6"
-edition = "2021"
-rust-version = "1.56.0"
-
-authors = [
-    "Fabio Valentini <decathorpe@gmail.com>",
-    "Maximilian Hils <cargo@maximilianhils.com>",
-]
+description = "Test client for mitmproxy_rs's WireGuard functionality"
+authors.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
 
 [dependencies]
 anyhow = "1.0.66"

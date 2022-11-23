@@ -1,17 +1,13 @@
 [package]
 name = "mitmproxy"
 license = "MIT"
-repository = "https://github.com/mitmproxy/mitmproxy-rs"
-publish = false
+authors.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
 
-version = "0.2.0"
-edition = "2021"
-rust-version = "1.65.0"
-
-authors = [
-    "Fabio Valentini <decathorpe@gmail.com>",
-    "Maximilian Hils <cargo@maximilianhils.com>",
-]
 exclude = [
     "/.github/",
     "/benches/",
@@ -40,7 +36,7 @@ console-subscriber = { version = "0.1.8", optional = true }
 
 
 [target.'cfg(windows)'.dependencies]
-bincode = "2.0.0-rc.2"
+bincode.workspace = true
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.43.0"
@@ -75,3 +71,17 @@ members = [
     "windows-redirector",
     "wireguard-test-client",
 ]
+
+[workspace.package]
+authors = [
+    "Fabio Valentini <decathorpe@gmail.com>",
+    "Maximilian Hils <cargo@maximilianhils.com>",
+]
+version = "0.2.0"
+publish = false
+repository = "https://github.com/mitmproxy/mitmproxy-rs"
+edition = "2021"
+rust-version = "1.65.0"
+
+[workspace.dependencies]
+bincode = "2.0.0-rc.2"

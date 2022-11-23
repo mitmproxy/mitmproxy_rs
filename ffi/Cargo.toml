@@ -1,13 +1,12 @@
 [package]
 name = "mitmproxy_rs"
-version = "0.1.18"
-edition = "2021"
-rust-version = "1.65.0"
-
-exclude = [
-    "/benches/",
-    "/dist/",
-]
+license = "MIT"
+authors.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
 
 [lib]
 name = "mitmproxy_rs"

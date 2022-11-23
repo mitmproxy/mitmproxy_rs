@@ -35,7 +35,7 @@ client_keypair = (
 
 
 async def main():
-    server = await mitmproxy_wireguard.start_server(
+    server = await mitmproxy_rs.start_server(
         "0.0.0.0",
         51820,
         server_keypair[0],
@@ -69,7 +69,7 @@ Endpoint = 127.0.0.1:51820
     await server.wait_closed()
 
 
-async def handle_connection(rw: mitmproxy_wireguard.TcpStream):
+async def handle_connection(rw: mitmproxy_rs.TcpStream):
     logger.debug(f"Connection established: {rw}")
 
     while True:
