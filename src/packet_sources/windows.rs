@@ -1,5 +1,7 @@
+use std::collections::HashSet;
 use std::iter;
-use anyhow::{anyhow, Result, Context};
+
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -15,6 +17,7 @@ use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+use crate::process::process_name;
 
 pub const CONF: bincode::config::Configuration = bincode::config::standard();
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
@@ -22,10 +25,62 @@ pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
 pub type PID = u32;
 
 #[derive(Decode, Encode, PartialEq, Eq, Debug)]
+pub struct InterceptConf {
+    pids: HashSet<PID>,
+    process_names: Vec<String>,
+    /// if true, matching items are the ones which are not intercepted.
+    invert: bool,
+}
+
+impl InterceptConf {
+    pub fn new(pids: Vec<PID>, process_names: Vec<String>, invert: bool) -> Self {
+        let pids = HashSet::from_iter(pids.into_iter());
+        if invert {
+            assert!(!pids.is_empty() || !process_names.is_empty());
+        }
+        Self {
+            pids,
+            process_names,
+            invert,
+        }
+    }
+
+    pub fn should_intercept(&self, pid: PID) -> bool {
+        self.invert ^ {
+            if self.pids.contains(&pid) {
+                return true;
+            }
+            if let Ok(name) = process_name(pid) {
+                return self.process_names.iter().any(|n| name.contains(n));
+            }
+            false
+        }
+    }
+
+    pub fn description(&self) -> String {
+        if self.pids.is_empty() && self.process_names.is_empty() {
+            return "Intercept nothing.".to_string();
+        }
+        let mut parts = vec![];
+        if !self.pids.is_empty() {
+            parts.push(format!("pids: {:?}", self.pids));
+        }
+        if !self.process_names.is_empty() {
+            parts.push(format!("process names: {:?}", self.process_names));
+        }
+        let start = if self.invert {
+            "Intercepting all packets but those from "
+        } else {
+            "Intercepting packets from "
+        };
+        format!("{}{}", start, parts.join(" or "))
+    }
+}
+
+#[derive(Decode, Encode, PartialEq, Eq, Debug)]
 pub enum WindowsIPC {
     Packet(Vec<u8>),
-    InterceptInclude(Vec<PID>),
-    InterceptExclude(Vec<PID>),
+    SetIntercept(InterceptConf),
     Shutdown,
 }
 
@@ -47,8 +102,7 @@ impl PacketSourceConf for WindowsConf {
             r"\\.\pipe\mitmproxy-transparent-proxy-{}",
             std::process::id()
         );
-
-        log::warn!("pipe_name: {}", pipe_name);
+        // log::warn!("pipe_name: {}", pipe_name);
 
         let ipc_server = ServerOptions::new()
             .pipe_mode(PipeMode::Message)
@@ -76,7 +130,7 @@ impl PacketSourceConf for WindowsConf {
                 PCWSTR::from_raw(executable_path.as_ptr()),
                 PCWSTR::from_raw(pipe_name.as_ptr()),
                 None,
-                if cfg!(debug_assertions) { SW_SHOWNORMAL } else { SW_HIDE }
+                if cfg!(debug_assertions) { SW_SHOWNORMAL } else { SW_HIDE },
             );
         }
 
@@ -106,7 +160,6 @@ pub struct WindowsTask {
 #[async_trait]
 impl PacketSourceTask for WindowsTask {
     async fn run(mut self) -> Result<()> {
-
         log::debug!("Waiting for IPC connection...");
         self.ipc_server.connect().await?;
         log::debug!("IPC connected!");
@@ -117,7 +170,7 @@ impl PacketSourceTask for WindowsTask {
                 _ = self.sd_watcher.recv() => break,
                 // pipe through changes to the intercept list
                 Some(cmd) = self.conf_rx.recv() => {
-                    assert!(matches!(cmd, WindowsIPC::InterceptInclude(_) | WindowsIPC::InterceptExclude(_)));
+                    assert!(matches!(cmd, WindowsIPC::SetIntercept(_)));
                     let len = bincode::encode_into_slice(&cmd, &mut self.buf, CONF)?;
                     self.ipc_server.write_all(&self.buf[..len]).await?;
                 },

@@ -40,12 +40,25 @@ console-subscriber = { version = "0.1.4", optional = true }
 
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.43.0", features = ["Win32_UI_Shell", "Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 bincode = "2.0.0-rc.2"
+
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.43.0"
+features = [
+    "Win32_UI_Shell",
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Threading",
+]
 
 [dev-dependencies]
 env_logger = "0.9"
 rand = "0.8"
+criterion = "0.4.0"
+
+[[bench]]
+name = "process"
+harness = false
 
 [profile.release]
 codegen-units = 1

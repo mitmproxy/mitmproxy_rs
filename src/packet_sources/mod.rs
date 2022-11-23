@@ -4,8 +4,9 @@ use tokio::sync::{broadcast, mpsc};
 
 use crate::messages::{NetworkCommand, NetworkEvent};
 
-pub mod windows;
 pub mod wireguard;
+#[cfg(windows)]
+pub mod windows;
 
 #[async_trait]
 pub trait PacketSourceConf {

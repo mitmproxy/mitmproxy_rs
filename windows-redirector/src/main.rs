@@ -1,5 +1,4 @@
-use std::{env, process, thread};
-use std::collections::HashSet;
+use std::{env, thread};
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -17,7 +16,8 @@ use windivert::{
 use windivert::address::WinDivertNetworkData;
 
 use mitmproxy::MAX_PACKET_SIZE;
-use mitmproxy::packet_sources::windows::{CONF, IPC_BUF_SIZE, PID, WindowsIPC};
+use mitmproxy::packet_sources::windows::{CONF, InterceptConf, IPC_BUF_SIZE, WindowsIPC};
+use mitmproxy::process::process_name;
 
 use crate::packet::{ConnectionId, InternetPacket, TransportProtocol};
 
@@ -41,19 +41,6 @@ enum ConnectionAction {
     Intercept,
 }
 
-enum Config {
-    InterceptInclude(HashSet<PID>),
-    InterceptExclude(HashSet<PID>),
-}
-
-impl Config {
-    fn should_intercept(&self, pid: PID) -> bool {
-        match self {
-            Config::InterceptInclude(pids) => pids.contains(&pid),
-            Config::InterceptExclude(pids) => !pids.contains(&pid),
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -106,14 +93,14 @@ async fn main() -> Result<()> {
     tokio::spawn(async move {
         if let Err(e) = handle_ipc(ipc_client, ipc_rx, event_tx).await {
             error!("Error handling IPC: {}", e);
-            process::exit(1);
+            std::process::exit(1);
         }
     });
 
     let mut connections = LruCache::<ConnectionId, ConnectionState>::with_expiry_duration(
         Duration::from_secs(60 * 10),
     );
-    let mut state = Config::InterceptInclude(HashSet::new());
+    let mut state = InterceptConf::new(vec![], vec![], false);
 
     loop {
         let result = event_rx.recv().await.unwrap();
@@ -251,10 +238,13 @@ async fn main() -> Result<()> {
                                         ConnectionAction::None
                                     };
 
+                                    let proc_name = process_name(addr.process_id()).unwrap_or("unknown".to_string());
+
                                     info!(
-                                        "Adding: {} with pid={} to {:?} ({:?})",
+                                        "Adding: {} with pid={} name={} to {:?} ({:?})",
                                         &connection_id,
                                         addr.process_id(),
+                                        proc_name,
                                         action,
                                         addr.event()
                                     );
@@ -319,17 +309,13 @@ async fn main() -> Result<()> {
 
                 inject_handle.send(packet)?;
             }
-            Event::Ipc(WindowsIPC::InterceptInclude(a)) => {
-                info!("Intercepting only the following PIDs: {:?}", &a);
-                state = Config::InterceptInclude(HashSet::from_iter(a.into_iter()));
-            }
-            Event::Ipc(WindowsIPC::InterceptExclude(a)) => {
-                info!("Intercepting everything but the following PIDs: {:?}", &a);
-                state = Config::InterceptExclude(HashSet::from_iter(a.into_iter()));
-            }
+            Event::Ipc(WindowsIPC::SetIntercept(conf)) => {
+                info!("{}", conf.description());
+                state = conf;
+            },
             Event::Ipc(WindowsIPC::Shutdown) => {
                 info!("Shutting down.");
-                process::exit(0);
+                std::process::exit(0);
             }
         }
     }
@@ -378,7 +364,7 @@ fn relay_events(
             Ok(None) => {}
             Err(err) => {
                 eprintln!("WinDivert Error: {:?}", err);
-                process::exit(74);
+                std::process::exit(74);
             }
         };
     }

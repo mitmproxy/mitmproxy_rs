@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use pyo3::{prelude::*, types::PyTuple};
 use tokio::{
     sync::broadcast::{self, Sender as BroadcastSender},
@@ -13,7 +13,7 @@ use x25519_dalek::PublicKey;
 use mitmproxy::messages::TransportCommand;
 use mitmproxy::network::NetworkTask;
 use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
-use mitmproxy::packet_sources::windows::{WindowsConf, PID, WindowsIPC};
+use mitmproxy::packet_sources::windows::{WindowsConf, PID, WindowsIPC, InterceptConf};
 use mitmproxy::packet_sources::wireguard::{WireGuardConf};
 use mitmproxy::shutdown::ShutdownTask;
 
@@ -171,19 +171,33 @@ pub struct WindowsProxy {
 impl WindowsProxy {
     pub fn set_intercept(&self, spec: String) -> PyResult<()> {
 
-        let cmd = if spec.is_empty() {
-            WindowsIPC::InterceptExclude(vec![
-                std::process::id()
-            ])
+        let conf = if spec.is_empty() {
+            InterceptConf::new(
+                vec![std::process::id()],
+                vec![],
+                true,
+            )
         } else {
-            let pids = spec
-                .split(",")
-                .map(|s| s.trim().parse::<PID>())
-                .collect::<Result<Vec<PID>, _>>()?;
-            WindowsIPC::InterceptInclude(pids)
+            let mut pids = vec![];
+            let mut procs = vec![];
+            for part in spec.split(",") {
+                let part = part.trim();
+                if part.is_empty() {
+                    return Err(anyhow!("invalid intercept spec: {}", spec).into());
+                }
+                match part.parse::<PID>() {
+                    Ok(pid) => pids.push(pid),
+                    Err(_) => procs.push(part.to_string()),
+                }
+            }
+            InterceptConf::new(
+                pids,
+                procs,
+                false,
+            )
         };
 
-        self.conf_tx.send(cmd).map_err(event_queue_unavailable)?;
+        self.conf_tx.send(WindowsIPC::SetIntercept(conf)).map_err(event_queue_unavailable)?;
         Ok(())
     }
 
