@@ -38,14 +38,18 @@ pub fn mitmproxy_rs(_py: Python, m: &PyModule) -> PyResult<()> {
     console_subscriber::init();
 
     m.add_function(wrap_pyfunction!(server::start_server, m)?)?;
+    m.add_class::<server::WireGuardServer>()?;
+    m.add_function(wrap_pyfunction!(util::genkey, m)?)?;
+    m.add_function(wrap_pyfunction!(util::pubkey, m)?)?;
+
+    #[cfg(windows)]
     m.add_function(wrap_pyfunction!(
         server::start_windows_transparent_proxy,
         m
     )?)?;
-    m.add_function(wrap_pyfunction!(util::genkey, m)?)?;
-    m.add_function(wrap_pyfunction!(util::pubkey, m)?)?;
-    m.add_class::<server::WireGuardServer>()?;
+    #[cfg(windows)]
     m.add_class::<server::WindowsProxy>()?;
+
     m.add_class::<tcp_stream::TcpStream>()?;
 
     Ok(())

@@ -7,8 +7,8 @@ use bincode::{Decode, Encode};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
 use tokio::sync::broadcast;
-use tokio::sync::mpsc::{Receiver, unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
 use windows::core::PCWSTR;
 use windows::w;
 use windows::Win32::UI::Shell::ShellExecuteW;
@@ -112,13 +112,13 @@ impl PacketSourceConf for WindowsConf {
             .out_buffer_size(IPC_BUF_SIZE as u32)
             .create(&pipe_name)?;
 
-
         let pipe_name = pipe_name
             .encode_utf16()
             .chain(iter::once(0))
             .collect::<Vec<u16>>();
 
-        let executable_path = self.executable_path
+        let executable_path = self
+            .executable_path
             .encode_utf16()
             .chain(iter::once(0))
             .collect::<Vec<u16>>();
@@ -130,20 +130,27 @@ impl PacketSourceConf for WindowsConf {
                 PCWSTR::from_raw(executable_path.as_ptr()),
                 PCWSTR::from_raw(pipe_name.as_ptr()),
                 None,
-                if cfg!(debug_assertions) { SW_SHOWNORMAL } else { SW_HIDE },
+                if cfg!(debug_assertions) {
+                    SW_SHOWNORMAL
+                } else {
+                    SW_HIDE
+                },
             );
         }
 
         let (conf_tx, conf_rx) = unbounded_channel();
 
-        Ok((WindowsTask {
-            ipc_server,
-            buf: [0u8; IPC_BUF_SIZE],
-            net_tx,
-            net_rx,
-            conf_rx,
-            sd_watcher,
-        }, conf_tx))
+        Ok((
+            WindowsTask {
+                ipc_server,
+                buf: [0u8; IPC_BUF_SIZE],
+                net_tx,
+                net_rx,
+                conf_rx,
+                sd_watcher,
+            },
+            conf_tx,
+        ))
     }
 }
 

@@ -1,20 +1,18 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+#[allow(unused_imports)]
 use anyhow::{anyhow, Result};
 use pyo3::{prelude::*, types::PyTuple};
-use tokio::{
-    sync::broadcast::{self, Sender as BroadcastSender},
-    sync::mpsc::{self, channel, unbounded_channel, UnboundedSender},
-    sync::Notify,
-};
+use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
 use x25519_dalek::PublicKey;
 
 use mitmproxy::messages::TransportCommand;
 use mitmproxy::network::NetworkTask;
+#[cfg(windows)]
+use mitmproxy::packet_sources::windows::{InterceptConf, WindowsConf, WindowsIPC, PID};
+use mitmproxy::packet_sources::wireguard::WireGuardConf;
 use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
-use mitmproxy::packet_sources::windows::{WindowsConf, PID, WindowsIPC, InterceptConf};
-use mitmproxy::packet_sources::wireguard::{WireGuardConf};
 use mitmproxy::shutdown::ShutdownTask;
 
 use crate::task::PyInteropTask;
@@ -29,7 +27,7 @@ pub struct Server {
     /// queue of events to be sent to the Python interop task
     event_tx: mpsc::UnboundedSender<TransportCommand>,
     /// channel for notifying subtasks of requested server shutdown
-    sd_trigger: BroadcastSender<()>,
+    sd_trigger: broadcast::Sender<()>,
     /// channel for getting notified of successful server shutdown
     sd_barrier: Arc<Notify>,
     /// flag to indicate whether server shutdown is in progress
@@ -79,19 +77,22 @@ impl Server {
         packet_source_conf: T,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
-    ) -> Result<(Self, T::Data)> where T: PacketSourceConf {
+    ) -> Result<(Self, T::Data)>
+    where
+        T: PacketSourceConf,
+    {
         log::debug!("Initializing WireGuard server ...");
 
         // initialize channels between the WireGuard server and the virtual network device
-        let (wg_to_smol_tx, wg_to_smol_rx) = channel(256);
-        let (smol_to_wg_tx, smol_to_wg_rx) = channel(256);
+        let (wg_to_smol_tx, wg_to_smol_rx) = mpsc::channel(256);
+        let (smol_to_wg_tx, smol_to_wg_rx) = mpsc::channel(256);
 
         // initialize channels between the virtual network device and the python interop task
         // - only used to notify of incoming connections and datagrams
-        let (smol_to_py_tx, smol_to_py_rx) = channel(256);
+        let (smol_to_py_tx, smol_to_py_rx) = mpsc::channel(256);
         // - used to send data and to ask for packets
         // This channel needs to be unbounded because write() is not async.
-        let (py_to_smol_tx, py_to_smol_rx) = unbounded_channel();
+        let (py_to_smol_tx, py_to_smol_rx) = mpsc::unbounded_channel();
 
         let event_tx = py_to_smol_tx.clone();
 
@@ -145,12 +146,15 @@ impl Server {
 
         log::debug!("WireGuard server successfully initialized.");
 
-        Ok((Server {
-            event_tx,
-            sd_trigger,
-            sd_barrier,
-            closing: false,
-        }, data))
+        Ok((
+            Server {
+                event_tx,
+                sd_trigger,
+                sd_barrier,
+                closing: false,
+            },
+            data,
+        ))
     }
 }
 
@@ -160,23 +164,20 @@ impl Drop for Server {
     }
 }
 
+#[cfg(windows)]
 #[pyclass]
 #[derive(Debug)]
 pub struct WindowsProxy {
     server: Server,
-    conf_tx: UnboundedSender<WindowsIPC>
+    conf_tx: UnboundedSender<WindowsIPC>,
 }
 
+#[cfg(windows)]
 #[pymethods]
 impl WindowsProxy {
     pub fn set_intercept(&self, spec: String) -> PyResult<()> {
-
         let conf = if spec.is_empty() {
-            InterceptConf::new(
-                vec![std::process::id()],
-                vec![],
-                true,
-            )
+            InterceptConf::new(vec![std::process::id()], vec![], true)
         } else {
             let mut pids = vec![];
             let mut procs = vec![];
@@ -190,14 +191,12 @@ impl WindowsProxy {
                     Err(_) => procs.push(part.to_string()),
                 }
             }
-            InterceptConf::new(
-                pids,
-                procs,
-                false,
-            )
+            InterceptConf::new(pids, procs, false)
         };
 
-        self.conf_tx.send(WindowsIPC::SetIntercept(conf)).map_err(event_queue_unavailable)?;
+        self.conf_tx
+            .send(WindowsIPC::SetIntercept(conf))
+            .map_err(event_queue_unavailable)?;
         Ok(())
     }
 
@@ -317,6 +316,7 @@ pub fn start_server(
     })
 }
 
+#[cfg(windows)]
 #[pyfunction]
 pub fn start_windows_transparent_proxy(
     py: Python<'_>,
@@ -324,9 +324,7 @@ pub fn start_windows_transparent_proxy(
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
-    let conf = WindowsConf {
-        executable_path
-    };
+    let conf = WindowsConf { executable_path };
     pyo3_asyncio::tokio::future_into_py(py, async move {
         let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
 

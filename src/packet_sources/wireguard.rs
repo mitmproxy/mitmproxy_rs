@@ -105,20 +105,23 @@ impl PacketSourceConf for WireGuardConf {
 
         let public_key = PublicKey::from(&self.private_key);
 
-        Ok((WireGuardTask {
-            socket,
-            private_key: self.private_key,
-            public_key,
+        Ok((
+            WireGuardTask {
+                socket,
+                private_key: self.private_key,
+                public_key,
 
-            peers_by_idx,
-            peers_by_key,
-            peers_by_ip: HashMap::new(),
-            wg_buf: [0u8; MAX_PACKET_SIZE],
+                peers_by_idx,
+                peers_by_key,
+                peers_by_ip: HashMap::new(),
+                wg_buf: [0u8; MAX_PACKET_SIZE],
 
-            net_tx,
-            net_rx,
-            sd_watcher,
-        },local_addr))
+                net_tx,
+                net_rx,
+                sd_watcher,
+            },
+            local_addr,
+        ))
     }
 }
 

@@ -146,7 +146,10 @@ impl NetworkIO {
         let src_addr = SocketAddr::new(src_ip, tcp_packet.src_port());
         let dst_addr = SocketAddr::new(dst_ip, tcp_packet.dst_port());
 
-        if tcp_packet.syn() && !tcp_packet.ack() && !self.active_connections.contains(&(src_addr, dst_addr)) {
+        if tcp_packet.syn()
+            && !tcp_packet.ack()
+            && !self.active_connections.contains(&(src_addr, dst_addr))
+        {
             let mut socket = TcpSocket::new(
                 TcpSocketBuffer::new(vec![0u8; 64 * 1024]),
                 TcpSocketBuffer::new(vec![0u8; 64 * 1024]),

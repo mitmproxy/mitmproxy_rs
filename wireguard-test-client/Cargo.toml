@@ -14,7 +14,7 @@ authors = [
 ]
 
 [dependencies]
-anyhow = "1.0.56"
+anyhow = "1.0.66"
 base64 = "0.13"
 boringtun = { version = "0.5", default-features = false }
 hex = "0.4"

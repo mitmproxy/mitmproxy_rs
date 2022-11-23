@@ -1,23 +1,23 @@
-use std::{env, thread};
 use std::net::SocketAddr;
 use std::time::Duration;
+use std::{env, thread};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use log::{debug, error, info};
 use lru_time_cache::LruCache;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use windivert::address::WinDivertNetworkData;
 use windivert::{
     WinDivert, WinDivertEvent, WinDivertFlags, WinDivertLayer, WinDivertPacket,
     WinDivertParsedPacket,
 };
-use windivert::address::WinDivertNetworkData;
 
-use mitmproxy::MAX_PACKET_SIZE;
-use mitmproxy::packet_sources::windows::{CONF, InterceptConf, IPC_BUF_SIZE, WindowsIPC};
+use mitmproxy::packet_sources::windows::{InterceptConf, WindowsIPC, CONF, IPC_BUF_SIZE};
 use mitmproxy::process::process_name;
+use mitmproxy::MAX_PACKET_SIZE;
 
 use crate::packet::{ConnectionId, InternetPacket, TransportProtocol};
 
@@ -41,13 +41,10 @@ enum ConnectionAction {
     Intercept,
 }
 
-
 #[tokio::main]
 async fn main() -> Result<()> {
     if cfg!(debug_assertions) {
-        env_logger::Builder::from_env(
-            env_logger::Env::default().default_filter_or("info")
-        ).init();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     }
     let args: Vec<String> = env::args().collect();
     let pipe_name = args
@@ -86,9 +83,9 @@ async fn main() -> Result<()> {
     )?;
 
     let tx_clone = event_tx.clone();
-    thread::spawn(move || relay_events(socket_handle, 0, 1/*32*/, tx_clone));
+    thread::spawn(move || relay_events(socket_handle, 0, 1 /*32*/, tx_clone));
     let tx_clone = event_tx.clone();
-    thread::spawn(move || relay_events(network_handle, MAX_PACKET_SIZE, 1/*8*/, tx_clone));
+    thread::spawn(move || relay_events(network_handle, MAX_PACKET_SIZE, 1 /*8*/, tx_clone));
 
     tokio::spawn(async move {
         if let Err(e) = handle_ipc(ipc_client, ipc_rx, event_tx).await {
@@ -169,7 +166,7 @@ async fn main() -> Result<()> {
                                         &inject_handle,
                                         &mut ipc_tx,
                                     )
-                                        .await?;
+                                    .await?;
                                     insert_into_connections(
                                         &mut connections,
                                         connection_id,
@@ -177,7 +174,7 @@ async fn main() -> Result<()> {
                                         &inject_handle,
                                         &mut ipc_tx,
                                     )
-                                        .await?;
+                                    .await?;
                                     process_packet(
                                         addr,
                                         packet,
@@ -185,7 +182,7 @@ async fn main() -> Result<()> {
                                         &inject_handle,
                                         &mut ipc_tx,
                                     )
-                                        .await?;
+                                    .await?;
                                 }
                             }
                         }
@@ -238,7 +235,8 @@ async fn main() -> Result<()> {
                                         ConnectionAction::None
                                     };
 
-                                    let proc_name = process_name(addr.process_id()).unwrap_or("unknown".to_string());
+                                    let proc_name = process_name(addr.process_id())
+                                        .unwrap_or("unknown".to_string());
 
                                     info!(
                                         "Adding: {} with pid={} name={} to {:?} ({:?})",
@@ -256,7 +254,7 @@ async fn main() -> Result<()> {
                                         &inject_handle,
                                         &mut ipc_tx,
                                     )
-                                        .await?;
+                                    .await?;
                                     insert_into_connections(
                                         &mut connections,
                                         connection_id,
@@ -264,13 +262,15 @@ async fn main() -> Result<()> {
                                         &inject_handle,
                                         &mut ipc_tx,
                                     )
-                                        .await?;
+                                    .await?;
                                 }
                             }
                             WinDivertEvent::SocketClose => {
                                 // We cannot clean up here because there are still final packets on connections after this event,
                                 // But at least we can release memory for unknown connections.
-                                if let Some(ConnectionState::Unknown(packets)) = connections.get_mut(&connection_id) {
+                                if let Some(ConnectionState::Unknown(packets)) =
+                                    connections.get_mut(&connection_id)
+                                {
                                     packets.clear();
                                 }
                             }
@@ -288,7 +288,6 @@ async fn main() -> Result<()> {
                 addr.set_tcp_checksum(false);
                 addr.set_udp_checksum(false);
 
-
                 let packet = match InternetPacket::new(buf) {
                     Ok(p) => p,
                     Err(e) => {
@@ -305,14 +304,17 @@ async fn main() -> Result<()> {
                     addr.loopback()
                 );
 
-                let packet = WinDivertParsedPacket::Network { addr, data: packet.inner() };
+                let packet = WinDivertParsedPacket::Network {
+                    addr,
+                    data: packet.inner(),
+                };
 
                 inject_handle.send(packet)?;
             }
             Event::Ipc(WindowsIPC::SetIntercept(conf)) => {
                 info!("{}", conf.description());
                 state = conf;
-            },
+            }
             Event::Ipc(WindowsIPC::Shutdown) => {
                 info!("Shutting down.");
                 std::process::exit(0);
@@ -320,7 +322,6 @@ async fn main() -> Result<()> {
         }
     }
 }
-
 
 async fn handle_ipc(
     mut ipc: NamedPipeClient,
@@ -344,7 +345,6 @@ async fn handle_ipc(
         }
     }
 }
-
 
 /// Repeatedly call WinDivertRecvExt o get packets and feed them into the channel.
 fn relay_events(
@@ -411,7 +411,8 @@ async fn process_packet(
                 .context("failed to re-inject packet")?;
         }
         ConnectionAction::Intercept => {
-            debug!("Intercepting into RPC {} {} outbound={} loopback={}",
+            debug!(
+                "Intercepting into RPC {} {} outbound={} loopback={}",
                 packet.connection_id(),
                 packet.tcp_flag_str(),
                 addr.outbound(),
