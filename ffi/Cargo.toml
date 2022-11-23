@@ -5,15 +5,8 @@ edition = "2021"
 rust-version = "1.65.0"
 
 exclude = [
-    "/.github/",
     "/benches/",
     "/dist/",
-    "/venv/",
-    "/PUBLISHING.md",
-    "/architecture.png",
-    "/coverage.sh",
-    "/echo_test_server.py",
-    "/rustfmt.toml",
 ]
 
 [lib]

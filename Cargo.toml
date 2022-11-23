@@ -4,7 +4,7 @@ license = "MIT"
 repository = "https://github.com/mitmproxy/mitmproxy-rs"
 publish = false
 
-version = "0.1.18"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.65.0"
 
@@ -71,7 +71,7 @@ tracing = ["console-subscriber"]
 [workspace]
 members = [
     ".",
-    "wireguard-test-client",
     "ffi",
     "windows-redirector",
+    "wireguard-test-client",
 ]

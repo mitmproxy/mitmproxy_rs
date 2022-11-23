@@ -1,6 +1,6 @@
 [package]
 name = "mitm-wg-test-client"
-description = "Test client for mitmproxy_wireguard"
+description = "Test client for mitmproxy_rs's WireGuard functionality"
 license = "MIT"
 publish = false
 

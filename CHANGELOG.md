@@ -1,3 +1,9 @@
+## 0.2.0
+
+- `mitmproxy_wireguard` is now `mitmproxy_rs`.
+  As indicated by the name change, the scope of the project now goes beyond WireGuard.
+- Add transparent proxy functionality for Windows.
+
 ## 0.1.18
 
 - Expose the "original" (i.e. not the address inside the WireGuard tunnel) source address

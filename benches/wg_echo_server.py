@@ -4,7 +4,7 @@ import signal
 import sys
 import time
 
-import mitmproxy_wireguard
+import mitmproxy_rs
 
 
 LOG_FORMAT = "[%(asctime)s %(levelname)-5s %(name)s] %(message)s"

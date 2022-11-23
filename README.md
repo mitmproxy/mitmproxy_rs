@@ -1,13 +1,16 @@
-# mitmproxy_wireguard
+# mitmproxy_rs
 
-[![PyPI](https://img.shields.io/pypi/v/mitmproxy_wireguard)](https://pypi.org/project/mitmproxy-wireguard/)
-![PyPI - License](https://img.shields.io/pypi/l/mitmproxy_wireguard)
-![PyPI - Status](https://img.shields.io/pypi/status/mitmproxy_wireguard)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mitmproxy_wireguard)
-![PyPI - Wheel](https://img.shields.io/pypi/wheel/mitmproxy_wireguard)
-[![ci](https://github.com/decathorpe/mitmproxy_wireguard/actions/workflows/ci.yml/badge.svg)](https://github.com/decathorpe/mitmproxy_wireguard/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/mitmproxy_rs)](https://pypi.org/project/mitmproxy-rs/)
+![PyPI - License](https://img.shields.io/pypi/l/mitmproxy_rs)
+![PyPI - Status](https://img.shields.io/pypi/status/mitmproxy_rs)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mitmproxy_rs)
+![PyPI - Wheel](https://img.shields.io/pypi/wheel/mitmproxy_rs)
+[![ci](https://github.com/mitmproxy/mitmproxy_rs/actions/workflows/ci.yml/badge.svg)](https://github.com/mitmproxy/mitmproxy_rs/actions/workflows/ci.yml)
 
-Transparently proxy any device that can be configured as a WireGuard client!
+This repository contains mitmproxy's Rust bits, most notably:
+
+ - WireGuard Mode: The ability to proxy any device that can be configured as a WireGuard client.
+ - Windows OS Proxy Mode: The ability to proxy arbitrary Windows applications by name or pid.
 
 ## DONE
 
@@ -157,5 +160,5 @@ The format for Python code (i.e. the test echo server and the type stubs in
 `mitmproxy_wireguard.pyi`) is enforced with `black` and can be applied with:
 
 ```shell
-black echo_test_server.py mitmproxy_wireguard.pyi benches/*.py
+black echo_test_server.py mitmproxy_rs.pyi benches/*.py
 ```

@@ -5,7 +5,7 @@ import sys
 import textwrap
 import time
 
-import mitmproxy_wireguard
+import mitmproxy_rs
 
 # (private key, public key)
 server_keypair = (

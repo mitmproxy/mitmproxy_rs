@@ -2,12 +2,12 @@
 
 ### Building and publishing with GitHub actions
 
-For every tag that is pushed to the mitmproxy_wireguard project on [GitHub], a
+For every tag that is pushed to the mitmproxy_rs project on [GitHub], a
 GitHub action is triggered that builds binary wheels and a source distribution
 for all specified targets. If this is successful, the source distribution and
 binary wheels are automatically uploaded to PyPI.
 
-[GitHub]: https://github.com/decathorpe/mitmproxy_wireguard
+[GitHub]: https://github.com/mitmproxy/mitmproxy_rs
 
 To upload files manually, use something like this command, assuming that
 username and password (or API token) are set up in configuration files or

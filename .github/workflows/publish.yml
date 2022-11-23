@@ -33,14 +33,16 @@ jobs:
       - if: matrix.target
         run: rustup target add ${{ matrix.target }}
       - run: rustup show
-      - run: pip install -r .github/workflows/requirements.txt
+      - name: Install maturin[zig] from PyPI
+        uses: install-pinned/maturin-with-zig@3b76927fcfe3d1257e86a4056227e11d6c481cef  # 0.14.1
       - run: maturin build --release ${{ matrix.args }}
+        working-directory: ./ffi
       - uses: actions/upload-artifact@v2
         with:
           name: wheels
           path: target/wheels
 
-  build-client:
+  build-test-client:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -51,9 +53,9 @@ jobs:
       - run: rustup default stable
       - run: rustup show
       - run: cargo install --path wireguard-test-client --root wireguard-test-client/dist/${{ matrix.os }}/
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
-          name: binaries
+          name: test-client-binaries
           path: wireguard-test-client/dist
 
   publish:
@@ -64,7 +66,7 @@ jobs:
       TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
     needs: [build-wheel, build-client]
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: wheels
           path: dist

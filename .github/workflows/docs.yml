@@ -1,0 +1,45 @@
+name: docs
+
+on:
+  push:
+    branches:
+      - main
+
+# security: restrict permissions for CI jobs.
+permissions:
+  contents: read
+
+jobs:
+  # Build the documentation and upload the static HTML files as an artifact.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install maturin[zig] from PyPI
+        uses: install-pinned/maturin-with-zig@3b76927fcfe3d1257e86a4056227e11d6c481cef  # 0.14.1
+      - name: Install pdoc from PyPI
+        uses: install-pinned/pdoc@b830abadc819f53026fc099b46866507d10be0c9  # 12.3.0
+
+      # ADJUST THIS: build your documentation into docs/.
+      # We use a custom build script for pdoc itself, ideally you just run `pdoc -o docs/ ...` here.
+      - run: pdoc -o docs/ mitmproxy_rs
+
+      - uses: actions/upload-pages-artifact@v1
+        with:
+          path: docs/
+
+  # Deploy the artifact to GitHub pages.
+  # This is a separate job so that only actions/deploy-pages has the necessary permissions.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v1
