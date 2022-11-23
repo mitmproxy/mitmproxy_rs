@@ -21,6 +21,9 @@ jobs:
       - name: Install pdoc from PyPI
         uses: install-pinned/pdoc@98c5ca63fc3fc92329efb6eb82f3fdb75aab546b  # 12.3.0
 
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup default stable
+
       - run: maturin build
         working-directory: ./ffi
       - run: pip install target/wheels/*.whl
