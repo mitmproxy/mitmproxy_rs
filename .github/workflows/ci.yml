@@ -25,9 +25,8 @@ jobs:
           - os: ubuntu-latest
             rust: stable
             args: --exclude windows-redirector
-          - os: ubuntu-latest
+          - os: windows-latest
             rust: 1.65.0  # MSRV
-            args: --exclude windows-redirector
     steps:
       - uses: actions/checkout@v3
       - name: Set up Rust toolchain

@@ -169,7 +169,7 @@ impl Drop for Server {
 #[derive(Debug)]
 pub struct WindowsProxy {
     server: Server,
-    conf_tx: UnboundedSender<WindowsIPC>,
+    conf_tx: mpsc::UnboundedSender<WindowsIPC>,
 }
 
 #[cfg(windows)]
