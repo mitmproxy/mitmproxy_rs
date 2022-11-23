@@ -37,7 +37,7 @@ jobs:
         uses: install-pinned/maturin-with-zig@3b76927fcfe3d1257e86a4056227e11d6c481cef  # 0.14.1
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: wheels
           path: target/wheels
