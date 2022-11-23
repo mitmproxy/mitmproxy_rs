@@ -19,7 +19,7 @@ jobs:
       - name: Install maturin[zig] from PyPI
         uses: install-pinned/maturin-with-zig@3b76927fcfe3d1257e86a4056227e11d6c481cef  # 0.14.1
       - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@b830abadc819f53026fc099b46866507d10be0c9  # 12.3.0
+        uses: install-pinned/pdoc@98c5ca63fc3fc92329efb6eb82f3fdb75aab546b  # 12.3.0
 
       # ADJUST THIS: build your documentation into docs/.
       # We use a custom build script for pdoc itself, ideally you just run `pdoc -o docs/ ...` here.
