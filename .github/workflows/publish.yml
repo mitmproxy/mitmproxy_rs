@@ -34,7 +34,7 @@ jobs:
         run: rustup target add ${{ matrix.target }}
       - run: rustup show
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@3b76927fcfe3d1257e86a4056227e11d6c481cef  # 0.14.1
+        uses: install-pinned/maturin-with-zig@7abb96bc9106ef94353342c815ce008b2abef3c3  # 0.14.1
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
       - uses: actions/upload-artifact@v3
