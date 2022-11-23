@@ -27,7 +27,7 @@ jobs:
     name: build-wheel (${{ matrix.os }}, ${{ matrix.target || 'x64' }})
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
       - run: rustup toolchain install stable --profile minimal
       - run: rustup default stable
       - if: matrix.target
