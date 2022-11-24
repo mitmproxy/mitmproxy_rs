@@ -1,10 +1,10 @@
 # mitmproxy_rs
 
-[![PyPI](https://img.shields.io/pypi/v/mitmproxy_rs)](https://pypi.org/project/mitmproxy-rs/)
-![PyPI - License](https://img.shields.io/pypi/l/mitmproxy_rs)
-![PyPI - Status](https://img.shields.io/pypi/status/mitmproxy_rs)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mitmproxy_rs)
-![PyPI - Wheel](https://img.shields.io/pypi/wheel/mitmproxy_rs)
+[![PyPI](https://shields.mitmproxy.org/pypi/v/mitmproxy_rs)](https://pypi.org/project/mitmproxy-rs/)
+![PyPI - License](https://shields.mitmproxy.org/pypi/l/mitmproxy_rs)
+![PyPI - Status](https://shields.mitmproxy.org/pypi/status/mitmproxy_rs)
+![PyPI - Python Version](https://shields.mitmproxy.org/pypi/pyversions/mitmproxy_rs)
+![PyPI - Wheel](https://shields.mitmproxy.org/pypi/wheel/mitmproxy_rs)
 [![ci](https://github.com/mitmproxy/mitmproxy_rs/actions/workflows/ci.yml/badge.svg)](https://github.com/mitmproxy/mitmproxy_rs/actions/workflows/ci.yml)
 
 This repository contains mitmproxy's Rust bits, most notably:
@@ -12,24 +12,7 @@ This repository contains mitmproxy's Rust bits, most notably:
  - WireGuard Mode: The ability to proxy any device that can be configured as a WireGuard client.
  - Windows OS Proxy Mode: The ability to proxy arbitrary Windows applications by name or pid.
 
-## DONE
-
-* multithreaded / asynchronous WireGuard server using tokio:
-  * one worker thread for the user-space WireGuard server
-  * one worker thread for the user-space network stack
-  * one worker thread for communicating with the Python runtime
-* full support for IPv4 packets (TCP and UDP)
-* basic support for IPv6 packets (TCP and UDP)
-* partial support for IPv6 packets
-* Python interface similar to the Python `asyncio` module
-* integration tests in mitmproxy
-
-## TODO
-
-* more complete IPv6 support
-* various other small `TODO` and `FIXME` items
-
-## Architecture support
+## Supported Architectures
 
 `mitmproxy_wireguard` should work on most architectures / targets - including,
 but not limited to Windows, macOS, and Linux, running on x86_64 (x64) and
@@ -45,15 +28,13 @@ Binary wheels for the following targets are available from PyPI:
 
 ## Requirements
 
-`mitmproxy_wireguard` currently requires Python 3.7 or newer at runtime, since
-that is the oldest version of Python that is still supported by PyO3 v0.16.
-mitmproxy already requires Python 3.9 or newer, so this should not be a problem.
+`mitmproxy_rs` requires a recent Python release, 
+more specifically one that is also supported by mitmproxy itself.
 
 Additionally, `mitmproxy_wireguard` currently has the following requirements at
 build-time:
 
-- Python 3.7+ (range of Python versions that is supported by PyO3 v0.16)
-- Rust 1.58.0+ (the oldest supported version of Rust / MSRV is 1.58.0)
+- Rust 1.65.0+ (the oldest supported version of Rust / MSRV is 1.65.0)
 - maturin 0.13.x
 
 ## Architecture
