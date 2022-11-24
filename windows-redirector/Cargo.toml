@@ -22,3 +22,10 @@ env_logger = "0.9.3"
 
 [dev-dependencies]
 hex = "0.4.3"
+
+[build-dependencies]
+winres = "0.1.12"
+
+[package.metadata.winres]
+ProductName = "Mitmproxy Redirector"
+FileDescription = "Transparently redirect traffic to a mitmproxy instance"
