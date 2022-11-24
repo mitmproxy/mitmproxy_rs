@@ -81,7 +81,6 @@ impl InterceptConf {
 pub enum WindowsIPC {
     Packet(Vec<u8>),
     SetIntercept(InterceptConf),
-    Shutdown,
 }
 
 pub struct WindowsConf {
@@ -102,7 +101,6 @@ impl PacketSourceConf for WindowsConf {
             r"\\.\pipe\mitmproxy-transparent-proxy-{}",
             std::process::id()
         );
-        // log::warn!("pipe_name: {}", pipe_name);
 
         let ipc_server = ServerOptions::new()
             .pipe_mode(PipeMode::Message)

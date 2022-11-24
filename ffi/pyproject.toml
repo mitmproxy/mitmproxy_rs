@@ -1,10 +1,10 @@
 [build-system]
-requires = ["maturin>=0.13,<0.14"]
+requires = ["maturin>=0.14,<0.15"]
 build-backend = "maturin"
 
 [project]
 name = "mitmproxy_rs"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -18,12 +18,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
 ]
 
-[tool.maturin]
-# include files manually to keep cargo workspace functional:
-# https://github.com/PyO3/maturin/issues/1226
-sdist-include = ["test-client/Cargo.toml", "test-client/src/*.rs"]
-
 [tool.black]
 line-length = 120
-target-version = ['py37']
+target-version = ['py39']
 include = '\.pyi?$'

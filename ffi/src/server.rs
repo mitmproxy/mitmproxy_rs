@@ -320,10 +320,16 @@ pub fn start_server(
 #[pyfunction]
 pub fn start_windows_transparent_proxy(
     py: Python<'_>,
-    executable_path: String,
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
+
+    // 2022: Ideally we'd use importlib.resources here, but that only provides `as_file` for
+    // individual files. We'd need something like `as_dir` to ensure that redirector.exe and the
+    // WinDivert dll/lib/sys files are in a single directory. So we just use __file__for now. 🤷
+    let module_dir = py.import("mitmproxy_rs")?.filename()?;
+    let executable_path = format!(r"{}\{}", module_dir, "windows-redirector.exe");
+
     let conf = WindowsConf { executable_path };
     pyo3_asyncio::tokio::future_into_py(py, async move {
         let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;

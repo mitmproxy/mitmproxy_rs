@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use std::{env, thread};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use log::{debug, error, info};
 use lru_time_cache::LruCache;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -315,10 +315,6 @@ async fn main() -> Result<()> {
                 info!("{}", conf.description());
                 state = conf;
             }
-            Event::Ipc(WindowsIPC::Shutdown) => {
-                info!("Shutting down.");
-                std::process::exit(0);
-            }
         }
     }
 }
@@ -331,12 +327,17 @@ async fn handle_ipc(
     let mut buf = [0u8; IPC_BUF_SIZE];
     loop {
         tokio::select! {
-            Ok(len) = ipc.read(&mut buf) => {
-                if len == 0 {
-                    return Err(anyhow!("IPC pipe closed"));
+            r = ipc.read(&mut buf) => {
+                match r {
+                    Ok(len) if len > 0 => {
+                        let call = bincode::decode_from_slice(&buf[..len], CONF)?.0;
+                        tx.send(Event::Ipc(call))?;
+                    }
+                    _ => {
+                        info!("IPC read failed. Exiting.");
+                        std::process::exit(0);
+                    }
                 }
-                let call = bincode::decode_from_slice(&buf[..len], CONF)?.0;
-                tx.send(Event::Ipc(call))?;
             },
             Some(packet) = ipc_rx.recv() => {
                 let len = bincode::encode_into_slice(&packet, &mut buf, CONF)?;
