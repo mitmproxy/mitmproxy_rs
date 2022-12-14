@@ -1,10 +1,10 @@
 # mitmproxy_rs
 
-[![PyPI](https://shields.mitmproxy.org/pypi/v/mitmproxy_rs)](https://pypi.org/project/mitmproxy-rs/)
-![PyPI - License](https://shields.mitmproxy.org/pypi/l/mitmproxy_rs)
-![PyPI - Status](https://shields.mitmproxy.org/pypi/status/mitmproxy_rs)
-![PyPI - Python Version](https://shields.mitmproxy.org/pypi/pyversions/mitmproxy_rs)
-![PyPI - Wheel](https://shields.mitmproxy.org/pypi/wheel/mitmproxy_rs)
+[![PyPI](https://shields.mitmproxy.org/pypi/v/mitmproxy-wireguard)](https://pypi.org/project/mitmproxy-wireguard/)
+![PyPI - License](https://shields.mitmproxy.org/pypi/l/mitmproxy-wireguard)
+![PyPI - Status](https://shields.mitmproxy.org/pypi/status/mitmproxy-wireguard)
+![PyPI - Python Version](https://shields.mitmproxy.org/pypi/pyversions/mitmproxy-wireguard)
+![PyPI - Wheel](https://shields.mitmproxy.org/pypi/wheel/mitmproxy-wireguard)
 [![ci](https://github.com/mitmproxy/mitmproxy_rs/actions/workflows/ci.yml/badge.svg)](https://github.com/mitmproxy/mitmproxy_rs/actions/workflows/ci.yml)
 
 This repository contains mitmproxy's Rust bits, most notably:
