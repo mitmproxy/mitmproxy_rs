@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@7abb96bc9106ef94353342c815ce008b2abef3c3  # 0.14.1
+        uses: install-pinned/maturin-with-zig@8f77fa13dfed13b9159a98076ee035f690aaa8f1  # 0.14.1
       - name: Install pdoc from PyPI
         uses: install-pinned/pdoc@be8876236b8be640e4b080970b146ed5c6beddb0  # 12.3.0
 
