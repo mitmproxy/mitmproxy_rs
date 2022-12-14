@@ -1,0 +1,17 @@
+name: autofix.ci
+
+on:
+  pull_request:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  autofix:
+    uses: autofix-ci/autofix.ci/.github/workflows/rust.yml@main

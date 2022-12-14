@@ -25,6 +25,9 @@ jobs:
       - name: Install pdoc from PyPI
         uses: install-pinned/pdoc@be8876236b8be640e4b080970b146ed5c6beddb0  # 12.3.0
 
+      # workaround for https://github.com/rust-lang/cargo/issues/9096
+      - run: cargo build --package windows-redirector
+
       - run: maturin build
         working-directory: ./ffi
       - run: pip install target/wheels/*.whl
