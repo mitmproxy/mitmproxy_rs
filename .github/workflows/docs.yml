@@ -19,7 +19,7 @@ jobs:
       - name: Install maturin[zig] from PyPI
         uses: install-pinned/maturin-with-zig@7abb96bc9106ef94353342c815ce008b2abef3c3  # 0.14.1
       - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@98c5ca63fc3fc92329efb6eb82f3fdb75aab546b  # 12.3.0
+        uses: install-pinned/pdoc@be8876236b8be640e4b080970b146ed5c6beddb0  # 12.3.0
 
       - run: rustup toolchain install stable --profile minimal
       - run: rustup default stable
