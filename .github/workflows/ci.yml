@@ -80,7 +80,7 @@ jobs:
         run: cp target/release/windows-redirector.exe ffi/windows-redirector.exe
 
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@8f77fa13dfed13b9159a98076ee035f690aaa8f1  # 0.14.1
+        uses: install-pinned/maturin-with-zig@33aab0554e7b21e2112442790152c003e6a7c08d  # 0.14.1
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
       - uses: actions/upload-artifact@v3

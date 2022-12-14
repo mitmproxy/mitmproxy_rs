@@ -16,24 +16,19 @@ concurrency:
 jobs:
   # Build the documentation and upload the static HTML files as an artifact.
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
 
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@8f77fa13dfed13b9159a98076ee035f690aaa8f1  # 0.14.1
+        uses: install-pinned/maturin-with-zig@33aab0554e7b21e2112442790152c003e6a7c08d  # 0.14.1
       - name: Install pdoc from PyPI
         uses: install-pinned/pdoc@be8876236b8be640e4b080970b146ed5c6beddb0  # 12.3.0
-
-      - run: rustup toolchain install stable --profile minimal
-      - run: rustup default stable
 
       - run: maturin build
         working-directory: ./ffi
       - run: pip install target/wheels/*.whl
 
-      # ADJUST THIS: build your documentation into docs/.
-      # We use a custom build script for pdoc itself, ideally you just run `pdoc -o docs/ ...` here.
       - run: pdoc -o docs/ mitmproxy_rs
 
       - uses: actions/upload-pages-artifact@v1
