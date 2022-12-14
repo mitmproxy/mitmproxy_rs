@@ -1154,6 +1154,7 @@ dependencies = [
  "pyo3-log",
  "rand_core 0.6.4",
  "tokio",
+ "windows-redirector",
  "x25519-dalek",
 ]
 
