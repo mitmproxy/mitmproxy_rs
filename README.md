@@ -1,3 +1,7 @@
+> **Note**
+> This repository is unreleased work-in-progress, but mitmproxy 9 ships with [mitmproxy_wireguard](https://github.com/decathorpe/mitmproxy_wireguard) already!
+
+
 # mitmproxy_rs
 
 [![PyPI](https://shields.mitmproxy.org/pypi/v/mitmproxy-wireguard)](https://pypi.org/project/mitmproxy-wireguard/)
