@@ -48,7 +48,7 @@ features = [
 ]
 
 [dev-dependencies]
-env_logger = "0.9"
+env_logger = "0.10"
 rand = "0.8"
 criterion = "0.4.0"
 
