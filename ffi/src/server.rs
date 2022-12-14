@@ -181,7 +181,7 @@ impl WindowsProxy {
         } else {
             let mut pids = vec![];
             let mut procs = vec![];
-            for part in spec.split(",") {
+            for part in spec.split(',') {
                 let part = part.trim();
                 if part.is_empty() {
                     return Err(anyhow!("invalid intercept spec: {}", spec).into());
@@ -323,7 +323,6 @@ pub fn start_windows_transparent_proxy(
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
-
     // 2022: Ideally we'd use importlib.resources here, but that only provides `as_file` for
     // individual files. We'd need something like `as_dir` to ensure that redirector.exe and the
     // WinDivert dll/lib/sys files are in a single directory. So we just use __file__for now. 🤷
