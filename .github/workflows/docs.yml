@@ -34,6 +34,11 @@ jobs:
 
       - run: pdoc -o docs/ mitmproxy_rs
 
+      - run: |
+          if ((Select-String -Path ./docs/mitmproxy_rs.html -Pattern unknown) -ne $null) { 
+            throw "incomplete .pyi file" 
+          }
+
       - uses: actions/upload-pages-artifact@v1
         with:
           path: docs/
