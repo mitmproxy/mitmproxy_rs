@@ -30,7 +30,7 @@ jobs:
 
       - run: maturin build
         working-directory: ./ffi
-      - run: pip install target/wheels/*.whl
+      - run: pip install --no-index --find-links target/wheels/ mitmproxy_rs
 
       - run: pdoc -o docs/ mitmproxy_rs
 
