@@ -1,4 +1,4 @@
-name: ci
+name: CI
 
 on:
   push:
@@ -42,6 +42,11 @@ jobs:
           toolchain: ${{ matrix.rust }}
           command: check
           args: --workspace --verbose ${{ matrix.args }}
+
+      - if: matrix.os == 'windows-latest'
+        # workaround for https://github.com/rust-lang/cargo/issues/9096
+        run: cargo build --package windows-redirector
+
       - name: Run "cargo test"
         # the action-rs/cargo action adds inline annotations for "cargo test" output
         uses: actions-rs/cargo@9e120dd99b0fbad1c065f686657e914e76bd7b72
@@ -87,31 +92,3 @@ jobs:
         with:
           name: wheels
           path: target/wheels
-
-  clippy:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Rust toolchain
-        run: rustup toolchain install stable --profile minimal
-      - name: Run "cargo clippy"
-        # the action-rs/cargo action adds inline annotations for "cargo clippy" output
-        uses: actions-rs/cargo@9e120dd99b0fbad1c065f686657e914e76bd7b72
-        with:
-          toolchain: stable
-          command: clippy
-          args: --workspace
-
-  rustfmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Rust toolchain
-        run: rustup toolchain install stable --profile minimal
-      - name: Run "cargo fmt"
-        # the action-rs/cargo action adds inline annotations for "cargo fmt" / rustfmt output
-        uses: actions-rs/cargo@9e120dd99b0fbad1c065f686657e914e76bd7b72
-        with:
-          toolchain: stable
-          command: fmt
-          args: -- --check
