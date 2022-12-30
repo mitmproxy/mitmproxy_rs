@@ -37,14 +37,14 @@ pub fn mitmproxy_rs(_py: Python, m: &PyModule) -> PyResult<()> {
     #[cfg(feature = "tracing")]
     console_subscriber::init();
 
-    m.add_function(wrap_pyfunction!(server::start_server, m)?)?;
+    m.add_function(wrap_pyfunction!(server::start_wireguard_server, m)?)?;
     m.add_class::<server::WireGuardServer>()?;
     m.add_function(wrap_pyfunction!(util::genkey, m)?)?;
     m.add_function(wrap_pyfunction!(util::pubkey, m)?)?;
 
     #[cfg(windows)]
     m.add_function(wrap_pyfunction!(
-        server::start_windows_transparent_proxy,
+        server::start_windows_proxy,
         m
     )?)?;
     #[cfg(windows)]

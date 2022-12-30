@@ -35,7 +35,7 @@ client_keypair = (
 
 
 async def main():
-    server = await mitmproxy_rs.start_server(
+    server = await mitmproxy_rs.start_wireguard_server(
         "0.0.0.0",
         51820,
         server_keypair[0],

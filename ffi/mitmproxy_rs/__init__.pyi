@@ -16,7 +16,7 @@ class WireGuardServer:
     def close(self) -> None: ...
     async def wait_closed(self) -> None: ...
 
-async def start_server(
+async def start_wireguard_server(
     host: str,
     port: int,
     private_key: str,
@@ -31,7 +31,7 @@ class WindowsProxy:
     def close(self) -> None: ...
     async def wait_closed(self) -> None: ...
 
-async def start_windows_transparent_proxy(
+async def start_windows_proxy(
     handle_connection: Callable[[TcpStream], Awaitable[None]],
     receive_datagram: Callable[[bytes, tuple[str, int], tuple[str, int]], None],
 ) -> WindowsProxy: ...

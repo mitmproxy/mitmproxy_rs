@@ -220,7 +220,7 @@ impl WindowsProxy {
 
 /// A running WireGuard server.
 ///
-/// A new server can be started by calling the `start_server` coroutine. Its public API is intended
+/// A new server can be started by calling the `start_wireguard_server` coroutine. Its public API is intended
 /// to be similar to the API provided by
 /// [`asyncio.Server`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.Server)
 /// from the Python standard library.
@@ -287,7 +287,7 @@ impl WireGuardServer {
 /// - source address as `(host: str, port: int)` tuple
 /// - destination address as `(host: str, port: int)` tuple
 #[pyfunction]
-pub fn start_server(
+pub fn start_wireguard_server(
     py: Python<'_>,
     host: String,
     port: u16,
@@ -318,7 +318,7 @@ pub fn start_server(
 
 #[cfg(windows)]
 #[pyfunction]
-pub fn start_windows_transparent_proxy(
+pub fn start_windows_proxy(
     py: Python<'_>,
     handle_connection: PyObject,
     receive_datagram: PyObject,
