@@ -89,7 +89,7 @@ jobs:
       - run: rustup show
 
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@a5d82612e4eadbe8eec2f9d375135da70fb71c15  # 0.14.1
+        uses: install-pinned/maturin-with-zig@8e6ad50abccf411da568e28aca111674f8b8b022  # 0.14.1
 
       - if: matrix.os == 'windows-latest'
         # workaround for https://github.com/rust-lang/cargo/issues/9096
