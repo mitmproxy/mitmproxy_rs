@@ -7,7 +7,7 @@ fn main() {
     // directory during execution, which is even worse.
 
     // Ideally we should also do https://github.com/rust-lang/cargo/issues/9096 here,
-    // but for now we keep it simple.
+    // but for now we want to stay on stable Rust.
 
     let windivert_files = ["WinDivert.dll", "WinDivert.lib", "WinDivert64.sys"];
     if cfg!(windows) {

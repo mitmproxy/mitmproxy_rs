@@ -1,10 +1,14 @@
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
 use anyhow::Result;
 use pyo3::{prelude::*, types::PyBytes};
-use tokio::sync::{broadcast::Receiver as BroadcastReceiver, mpsc};
+use tokio::sync::{broadcast, mpsc, Mutex};
+
+use mitmproxy::messages::{TransportCommand, TransportEvent};
 
 use crate::tcp_stream::TcpStream;
 use crate::util::socketaddr_to_py;
-use mitmproxy::messages::{TransportCommand, TransportEvent};
 
 pub struct PyInteropTask {
     py_loop: PyObject,
@@ -12,7 +16,7 @@ pub struct PyInteropTask {
     smol_to_py_rx: mpsc::Receiver<TransportEvent>,
     py_tcp_handler: PyObject,
     py_udp_handler: PyObject,
-    sd_watcher: BroadcastReceiver<()>,
+    sd_watcher: broadcast::Receiver<()>,
 }
 
 impl PyInteropTask {
@@ -23,7 +27,7 @@ impl PyInteropTask {
         smol_to_py_rx: mpsc::Receiver<TransportEvent>,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
-        sd_watcher: BroadcastReceiver<()>,
+        sd_watcher: broadcast::Receiver<()>,
     ) -> Self {
         PyInteropTask {
             py_loop,
@@ -36,7 +40,7 @@ impl PyInteropTask {
     }
 
     pub async fn run(mut self) -> Result<()> {
-        let mut tcp_connection_handler_tasks = Vec::new();
+        let active_tcp_connections = Arc::new(Mutex::new(HashMap::new()));
 
         loop {
             tokio::select!(
@@ -63,6 +67,8 @@ impl PyInteropTask {
                                     is_closing: false,
                                 };
 
+                                let mut conns = active_tcp_connections.lock().await;
+
                                 // spawn TCP connection handler coroutine
                                 if let Err(err) = Python::with_gil(|py| -> Result<(), PyErr> {
                                     let stream = stream.into_py(py);
@@ -71,18 +77,21 @@ impl PyInteropTask {
                                     let coro = self.py_tcp_handler.call1(py, (stream, ))?;
 
                                     // convert Python awaitable into Rust Future
-                                    let locals = pyo3_asyncio::TaskLocals::new(self.py_loop.as_ref(py))
-                                        .copy_context(self.py_loop.as_ref(py).py())?;
-                                    let future = pyo3_asyncio::into_future_with_locals(&locals, coro.as_ref(py))?;
+                                    let future = pyo3_asyncio::tokio::into_future(coro.as_ref(py))?;
 
                                     // run Future on a new Tokio task
-                                    let handle = tokio::spawn(async {
-                                        if let Err(err) = future.await {
-                                            log::error!("TCP connection handler coroutine raised an exception:\n{}", err)}
-                                        }
-                                    );
 
-                                    tcp_connection_handler_tasks.push(handle);
+                                    let handle = {
+                                        let active_tcp_connections = active_tcp_connections.clone();
+                                        tokio::spawn(async move {
+                                            if let Err(err) = future.await {
+                                                log::error!("TCP connection handler coroutine raised an exception:\n{}", err)
+                                            }
+                                            active_tcp_connections.lock().await.remove(&connection_id);
+                                        })
+                                    };
+
+                                    conns.insert(connection_id, handle);
 
                                     Ok(())
                                 }) {
@@ -123,8 +132,7 @@ impl PyInteropTask {
 
         log::debug!("Python interoperability task shutting down.");
 
-        // clean up TCP connection handler coroutines
-        for handle in tcp_connection_handler_tasks {
+        while let Some((_, handle)) = active_tcp_connections.lock().await.drain().next() {
             if handle.is_finished() {
                 // Future is already finished: just await;
                 // Python exceptions are already logged by the wrapper coroutine
