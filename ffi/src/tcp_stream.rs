@@ -6,13 +6,13 @@ use pyo3::{
     types::PyBytes,
 };
 use tokio::sync::{
-    mpsc::{self, error::SendError},
+    mpsc::{self},
     oneshot::{self, error::RecvError},
 };
 
-use mitmproxy::messages::{ConnectionId, TransportCommand};
+use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
 
-use crate::util::socketaddr_to_py;
+use crate::util::{event_queue_unavailable, socketaddr_to_py};
 
 /// An individual TCP stream with an API that is similar to
 /// [`asyncio.StreamReader` and `asyncio.StreamWriter`](https://docs.python.org/3/library/asyncio-stream.html)
@@ -24,8 +24,7 @@ pub struct TcpStream {
     pub event_tx: mpsc::UnboundedSender<TransportCommand>,
     pub peername: SocketAddr,
     pub sockname: SocketAddr,
-    pub original_dst: SocketAddr,
-    pub original_src: Option<SocketAddr>,
+    pub tunnel_info: TunnelInfo,
     pub is_closing: bool,
 }
 
@@ -112,14 +111,22 @@ impl TcpStream {
         match (name.as_str(), default) {
             ("peername", _) => Ok(socketaddr_to_py(py, self.peername)),
             ("sockname", _) => Ok(socketaddr_to_py(py, self.sockname)),
-            ("original_dst", _) => Ok(socketaddr_to_py(py, self.original_dst)),
-            ("original_src", _) => {
-                if let Some(original_src) = self.original_src {
-                    Ok(socketaddr_to_py(py, original_src))
-                } else {
-                    Ok(py.None())
-                }
-            }
+            ("original_src", _) => match self.tunnel_info {
+                TunnelInfo::WireGuard { src_addr, .. } => Ok(socketaddr_to_py(py, src_addr)),
+                TunnelInfo::Windows { .. } => Ok(py.None()),
+            },
+            ("original_dst", _) => match self.tunnel_info {
+                TunnelInfo::WireGuard { dst_addr, .. } => Ok(socketaddr_to_py(py, dst_addr)),
+                TunnelInfo::Windows { .. } => Ok(py.None()),
+            },
+            ("pid", _) => match &self.tunnel_info {
+                TunnelInfo::Windows { pid, .. } => Ok(pid.into_py(py)),
+                TunnelInfo::WireGuard {  .. } => Ok(py.None()),
+            },
+            ("process_name", _) => match &self.tunnel_info {
+                TunnelInfo::Windows { process_name: Some(x), .. } => Ok(x.into_py(py)),
+                _ => Ok(py.None()),
+            },
             (_, Some(default)) => Ok(default),
             _ => Err(PyKeyError::new_err(name)),
         }
@@ -127,8 +134,8 @@ impl TcpStream {
 
     fn __repr__(&self) -> String {
         format!(
-            "TcpStream({}, peer={}, sock={}, src={:?}, dst={})",
-            self.connection_id, self.peername, self.sockname, self.original_src, self.original_dst,
+            "TcpStream({}, peer={}, sock={}, tunnel_info={:?})",
+            self.connection_id, self.peername, self.sockname, self.tunnel_info,
         )
     }
 }
@@ -139,10 +146,6 @@ impl Drop for TcpStream {
             log::debug!("Failed to close TCP stream during clean up: {}", error);
         }
     }
-}
-
-pub fn event_queue_unavailable<T>(_: SendError<T>) -> PyErr {
-    PyOSError::new_err("Server has been shut down.")
 }
 
 pub fn connection_closed(_: RecvError) -> PyErr {

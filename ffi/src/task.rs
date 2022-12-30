@@ -7,6 +7,7 @@ use tokio::sync::{broadcast, mpsc, Mutex};
 
 use mitmproxy::messages::{TransportCommand, TransportEvent};
 
+use crate::datagram_transport::DatagramTransport;
 use crate::tcp_stream::TcpStream;
 use crate::util::socketaddr_to_py;
 
@@ -54,7 +55,7 @@ impl PyInteropTask {
                                 connection_id,
                                 src_addr,
                                 dst_addr,
-                                src_orig,
+                                tunnel_info,
                             } => {
                                 // initialize new TCP stream
                                 let stream = TcpStream {
@@ -62,8 +63,7 @@ impl PyInteropTask {
                                     event_tx: self.py_to_smol_tx.clone(),
                                     peername: src_addr,
                                     sockname: dst_addr,
-                                    original_dst: dst_addr, // FIXME
-                                    original_src: src_orig,
+                                    tunnel_info,
                                     is_closing: false,
                                 };
 
@@ -102,9 +102,18 @@ impl PyInteropTask {
                                 data,
                                 src_addr,
                                 dst_addr,
-                                ..
+                                tunnel_info,
                             } => {
+
+                                let transport = DatagramTransport {
+                                    event_tx: self.py_to_smol_tx.clone(),
+                                    peername: src_addr,
+                                    sockname: dst_addr,
+                                    tunnel_info,
+                                };
+
                                 Python::with_gil(|py| {
+                                    let transport = transport.into_py(py);
                                     let bytes: Py<PyBytes> = PyBytes::new(py, &data).into_py(py);
 
                                     if let Err(err) = self.py_loop.call_method1(
@@ -112,6 +121,7 @@ impl PyInteropTask {
                                         "call_soon_threadsafe",
                                         (
                                             self.py_udp_handler.as_ref(py),
+                                            transport,
                                             bytes,
                                             socketaddr_to_py(py, src_addr),
                                             socketaddr_to_py(py, dst_addr),

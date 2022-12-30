@@ -3,29 +3,25 @@ use std::sync::Arc;
 
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
-use pyo3::{prelude::*, types::PyTuple};
+use pyo3::{prelude::*};
 use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
 use x25519_dalek::PublicKey;
 
-use mitmproxy::messages::TransportCommand;
 use mitmproxy::network::NetworkTask;
 #[cfg(windows)]
-use mitmproxy::packet_sources::windows::{InterceptConf, WindowsConf, WindowsIPC, PID};
+use mitmproxy::packet_sources::windows::{InterceptConf, WindowsConf, WindowsIpcSend, PID};
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
 use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
 
 use crate::task::PyInteropTask;
-use crate::tcp_stream::event_queue_unavailable;
-use crate::util::{py_to_socketaddr, socketaddr_to_py, string_to_key};
+use crate::util::{event_queue_unavailable, socketaddr_to_py, string_to_key};
 
 // use interprocess::os::windows::named_pipe::{PipeListenerOptions, PipeMode};
 // use interprocess::os::windows::named_pipe::tokio::{DuplexMsgPipeStream, PipeListener, PipeListenerOptionsExt};
 
 #[derive(Debug)]
 pub struct Server {
-    /// queue of events to be sent to the Python interop task
-    event_tx: mpsc::UnboundedSender<TransportCommand>,
     /// channel for notifying subtasks of requested server shutdown
     sd_trigger: broadcast::Sender<()>,
     /// channel for getting notified of successful server shutdown
@@ -35,22 +31,6 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn send_datagram(
-        &self,
-        data: Vec<u8>,
-        src_addr: &PyTuple,
-        dst_addr: &PyTuple,
-    ) -> PyResult<()> {
-        let cmd = TransportCommand::SendDatagram {
-            data,
-            src_addr: py_to_socketaddr(src_addr)?,
-            dst_addr: py_to_socketaddr(dst_addr)?,
-        };
-
-        self.event_tx.send(cmd).map_err(event_queue_unavailable)?;
-        Ok(())
-    }
-
     pub fn close(&mut self) {
         if !self.closing {
             self.closing = true;
@@ -93,8 +73,6 @@ impl Server {
         // - used to send data and to ask for packets
         // This channel needs to be unbounded because write() is not async.
         let (py_to_smol_tx, py_to_smol_rx) = mpsc::unbounded_channel();
-
-        let event_tx = py_to_smol_tx.clone();
 
         // initialize barriers for handling graceful shutdown
         let (sd_trigger, _sd_watcher) = broadcast::channel(1);
@@ -148,7 +126,6 @@ impl Server {
 
         Ok((
             Server {
-                event_tx,
                 sd_trigger,
                 sd_barrier,
                 closing: false,
@@ -169,7 +146,7 @@ impl Drop for Server {
 #[derive(Debug)]
 pub struct WindowsProxy {
     server: Server,
-    conf_tx: mpsc::UnboundedSender<WindowsIPC>,
+    conf_tx: mpsc::UnboundedSender<WindowsIpcSend>,
 }
 
 #[cfg(windows)]
@@ -195,18 +172,9 @@ impl WindowsProxy {
         };
 
         self.conf_tx
-            .send(WindowsIPC::SetIntercept(conf))
+            .send(WindowsIpcSend::SetIntercept(conf))
             .map_err(event_queue_unavailable)?;
         Ok(())
-    }
-
-    pub fn send_datagram(
-        &self,
-        data: Vec<u8>,
-        src_addr: &PyTuple,
-        dst_addr: &PyTuple,
-    ) -> PyResult<()> {
-        self.server.send_datagram(data, src_addr, dst_addr)
     }
 
     pub fn close(&mut self) {
@@ -234,18 +202,6 @@ pub struct WireGuardServer {
 
 #[pymethods]
 impl WireGuardServer {
-    /// Send an individual UDP datagram using the specified source and destination addresses.
-    ///
-    /// The `src_addr` and `dst_addr` arguments are expected to be `(host: str, port: int)` tuples.
-    pub fn send_datagram(
-        &self,
-        data: Vec<u8>,
-        src_addr: &PyTuple,
-        dst_addr: &PyTuple,
-    ) -> PyResult<()> {
-        self.server.send_datagram(data, src_addr, dst_addr)
-    }
-
     /// Request the WireGuard server to gracefully shut down.
     ///
     /// The server will stop accepting new connections on its UDP socket, but will flush pending

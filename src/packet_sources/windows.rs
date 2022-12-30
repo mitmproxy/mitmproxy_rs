@@ -14,7 +14,7 @@ use windows::w;
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
-use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};
+use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use crate::process::process_name;
@@ -78,7 +78,16 @@ impl InterceptConf {
 }
 
 #[derive(Decode, Encode, PartialEq, Eq, Debug)]
-pub enum WindowsIPC {
+pub enum WindowsIpcRecv {
+    Packet {
+        data: Vec<u8>,
+        pid: u32,
+        process_name: Option<String>,
+    },
+}
+
+#[derive(Decode, Encode, PartialEq, Eq, Debug)]
+pub enum WindowsIpcSend {
     Packet(Vec<u8>),
     SetIntercept(InterceptConf),
 }
@@ -90,7 +99,7 @@ pub struct WindowsConf {
 #[async_trait]
 impl PacketSourceConf for WindowsConf {
     type Task = WindowsTask;
-    type Data = UnboundedSender<WindowsIPC>;
+    type Data = UnboundedSender<WindowsIpcSend>;
     async fn build(
         self,
         net_tx: Sender<NetworkEvent>,
@@ -158,7 +167,7 @@ pub struct WindowsTask {
 
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
-    conf_rx: UnboundedReceiver<WindowsIPC>,
+    conf_rx: UnboundedReceiver<WindowsIpcSend>,
     sd_watcher: broadcast::Receiver<()>,
 }
 
@@ -175,7 +184,7 @@ impl PacketSourceTask for WindowsTask {
                 _ = self.sd_watcher.recv() => break,
                 // pipe through changes to the intercept list
                 Some(cmd) = self.conf_rx.recv() => {
-                    assert!(matches!(cmd, WindowsIPC::SetIntercept(_)));
+                    assert!(matches!(cmd, WindowsIpcSend::SetIntercept(_)));
                     let len = bincode::encode_into_slice(&cmd, &mut self.buf, CONF)?;
                     self.ipc_server.write_all(&self.buf[..len]).await?;
                 },
@@ -185,7 +194,7 @@ impl PacketSourceTask for WindowsTask {
                     if len == 0 {
                         return Err(anyhow!("Empty IPC read."));
                     }
-                    let Ok((WindowsIPC::Packet(data), _)) = bincode::decode_from_slice(&self.buf[..len], CONF) else {
+                    let Ok((WindowsIpcRecv::Packet { data, pid, process_name }, _)) = bincode::decode_from_slice(&self.buf[..len], CONF) else {
                         return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
                     };
                     let Ok(mut packet) = IpPacket::try_from(data) else {
@@ -198,7 +207,10 @@ impl PacketSourceTask for WindowsTask {
 
                     let event = NetworkEvent::ReceivePacket {
                         packet,
-                        src_orig: None,
+                        tunnel_info: TunnelInfo::Windows {
+                            pid,
+                            process_name,
+                        },
                     };
                     if self.net_tx.try_send(event).is_err() {
                         log::warn!("Dropping incoming packet, TCP channel is full.")
@@ -208,7 +220,7 @@ impl PacketSourceTask for WindowsTask {
                 Some(e) = self.net_rx.recv() => {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
-                            let packet = WindowsIPC::Packet(packet.into_inner());
+                            let packet = WindowsIpcSend::Packet(packet.into_inner());
                             let len = bincode::encode_into_slice(&packet, &mut self.buf, CONF)?;
                             self.ipc_server.write_all(&self.buf[..len]).await?;
                         }

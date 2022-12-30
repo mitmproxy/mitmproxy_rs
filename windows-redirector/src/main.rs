@@ -15,7 +15,9 @@ use windivert::{
     WinDivertParsedPacket,
 };
 
-use mitmproxy::packet_sources::windows::{InterceptConf, WindowsIPC, CONF, IPC_BUF_SIZE};
+use mitmproxy::packet_sources::windows::{
+    InterceptConf, WindowsIpcRecv, WindowsIpcSend, CONF, IPC_BUF_SIZE,
+};
 use mitmproxy::process::process_name;
 use mitmproxy::MAX_PACKET_SIZE;
 
@@ -26,7 +28,7 @@ mod packet;
 #[derive(Debug)]
 enum Event {
     Packet(WinDivertPacket),
-    Ipc(WindowsIPC),
+    Ipc(WindowsIpcSend),
 }
 
 #[derive(Debug)]
@@ -35,10 +37,13 @@ enum ConnectionState<'a> {
     Unknown(Vec<(WinDivertNetworkData<'a>, InternetPacket)>),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum ConnectionAction {
     None,
-    Intercept,
+    Intercept {
+        pid: u32,
+        process_name: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -57,7 +62,7 @@ async fn main() -> Result<()> {
         .context("Cannot open pipe")?;
 
     let (event_tx, mut event_rx) = mpsc::unbounded_channel::<Event>();
-    let (mut ipc_tx, ipc_rx) = mpsc::unbounded_channel::<WindowsIPC>();
+    let (mut ipc_tx, ipc_rx) = mpsc::unbounded_channel::<WindowsIpcRecv>();
 
     // We currently rely on handles being automatically closed when the program exits.
     // only needed for forward mode
@@ -139,7 +144,7 @@ async fn main() -> Result<()> {
                         match connections.get_mut(&packet.connection_id()) {
                             Some(state) => match state {
                                 ConnectionState::Known(s) => {
-                                    process_packet(addr, packet, *s, &inject_handle, &mut ipc_tx)
+                                    process_packet(addr, packet, s, &inject_handle, &mut ipc_tx)
                                         .await?;
                                 }
                                 ConnectionState::Unknown(packets) => {
@@ -178,7 +183,7 @@ async fn main() -> Result<()> {
                                     process_packet(
                                         addr,
                                         packet,
-                                        ConnectionAction::None,
+                                        &ConnectionAction::None,
                                         &inject_handle,
                                         &mut ipc_tx,
                                     )
@@ -229,20 +234,20 @@ async fn main() -> Result<()> {
                                 );
 
                                 if make_entry {
+                                    let proc_name = process_name(addr.process_id());
+
                                     let action = if state.should_intercept(addr.process_id()) {
-                                        ConnectionAction::Intercept
+                                        ConnectionAction::Intercept {
+                                            pid: addr.process_id(),
+                                            process_name: proc_name.ok(),
+                                        }
                                     } else {
                                         ConnectionAction::None
                                     };
 
-                                    let proc_name = process_name(addr.process_id())
-                                        .unwrap_or("unknown".to_string());
-
                                     info!(
-                                        "Adding: {} with pid={} name={} to {:?} ({:?})",
+                                        "Adding: {} with {:?} ({:?})",
                                         &connection_id,
-                                        addr.process_id(),
-                                        proc_name,
                                         action,
                                         addr.event()
                                     );
@@ -280,7 +285,7 @@ async fn main() -> Result<()> {
                     _ => unreachable!(),
                 }
             }
-            Event::Ipc(WindowsIPC::Packet(buf)) => {
+            Event::Ipc(WindowsIpcSend::Packet(buf)) => {
                 let mut addr = WinDivertNetworkData::default();
                 // if outbound is false, incoming connections are not re-injected into the right iface.
                 addr.set_outbound(true);
@@ -311,7 +316,7 @@ async fn main() -> Result<()> {
 
                 inject_handle.send(packet)?;
             }
-            Event::Ipc(WindowsIPC::SetIntercept(conf)) => {
+            Event::Ipc(WindowsIpcSend::SetIntercept(conf)) => {
                 info!("{}", conf.description());
                 state = conf;
             }
@@ -321,7 +326,7 @@ async fn main() -> Result<()> {
 
 async fn handle_ipc(
     mut ipc: NamedPipeClient,
-    mut ipc_rx: UnboundedReceiver<WindowsIPC>,
+    mut ipc_rx: UnboundedReceiver<WindowsIpcRecv>,
     tx: UnboundedSender<Event>,
 ) -> Result<()> {
     let mut buf = [0u8; IPC_BUF_SIZE];
@@ -376,13 +381,13 @@ async fn insert_into_connections(
     key: ConnectionId,
     state: ConnectionAction,
     inject_handle: &WinDivert,
-    ipc_tx: &mut UnboundedSender<WindowsIPC>,
+    ipc_tx: &mut UnboundedSender<WindowsIpcRecv>,
 ) -> Result<()> {
-    let existing = connections.insert(key, ConnectionState::Known(state));
+    let existing = connections.insert(key, ConnectionState::Known(state.clone()));
 
     if let Some(ConnectionState::Unknown(packets)) = existing {
         for (addr, p) in packets {
-            process_packet(addr, p, state, inject_handle, ipc_tx).await?;
+            process_packet(addr, p, &state, inject_handle, ipc_tx).await?;
         }
     }
     Ok(())
@@ -391,9 +396,9 @@ async fn insert_into_connections(
 async fn process_packet(
     addr: WinDivertNetworkData<'_>,
     packet: InternetPacket,
-    action: ConnectionAction,
+    action: &ConnectionAction,
     inject_handle: &WinDivert,
-    ipc_tx: &mut UnboundedSender<WindowsIPC>,
+    ipc_tx: &mut UnboundedSender<WindowsIpcRecv>,
 ) -> Result<()> {
     match action {
         ConnectionAction::None => {
@@ -411,7 +416,7 @@ async fn process_packet(
                 })
                 .context("failed to re-inject packet")?;
         }
-        ConnectionAction::Intercept => {
+        ConnectionAction::Intercept { pid, process_name } => {
             debug!(
                 "Intercepting into RPC {} {} outbound={} loopback={}",
                 packet.connection_id(),
@@ -419,7 +424,11 @@ async fn process_packet(
                 addr.outbound(),
                 addr.loopback()
             );
-            ipc_tx.send(WindowsIPC::Packet(packet.inner()))?;
+            ipc_tx.send(WindowsIpcRecv::Packet {
+                data: packet.inner(),
+                pid: pid.clone(),
+                process_name: process_name.clone(),
+            })?;
         }
     }
     Ok(())

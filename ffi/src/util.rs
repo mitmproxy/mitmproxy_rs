@@ -1,8 +1,10 @@
+use pyo3::exceptions::PyOSError;
 use pyo3::types::{PyString, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use rand_core::OsRng;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
+use tokio::sync::mpsc;
 use x25519_dalek::{PublicKey, StaticSecret};
 
 pub fn string_to_key<T>(data: String) -> PyResult<T>
@@ -39,6 +41,10 @@ pub fn py_to_socketaddr(t: &PyTuple) -> PyResult<SocketAddr> {
     } else {
         Err(PyValueError::new_err("not a socket address"))
     }
+}
+
+pub fn event_queue_unavailable<T>(_: mpsc::error::SendError<T>) -> PyErr {
+    PyOSError::new_err("Server has been shut down.")
 }
 
 /// Generate a WireGuard private key, analogous to the `wg genkey` command.

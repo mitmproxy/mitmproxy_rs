@@ -19,7 +19,7 @@ use tokio::{
 };
 use x25519_dalek::{PublicKey, StaticSecret};
 
-use crate::messages::{IpPacket, NetworkCommand, NetworkEvent};
+use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 
@@ -225,20 +225,24 @@ impl WireGuardTask {
     }
 
     /// process WireGuard datagrams and forward the decrypted packets.
-    async fn process_incoming_datagram(&mut self, data: &[u8], src_orig: SocketAddr) -> Result<()> {
+    async fn process_incoming_datagram(
+        &mut self,
+        data: &[u8],
+        sender_addr: SocketAddr,
+    ) -> Result<()> {
         let peer = match self.find_peer_for_datagram(data) {
             Some(p) => p,
             None => return Ok(()),
         };
 
-        peer.set_endpoint(src_orig).await;
+        peer.set_endpoint(sender_addr).await;
         let mut result = peer
             .tunnel
-            .decapsulate(Some(src_orig.ip()), data, &mut self.wg_buf);
+            .decapsulate(Some(sender_addr.ip()), data, &mut self.wg_buf);
 
         while let TunnResult::WriteToNetwork(b) = result {
             log::trace!("WG::process_incoming_datagram: WriteToNetwork");
-            self.socket.send_to(b, src_orig).await?;
+            self.socket.send_to(b, sender_addr).await?;
 
             // check if there are more things to be handled
             result = peer.tunnel.decapsulate(None, &[0; 0], &mut self.wg_buf);
@@ -275,7 +279,10 @@ impl WireGuardTask {
                             .insert(Ipv4Addr::from(packet.src_addr()).into(), peer);
                         let event = NetworkEvent::ReceivePacket {
                             packet: IpPacket::from(packet),
-                            src_orig: Some(src_orig),
+                            tunnel_info: TunnelInfo::WireGuard {
+                                src_addr: sender_addr,
+                                dst_addr: self.socket.local_addr()?,
+                            },
                         };
 
                         if self.net_tx.try_send(event).is_err() {
@@ -304,7 +311,10 @@ impl WireGuardTask {
                             .insert(Ipv6Addr::from(packet.src_addr()).into(), peer);
                         let event = NetworkEvent::ReceivePacket {
                             packet: IpPacket::from(packet),
-                            src_orig: Some(src_orig),
+                            tunnel_info: TunnelInfo::WireGuard {
+                                src_addr: sender_addr,
+                                dst_addr: self.socket.local_addr()?,
+                            },
                         };
 
                         if self.net_tx.try_send(event).is_err() {

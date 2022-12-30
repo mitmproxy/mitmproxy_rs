@@ -1,5 +1,4 @@
 use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
-use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use smoltcp::{phy::ChecksumCapabilities, wire::*};
@@ -12,7 +11,9 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent};
+use crate::messages::{
+    IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent, TunnelInfo,
+};
 
 use super::task::NetworkTask;
 
@@ -47,8 +48,6 @@ impl MockNetwork {
 
         let handle = tokio::spawn(task.run());
 
-        tokio::time::sleep(Duration::from_secs(1)).await;
-
         Ok(Self {
             wg_to_smol_tx,
             smol_to_wg_rx,
@@ -64,19 +63,21 @@ impl MockNetwork {
         self.handle.await?
     }
 
-    async fn push_wg_packet(&self, packet: IpPacket, src_orig: SocketAddr) -> Result<()> {
+    async fn push_wg_packet(&self, packet: IpPacket) -> Result<()> {
+        let tunnel_info = TunnelInfo::WireGuard {
+            src_addr: "192.168.86.134:12345".parse()?,
+            dst_addr: "0.0.0.0:0".parse()?,
+        };
         let event = NetworkEvent::ReceivePacket {
             packet,
-            src_orig: Some(src_orig),
+            tunnel_info,
         };
         self.wg_to_smol_tx.send(event).await?;
-        tokio::time::sleep(Duration::from_millis(100)).await;
         Ok(())
     }
 
     async fn push_py_command(&self, command: TransportCommand) -> Result<()> {
         self.py_to_smol_tx.send(command)?;
-        tokio::time::sleep(Duration::from_millis(100)).await;
         Ok(())
     }
 
@@ -279,27 +280,23 @@ async fn receive_ipv4_datagram() -> Result<()> {
 
     let src_addr = Ipv4Address([10, 0, 0, 1]);
     let dst_addr = Ipv4Address([10, 0, 0, 42]);
-    let src_orig = Ipv4Address([192, 168, 86, 134]);
-    let src_sock = SocketAddrV4::new(src_orig.into(), 12345);
     let data = "hello world!".as_bytes();
 
     let udp_ip_packet = build_ipv4_udp_packet(src_addr, dst_addr, 1234, 31337, data);
 
-    mock.push_wg_packet(udp_ip_packet.into(), src_sock.into())
-        .await?;
+    mock.push_wg_packet(udp_ip_packet.into()).await?;
     let event = mock.pull_py_event().await.unwrap();
 
     if let TransportEvent::DatagramReceived {
         data: recv_data,
         src_addr: recv_src_addr,
         dst_addr: recv_dst_addr,
-        src_orig: Some(recv_src_orig),
+        tunnel_info: _,
     } = event
     {
         assert_eq!(data, recv_data);
         assert_eq!(IpAddress::Ipv4(src_addr), recv_src_addr.ip().into());
         assert_eq!(IpAddress::Ipv4(dst_addr), recv_dst_addr.ip().into());
-        assert_eq!(IpAddress::Ipv4(src_orig), recv_src_orig.ip().into());
     } else {
         return Err(anyhow!("Wrong Transport event emitted!"));
     }
@@ -314,27 +311,23 @@ async fn receive_ipv6_datagram() -> Result<()> {
 
     let src_addr = Ipv6Address(b"cafecafecafe0001".to_owned());
     let dst_addr = Ipv6Address(b"cafecafecafe0002".to_owned());
-    let src_orig = Ipv6Address(b"cafecafecafe0003".to_owned());
-    let src_sock = SocketAddrV6::new(src_orig.into(), 12345, 0, 0);
     let data = "hello world!".as_bytes();
 
     let udp_ip_packet = build_ipv6_udp_packet(src_addr, dst_addr, 1234, 31337, data);
 
-    mock.push_wg_packet(udp_ip_packet.into(), src_sock.into())
-        .await?;
+    mock.push_wg_packet(udp_ip_packet.into()).await?;
     let event = mock.pull_py_event().await.unwrap();
 
     if let TransportEvent::DatagramReceived {
         data: recv_data,
         src_addr: recv_src_addr,
         dst_addr: recv_dst_addr,
-        src_orig: Some(recv_src_orig),
+        tunnel_info: _,
     } = event
     {
         assert_eq!(data, recv_data);
         assert_eq!(IpAddress::Ipv6(src_addr), recv_src_addr.ip().into());
         assert_eq!(IpAddress::Ipv6(dst_addr), recv_dst_addr.ip().into());
-        assert_eq!(IpAddress::Ipv6(src_orig), recv_src_orig.ip().into());
     } else {
         return Err(anyhow!("Wrong Transport event emitted!"));
     }
@@ -440,8 +433,6 @@ async fn tcp_ipv4_connection() -> Result<()> {
 
     let src_addr = Ipv4Address([10, 0, 0, 1]);
     let dst_addr = Ipv4Address([10, 0, 0, 42]);
-    let src_orig = Ipv4Address([192, 168, 86, 134]);
-    let src_sock = SocketAddrV4::new(src_orig.into(), 12345);
     let data = "hello world!".as_bytes();
 
     // send TCP SYN
@@ -456,8 +447,7 @@ async fn tcp_ipv4_connection() -> Result<()> {
         None,
         &[],
     );
-    mock.push_wg_packet(tcp_ip_syn_packet.into(), src_sock.into())
-        .await?;
+    mock.push_wg_packet(tcp_ip_syn_packet.into()).await?;
 
     // expect TCP SYN/ACK
     let mut tcp_synack_ip_packet = match mock.pull_wg_packet().await.unwrap() {
@@ -493,8 +483,7 @@ async fn tcp_ipv4_connection() -> Result<()> {
         Some(ack),
         data,
     );
-    mock.push_wg_packet(tcp_ip_ack_packet.into(), src_sock.into())
-        .await?;
+    mock.push_wg_packet(tcp_ip_ack_packet.into()).await?;
 
     // expect ConnectionEstablished event
     let event = mock.pull_py_event().await.unwrap();
@@ -503,13 +492,11 @@ async fn tcp_ipv4_connection() -> Result<()> {
         connection_id: tcp_conn_id,
         src_addr: tcp_src_sock,
         dst_addr: tcp_dst_sock,
-        src_orig: Some(tcp_src_orig),
+        tunnel_info: _,
     } = event
     {
         assert_eq!(IpAddress::Ipv4(src_addr), tcp_src_sock.ip().into());
         assert_eq!(IpAddress::Ipv4(dst_addr), tcp_dst_sock.ip().into());
-        assert_eq!(IpAddress::Ipv4(src_orig), tcp_src_orig.ip().into());
-
         (tcp_conn_id, tcp_src_sock, tcp_dst_sock)
     } else {
         return Err(anyhow!("Wrong Transport event emitted!"));
@@ -615,11 +602,7 @@ async fn tcp_ipv4_connection() -> Result<()> {
         Some(ack),
         &[],
     );
-    mock.push_wg_packet(tcp_ip_syn_packet.into(), src_sock.into())
-        .await?;
-
-    // wait for socket to get closed
-    tokio::time::sleep(Duration::from_secs(10)).await;
+    mock.push_wg_packet(tcp_ip_syn_packet.into()).await?;
 
     mock.stop().await
 }
@@ -632,8 +615,6 @@ async fn tcp_ipv6_connection() -> Result<()> {
 
     let src_addr = Ipv6Address(b"cafecafecafe0001".to_owned());
     let dst_addr = Ipv6Address(b"cafecafecafe0002".to_owned());
-    let src_orig = Ipv6Address(b"cafecafecafe0003".to_owned());
-    let src_sock = SocketAddrV6::new(src_orig.into(), 12345, 0, 0);
     let data = "hello world!".as_bytes();
 
     // send TCP SYN
@@ -648,8 +629,7 @@ async fn tcp_ipv6_connection() -> Result<()> {
         None,
         &[],
     );
-    mock.push_wg_packet(tcp_ip_syn_packet.into(), src_sock.into())
-        .await?;
+    mock.push_wg_packet(tcp_ip_syn_packet.into()).await?;
 
     // expect TCP SYN/ACK
     let mut tcp_synack_ip_packet = match mock.pull_wg_packet().await.unwrap() {
@@ -685,8 +665,7 @@ async fn tcp_ipv6_connection() -> Result<()> {
         Some(ack),
         data,
     );
-    mock.push_wg_packet(tcp_ip_ack_packet.into(), src_sock.into())
-        .await?;
+    mock.push_wg_packet(tcp_ip_ack_packet.into()).await?;
 
     // expect ConnectionEstablished event
     let event = mock.pull_py_event().await.unwrap();
@@ -695,12 +674,11 @@ async fn tcp_ipv6_connection() -> Result<()> {
         connection_id: tcp_conn_id,
         src_addr: tcp_src_sock,
         dst_addr: tcp_dst_sock,
-        src_orig: Some(tcp_src_orig),
+        tunnel_info: _,
     } = event
     {
         assert_eq!(IpAddress::Ipv6(src_addr), tcp_src_sock.ip().into());
         assert_eq!(IpAddress::Ipv6(dst_addr), tcp_dst_sock.ip().into());
-        assert_eq!(IpAddress::Ipv6(src_orig), tcp_src_orig.ip().into());
 
         (tcp_conn_id, tcp_src_sock, tcp_dst_sock)
     } else {
@@ -807,11 +785,7 @@ async fn tcp_ipv6_connection() -> Result<()> {
         Some(ack),
         &[],
     );
-    mock.push_wg_packet(tcp_ip_syn_packet.into(), src_sock.into())
-        .await?;
-
-    // wait for socket to get closed
-    tokio::time::sleep(Duration::from_secs(10)).await;
+    mock.push_wg_packet(tcp_ip_syn_packet.into()).await?;
 
     mock.stop().await
 }

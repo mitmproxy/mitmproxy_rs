@@ -24,6 +24,7 @@ use tokio::sync::{
 
 use crate::messages::{
     ConnectionId, IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent,
+    TunnelInfo,
 };
 
 use super::virtual_device::VirtualDevice;
@@ -67,12 +68,12 @@ impl NetworkIO {
     fn receive_packet(
         &mut self,
         packet: IpPacket,
-        src_orig: Option<SocketAddr>,
+        tunnel_info: TunnelInfo,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
         match packet.transport_protocol() {
-            IpProtocol::Tcp => self.receive_packet_tcp(packet, src_orig, permit),
-            IpProtocol::Udp => self.receive_packet_udp(packet, src_orig, permit),
+            IpProtocol::Tcp => self.receive_packet_tcp(packet, tunnel_info, permit),
+            IpProtocol::Udp => self.receive_packet_udp(packet, tunnel_info, permit),
             _ => {
                 log::debug!(
                     "Received IP packet for unknown protocol: {}",
@@ -86,7 +87,7 @@ impl NetworkIO {
     fn receive_packet_udp(
         &mut self,
         mut packet: IpPacket,
-        src_orig: Option<SocketAddr>,
+        tunnel_info: TunnelInfo,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
         let src_ip = packet.src_ip();
@@ -107,7 +108,7 @@ impl NetworkIO {
             data: udp_packet.payload_mut().to_vec(),
             src_addr,
             dst_addr,
-            src_orig,
+            tunnel_info,
         };
 
         permit.send(event);
@@ -117,7 +118,7 @@ impl NetworkIO {
     fn receive_packet_tcp(
         &mut self,
         mut packet: IpPacket,
-        src_orig: Option<SocketAddr>,
+        tunnel_info: TunnelInfo,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
         let src_ip = packet.src_ip();
@@ -179,7 +180,7 @@ impl NetworkIO {
                 connection_id,
                 src_addr,
                 dst_addr,
-                src_orig,
+                tunnel_info,
             };
             permit.send(event);
         }
@@ -301,8 +302,11 @@ impl NetworkIO {
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
         match event {
-            NetworkEvent::ReceivePacket { packet, src_orig } => {
-                self.receive_packet(packet, src_orig, permit)?;
+            NetworkEvent::ReceivePacket {
+                packet,
+                tunnel_info,
+            } => {
+                self.receive_packet(packet, tunnel_info, permit)?;
             }
         }
         Ok(())

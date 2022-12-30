@@ -4,3 +4,4 @@
 /target/
 /venv/
 /docs/
+__pycache__/

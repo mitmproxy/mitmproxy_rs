@@ -4,12 +4,24 @@ use anyhow::{anyhow, Result};
 use smoltcp::wire::{IpProtocol, Ipv4Packet, Ipv6Packet};
 use tokio::sync::oneshot;
 
+#[derive(Debug, Clone)]
+pub enum TunnelInfo {
+    WireGuard {
+        src_addr: SocketAddr,
+        dst_addr: SocketAddr,
+    },
+    Windows {
+        pid: u32,
+        process_name: Option<String>,
+    },
+}
+
 /// Events that are sent by WireGuard to the TCP stack.
 #[derive(Debug)]
 pub enum NetworkEvent {
     ReceivePacket {
         packet: IpPacket,
-        src_orig: Option<SocketAddr>,
+        tunnel_info: TunnelInfo,
     },
 }
 
@@ -28,13 +40,13 @@ pub enum TransportEvent {
         connection_id: ConnectionId,
         src_addr: SocketAddr,
         dst_addr: SocketAddr,
-        src_orig: Option<SocketAddr>,
+        tunnel_info: TunnelInfo,
     },
     DatagramReceived {
         data: Vec<u8>,
         src_addr: SocketAddr,
         dst_addr: SocketAddr,
-        src_orig: Option<SocketAddr>,
+        tunnel_info: TunnelInfo,
     },
 }
 
