@@ -1106,7 +1106,7 @@ dependencies = [
 
 [[package]]
 name = "mitm-wg-test-client"
-version = "0.2.0"
+version = "0.2.0-beta.1"
 dependencies = [
  "anyhow",
  "base64 0.20.0",
@@ -1118,7 +1118,7 @@ dependencies = [
 
 [[package]]
 name = "mitmproxy"
-version = "0.2.0"
+version = "0.2.0-beta.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1141,7 +1141,7 @@ dependencies = [
 
 [[package]]
 name = "mitmproxy_rs"
-version = "0.2.0"
+version = "0.2.0-beta.1"
 dependencies = [
  "anyhow",
  "base64 0.20.0",
@@ -2273,7 +2273,7 @@ dependencies = [
 
 [[package]]
 name = "windows-redirector"
-version = "0.2.0"
+version = "0.2.0-beta.1"
 dependencies = [
  "anyhow",
  "bincode",
