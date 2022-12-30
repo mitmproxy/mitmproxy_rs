@@ -92,3 +92,12 @@ jobs:
         with:
           name: wheels
           path: target/wheels
+
+  deploy:
+    uses: mhils/workflows/.github/workflows/python-deploy.yml@main
+    needs: [test, build]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+    with:
+      artifact: wheels
+    secrets:
+      password: ${{ secrets.TWINE_PASSWORD }}
