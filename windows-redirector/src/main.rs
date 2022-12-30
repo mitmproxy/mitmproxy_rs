@@ -426,7 +426,7 @@ async fn process_packet(
             );
             ipc_tx.send(WindowsIpcRecv::Packet {
                 data: packet.inner(),
-                pid: pid.clone(),
+                pid: *pid,
                 process_name: process_name.clone(),
             })?;
         }

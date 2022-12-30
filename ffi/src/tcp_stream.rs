@@ -121,10 +121,13 @@ impl TcpStream {
             },
             ("pid", _) => match &self.tunnel_info {
                 TunnelInfo::Windows { pid, .. } => Ok(pid.into_py(py)),
-                TunnelInfo::WireGuard {  .. } => Ok(py.None()),
+                TunnelInfo::WireGuard { .. } => Ok(py.None()),
             },
             ("process_name", _) => match &self.tunnel_info {
-                TunnelInfo::Windows { process_name: Some(x), .. } => Ok(x.into_py(py)),
+                TunnelInfo::Windows {
+                    process_name: Some(x),
+                    ..
+                } => Ok(x.into_py(py)),
                 _ => Ok(py.None()),
             },
             (_, Some(default)) => Ok(default),

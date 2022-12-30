@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 use std::iter;
+use std::os::windows::ffi::OsStrExt;
+use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -11,7 +13,9 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
 use windows::core::PCWSTR;
 use windows::w;
+use windows::Win32::Foundation::GetLastError;
 use windows::Win32::UI::Shell::ShellExecuteW;
+use windows::Win32::UI::Shell::SE_ERR_ACCESSDENIED;
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
@@ -93,7 +97,7 @@ pub enum WindowsIpcSend {
 }
 
 pub struct WindowsConf {
-    pub executable_path: String,
+    pub executable_path: PathBuf,
 }
 
 #[async_trait]
@@ -126,11 +130,12 @@ impl PacketSourceConf for WindowsConf {
 
         let executable_path = self
             .executable_path
-            .encode_utf16()
+            .as_os_str()
+            .encode_wide()
             .chain(iter::once(0))
             .collect::<Vec<u16>>();
 
-        unsafe {
+        let result = unsafe {
             ShellExecuteW(
                 None,
                 w!("runas"),
@@ -142,7 +147,15 @@ impl PacketSourceConf for WindowsConf {
                 } else {
                     SW_HIDE
                 },
-            );
+            )
+        };
+        if result.0 == SE_ERR_ACCESSDENIED as isize {
+            return Err(anyhow!(
+                "Failed to start the interception process as administrator."
+            ));
+        } else if result.0 <= 32 {
+            let error_msg = unsafe { GetLastError().to_hresult().message().to_string_lossy() };
+            return Err(anyhow!("Failed to start the executable: {}", error_msg));
         }
 
         let (conf_tx, conf_rx) = unbounded_channel();

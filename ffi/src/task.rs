@@ -77,7 +77,9 @@ impl PyInteropTask {
                                     let coro = self.py_tcp_handler.call1(py, (stream, ))?;
 
                                     // convert Python awaitable into Rust Future
-                                    let future = pyo3_asyncio::tokio::into_future(coro.as_ref(py))?;
+                                    let locals = pyo3_asyncio::TaskLocals::new(self.py_loop.as_ref(py))
+                                        .copy_context(self.py_loop.as_ref(py).py())?;
+                                    let future = pyo3_asyncio::into_future_with_locals(&locals, coro.as_ref(py))?;
 
                                     // run Future on a new Tokio task
 

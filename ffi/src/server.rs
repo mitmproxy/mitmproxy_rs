@@ -1,9 +1,10 @@
 use std::net::SocketAddr;
+use std::path::Path;
 use std::sync::Arc;
 
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
-use pyo3::{prelude::*};
+use pyo3::prelude::*;
 use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
 use x25519_dalek::PublicKey;
 
@@ -282,8 +283,17 @@ pub fn start_windows_proxy(
     // 2022: Ideally we'd use importlib.resources here, but that only provides `as_file` for
     // individual files. We'd need something like `as_dir` to ensure that redirector.exe and the
     // WinDivert dll/lib/sys files are in a single directory. So we just use __file__for now. 🤷
-    let module_dir = py.import("mitmproxy_rs")?.filename()?;
-    let executable_path = format!(r"{}\{}", module_dir, "windows-redirector.exe");
+    let filename = py.import("mitmproxy_rs")?.filename()?;
+    let executable_path = Path::new(filename)
+        .parent()
+        .ok_or_else(|| anyhow!("invalid path"))?
+        .join("windows-redirector.exe");
+
+    if !executable_path.exists() {
+        return Err(anyhow!("{} does not exist", executable_path.display()).into());
+    }
+
+    log::info!("starting windows proxy with {}", executable_path.display());
 
     let conf = WindowsConf { executable_path };
     pyo3_asyncio::tokio::future_into_py(py, async move {
