@@ -56,6 +56,17 @@ impl DatagramTransport {
                 TunnelInfo::WireGuard { dst_addr, .. } => Ok(socketaddr_to_py(py, dst_addr)),
                 TunnelInfo::Windows { .. } => Ok(py.None()),
             },
+            ("pid", _) => match &self.tunnel_info {
+                TunnelInfo::Windows { pid, .. } => Ok(pid.into_py(py)),
+                TunnelInfo::WireGuard { .. } => Ok(py.None()),
+            },
+            ("process_name", _) => match &self.tunnel_info {
+                TunnelInfo::Windows {
+                    process_name: Some(x),
+                    ..
+                } => Ok(x.into_py(py)),
+                _ => Ok(py.None()),
+            },
             (_, Some(default)) => Ok(default),
             _ => Err(PyKeyError::new_err(name)),
         }

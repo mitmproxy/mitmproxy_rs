@@ -9,6 +9,11 @@ fn main() {
     // Ideally we should also do https://github.com/rust-lang/cargo/issues/9096 here,
     // but for now we want to stay on stable Rust.
 
+    // xxx: untested
+    println!("cargo:rerun-if-changed=../target/debug/windows-redirector.exe");
+    println!("cargo:rerun-if-changed=../target/release/windows-redirector.exe");
+    println!("cargo:rerun-if-changed=windivert/");
+
     let windivert_files = ["WinDivert.dll", "WinDivert.lib", "WinDivert64.sys"];
     if cfg!(windows) {
         if cfg!(debug_assertions) {

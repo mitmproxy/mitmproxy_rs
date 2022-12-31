@@ -3,7 +3,7 @@ use std::time::Duration;
 use std::{env, thread};
 
 use anyhow::{Context, Result};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use lru_time_cache::LruCache;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
@@ -364,7 +364,9 @@ fn relay_events(
         match packets {
             Ok(Some(packets)) => {
                 for packet in packets {
-                    tx.send(Event::Packet(packet)).unwrap();
+                    if let Err(_) = tx.send(Event::Packet(packet)) {
+                        return; // main thread shut down.
+                    }
                 }
             }
             Ok(None) => {}

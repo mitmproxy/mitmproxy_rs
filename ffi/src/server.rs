@@ -293,8 +293,6 @@ pub fn start_windows_proxy(
         return Err(anyhow!("{} does not exist", executable_path.display()).into());
     }
 
-    log::info!("starting windows proxy with {}", executable_path.display());
-
     let conf = WindowsConf { executable_path };
     pyo3_asyncio::tokio::future_into_py(py, async move {
         let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;

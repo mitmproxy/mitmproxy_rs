@@ -9,13 +9,13 @@ use bincode::{Decode, Encode};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
 use tokio::sync::broadcast;
+use tokio::sync::mpsc::{Receiver, unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::mpsc::Sender;
-use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
 use windows::core::PCWSTR;
 use windows::w;
 use windows::Win32::Foundation::GetLastError;
-use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::Shell::SE_ERR_ACCESSDENIED;
+use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
@@ -123,6 +123,8 @@ impl PacketSourceConf for WindowsConf {
             .out_buffer_size(IPC_BUF_SIZE as u32)
             .create(&pipe_name)?;
 
+        log::debug!("starting {} {}", self.executable_path.display(), pipe_name);
+
         let pipe_name = pipe_name
             .encode_utf16()
             .chain(iter::once(0))
@@ -149,13 +151,21 @@ impl PacketSourceConf for WindowsConf {
                 },
             )
         };
-        if result.0 == SE_ERR_ACCESSDENIED as isize {
-            return Err(anyhow!(
+
+        if cfg!(debug_assertions) {
+            if result.0 <= 32 {
+                let error_msg = unsafe { GetLastError().to_hresult().message().to_string_lossy() };
+                log::warn!("Failed to start child process: {}", error_msg);
+            }
+        } else {
+            if result.0 == SE_ERR_ACCESSDENIED as isize {
+                return Err(anyhow!(
                 "Failed to start the interception process as administrator."
             ));
-        } else if result.0 <= 32 {
-            let error_msg = unsafe { GetLastError().to_hresult().message().to_string_lossy() };
-            return Err(anyhow!("Failed to start the executable: {}", error_msg));
+            } else if result.0 <= 32 {
+                let error_msg = unsafe { GetLastError().to_hresult().message().to_string_lossy() };
+                return Err(anyhow!("Failed to start the executable: {}", error_msg));
+            }
         }
 
         let (conf_tx, conf_rx) = unbounded_channel();
@@ -207,9 +217,10 @@ impl PacketSourceTask for WindowsTask {
                     if len == 0 {
                         return Err(anyhow!("Empty IPC read."));
                     }
-                    let Ok((WindowsIpcRecv::Packet { data, pid, process_name }, _)) = bincode::decode_from_slice(&self.buf[..len], CONF) else {
+                    let Ok((WindowsIpcRecv::Packet { data, pid, process_name }, n)) = bincode::decode_from_slice(&self.buf[..len], CONF) else {
                         return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
                     };
+                    assert_eq!(n, len);
                     let Ok(mut packet) = IpPacket::try_from(data) else {
                         log::error!("Skipping invalid packet: {:?}", &self.buf[..len]);
                         continue;
