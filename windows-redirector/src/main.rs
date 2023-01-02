@@ -3,7 +3,7 @@ use std::time::Duration;
 use std::{env, thread};
 
 use anyhow::{Context, Result};
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use lru_time_cache::LruCache;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
@@ -335,7 +335,10 @@ async fn handle_ipc(
             r = ipc.read(&mut buf) => {
                 match r {
                     Ok(len) if len > 0 => {
-                        let call = bincode::decode_from_slice(&buf[..len], CONF)?.0;
+                        let Ok(call, n) = bincode::decode_from_slice(&buf[..len], CONF) else {
+                            return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
+                        };
+                        assert_eq!(n, len);
                         tx.send(Event::Ipc(call))?;
                     }
                     _ => {
