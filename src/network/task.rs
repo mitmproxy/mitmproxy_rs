@@ -217,14 +217,17 @@ impl NetworkIO {
         }
     }
 
-    fn close_connection(&mut self, id: ConnectionId, half_close: bool) {
+    fn close_connection(&mut self, id: ConnectionId, _half_close: bool) {
         if let Some(data) = self.socket_data.get_mut(&id) {
-            let sock = self.iface.get_socket::<TcpSocket>(data.handle);
-            if half_close {
-                data.write_eof = true;
-            } else {
-                sock.abort();
-            }
+            // smoltcp does not have a good way to do "SHUT_RDWR". We can't call .abort()
+            // here because that sends a RST instead of a FIN (and breaks
+            // retransmissions of the connection close packet). Alternatively, we could manually
+            // set a timer on .close() and then forcibly .abort() once the timer expires (see
+            // tcp-abort branch). This incurs a bit of unnecessary complexity, so we try something
+            // dumber here: We simply close our end and then hope that either the client sends a FIN
+            // or times out via the keepalive mechanism.
+
+            data.write_eof = true;
         } else {
             // connection is already dead.
         }

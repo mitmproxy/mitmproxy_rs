@@ -557,7 +557,7 @@ async fn tcp_ipv4_connection() -> Result<()> {
 
     // close TCP connection
     log::debug!("Closing TCP stream");
-    mock.push_py_command(TransportCommand::CloseConnection(tcp_conn_id, true))
+    mock.push_py_command(TransportCommand::CloseConnection(tcp_conn_id, false))
         .await?;
 
     // expect TCP FIN
