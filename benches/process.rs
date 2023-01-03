@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 #[cfg(windows)]
-use mitmproxy::process::get_process_name;
+use mitmproxy::windows::get_process_name;
 
 #[allow(unused_variables)]
 fn criterion_benchmark(c: &mut Criterion) {

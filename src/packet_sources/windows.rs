@@ -33,7 +33,7 @@ pub struct ProcessInfo {
     pub process_name: Option<String>,
 }
 
-#[derive(Decode, Encode, PartialEq, Eq, Debug)]
+#[derive(Decode, Encode, PartialEq, Eq, Debug, Clone)]
 pub struct InterceptConf {
     pids: HashSet<PID>,
     process_names: Vec<String>,

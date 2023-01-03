@@ -1838,6 +1838,7 @@ dependencies = [
 [[package]]
 name = "tokio"
 version = "1.23.0"
+source = "git+https://github.com/mhils/tokio?branch=readmode-fix#ab61cbcdd55aae767394c5b71fa726a684da3cb2"
 dependencies = [
  "autocfg",
  "bytes",
@@ -1867,6 +1868,7 @@ dependencies = [
 [[package]]
 name = "tokio-macros"
 version = "1.8.2"
+source = "git+https://github.com/mhils/tokio?branch=readmode-fix#ab61cbcdd55aae767394c5b71fa726a684da3cb2"
 dependencies = [
  "proc-macro2",
  "quote",
