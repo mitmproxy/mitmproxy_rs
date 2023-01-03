@@ -36,6 +36,8 @@ jobs:
 
       # workaround for https://github.com/rust-lang/cargo/issues/9096
       - run: cargo build --package windows-redirector
+        env:
+          WINDIVERT_PATH: windows-redirector/windivert
 
       - run: maturin build
         working-directory: ./ffi

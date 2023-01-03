@@ -45,6 +45,7 @@ async-trait = "0.1.60"
 console-subscriber = { version = "0.1.8", optional = true }
 
 [patch.crates-io]
+# tokio = { path = "../tokio/tokio" }
 tokio = { git = 'https://github.com/mhils/tokio', branch = 'readmode-fix' }
 
 [target.'cfg(windows)'.dependencies]

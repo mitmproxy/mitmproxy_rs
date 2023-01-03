@@ -12,7 +12,7 @@ fn main() {
     // xxx: untested
     println!("cargo:rerun-if-changed=../target/debug/windows-redirector.exe");
     println!("cargo:rerun-if-changed=../target/release/windows-redirector.exe");
-    println!("cargo:rerun-if-changed=windivert/");
+    println!("cargo:rerun-if-changed=../windows-redirector/windivert/");
 
     let windivert_files = ["WinDivert.dll", "WinDivert.lib", "WinDivert64.sys"];
     if cfg!(windows) {
@@ -30,7 +30,7 @@ fn main() {
         .expect("Failed to copy windows-redirector.exe. Has it been built yet?");
         for file in windivert_files {
             fs::copy(
-                format!("windivert/{}", file),
+                format!("../windows-redirector/windivert/{}", file),
                 format!("mitmproxy_rs/{}", file),
             )
             .unwrap_or_else(|_| panic!("Failed to copy {}", file));

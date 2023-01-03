@@ -18,7 +18,7 @@ impl Display for IpVersion {
     }
 }
 
-#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd, Debug)]
+#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd, Debug, Hash)]
 #[repr(u8)]
 pub enum TransportProtocol {
     Tcp = 0x06,
@@ -328,6 +328,10 @@ impl InternetPacket {
             }
             _ => String::new(),
         }
+    }
+
+    pub fn protocol(&self) -> TransportProtocol {
+        self.transport_proto
     }
 
     pub fn payload(&self) -> &[u8] {

@@ -8,7 +8,7 @@ use windows::Win32::System::Threading::{
 
 use crate::packet_sources::windows::PID;
 
-pub fn process_name(pid: PID) -> Result<String> {
+pub fn get_process_name(pid: PID) -> Result<String> {
     let mut buffer = [0u16; MAX_PATH as usize];
     let path = PWSTR(buffer.as_mut_ptr());
     let mut len = buffer.len() as u32;
@@ -37,7 +37,7 @@ pub fn process_name(pid: PID) -> Result<String> {
 mod tests {
     #[test]
     fn it_works() {
-        let name = super::process_name(std::process::id()).unwrap();
+        let name = super::get_process_name(std::process::id()).unwrap();
         assert!(name.contains("mitmproxy"));
     }
 }

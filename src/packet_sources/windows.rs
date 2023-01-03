@@ -21,12 +21,17 @@ use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
-use crate::process::process_name;
 
 pub const CONF: bincode::config::Configuration = bincode::config::standard();
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
 
 pub type PID = u32;
+
+#[derive(Debug, Clone)]
+pub struct ProcessInfo {
+    pub pid: PID,
+    pub process_name: Option<String>,
+}
 
 #[derive(Decode, Encode, PartialEq, Eq, Debug)]
 pub struct InterceptConf {
@@ -49,12 +54,12 @@ impl InterceptConf {
         }
     }
 
-    pub fn should_intercept(&self, pid: PID) -> bool {
+    pub fn should_intercept(&self, process_info: &ProcessInfo) -> bool {
         self.invert ^ {
-            if self.pids.contains(&pid) {
+            if self.pids.contains(&process_info.pid) {
                 return true;
             }
-            if let Ok(name) = process_name(pid) {
+            if let Some(name) = &process_info.process_name {
                 return self.process_names.iter().any(|n| name.contains(n));
             }
             false
