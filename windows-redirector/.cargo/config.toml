@@ -1,2 +1,0 @@
-[env]
-WINDIVERT_PATH = { value = "windivert/", relative = true }

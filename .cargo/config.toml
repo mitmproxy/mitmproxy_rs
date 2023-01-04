@@ -1,0 +1,2 @@
+[env]
+WINDIVERT_PATH = { value = "windows-redirector/windivert/", relative = true }

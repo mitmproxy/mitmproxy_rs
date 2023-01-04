@@ -79,8 +79,4 @@ impl DatagramTransport {
     fn drain<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         pyo3_asyncio::tokio::future_into_py(py, std::future::ready(Ok(())))
     }
-
-    fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
-        pyo3_asyncio::tokio::future_into_py(py, std::future::ready(Ok(())))
-    }
 }

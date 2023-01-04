@@ -1,5 +1,5 @@
 use std::net::SocketAddr;
-use std::path::Path;
+
 use std::sync::Arc;
 
 #[allow(unused_imports)]
@@ -16,7 +16,7 @@ use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
 
 use crate::task::PyInteropTask;
-use crate::util::{event_queue_unavailable, socketaddr_to_py, string_to_key};
+use crate::util::{socketaddr_to_py, string_to_key};
 
 // use interprocess::os::windows::named_pipe::{PipeListenerOptions, PipeMode};
 // use interprocess::os::windows::named_pipe::tokio::{DuplexMsgPipeStream, PipeListener, PipeListenerOptionsExt};
@@ -174,7 +174,7 @@ impl WindowsProxy {
 
         self.conf_tx
             .send(WindowsIpcSend::SetIntercept(conf))
-            .map_err(event_queue_unavailable)?;
+            .map_err(crate::util::event_queue_unavailable)?;
         Ok(())
     }
 
@@ -284,7 +284,7 @@ pub fn start_windows_proxy(
     // individual files. We'd need something like `as_dir` to ensure that redirector.exe and the
     // WinDivert dll/lib/sys files are in a single directory. So we just use __file__for now. 🤷
     let filename = py.import("mitmproxy_rs")?.filename()?;
-    let executable_path = Path::new(filename)
+    let executable_path = std::path::Path::new(filename)
         .parent()
         .ok_or_else(|| anyhow!("invalid path"))?
         .join("windows-redirector.exe");

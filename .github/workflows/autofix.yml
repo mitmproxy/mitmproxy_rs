@@ -14,4 +14,20 @@ concurrency:
 
 jobs:
   autofix:
-    uses: autofix-ci/autofix.ci/.github/workflows/rust.yml@main
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - run: cargo clippy --fix --workspace
+      - run: cargo fmt --all
+
+      - uses: autofix-ci/action@8bc06253bec489732e5f9c52884c7cace15c0160
