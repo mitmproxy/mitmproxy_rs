@@ -27,6 +27,10 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - if: matrix.os == 'windows-latest'
+        # workaround for https://github.com/rust-lang/cargo/issues/9096
+        run: cargo build --package windows-redirector
+
       - run: cargo clippy --fix --workspace
       - run: cargo fmt --all
 
