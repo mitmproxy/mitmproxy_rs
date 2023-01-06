@@ -50,6 +50,11 @@ pub struct WireGuardConf {
 impl PacketSourceConf for WireGuardConf {
     type Task = WireGuardTask;
     type Data = SocketAddr;
+
+    fn name(&self) -> &'static str {
+        "WireGuard server"
+    }
+
     async fn build(
         self,
         net_tx: Sender<NetworkEvent>,

@@ -13,6 +13,8 @@ pub trait PacketSourceConf {
     type Task: PacketSourceTask + Send + 'static;
     type Data: Send + 'static;
 
+    fn name(&self) -> &'static str;
+
     async fn build(
         self,
         net_tx: mpsc::Sender<NetworkEvent>,

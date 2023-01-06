@@ -4,13 +4,14 @@ use std::sync::Arc;
 
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
 use x25519_dalek::PublicKey;
 
 use mitmproxy::network::NetworkTask;
 #[cfg(windows)]
-use mitmproxy::packet_sources::windows::{InterceptConf, WindowsConf, WindowsIpcSend, PID};
+use mitmproxy::packet_sources::windows::{InterceptConf, WindowsConf, WindowsIpcSend};
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
 use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
@@ -62,7 +63,8 @@ impl Server {
     where
         T: PacketSourceConf,
     {
-        log::debug!("Initializing WireGuard server ...");
+        let typ = packet_source_conf.name();
+        log::debug!("Initializing {} ...", typ);
 
         // initialize channels between the WireGuard server and the virtual network device
         let (wg_to_smol_tx, wg_to_smol_rx) = mpsc::channel(256);
@@ -123,7 +125,7 @@ impl Server {
         );
         tokio::spawn(async move { sd_task.run().await });
 
-        log::debug!("WireGuard server successfully initialized.");
+        log::debug!("{} successfully initialized.", typ);
 
         Ok((
             Server {
@@ -153,25 +155,17 @@ pub struct WindowsProxy {
 #[cfg(windows)]
 #[pymethods]
 impl WindowsProxy {
-    pub fn set_intercept(&self, spec: String) -> PyResult<()> {
-        let conf = if spec.is_empty() {
-            InterceptConf::new(vec![std::process::id()], vec![], true)
-        } else {
-            let mut pids = vec![];
-            let mut procs = vec![];
-            for part in spec.split(',') {
-                let part = part.trim();
-                if part.is_empty() {
-                    return Err(anyhow!("invalid intercept spec: {}", spec).into());
-                }
-                match part.parse::<PID>() {
-                    Ok(pid) => pids.push(pid),
-                    Err(_) => procs.push(part.to_string()),
-                }
-            }
-            InterceptConf::new(pids, procs, false)
-        };
+    /// Return a textual description of the given spec,
+    /// or raise a ValueError if the spec is invalid.
+    #[staticmethod]
+    fn describe_spec(spec: &str) -> PyResult<String> {
+        InterceptConf::try_from(spec)
+            .map(|conf| conf.description())
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
 
+    pub fn set_intercept(&self, spec: &str) -> PyResult<()> {
+        let conf = InterceptConf::try_from(spec)?;
         self.conf_tx
             .send(WindowsIpcSend::SetIntercept(conf))
             .map_err(crate::util::event_queue_unavailable)?;

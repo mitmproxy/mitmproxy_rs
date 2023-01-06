@@ -3,7 +3,7 @@ use std::iter;
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -41,6 +41,37 @@ pub struct InterceptConf {
     invert: bool,
 }
 
+impl TryFrom<&str> for InterceptConf {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut val = value.trim();
+        if val.is_empty() {
+            return Ok(InterceptConf::new(vec![], vec![], false));
+        }
+        let invert = if val.starts_with('!') {
+            val = &val[1..];
+            true
+        } else {
+            false
+        };
+
+        let mut pids = vec![];
+        let mut procs = vec![];
+        for part in val.split(',') {
+            let part = part.trim();
+            if part.is_empty() {
+                bail!("invalid intercept spec: {}", value);
+            }
+            match part.parse::<PID>() {
+                Ok(pid) => pids.push(pid),
+                Err(_) => procs.push(part.to_string()),
+            }
+        }
+        Ok(InterceptConf::new(pids, procs, invert))
+    }
+}
+
 impl InterceptConf {
     pub fn new(pids: Vec<PID>, process_names: Vec<String>, invert: bool) -> Self {
         let pids = HashSet::from_iter(pids.into_iter());
@@ -57,12 +88,12 @@ impl InterceptConf {
     pub fn should_intercept(&self, process_info: &ProcessInfo) -> bool {
         self.invert ^ {
             if self.pids.contains(&process_info.pid) {
-                return true;
+                true
+            } else if let Some(name) = &process_info.process_name {
+                self.process_names.iter().any(|n| name.contains(n))
+            } else {
+                false
             }
-            if let Some(name) = &process_info.process_name {
-                return self.process_names.iter().any(|n| name.contains(n));
-            }
-            false
         }
     }
 
@@ -109,6 +140,11 @@ pub struct WindowsConf {
 impl PacketSourceConf for WindowsConf {
     type Task = WindowsTask;
     type Data = UnboundedSender<WindowsIpcSend>;
+
+    fn name(&self) -> &'static str {
+        "Windows proxy"
+    }
+
     async fn build(
         self,
         net_tx: Sender<NetworkEvent>,
@@ -224,8 +260,9 @@ impl PacketSourceTask for WindowsTask {
                         // possible for the ReadFile operation to return zero after reading a partial
                         // message. This happens when the message is larger than the read buffer.
                         //
-                        // We don't support messages larger than the buffer, so this a hard error.
-                        return Err(anyhow!("Empty IPC read."));
+                        // We don't support messages larger than the buffer, so this cannot happen.
+                        // Instead, empty reads indicate that the IPC client has disconnected.
+                        return Err(anyhow!("redirect daemon exited prematurely."));
                     }
                     let Ok((WindowsIpcRecv::Packet { data, pid, process_name }, n)) = bincode::decode_from_slice(&self.buf[..len], CONF) else {
                         return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
@@ -265,5 +302,45 @@ impl PacketSourceTask for WindowsTask {
 
         log::info!("Windows OS proxy task shutting down.");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_intercept_conf() {
+        let a = ProcessInfo {
+            pid: 1,
+            process_name: Some("a".into()),
+        };
+        let b = ProcessInfo {
+            pid: 2242,
+            process_name: Some("mitmproxy".into()),
+        };
+
+        let conf = InterceptConf::try_from("1,2,3").unwrap();
+        assert_eq!(conf.pids, vec![1, 2, 3].into_iter().collect());
+        assert!(conf.process_names.is_empty());
+        assert!(!conf.invert);
+        assert!(conf.should_intercept(&a));
+        assert!(!conf.should_intercept(&b));
+
+        let conf = InterceptConf::try_from("").unwrap();
+        assert!(conf.pids.is_empty());
+        assert!(conf.process_names.is_empty());
+        assert!(!conf.invert);
+        assert!(!conf.should_intercept(&a));
+        assert!(!conf.should_intercept(&b));
+
+        let conf = InterceptConf::try_from("!2242").unwrap();
+        assert_eq!(conf.pids, vec![2242].into_iter().collect());
+        assert!(conf.process_names.is_empty());
+        assert!(conf.invert);
+        assert!(conf.should_intercept(&a));
+        assert!(!conf.should_intercept(&b));
+
+        assert!(InterceptConf::try_from(",,").is_err());
     }
 }

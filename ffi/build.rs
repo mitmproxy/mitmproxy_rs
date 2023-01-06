@@ -29,11 +29,15 @@ fn main() {
         }
         .expect("Failed to copy windows-redirector.exe. Has it been built yet?");
         for file in windivert_files {
-            fs::copy(
+            if fs::copy(
                 format!("../windows-redirector/windivert/{}", file),
                 format!("mitmproxy_rs/{}", file),
-            )
-            .unwrap_or_else(|_| panic!("Failed to copy {}", file));
+            ).is_err() {
+                // WinDivert64.sys is sometimes weirdly locked, we can ignore that.
+                if file != "WinDivert64.sys" {
+                    panic!("Failed to copy {}", file)
+                }
+            }
         }
     } else {
         fs::remove_file("mitmproxy_rs/windows-redirector.exe").ok();
