@@ -32,7 +32,9 @@ fn main() {
             if fs::copy(
                 format!("../windows-redirector/windivert/{}", file),
                 format!("mitmproxy_rs/{}", file),
-            ).is_err() {
+            )
+            .is_err()
+            {
                 // WinDivert64.sys is sometimes weirdly locked, we can ignore that.
                 if file != "WinDivert64.sys" {
                     panic!("Failed to copy {}", file)

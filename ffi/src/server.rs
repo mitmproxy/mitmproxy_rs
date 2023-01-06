@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
 use x25519_dalek::PublicKey;
@@ -161,7 +160,7 @@ impl WindowsProxy {
     fn describe_spec(spec: &str) -> PyResult<String> {
         InterceptConf::try_from(spec)
             .map(|conf| conf.description())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     pub fn set_intercept(&self, spec: &str) -> PyResult<()> {
