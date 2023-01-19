@@ -40,10 +40,9 @@ impl TcpStream {
             .send(TransportCommand::ReadData(self.connection_id, n, tx))
             .map_err(event_queue_unavailable)?;
 
-        pyo3_asyncio::tokio::future_into_py(py, async move {
+        pyo3_asyncio::tokio::future_into_py::<_, Py<PyBytes>>(py, async move {
             let data = rx.await.map_err(connection_closed)?;
-            let bytes: Py<PyBytes> = Python::with_gil(|py| PyBytes::new(py, &data).into_py(py));
-            Ok(bytes)
+            Python::with_gil(|py| Ok(PyBytes::new(py, &data).into_py(py)))
         })
     }
 
