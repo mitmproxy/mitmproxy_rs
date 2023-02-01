@@ -32,7 +32,7 @@ jobs:
       - name: Install maturin[zig] from PyPI
         uses: install-pinned/maturin-with-zig@19aca2b8219fdafc14ee8dedb66d0bba604187de  # 0.14.1
       - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@3777ff70863bf0cc96aca977f44b79c3c497a828  # 12.3.0
+        uses: install-pinned/pdoc@6e29ca2a90375a8b666e3da0ef763bd6688727fc  # 12.3.0
 
       # workaround for https://github.com/rust-lang/cargo/issues/9096
       - run: cargo build --package windows-redirector
