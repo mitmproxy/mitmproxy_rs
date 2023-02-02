@@ -30,7 +30,7 @@ jobs:
             target/
           key: autofix-${{ hashFiles('**/Cargo.lock') }}
 
-      - run: rustup toolchain install --profile minimal --component rustfmt --component clippy ${{ env.rust_clippy }}
+      - run: rustup toolchain install ${{ env.rust_clippy }} --profile minimal --component rustfmt --component clippy
       - run: rustup default ${{ env.rust_clippy }}
 
       - if: runner.os == 'Windows'
