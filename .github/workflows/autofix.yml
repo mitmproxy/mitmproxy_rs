@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  rust_clippy: 1.65  # MSRV
+
 jobs:
   autofix:
     runs-on: windows-latest
@@ -25,7 +28,10 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: autofix-${{ hashFiles('**/Cargo.lock') }}
+
+      - run: rustup toolchain install --profile minimal --component rustfmt --component clippy ${{ env.rust_clippy }}
+      - run: rustup default ${{ env.rust_clippy }}
 
       - if: runner.os == 'Windows'
         # workaround for https://github.com/rust-lang/cargo/issues/9096
