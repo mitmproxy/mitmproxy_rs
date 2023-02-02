@@ -11,7 +11,7 @@ publish.workspace = true
 
 [dependencies]
 anyhow = "1.0.68"
-base64 = "0.20"
+base64 = "0.21"
 boringtun = { version = "0.5", default-features = false }
 hex = "0.4"
 smoltcp = "0.8"
