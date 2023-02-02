@@ -431,7 +431,7 @@ fn relay_socket_events(handle: WinDivert<SocketLayer>, tx: UnboundedSender<Event
                 }
             }
             Err(err) => {
-                eprintln!("WinDivert Error: {:?}", err);
+                eprintln!("WinDivert Error: {err:?}");
                 std::process::exit(74);
             }
         };
@@ -456,7 +456,7 @@ fn relay_network_events(handle: WinDivert<NetworkLayer>, tx: UnboundedSender<Eve
                 }
             }
             Err(err) => {
-                eprintln!("WinDivert Error: {:?}", err);
+                eprintln!("WinDivert Error: {err:?}");
                 std::process::exit(74);
             }
         };

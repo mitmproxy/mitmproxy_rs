@@ -229,7 +229,7 @@ mod tests {
         let udp_socket = UdpSocket::bind("127.0.0.1:0").unwrap();
 
         let table = super::network_table().unwrap();
-        println!("{:#?}", table);
+        println!("{table:#?}");
 
         let tcp_port = tcp_listener.local_addr().unwrap().port();
         let tcp_pid = table

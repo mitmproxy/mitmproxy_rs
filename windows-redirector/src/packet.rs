@@ -56,7 +56,7 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ParseError::UnknownTransportProtocol(proto) => {
-                write!(f, "Unknown transport protocol: {}", proto)
+                write!(f, "Unknown transport protocol: {proto}")
             }
             ParseError::Malformed => write!(f, "Malformed packet"),
         }
