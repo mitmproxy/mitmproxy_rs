@@ -63,7 +63,7 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
                 Some(buf.as_mut_ptr() as *mut _),
                 &mut buf_size,
                 false,
-                AF_INET.0,
+                AF_INET.0.into(),
                 TCP_TABLE_OWNER_PID_ALL,
                 0,
             )
@@ -103,7 +103,7 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
                 Some(buf.as_mut_ptr() as *mut _),
                 &mut buf_size,
                 false,
-                AF_INET6.0,
+                AF_INET6.0.into(),
                 TCP_TABLE_OWNER_PID_ALL,
                 0,
             )
@@ -143,7 +143,7 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
                 Some(buf.as_mut_ptr() as *mut _),
                 &mut buf_size,
                 false,
-                AF_INET.0,
+                AF_INET.0.into(),
                 UDP_TABLE_OWNER_PID,
                 0,
             )
@@ -180,7 +180,7 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
                 Some(buf.as_mut_ptr() as *mut _),
                 &mut buf_size,
                 false,
-                AF_INET6.0,
+                AF_INET6.0.into(),
                 UDP_TABLE_OWNER_PID,
                 0,
             )
