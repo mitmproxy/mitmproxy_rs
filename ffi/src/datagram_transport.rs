@@ -74,7 +74,9 @@ impl DatagramTransport {
 
     /// Close the UDP transport.
     /// This method is a no-op and only exists for API compatibility with DatagramTransport
-    fn close(&mut self) -> PyResult<()> { Ok(()) }
+    fn close(&mut self) -> PyResult<()> {
+        Ok(())
+    }
 
     /// Check whether this UDP transport is being closed.
     /// This method is a no-op and only exists for API compatibility with DatagramTransport
