@@ -16,16 +16,12 @@ fn main() -> Result<()> {
         .unwrap_or(51820);
 
     let static_private = StaticSecret::from(
-        <[u8; 32]>::try_from(BASE64.decode(
-            b"qG8b7LI/s+ezngWpXqj5A7Nj988hbGL+eQ8ePki0iHk=",
-        )?)
-        .unwrap(),
+        <[u8; 32]>::try_from(BASE64.decode(b"qG8b7LI/s+ezngWpXqj5A7Nj988hbGL+eQ8ePki0iHk=")?)
+            .unwrap(),
     );
     let peer_static_public = PublicKey::from(
-        <[u8; 32]>::try_from(BASE64.decode(
-            b"mitmV5Wo7pRJrHNAKhZEI0nzqqeO8u4fXG+zUbZEXA0=",
-        )?)
-        .unwrap(),
+        <[u8; 32]>::try_from(BASE64.decode(b"mitmV5Wo7pRJrHNAKhZEI0nzqqeO8u4fXG+zUbZEXA0=")?)
+            .unwrap(),
     );
     let tunn = Tunn::new(static_private, peer_static_public, None, None, 0, None).unwrap();
 

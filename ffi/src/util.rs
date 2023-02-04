@@ -1,3 +1,4 @@
+use data_encoding::BASE64;
 use pyo3::exceptions::PyOSError;
 use pyo3::types::{PyString, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
@@ -6,13 +7,13 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use tokio::sync::mpsc;
 use x25519_dalek::{PublicKey, StaticSecret};
-use data_encoding::BASE64;
 
 pub fn string_to_key<T>(data: String) -> PyResult<T>
 where
     T: From<[u8; 32]>,
 {
-    BASE64.decode(data.as_bytes())
+    BASE64
+        .decode(data.as_bytes())
         .ok()
         .and_then(|bytes| <[u8; 32]>::try_from(bytes).ok())
         .map(T::from)
