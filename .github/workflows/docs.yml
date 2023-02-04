@@ -30,9 +30,11 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@19aca2b8219fdafc14ee8dedb66d0bba604187de  # 0.14.1
+        uses: install-pinned/maturin-with-zig@19aca2b8219fdafc14ee8dedb66d0bba604187de
+      - name: Install mypy from PyPI
+        uses: install-pinned/mypy@3945a3392555da2be6861c1522985ccff7d6fca4
       - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@6e29ca2a90375a8b666e3da0ef763bd6688727fc  # 12.3.0
+        uses: install-pinned/pdoc@6e29ca2a90375a8b666e3da0ef763bd6688727fc
 
       # workaround for https://github.com/rust-lang/cargo/issues/9096
       - run: cargo build --package windows-redirector
@@ -41,12 +43,9 @@ jobs:
         working-directory: ./ffi
       - run: pip install --no-index --find-links target/wheels/ mitmproxy_rs
 
-      - run: pdoc -o docs/ mitmproxy_rs
+      - run: stubtest --allowlist ffi/stubtest_allowlist.txt mitmproxy_rs
 
-      - run: |
-          if ((Select-String -Path ./docs/mitmproxy_rs.html -Pattern unknown) -ne $null) { 
-            throw "incomplete .pyi file" 
-          }
+      - run: pdoc -o docs/ mitmproxy_rs
 
       - uses: actions/upload-pages-artifact@v1
         with:

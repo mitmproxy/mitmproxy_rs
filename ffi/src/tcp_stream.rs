@@ -97,6 +97,11 @@ impl TcpStream {
         Ok(self.is_closing)
     }
 
+    /// Wait until the TCP stream is closed (currently a no-op).
+    fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+        pyo3_asyncio::tokio::future_into_py(py, std::future::ready(Ok(())))
+    }
+
     /// Query the TCP stream for details of the underlying network connection.
     ///
     /// Supported values: `peername`, `sockname`, `original_dst`, and `original_src`.

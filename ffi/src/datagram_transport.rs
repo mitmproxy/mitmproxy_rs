@@ -72,6 +72,22 @@ impl DatagramTransport {
         }
     }
 
+    /// Close the UDP transport.
+    /// This method is a no-op and only exists for API compatibility with DatagramTransport
+    fn close(&mut self) -> PyResult<()> { Ok(()) }
+
+    /// Check whether this UDP transport is being closed.
+    /// This method is a no-op and only exists for API compatibility with DatagramTransport
+    fn is_closing(&self) -> PyResult<bool> {
+        Ok(false)
+    }
+
+    /// Wait until the UDP transport is closed.
+    /// This method is a no-op and only exists for API compatibility with DatagramTransport
+    fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+        pyo3_asyncio::tokio::future_into_py(py, std::future::ready(Ok(())))
+    }
+
     fn get_protocol(self_: Py<Self>) -> Py<Self> {
         self_
     }
