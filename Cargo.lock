@@ -180,12 +180,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
-name = "base64"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
-
-[[package]]
 name = "bincode"
 version = "2.0.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -235,7 +229,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51d23af4567b268583ccc30a983a0f937fb5fc05e71e9de96012a72ad10d1a45"
 dependencies = [
  "aead",
- "base64 0.13.1",
+ "base64",
  "blake2",
  "chacha20poly1305",
  "hex",
@@ -529,6 +523,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "data-encoding"
+version = "2.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23d8666cb01533c39dde32bcbab8e227b4ed6679b2c925eba05feabea39508fb"
+
+[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -777,7 +777,7 @@ version = "7.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f19b9f54f7c7f55e31401bb647626ce0cf0f67b0004982ce815b3ee72a02aa8"
 dependencies = [
- "base64 0.13.1",
+ "base64",
  "byteorder",
  "flate2",
  "nom",
@@ -1115,11 +1115,11 @@ dependencies = [
 
 [[package]]
 name = "mitm-wg-test-client"
-version = "0.2.0-beta.3"
+version = "0.2.0-beta.4"
 dependencies = [
  "anyhow",
- "base64 0.21.0",
  "boringtun",
+ "data-encoding",
  "hex",
  "smoltcp",
  "x25519-dalek",
@@ -1127,11 +1127,10 @@ dependencies = [
 
 [[package]]
 name = "mitmproxy"
-version = "0.2.0-beta.3"
+version = "0.2.0-beta.4"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64 0.21.0",
  "bincode",
  "boringtun",
  "console-subscriber",
@@ -1150,11 +1149,11 @@ dependencies = [
 
 [[package]]
 name = "mitmproxy_rs"
-version = "0.2.0-beta.3"
+version = "0.2.0-beta.4"
 dependencies = [
  "anyhow",
- "base64 0.21.0",
  "console-subscriber",
+ "data-encoding",
  "env_logger",
  "log",
  "mitmproxy",
@@ -1918,7 +1917,7 @@ dependencies = [
  "async-stream",
  "async-trait",
  "axum",
- "base64 0.13.1",
+ "base64",
  "bytes",
  "futures-core",
  "futures-util",
@@ -2298,7 +2297,7 @@ dependencies = [
 
 [[package]]
 name = "windows-redirector"
-version = "0.2.0-beta.3"
+version = "0.2.0-beta.4"
 dependencies = [
  "anyhow",
  "bincode",
