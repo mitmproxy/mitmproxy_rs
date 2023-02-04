@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use anyhow::{bail, Result};
 use boringtun::noise::{Tunn, TunnResult};
+use data_encoding::BASE64;
 use smoltcp::wire::{Ipv4Packet, TcpPacket, TcpSeqNumber, UdpPacket};
 use x25519_dalek::{PublicKey, StaticSecret};
 
@@ -15,14 +16,14 @@ fn main() -> Result<()> {
         .unwrap_or(51820);
 
     let static_private = StaticSecret::from(
-        <[u8; 32]>::try_from(base64::decode(
-            "qG8b7LI/s+ezngWpXqj5A7Nj988hbGL+eQ8ePki0iHk=",
+        <[u8; 32]>::try_from(BASE64.decode(
+            b"qG8b7LI/s+ezngWpXqj5A7Nj988hbGL+eQ8ePki0iHk=",
         )?)
         .unwrap(),
     );
     let peer_static_public = PublicKey::from(
-        <[u8; 32]>::try_from(base64::decode(
-            "mitmV5Wo7pRJrHNAKhZEI0nzqqeO8u4fXG+zUbZEXA0=",
+        <[u8; 32]>::try_from(BASE64.decode(
+            b"mitmV5Wo7pRJrHNAKhZEI0nzqqeO8u4fXG+zUbZEXA0=",
         )?)
         .unwrap(),
     );
