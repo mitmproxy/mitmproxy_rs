@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+    pull_request:
 
 # security: restrict permissions for CI jobs.
 permissions:
@@ -43,7 +44,7 @@ jobs:
         working-directory: ./ffi
       - run: pip install --no-index --find-links target/wheels/ mitmproxy_rs
 
-      - run: stubtest --allowlist ffi/stubtest_allowlist.txt mitmproxy_rs
+      - run: stubtest --allowlist ffi/stubtest-allowlist.txt mitmproxy_rs
 
       - run: pdoc -o docs/ mitmproxy_rs
 
@@ -54,6 +55,7 @@ jobs:
   # Deploy the artifact to GitHub pages.
   # This is a separate job so that only actions/deploy-pages has the necessary permissions.
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     permissions:
