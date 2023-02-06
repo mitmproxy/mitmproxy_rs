@@ -17,14 +17,13 @@ use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::Shell::SE_ERR_ACCESSDENIED;
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
+use crate::intercept_conf::InterceptConf;
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
-use crate::intercept_conf::InterceptConf;
 
 pub const CONF: bincode::config::Configuration = bincode::config::standard();
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
-
 
 #[derive(Decode, Encode, PartialEq, Eq, Debug)]
 pub enum WindowsIpcRecv {

@@ -13,12 +13,8 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use windivert::address::WinDivertAddress;
 use windivert::prelude::*;
 
-use mitmproxy::packet_sources::windows::{
-    WindowsIpcRecv, WindowsIpcSend, CONF, IPC_BUF_SIZE,
-};
-use mitmproxy::intercept_conf::{
-    InterceptConf, ProcessInfo
-};
+use mitmproxy::intercept_conf::{InterceptConf, ProcessInfo};
+use mitmproxy::packet_sources::windows::{WindowsIpcRecv, WindowsIpcSend, CONF, IPC_BUF_SIZE};
 use mitmproxy::windows::{get_process_name, network_table};
 use mitmproxy::MAX_PACKET_SIZE;
 

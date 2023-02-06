@@ -292,11 +292,11 @@ pub fn start_os_proxy(
             return Err(anyhow!("{} does not exist", executable_path.display()).into());
         }
         let conf = WindowsConf { executable_path };
-        return pyo3_asyncio::tokio::future_into_py(py, async move {
+        pyo3_asyncio::tokio::future_into_py(py, async move {
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
 
             Ok(OsProxy { server, conf_tx })
-        });
+        })
     }
     #[cfg(not(windows))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
