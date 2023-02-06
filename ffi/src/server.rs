@@ -8,18 +8,17 @@ use pyo3::prelude::*;
 use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
 use x25519_dalek::PublicKey;
 
+use mitmproxy::intercept_conf::InterceptConf;
 use mitmproxy::network::NetworkTask;
 #[cfg(windows)]
-use mitmproxy::packet_sources::windows::{InterceptConf, WindowsConf, WindowsIpcSend};
+use mitmproxy::packet_sources::windows::{WindowsConf, WindowsIpcSend};
+
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
 use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
 
 use crate::task::PyInteropTask;
 use crate::util::{socketaddr_to_py, string_to_key};
-
-// use interprocess::os::windows::named_pipe::{PipeListenerOptions, PipeMode};
-// use interprocess::os::windows::named_pipe::tokio::{DuplexMsgPipeStream, PipeListener, PipeListenerOptionsExt};
 
 #[derive(Debug)]
 pub struct Server {
@@ -143,17 +142,16 @@ impl Drop for Server {
     }
 }
 
-#[cfg(windows)]
 #[pyclass]
 #[derive(Debug)]
-pub struct WindowsProxy {
+pub struct OsProxy {
     server: Server,
+    #[cfg(windows)]
     conf_tx: mpsc::UnboundedSender<WindowsIpcSend>,
 }
 
-#[cfg(windows)]
 #[pymethods]
-impl WindowsProxy {
+impl OsProxy {
     /// Return a textual description of the given spec,
     /// or raise a ValueError if the spec is invalid.
     #[staticmethod]
@@ -163,14 +161,17 @@ impl WindowsProxy {
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
+    /// Set a new intercept spec.
     pub fn set_intercept(&self, spec: &str) -> PyResult<()> {
-        let conf = InterceptConf::try_from(spec)?;
+        let _conf = InterceptConf::try_from(spec)?;
+        #[cfg(windows)]
         self.conf_tx
-            .send(WindowsIpcSend::SetIntercept(conf))
+            .send(WindowsIpcSend::SetIntercept(_conf))
             .map_err(crate::util::event_queue_unavailable)?;
         Ok(())
     }
 
+    /// Close the OS proxy server.
     pub fn close(&mut self) {
         self.server.close()
     }
@@ -266,30 +267,39 @@ pub fn start_wireguard_server(
     })
 }
 
-#[cfg(windows)]
+/// Start an OS-level proxy to intercept traffic from the current machine.
+///
+/// *Availability: Windows*
 #[pyfunction]
-pub fn start_windows_proxy(
+#[allow(unused_variables)]
+pub fn start_os_proxy(
     py: Python<'_>,
     handle_connection: PyObject,
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
-    // 2022: Ideally we'd use importlib.resources here, but that only provides `as_file` for
-    // individual files. We'd need something like `as_dir` to ensure that redirector.exe and the
-    // WinDivert dll/lib/sys files are in a single directory. So we just use __file__for now. 🤷
-    let filename = py.import("mitmproxy_rs")?.filename()?;
-    let executable_path = std::path::Path::new(filename)
-        .parent()
-        .ok_or_else(|| anyhow!("invalid path"))?
-        .join("windows-redirector.exe");
+    #[cfg(windows)]
+    {
+        // 2022: Ideally we'd use importlib.resources here, but that only provides `as_file` for
+        // individual files. We'd need something like `as_dir` to ensure that redirector.exe and the
+        // WinDivert dll/lib/sys files are in a single directory. So we just use __file__for now. 🤷
+        let filename = py.import("mitmproxy_rs")?.filename()?;
+        let executable_path = std::path::Path::new(filename)
+            .parent()
+            .ok_or_else(|| anyhow!("invalid path"))?
+            .join("windows-redirector.exe");
 
-    if !executable_path.exists() {
-        return Err(anyhow!("{} does not exist", executable_path.display()).into());
+        if !executable_path.exists() {
+            return Err(anyhow!("{} does not exist", executable_path.display()).into());
+        }
+        let conf = WindowsConf { executable_path };
+        return pyo3_asyncio::tokio::future_into_py(py, async move {
+            let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
+
+            Ok(OsProxy { server, conf_tx })
+        });
     }
-
-    let conf = WindowsConf { executable_path };
-    pyo3_asyncio::tokio::future_into_py(py, async move {
-        let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
-
-        Ok(WindowsProxy { server, conf_tx })
-    })
+    #[cfg(not(windows))]
+    Err(pyo3::exceptions::PyNotImplementedError::new_err(
+        "OS proxy mode is only available on Windows",
+    ))
 }

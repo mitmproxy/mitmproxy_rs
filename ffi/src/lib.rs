@@ -43,10 +43,8 @@ pub fn mitmproxy_rs(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(util::genkey, m)?)?;
     m.add_function(wrap_pyfunction!(util::pubkey, m)?)?;
 
-    #[cfg(windows)]
-    m.add_function(wrap_pyfunction!(server::start_windows_proxy, m)?)?;
-    #[cfg(windows)]
-    m.add_class::<server::WindowsProxy>()?;
+    m.add_function(wrap_pyfunction!(server::start_os_proxy, m)?)?;
+    m.add_class::<server::OsProxy>()?;
 
     m.add_class::<tcp_stream::TcpStream>()?;
     m.add_class::<datagram_transport::DatagramTransport>()?;
