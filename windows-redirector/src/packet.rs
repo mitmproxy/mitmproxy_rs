@@ -1,6 +1,12 @@
+
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use anyhow::{Result};
+use internet_checksum::Checksum;
+
+
+
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 #[repr(u8)]
@@ -337,6 +343,63 @@ impl InternetPacket {
     pub fn payload(&self) -> &[u8] {
         &self.data[self.payload_offset..]
     }
+
+    pub fn recalculate_ip_checksum(&mut self) {
+        if self.ip_version == IpVersion::V4 {
+            self.data[10..12].copy_from_slice(&[0, 0]);
+            let mut checksum = Checksum::new();
+            checksum.add_bytes(&self.data[0..20]);
+            self.data[10..12].copy_from_slice(&checksum.checksum());
+        }
+    }
+
+    fn pseudo_header_checksum(&self) -> Checksum {
+        let upper_layer_packet_length = self.data.len() - self.transport_proto_offset;
+
+        let mut checksum = Checksum::new();
+        match self.ip_version {
+            IpVersion::V4 => {
+                let mut pseudo = [0u8; 12];
+                pseudo[0..8].copy_from_slice(&self.data[12..20]);
+                pseudo[9] = self.transport_proto as u8;
+                pseudo[10..12].copy_from_slice(&(upper_layer_packet_length as u16).to_be_bytes());
+                checksum.add_bytes(&pseudo);
+            }
+            IpVersion::V6 => {
+                let mut pseudo = [0u8; 40];
+                pseudo[0..32].copy_from_slice(&self.data[8..40]);
+                pseudo[32..36].copy_from_slice(&(upper_layer_packet_length as u32).to_be_bytes());
+                pseudo[39] = self.transport_proto as u8;
+                dbg!(&pseudo);
+                checksum.add_bytes(&pseudo);
+            }
+        };
+        checksum
+    }
+
+    pub fn recalculate_tcp_checksum(&mut self) {
+        if self.transport_proto != TransportProtocol::Tcp {
+            return;
+        }
+
+        let checksum_offset = self.transport_proto_offset + 16;
+        let mut checksum = self.pseudo_header_checksum();
+        self.data[checksum_offset..checksum_offset + 2].copy_from_slice(&[0, 0]);
+        checksum.add_bytes(&self.data[self.transport_proto_offset..]);
+        self.data[checksum_offset..checksum_offset + 2].copy_from_slice(&checksum.checksum());
+    }
+
+    pub fn recalculate_udp_checksum(&mut self) {
+        if self.transport_proto != TransportProtocol::Udp {
+            return;
+        }
+
+        let checksum_offset = self.transport_proto_offset + 6;
+        let mut checksum = self.pseudo_header_checksum();
+        self.data[checksum_offset..checksum_offset + 2].copy_from_slice(&[0, 0]);
+        checksum.add_bytes(&self.data[self.transport_proto_offset..]);
+        self.data[checksum_offset..checksum_offset + 2].copy_from_slice(&checksum.checksum());
+    }
 }
 
 impl Display for ConnectionId {
@@ -442,5 +505,36 @@ mod tests {
                 Err(ParseError::Malformed)
             ));
         }
+    }
+
+    #[test]
+    fn recalculate_ipv4_checksum() {
+        let raw = hex::decode(TCP_SYN).unwrap();
+        let mut raw2 = raw.clone();
+        raw2[10..12].copy_from_slice(&[0xab, 0xcd]);
+        let mut packet = InternetPacket::new(raw2).unwrap();
+
+        packet.recalculate_ip_checksum();
+        assert_eq!(packet.data, raw);
+    }
+
+    #[test]
+    fn recalculate_tcp_checksum_ipv4() {
+        let raw = hex::decode(TCP_SYN).unwrap();
+        let mut raw2 = raw.clone();
+        raw2[36..38].copy_from_slice(&[0xab, 0xcd]);
+        let mut packet = InternetPacket::new(raw2).unwrap();
+        packet.recalculate_tcp_checksum();
+        assert_eq!(packet.data, raw);
+    }
+
+    #[test]
+    fn recalculate_udp_checksum_ipv6() {
+        let raw = hex::decode(DNS_REQ).unwrap();
+        let mut raw2 = raw.clone();
+        raw2[70..72].copy_from_slice(&[0xab, 0xcd]);
+        let mut packet = InternetPacket::new(raw2).unwrap();
+        packet.recalculate_udp_checksum();
+        assert_eq!(packet.data, raw);
     }
 }

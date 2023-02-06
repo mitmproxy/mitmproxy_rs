@@ -494,7 +494,7 @@ async fn insert_into_connections(
 
 async fn process_packet(
     address: WinDivertAddress<NetworkLayer>,
-    packet: InternetPacket,
+    mut packet: InternetPacket,
     action: &ConnectionAction,
     inject_handle: &WinDivert<NetworkLayer>,
     ipc_tx: &mut UnboundedSender<WindowsIpcRecv>,
@@ -523,6 +523,17 @@ async fn process_packet(
                 address.outbound(),
                 address.loopback()
             );
+
+            if !address.ip_checksum() {
+                packet.recalculate_ip_checksum();
+            }
+            if !address.tcp_checksum() {
+                packet.recalculate_tcp_checksum();
+            }
+            if !address.udp_checksum() {
+                packet.recalculate_udp_checksum();
+            }
+
             ipc_tx.send(WindowsIpcRecv::Packet {
                 data: packet.inner(),
                 pid: *pid,
