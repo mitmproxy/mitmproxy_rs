@@ -37,7 +37,7 @@ jobs:
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --package windows-redirector
 
-      - run: cargo clippy --fix --workspace
+      - run: cargo clippy --fix --workspace --allow-dirty
       - run: cargo fmt --all
 
       - uses: autofix-ci/action@8bc06253bec489732e5f9c52884c7cace15c0160
