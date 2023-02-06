@@ -14,7 +14,7 @@ use windows::Win32::System::Threading::{
     PROCESS_QUERY_LIMITED_INFORMATION,
 };
 
-use crate::packet_sources::windows::PID;
+use crate::intercept_conf::PID;
 
 pub fn get_process_name(pid: PID) -> Result<String> {
     let mut buffer = [0u16; MAX_PATH as usize];

@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-    pull_request:
+  pull_request:
 
 # security: restrict permissions for CI jobs.
 permissions:
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   # Build the documentation and upload the static HTML files as an artifact.
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -31,14 +31,11 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@19aca2b8219fdafc14ee8dedb66d0bba604187de
+        uses: install-pinned/maturin-with-zig@39e7f65d43a471e5acd36deeafbd31de3fe167fb
       - name: Install mypy from PyPI
-        uses: install-pinned/mypy@3945a3392555da2be6861c1522985ccff7d6fca4
+        uses: install-pinned/mypy@1ad1914d18ad1479bb0f9f5dd4ab1acda49b5d73
       - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@6e29ca2a90375a8b666e3da0ef763bd6688727fc
-
-      # workaround for https://github.com/rust-lang/cargo/issues/9096
-      - run: cargo build --package windows-redirector
+        uses: install-pinned/pdoc@1d14345ed3c020d3d3c8d4428cbed20f2c3d6222
 
       - run: maturin build
         working-directory: ./ffi

@@ -26,13 +26,13 @@ def pubkey(private_key: str) -> str: ...
 
 # Windows
 
-async def start_windows_proxy(
+async def start_os_proxy(
     handle_connection: Callable[[TcpStream], Awaitable[None]],
     receive_datagram: Callable[[DatagramTransport, bytes, tuple[str, int], tuple[str, int]], None],
-) -> WindowsProxy: ...
+) -> OsProxy: ...
 
 @final
-class WindowsProxy:
+class OsProxy:
     @staticmethod
     def describe_spec(spec: str) -> None: ...
     def set_intercept(self, spec: str) -> None: ...
