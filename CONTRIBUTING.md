@@ -61,7 +61,8 @@ you can perform the following steps to ship a release:
    - you are on the `main` branch with a clean working tree.
    - `cargo test` is passing without errors.
 2. Bump the version in [`Cargo.toml`](Cargo.toml).
-3. Update [`CHANGELOG.md`](./CHANGELOG.md).
-4. Commit the changes and tag them.
+3. Run `cargo update --workspace` to update the lockfile with the new version.
+4. Update [`CHANGELOG.md`](./CHANGELOG.md).
+5. Commit the changes and tag them.
    - Convention: Tag name is simply the version number, e.g. `1.0.1`.
-5. Manually confirm the CI deploy step on GitHub.
+6. Manually confirm the CI deploy step on GitHub.
