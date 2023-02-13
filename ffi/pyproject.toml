@@ -22,3 +22,8 @@ include = '\.pyi?$'
 
 [project.entry-points.pyinstaller40]
 hook-dirs = "mitmproxy_rs._pyinstaller:hook_dirs"
+
+[tool.mypy]
+exclude = [
+    'mitmproxy_rs/_pyinstaller'
+]
