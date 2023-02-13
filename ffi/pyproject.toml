@@ -19,3 +19,6 @@ classifiers = [
 [tool.black]
 line-length = 140
 include = '\.pyi?$'
+
+[project.entry-points.pyinstaller40]
+hook-dirs = "mitmproxy_rs._pyinstaller:hook_dirs"
