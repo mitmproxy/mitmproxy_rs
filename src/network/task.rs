@@ -71,7 +71,6 @@ impl NetworkIO {
         tunnel_info: TunnelInfo,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
-
         if let IpPacket::V4(p) = &packet {
             if !p.verify_checksum() {
                 log::warn!("Received invalid IP packet (checksum error).");
