@@ -30,6 +30,9 @@ jobs:
 
       - run: rustup toolchain install ${{ env.rust_clippy }} --profile minimal --component rustfmt --component clippy
       - run: rustup default ${{ env.rust_clippy }}
+      - uses: actions/setup-python@v4
+        with:
+          python-version-file: .github/python-version.txt
 
       - if: runner.os == 'Windows'
         # workaround for https://github.com/rust-lang/cargo/issues/9096

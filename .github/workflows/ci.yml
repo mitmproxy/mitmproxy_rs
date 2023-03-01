@@ -46,7 +46,7 @@ jobs:
         run: rustup toolchain install ${{ matrix.rust }} --profile minimal
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10' 
+          python-version-file: .github/python-version.txt
 
       - if: runner.os == 'Windows'
         # workaround for https://github.com/rust-lang/cargo/issues/9096
@@ -101,7 +101,7 @@ jobs:
       - run: rustup show
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10' 
+          python-version-file: .github/python-version.txt
 
       - name: Install maturin[zig] from PyPI
         uses: install-pinned/maturin-with-zig@39e7f65d43a471e5acd36deeafbd31de3fe167fb
