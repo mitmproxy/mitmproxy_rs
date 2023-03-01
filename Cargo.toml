@@ -45,7 +45,7 @@ console-subscriber = { version = "0.1.8", optional = true }
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
-tokio = { git = 'https://github.com/mhils/tokio', branch = 'readmode-fix' }
+tokio = { git = 'https://github.com/tokio-rs/tokio', rev = '2e7f996f17ff9cac761c775d359355d4e37555b1' }
 
 [target.'cfg(windows)'.dependencies]
 bincode.workspace = true

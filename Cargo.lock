@@ -1848,8 +1848,8 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.24.2"
-source = "git+https://github.com/mhils/tokio?branch=readmode-fix#c582f04c614b3433b461936715edaed2774ecb7c"
+version = "1.25.0"
+source = "git+https://github.com/tokio-rs/tokio?rev=2e7f996f17ff9cac761c775d359355d4e37555b1#2e7f996f17ff9cac761c775d359355d4e37555b1"
 dependencies = [
  "autocfg",
  "bytes",
@@ -1863,7 +1863,7 @@ dependencies = [
  "socket2",
  "tokio-macros",
  "tracing",
- "windows-sys 0.42.0",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
@@ -1879,7 +1879,7 @@ dependencies = [
 [[package]]
 name = "tokio-macros"
 version = "1.8.2"
-source = "git+https://github.com/mhils/tokio?branch=readmode-fix#c582f04c614b3433b461936715edaed2774ecb7c"
+source = "git+https://github.com/tokio-rs/tokio?rev=2e7f996f17ff9cac761c775d359355d4e37555b1#2e7f996f17ff9cac761c775d359355d4e37555b1"
 dependencies = [
  "proc-macro2",
  "quote",
