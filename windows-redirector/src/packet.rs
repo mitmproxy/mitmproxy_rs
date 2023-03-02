@@ -1,12 +1,8 @@
-
+use anyhow::Result;
+use internet_checksum::Checksum;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use anyhow::{Result};
-use internet_checksum::Checksum;
-
-
-
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 #[repr(u8)]
