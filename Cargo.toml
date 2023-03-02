@@ -36,7 +36,7 @@ log = "0.4.17"
 once_cell = "1"
 pretty-hex = "0.3.0"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
-smoltcp = "0.8"
+smoltcp = "0.9"
 tokio = { version = "1.23", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util"] }
 boringtun = { version = "0.5", default-features = false }
 x25519-dalek = "2.0.0-pre.1"
@@ -46,6 +46,7 @@ console-subscriber = { version = "0.1.8", optional = true }
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
 tokio = { git = 'https://github.com/tokio-rs/tokio', rev = '2e7f996f17ff9cac761c775d359355d4e37555b1' }
+smoltcp = { git = 'https://github.com/mhils/smoltcp', rev = 'f65351adfa92db5193f368368cb668bac721fe43' }
 
 [target.'cfg(windows)'.dependencies]
 bincode.workspace = true

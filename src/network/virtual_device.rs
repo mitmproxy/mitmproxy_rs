@@ -28,11 +28,11 @@ impl VirtualDevice {
     }
 }
 
-impl<'a> Device<'a> for VirtualDevice {
-    type RxToken = VirtualRxToken;
-    type TxToken = VirtualTxToken<'a>;
+impl Device for VirtualDevice {
+    type RxToken<'a> = VirtualRxToken where Self: 'a;
+    type TxToken<'a> = VirtualTxToken<'a> where Self: 'a;
 
-    fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
+    fn receive(&mut self, _timestamp: Instant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
         if self.rx_buffer.is_empty() {
             return None;
         }
@@ -48,7 +48,7 @@ impl<'a> Device<'a> for VirtualDevice {
         None
     }
 
-    fn transmit(&'a mut self) -> Option<Self::TxToken> {
+    fn transmit(&mut self, _timestamp: Instant) -> Option<Self::TxToken<'_>> {
         match self.tx_channel.try_reserve() {
             Ok(permit) => Some(VirtualTxToken { permit }),
             Err(_) => None,
@@ -68,19 +68,22 @@ pub struct VirtualTxToken<'a> {
 }
 
 impl<'a> TxToken for VirtualTxToken<'a> {
-    fn consume<R, F>(self, _timestamp: Instant, len: usize, f: F) -> smoltcp::Result<R>
+    fn consume<R, F>(self, len: usize, f: F) -> R
     where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+        F: FnOnce(&mut [u8]) -> R,
     {
         let mut buffer = vec![0; len];
         let result = f(&mut buffer);
 
-        if result.is_ok() {
-            let cmd = NetworkCommand::SendPacket(
-                IpPacket::try_from(buffer).map_err(|_| smoltcp::Error::Malformed)?,
-            );
-            self.permit.send(cmd);
+        match IpPacket::try_from(buffer) {
+            Ok(packet) => {
+                self.permit.send(NetworkCommand::SendPacket(packet));
+            }
+            Err(err) => {
+                log::error!("Failed to parse packet from smol: {:?}", err)
+            }
         }
+
         result
     }
 }
@@ -90,9 +93,9 @@ pub struct VirtualRxToken {
 }
 
 impl RxToken for VirtualRxToken {
-    fn consume<R, F>(mut self, _timestamp: Instant, f: F) -> smoltcp::Result<R>
+    fn consume<R, F>(mut self, f: F) -> R
     where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+        F: FnOnce(&mut [u8]) -> R,
     {
         f(&mut self.buffer[..])
     }

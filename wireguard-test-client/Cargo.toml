@@ -14,5 +14,5 @@ anyhow = "1.0.68"
 data-encoding = "2.3.3"
 boringtun = { version = "0.5", default-features = false }
 hex = "0.4"
-smoltcp = "0.8"
+smoltcp = "0.9"
 x25519-dalek = "2.0.0-pre.1"
