@@ -35,7 +35,7 @@ jobs:
       - name: Install mypy from PyPI
         uses: install-pinned/mypy@1ad1914d18ad1479bb0f9f5dd4ab1acda49b5d73
       - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@1d14345ed3c020d3d3c8d4428cbed20f2c3d6222
+        uses: install-pinned/pdoc@d717c0239026589ecf9ff4ed8f225f8df2a9399b
 
       - run: maturin build
         working-directory: ./ffi
