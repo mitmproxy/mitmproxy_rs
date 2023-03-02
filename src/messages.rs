@@ -116,7 +116,7 @@ impl IpPacket {
 
     pub fn transport_protocol(&self) -> IpProtocol {
         match self {
-            IpPacket::V4(packet) => packet.protocol(),
+            IpPacket::V4(packet) => packet.next_header(),
             IpPacket::V6(packet) => {
                 log::debug!("TODO: Implement IPv6 next_header logic.");
                 packet.next_header()

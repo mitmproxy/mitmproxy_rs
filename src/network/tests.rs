@@ -123,12 +123,12 @@ fn build_ipv4_tcp_packet(
     let ip_repr = Ipv4Repr {
         src_addr,
         dst_addr,
-        protocol: IpProtocol::Tcp,
+        next_header: IpProtocol::Tcp,
         payload_len: tcp_repr.header_len() + payload.len(),
         hop_limit: 255,
     };
 
-    let buf = vec![0u8; IpRepr::Ipv4(ip_repr).total_len()];
+    let buf = vec![0u8; IpRepr::Ipv4(ip_repr).buffer_len()];
 
     let mut ip_packet = Ipv4Packet::new_unchecked(buf);
     ip_repr.emit(&mut ip_packet, &ChecksumCapabilities::default());
@@ -176,7 +176,7 @@ fn build_ipv6_tcp_packet(
         hop_limit: 255,
     };
 
-    let buf = vec![0u8; IpRepr::Ipv6(ip_repr).total_len()];
+    let buf = vec![0u8; IpRepr::Ipv6(ip_repr).buffer_len()];
 
     let mut ip_packet = Ipv6Packet::new_unchecked(buf);
     ip_repr.emit(&mut ip_packet);
@@ -203,12 +203,12 @@ fn build_ipv4_udp_packet(
     let ip_repr = Ipv4Repr {
         src_addr,
         dst_addr,
-        protocol: IpProtocol::Udp,
+        next_header: IpProtocol::Udp,
         payload_len: udp_repr.header_len() + payload.len(),
         hop_limit: 255,
     };
 
-    let buf = vec![0u8; IpRepr::Ipv4(ip_repr).total_len()];
+    let buf = vec![0u8; IpRepr::Ipv4(ip_repr).buffer_len()];
 
     let mut ip_packet = Ipv4Packet::new_unchecked(buf);
     ip_repr.emit(&mut ip_packet, &ChecksumCapabilities::default());
@@ -242,7 +242,7 @@ fn build_ipv6_udp_packet(
         hop_limit: 255,
     };
 
-    let buf = vec![0u8; IpRepr::Ipv6(ip_repr).total_len()];
+    let buf = vec![0u8; IpRepr::Ipv6(ip_repr).buffer_len()];
 
     let mut ip_packet = Ipv6Packet::new_unchecked(buf);
     ip_repr.emit(&mut ip_packet);

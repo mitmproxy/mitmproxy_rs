@@ -1,20 +1,21 @@
 use std::cmp;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::net::SocketAddr;
 
 use anyhow::Result;
 use pretty_hex::pretty_hex;
+use smoltcp::iface::{Config, SocketSet};
+use smoltcp::socket::{tcp, Socket};
+use smoltcp::wire::IpEndpoint;
 use smoltcp::{
-    iface::{Interface, InterfaceBuilder, Routes, SocketHandle},
+    iface::{Interface, SocketHandle},
     phy::ChecksumCapabilities,
-    socket::{Socket, TcpSocket, TcpSocketBuffer, TcpState},
     time::{Duration, Instant},
     wire::{
         IpAddress, IpCidr, IpProtocol, IpRepr, Ipv4Address, Ipv4Packet, Ipv4Repr, Ipv6Address,
         Ipv6Packet, Ipv6Repr, TcpPacket, UdpPacket, UdpRepr,
     },
-    Error,
 };
 use tokio::sync::{
     broadcast::Receiver as BroadcastReceiver,
@@ -45,8 +46,11 @@ pub(super) struct SocketData {
     addr_tuple: (SocketAddr, SocketAddr),
 }
 
-struct NetworkIO {
-    iface: Interface<'static, VirtualDevice>,
+struct NetworkIO<'a> {
+    iface: Interface,
+    device: VirtualDevice,
+    sockets: SocketSet<'a>,
+
     net_tx: Sender<NetworkCommand>,
 
     socket_data: HashMap<ConnectionId, SocketData>,
@@ -54,10 +58,30 @@ struct NetworkIO {
     next_connection_id: ConnectionId,
 }
 
-impl NetworkIO {
-    fn new(iface: Interface<'static, VirtualDevice>, net_tx: Sender<NetworkCommand>) -> Self {
+impl<'a> NetworkIO<'a> {
+    fn new(net_tx: Sender<NetworkCommand>) -> Self {
+        let mut device = VirtualDevice::new(net_tx.clone());
+
+        let config = Config::new();
+        let mut iface = Interface::new(config, &mut device);
+
+        iface.set_any_ip(true);
+
+        iface.update_ip_addrs(|ip_address| {
+            ip_address
+                .push(IpCidr::new(IpAddress::v4(0, 0, 0, 1), 0))
+                .unwrap();
+        });
+        // TODO: IPv6
+        iface
+            .routes_mut()
+            .add_default_ipv4_route(Ipv4Address::new(0, 0, 0, 1))
+            .unwrap();
+
         NetworkIO {
             iface,
+            device,
+            sockets: SocketSet::new(Vec::new()),
             net_tx,
             socket_data: HashMap::new(),
             active_connections: HashSet::new(),
@@ -158,16 +182,16 @@ impl NetworkIO {
             && !tcp_packet.ack()
             && !self.active_connections.contains(&(src_addr, dst_addr))
         {
-            let mut socket = TcpSocket::new(
-                TcpSocketBuffer::new(vec![0u8; 64 * 1024]),
-                TcpSocketBuffer::new(vec![0u8; 64 * 1024]),
+            let mut socket = tcp::Socket::new(
+                tcp::SocketBuffer::new(vec![0u8; 64 * 1024]),
+                tcp::SocketBuffer::new(vec![0u8; 64 * 1024]),
             );
 
             socket.listen(dst_addr)?;
             socket.set_timeout(Some(Duration::from_secs(60)));
             socket.set_keep_alive(Some(Duration::from_secs(28)));
 
-            let handle = self.iface.add_socket(socket);
+            let handle = self.sockets.add(socket);
 
             let connection_id = self.next_connection_id;
             self.next_connection_id += 1;
@@ -192,7 +216,7 @@ impl NetworkIO {
             permit.send(event);
         }
 
-        self.iface.device_mut().receive_packet(packet);
+        self.device.receive_packet(packet);
         Ok(())
     }
 
@@ -261,7 +285,7 @@ impl NetworkIO {
             (SocketAddr::V4(src_addr), SocketAddr::V4(dst_addr)) => IpRepr::Ipv4(Ipv4Repr {
                 src_addr: Ipv4Address::from(*src_addr.ip()),
                 dst_addr: Ipv4Address::from(*dst_addr.ip()),
-                protocol: IpProtocol::Udp,
+                next_header: IpProtocol::Udp,
                 payload_len: udp_repr.header_len() + data.len(),
                 hop_limit: 255,
             }),
@@ -278,7 +302,7 @@ impl NetworkIO {
             }
         };
 
-        let buf = vec![0u8; ip_repr.total_len()];
+        let buf = vec![0u8; ip_repr.buffer_len()];
 
         let mut ip_packet = match ip_repr {
             IpRepr::Ipv4(repr) => {
@@ -291,7 +315,6 @@ impl NetworkIO {
                 repr.emit(&mut packet);
                 IpPacket::from(packet)
             }
-            _ => unreachable!(),
         };
 
         udp_repr.emit(
@@ -345,39 +368,19 @@ impl NetworkIO {
             }
         }
     }
-
-    fn poll_smol(&mut self) {
-        #[cfg(debug_assertions)]
-        log::debug!("Polling virtual network device ...");
-
-        loop {
-            match self.iface.poll(Instant::now()) {
-                Ok(_) => break,
-                Err(Error::Exhausted) => {
-                    log::debug!("smoltcp: exhausted.");
-                    break;
-                }
-                Err(e) => {
-                    // these can happen for "normal" reasons such as invalid packets,
-                    // we just write a log message and keep going.
-                    log::debug!("smoltcp network error: {}", e)
-                }
-            }
-        }
-    }
 }
 
-pub struct NetworkTask {
-    iface: Interface<'static, VirtualDevice>,
+pub struct NetworkTask<'a> {
     net_tx: Sender<NetworkCommand>,
     net_rx: Receiver<NetworkEvent>,
     py_tx: Sender<TransportEvent>,
     py_rx: UnboundedReceiver<TransportCommand>,
 
     sd_watcher: BroadcastReceiver<()>,
+    io: NetworkIO<'a>,
 }
 
-impl NetworkTask {
+impl NetworkTask<'_> {
     pub fn new(
         net_tx: Sender<NetworkCommand>,
         net_rx: Receiver<NetworkEvent>,
@@ -385,34 +388,19 @@ impl NetworkTask {
         py_rx: UnboundedReceiver<TransportCommand>,
         sd_watcher: BroadcastReceiver<()>,
     ) -> Result<Self> {
-        let device = VirtualDevice::new(net_tx.clone());
-
-        let builder = InterfaceBuilder::new(device, vec![]);
-        let ip_addrs = [IpCidr::new(IpAddress::v4(0, 0, 0, 1), 0)];
-        let mut routes = Routes::new(BTreeMap::new());
-        // TODO: v6
-        routes
-            .add_default_ipv4_route(Ipv4Address::new(0, 0, 0, 1))
-            .unwrap();
-
-        let iface = builder
-            .any_ip(true)
-            .ip_addrs(ip_addrs)
-            .routes(routes)
-            .finalize();
-
+        let io = NetworkIO::new(net_tx.clone());
         Ok(Self {
-            iface,
             net_tx,
             net_rx,
             py_tx,
             py_rx,
             sd_watcher,
+            io,
         })
     }
 
     pub async fn run(mut self) -> Result<()> {
-        let mut io = NetworkIO::new(self.iface, self.net_tx.clone());
+        let mut io = self.io;
         let mut remove_conns = Vec::new();
 
         let mut py_tx_permit: Option<Permit<TransportEvent>> = None;
@@ -424,7 +412,7 @@ impl NetworkTask {
             // 3. Check if we can wake up any waiters, move more data in the send buffer, or clean up sockets.
 
             // check device for timeouts
-            let delay = io.iface.poll_delay(Instant::now());
+            let delay = io.iface.poll_delay(Instant::now(), &mut io.sockets);
 
             #[cfg(debug_assertions)]
             if let Some(d) = delay {
@@ -476,13 +464,16 @@ impl NetworkTask {
             }
 
             // poll virtual network device
-            io.poll_smol();
+            #[cfg(debug_assertions)]
+            log::debug!("Polling virtual network device ...");
+            io.iface
+                .poll(Instant::now(), &mut io.device, &mut io.sockets);
 
             #[cfg(debug_assertions)]
             log::debug!("Processing TCP connections ...");
 
             for (connection_id, data) in io.socket_data.iter_mut() {
-                let socket = io.iface.get_socket::<TcpSocket>(data.handle);
+                let socket = io.sockets.get_mut::<tcp::Socket>(data.handle);
 
                 // receive data over the socket
                 if data.recv_waiter.is_some() {
@@ -499,7 +490,7 @@ impl NetworkTask {
                         }
                     } else {
                         // We can't use .may_recv() here as it returns false during establishment.
-                        use TcpState::*;
+                        use tcp::State::*;
                         match socket.state() {
                             // can we still receive something in the future?
                             CloseWait | LastAck | Closed | Closing | TimeWait => {
@@ -548,19 +539,22 @@ impl NetworkTask {
                 }
 
                 // if socket is closed, mark connection for removal
-                if socket.state() == TcpState::Closed {
+                if socket.state() == tcp::State::Closed {
                     remove_conns.push(*connection_id);
                 }
             }
 
             for connection_id in remove_conns.drain(..) {
                 let data = io.socket_data.remove(&connection_id).unwrap();
-                io.iface.remove_socket(data.handle);
+                io.sockets.remove(data.handle);
                 io.active_connections.remove(&data.addr_tuple);
             }
 
             // poll again. we may have new stuff to do.
-            io.poll_smol();
+            #[cfg(debug_assertions)]
+            log::debug!("Polling virtual network device ...");
+            io.iface
+                .poll(Instant::now(), &mut io.device, &mut io.sockets);
         }
 
         // TODO: process remaining pending data after the shutdown request was received?
@@ -570,11 +564,12 @@ impl NetworkTask {
     }
 }
 
-impl fmt::Debug for NetworkTask {
+impl fmt::Debug for NetworkTask<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let sockets: Vec<String> = self
-            .iface
-            .sockets()
+            .io
+            .sockets
+            .iter()
             .filter_map(|(_h, s)| match s {
                 Socket::Tcp(s) => Some(s),
                 _ => None,
@@ -582,8 +577,14 @@ impl fmt::Debug for NetworkTask {
             .map(|sock| {
                 format!(
                     "TCP {:<21} {:<21} {}",
-                    sock.remote_endpoint(),
-                    sock.local_endpoint(),
+                    sock.remote_endpoint()
+                        .map(|e| e.to_string())
+                        .as_ref()
+                        .map_or("not connected", String::as_str),
+                    sock.local_endpoint()
+                        .map(|e| e.to_string())
+                        .as_ref()
+                        .map_or("not connected", String::as_str),
                     sock.state()
                 )
             })
