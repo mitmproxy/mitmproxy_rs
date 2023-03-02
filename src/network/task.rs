@@ -7,7 +7,7 @@ use anyhow::Result;
 use pretty_hex::pretty_hex;
 use smoltcp::iface::{Config, SocketSet};
 use smoltcp::socket::{tcp, Socket};
-use smoltcp::wire::IpEndpoint;
+
 use smoltcp::{
     iface::{Interface, SocketHandle},
     phy::ChecksumCapabilities,
