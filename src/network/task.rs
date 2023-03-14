@@ -89,18 +89,60 @@ impl<'a> NetworkIO<'a> {
         }
     }
 
+    f// Handle incoming IP packets
     fn receive_packet(
         &mut self,
         packet: IpPacket,
         tunnel_info: TunnelInfo,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
-        if let IpPacket::V4(p) = &packet {
-            if !p.verify_checksum() {
-                log::warn!("Received invalid IP packet (checksum error).");
-                return Ok(());
+        match packet.transport_protocol() {
+            IpProtocol::Tcp => self.receive_packet_tcp(packet, tunnel_info, permit),
+            IpProtocol::Udp => self.receive_packet_udp(packet, tunnel_info, permit),
+            IpProtocol::Icmp => {
+                // If the incoming packet is an ICMP echo request, forward it to the original source
+                if let Some(reply) = self.handle_icmp_echo_request(&packet) {
+                    self.send_packet(reply, tunnel_info)?;
+                }
+                Ok(())
+            },
+            _ => {
+                log::debug!(
+                    "Received IP packet for unknown protocol: {}",
+                    packet.transport_protocol()
+                );
+                Ok(())
             }
         }
+    }
+
+    // Handle an incoming ICMP echo request and create a corresponding reply packet
+    fn handle_icmp_echo_request(&self, packet: &IpPacket) -> Option<IpPacket> {
+        // Check if the incoming packet is an ICMP echo request
+        if let Some(icmp_packet) = packet.transport_data_as_icmp() {
+            if icmp_packet.message_type() == IcmpMessageType::EchoRequest {
+                // Swap the source and destination IP addresses, and set the message type to EchoReply
+                let src_ip = packet.dst_ip();
+                let dst_ip = packet.src_ip();
+                let mut reply_icmp_packet = IcmpPacket::new(IcmpMessageType::EchoReply);
+                reply_icmp_packet.set_identifier(icmp_packet.identifier());
+                reply_icmp_packet.set_sequence_number(icmp_packet.sequence_number());
+
+                // Create the reply packet with the modified ICMP packet
+                let reply_packet = IpPacket::new(
+                    src_ip,
+                    dst_ip,
+                    IpProtocol::Icmp,
+                    reply_icmp_packet.packet(),
+                );
+
+                return Some(reply_packet);
+            }
+        }
+
+        None
+    }
+
 
         match packet.transport_protocol() {
             IpProtocol::Tcp => self.receive_packet_tcp(packet, tunnel_info, permit),
