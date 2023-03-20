@@ -8,7 +8,9 @@ use pretty_hex::pretty_hex;
 use smoltcp::iface::{Config, SocketSet};
 use smoltcp::socket::{tcp, Socket};
 
-use smoltcp::wire::{Icmpv4Repr, Icmpv4Packet, Icmpv4Message, Icmpv6Repr, Icmpv6Packet, Icmpv6Message};
+use smoltcp::wire::{
+    Icmpv4Message, Icmpv4Packet, Icmpv4Repr, Icmpv6Message, Icmpv6Packet, Icmpv6Repr,
+};
 use smoltcp::{
     iface::{Interface, SocketHandle},
     phy::ChecksumCapabilities,
@@ -222,10 +224,7 @@ impl<'a> NetworkIO<'a> {
         Ok(())
     }
 
-    fn receive_packet_icmp(
-        &mut self,
-        packet: IpPacket,
-    ) -> Result<()> {
+    fn receive_packet_icmp(&mut self, packet: IpPacket) -> Result<()> {
         // Some apps check network connectivity by sending ICMP pings. ICMP traffic is currently
         // swallowed by mitmproxy_rs, which makes them believe that there is no network connectivity.
         // Generating fake ICMP replies as a simple workaround.
@@ -402,7 +401,7 @@ impl<'a> NetworkIO<'a> {
 fn handle_icmpv4_echo_request(mut input_packet: Ipv4Packet<Vec<u8>>) -> Option<IpPacket> {
     let src_addr = input_packet.src_addr();
     let dst_addr = input_packet.dst_addr();
-    
+
     // Parsing ICMP Packet
     let mut input_icmpv4_packet = match Icmpv4Packet::new_checked(input_packet.payload_mut()) {
         Ok(p) => p,
@@ -414,10 +413,13 @@ fn handle_icmpv4_echo_request(mut input_packet: Ipv4Packet<Vec<u8>>) -> Option<I
 
     // Checking that it is an ICMP Echo Request.
     if input_icmpv4_packet.msg_type() != Icmpv4Message::EchoRequest {
-        log::debug!("Unsupported ICMPv4 packet of type: {}", input_icmpv4_packet.msg_type());
+        log::debug!(
+            "Unsupported ICMPv4 packet of type: {}",
+            input_icmpv4_packet.msg_type()
+        );
         return None;
     }
-    
+
     // Creating fake response packet.
     let icmp_repr = Icmpv4Repr::EchoReply {
         ident: input_icmpv4_packet.echo_ident(),
@@ -446,7 +448,7 @@ fn handle_icmpv4_echo_request(mut input_packet: Ipv4Packet<Vec<u8>>) -> Option<I
 fn handle_icmpv6_echo_request(mut input_packet: Ipv6Packet<Vec<u8>>) -> Option<IpPacket> {
     let src_addr = input_packet.src_addr();
     let dst_addr = input_packet.dst_addr();
-    
+
     // Parsing ICMP Packet
     let mut input_icmpv6_packet = match Icmpv6Packet::new_checked(input_packet.payload_mut()) {
         Ok(p) => p,
@@ -458,10 +460,13 @@ fn handle_icmpv6_echo_request(mut input_packet: Ipv6Packet<Vec<u8>>) -> Option<I
 
     // Checking that it is an ICMP Echo Request.
     if input_icmpv6_packet.msg_type() != Icmpv6Message::EchoRequest {
-        log::debug!("Unsupported ICMPv6 packet of type: {}", input_icmpv6_packet.msg_type());
+        log::debug!(
+            "Unsupported ICMPv6 packet of type: {}",
+            input_icmpv6_packet.msg_type()
+        );
         return None;
     }
-    
+
     // Creating fake response packet.
     let icmp_repr = Icmpv6Repr::EchoReply {
         ident: input_icmpv6_packet.echo_ident(),
