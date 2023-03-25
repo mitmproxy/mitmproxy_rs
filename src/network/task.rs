@@ -229,21 +229,17 @@ impl<'a> NetworkIO<'a> {
         // swallowed by mitmproxy_rs, which makes them believe that there is no network connectivity.
         // Generating fake ICMP replies as a simple workaround.
 
-        let permit = match self.net_tx.try_reserve() {
-            Ok(p) => p,
-            Err(_) => {
-                log::debug!("Channel full, discarding ICMP packet.");
-                return Ok(());
+        if let Ok(permit) = self.net_tx.try_reserve() { 
+            // Generating and sending fake replies for ICMP echo requests. Ignoring all other ICMP types.
+            let response_packet = match packet {
+                IpPacket::V4(packet) => handle_icmpv4_echo_request(packet),
+                IpPacket::V6(packet) => handle_icmpv6_echo_request(packet),
+            };
+            if let Some(response_packet) = response_packet {
+                permit.send(NetworkCommand::SendPacket(response_packet));
             }
-        };
-
-        // Generating and sending fake replies for ICMP echo requests. Ignoring all other types.
-        let response_packet = match packet {
-            IpPacket::V4(packet) => handle_icmpv4_echo_request(packet),
-            IpPacket::V6(packet) => handle_icmpv6_echo_request(packet),
-        };
-        if let Some(response_packet) = response_packet {
-            permit.send(NetworkCommand::SendPacket(response_packet));
+        } else {
+            log::debug!("Channel full, discarding ICMP packet.");
         }
         Ok(())
     }

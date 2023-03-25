@@ -259,6 +259,64 @@ fn build_ipv6_udp_packet(
     ip_packet
 }
 
+fn build_icmp4_echo_packet(
+    src_addr: Ipv4Address,
+    dst_addr: Ipv4Address,
+    ident: u16,
+    seq_no: u16,
+    data: &[u8],
+) -> Ipv4Packet<Vec<u8>> {
+    let icmp_repr = Icmpv4Repr::EchoRequest { ident, seq_no, data };
+
+    let ip_repr = Ipv4Repr {
+        src_addr,
+        dst_addr,
+        next_header: IpProtocol::Icmp,
+        payload_len: icmp_repr.buffer_len(),
+        hop_limit: 255,
+    };
+
+    let buf = vec![0u8; ip_repr.buffer_len() + icmp_repr.buffer_len()];
+    let mut output_ipv4_packet = Ipv4Packet::new_unchecked(buf);
+    ip_repr.emit(&mut output_ipv4_packet, &ChecksumCapabilities::default());
+    icmp_repr.emit(
+        &mut Icmpv4Packet::new_unchecked(output_ipv4_packet.payload_mut()),
+        &ChecksumCapabilities::default(),
+    );
+
+    output_ipv4_packet
+}
+
+fn build_icmp6_echo_packet(
+    src_addr: Ipv6Address,
+    dst_addr: Ipv6Address,
+    ident: u16,
+    seq_no: u16,
+    data: &[u8],
+) -> Ipv6Packet<Vec<u8>> {
+    let icmp_repr = Icmpv6Repr::EchoRequest { ident, seq_no, data };
+
+    let ip_repr = Ipv6Repr {
+        src_addr,
+        dst_addr,
+        next_header: IpProtocol::Icmp,
+        payload_len: icmp_repr.buffer_len(),
+        hop_limit: 255,
+    };
+
+    let buf = vec![0u8; ip_repr.buffer_len() + icmp_repr.buffer_len()];
+    let mut output_ipv6_packet = Ipv6Packet::new_unchecked(buf);
+    ip_repr.emit(&mut output_ipv6_packet);
+    icmp_repr.emit(
+        &IpAddress::from(src_addr),
+        &IpAddress::from(dst_addr),
+        &mut Icmpv6Packet::new_unchecked(output_ipv6_packet.payload_mut()),
+        &ChecksumCapabilities::default(),
+    );
+
+    output_ipv6_packet
+}
+
 fn init_logger() {
     let _ = env_logger::builder()
         .filter_level(log::LevelFilter::Debug)
@@ -786,6 +844,84 @@ async fn tcp_ipv6_connection() -> Result<()> {
         &[],
     );
     mock.push_wg_packet(tcp_ip_syn_packet.into()).await?;
+
+    mock.stop().await
+}
+
+#[tokio::test]
+async fn receive_icmp4_echo() -> Result<()> {
+    init_logger();
+    let mut mock = MockNetwork::init().await?;
+
+    let src_addr = Ipv4Address([10, 0, 0, 1]);
+    let dst_addr = Ipv4Address([10, 0, 0, 42]);
+    let data = "hello world!".as_bytes();
+
+    let icmp_echo_ip_packet = build_icmp4_echo_packet(src_addr, dst_addr, 42, 31337, data);
+
+    mock.push_wg_packet(icmp_echo_ip_packet.into()).await?;
+
+    let response = mock.pull_wg_packet().await.unwrap();
+
+    if let IpPacket::V4(mut response) = response
+    {           
+        // Checking that source and destination addresses were flipped and data was the same.
+        assert_eq!(src_addr, response.dst_addr());
+        assert_eq!(dst_addr, response.src_addr());
+
+        let mut input_icmpv4_packet = match Icmpv4Packet::new_checked(response.payload_mut()) {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(anyhow!("Invalid ICMPv4 packet emitted: {}", e.to_string()));
+            }
+        };
+
+        assert_eq!(input_icmpv4_packet.msg_type(), Icmpv4Message::EchoReply);
+        assert_eq!(42, input_icmpv4_packet.echo_ident());
+        assert_eq!(31337, input_icmpv4_packet.echo_seq_no());
+        assert_eq!(data, input_icmpv4_packet.data_mut());
+    } else {
+        return Err(anyhow!("Wrong packet IP type emitted!"));
+    }
+
+    mock.stop().await
+}
+
+#[tokio::test]
+async fn receive_icmp6_echo() -> Result<()> {
+    init_logger();
+    let mut mock = MockNetwork::init().await?;
+
+    let src_addr = Ipv6Address(b"cafecafecafe0001".to_owned());
+    let dst_addr = Ipv6Address(b"cafecafecafe0002".to_owned());
+    let data = "hello world!".as_bytes();
+
+    let icmp_echo_ip_packet = build_icmp6_echo_packet(src_addr, dst_addr, 42, 31337, data);
+
+    mock.push_wg_packet(icmp_echo_ip_packet.into()).await?;
+
+    let response = mock.pull_wg_packet().await.unwrap();
+
+    if let IpPacket::V6(mut response) = response
+    {           
+        // Checking that source and destination addresses were flipped and data was the same.
+        assert_eq!(src_addr, response.dst_addr());
+        assert_eq!(dst_addr, response.src_addr());
+
+        let mut input_icmpv6_packet = match Icmpv6Packet::new_checked(response.payload_mut()) {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(anyhow!("Invalid ICMPv6 packet emitted: {}", e.to_string()));
+            }
+        };
+
+        assert_eq!(input_icmpv6_packet.msg_type(), Icmpv6Message::EchoReply);
+        assert_eq!(42, input_icmpv6_packet.echo_ident());
+        assert_eq!(31337, input_icmpv6_packet.echo_seq_no());
+        assert_eq!(data, input_icmpv6_packet.payload_mut());
+    } else {
+        return Err(anyhow!("Wrong packet IP type emitted!"));
+    }
 
     mock.stop().await
 }
