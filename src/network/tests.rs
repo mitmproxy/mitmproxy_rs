@@ -266,7 +266,11 @@ fn build_icmp4_echo_packet(
     seq_no: u16,
     data: &[u8],
 ) -> Ipv4Packet<Vec<u8>> {
-    let icmp_repr = Icmpv4Repr::EchoRequest { ident, seq_no, data };
+    let icmp_repr = Icmpv4Repr::EchoRequest {
+        ident,
+        seq_no,
+        data,
+    };
 
     let ip_repr = Ipv4Repr {
         src_addr,
@@ -294,7 +298,11 @@ fn build_icmp6_echo_packet(
     seq_no: u16,
     data: &[u8],
 ) -> Ipv6Packet<Vec<u8>> {
-    let icmp_repr = Icmpv6Repr::EchoRequest { ident, seq_no, data };
+    let icmp_repr = Icmpv6Repr::EchoRequest {
+        ident,
+        seq_no,
+        data,
+    };
 
     let ip_repr = Ipv6Repr {
         src_addr,
@@ -863,8 +871,7 @@ async fn receive_icmp4_echo() -> Result<()> {
 
     let response = mock.pull_wg_packet().await.unwrap();
 
-    if let IpPacket::V4(mut response) = response
-    {           
+    if let IpPacket::V4(mut response) = response {
         // Checking that source and destination addresses were flipped and data was the same.
         assert_eq!(src_addr, response.dst_addr());
         assert_eq!(dst_addr, response.src_addr());
@@ -902,8 +909,7 @@ async fn receive_icmp6_echo() -> Result<()> {
 
     let response = mock.pull_wg_packet().await.unwrap();
 
-    if let IpPacket::V6(mut response) = response
-    {           
+    if let IpPacket::V6(mut response) = response {
         // Checking that source and destination addresses were flipped and data was the same.
         assert_eq!(src_addr, response.dst_addr());
         assert_eq!(dst_addr, response.src_addr());

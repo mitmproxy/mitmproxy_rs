@@ -229,7 +229,7 @@ impl<'a> NetworkIO<'a> {
         // swallowed by mitmproxy_rs, which makes them believe that there is no network connectivity.
         // Generating fake ICMP replies as a simple workaround.
 
-        if let Ok(permit) = self.net_tx.try_reserve() { 
+        if let Ok(permit) = self.net_tx.try_reserve() {
             // Generating and sending fake replies for ICMP echo requests. Ignoring all other ICMP types.
             let response_packet = match packet {
                 IpPacket::V4(packet) => handle_icmpv4_echo_request(packet),
