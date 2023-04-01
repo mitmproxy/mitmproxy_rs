@@ -104,7 +104,7 @@ jobs:
           python-version-file: .github/python-version.txt
 
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@295438a94576ddcce4751d98fc82dc4044e27273
+        uses: install-pinned/maturin-with-zig@08ab18af43c5cbc56477f7754e42cfaa9a95971e
 
       - if: runner.os == 'Windows'
         # workaround for https://github.com/rust-lang/cargo/issues/9096
