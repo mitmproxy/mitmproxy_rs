@@ -18,7 +18,7 @@ edition = "2021"
 rust-version = "1.65.0"
 
 [workspace.dependencies]
-bincode = "2.0.0-rc.2"
+bincode = "2.0.0-rc.3"
 
 [package]
 name = "mitmproxy"
