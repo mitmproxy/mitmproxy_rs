@@ -1,4 +1,5 @@
 fn main() {
+    /*
     let mut res = winres::WindowsResource::new();
     res.set_manifest(
         r#"
@@ -15,4 +16,5 @@ fn main() {
     );
     res.set_icon("mitmproxy.ico");
     res.compile().unwrap();
+     */
 }

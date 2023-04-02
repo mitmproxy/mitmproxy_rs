@@ -50,16 +50,21 @@ smoltcp = { git = 'https://github.com/mhils/smoltcp', rev = 'f65351adfa92db5193f
 
 [target.'cfg(windows)'.dependencies]
 bincode.workspace = true
+image = "0.24.6"
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.48.0"
 features = [
     "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Gdi",
     "Win32_Networking_WinSock",
     "Win32_NetworkManagement_IpHelper",
+    "Win32_System_LibraryLoader",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Threading",
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
-    "Win32_System_Threading",
 ]
 
 [dev-dependencies]

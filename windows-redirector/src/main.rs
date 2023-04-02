@@ -15,7 +15,8 @@ use windivert::prelude::*;
 
 use mitmproxy::intercept_conf::{InterceptConf, ProcessInfo};
 use mitmproxy::packet_sources::windows::{WindowsIpcRecv, WindowsIpcSend, CONF, IPC_BUF_SIZE};
-use mitmproxy::windows::{get_process_name, network_table};
+use mitmproxy::windows::processes::get_process_name;
+use mitmproxy::windows::network::network_table;
 use mitmproxy::MAX_PACKET_SIZE;
 
 use crate::packet::{ConnectionId, InternetPacket, TransportProtocol};
