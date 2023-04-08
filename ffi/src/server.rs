@@ -142,7 +142,7 @@ impl Drop for Server {
     }
 }
 
-#[pyclass]
+#[pyclass(module="mitmproxy_rs")]
 #[derive(Debug)]
 pub struct OsProxy {
     server: Server,
@@ -187,7 +187,7 @@ impl OsProxy {
 /// to be similar to the API provided by
 /// [`asyncio.Server`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.Server)
 /// from the Python standard library.
-#[pyclass]
+#[pyclass(module="mitmproxy_rs")]
 #[derive(Debug)]
 pub struct WireGuardServer {
     /// local address of the WireGuard UDP socket

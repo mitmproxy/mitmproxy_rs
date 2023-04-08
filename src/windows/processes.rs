@@ -20,6 +20,8 @@ use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowThreadProces
 use crate::intercept_conf::PID;
 use crate::windows::icons::icon_for_executable;
 
+pub use image;
+
 pub fn get_process_name(pid: PID) -> Result<String> {
     unsafe {
         let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)?;
@@ -60,9 +62,9 @@ unsafe fn is_critical(handle: HANDLE) -> Result<bool> {
 pub struct ProcessInfo {
     pub executable: String,
     pub display_name: String,
-    pub icon: u64,
+    pub icon: Option<u64>,
     pub is_visible: bool,
-    pub is_windows: bool,
+    pub is_system: bool,
 }
 
 #[derive(Debug)]
@@ -197,13 +199,13 @@ pub fn active_executables() -> Result<ProcessList> {
                     }
                     executable.to_string_lossy().rsplit('\\').next().unwrap().to_string()
                 };
-                let icon = get_icon(&executable, &mut icons, hinst).unwrap_or(0);
+                let icon = get_icon(&executable, &mut icons, hinst).ok();
                 e.insert(ProcessInfo {
                     executable: executable.to_string_lossy().to_string(),
                     display_name,
                     icon,
                     is_visible,
-                    is_windows: is_critical,
+                    is_system: is_critical,
                 });
             }
         }

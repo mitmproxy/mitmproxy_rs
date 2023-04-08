@@ -8,7 +8,7 @@ use mitmproxy::messages::{TransportCommand, TunnelInfo};
 
 use crate::util::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py};
 
-#[pyclass]
+#[pyclass(module="mitmproxy_rs")]
 #[derive(Debug)]
 pub struct DatagramTransport {
     pub event_tx: mpsc::UnboundedSender<TransportCommand>,
@@ -19,7 +19,7 @@ pub struct DatagramTransport {
 
 #[pymethods]
 impl DatagramTransport {
-    #[args(addr = "None")]
+    #[pyo3(signature = (data, addr=None))]
     fn sendto(&self, data: Vec<u8>, addr: Option<&PyTuple>) -> PyResult<()> {
         let dst_addr = match addr {
             Some(addr) => py_to_socketaddr(addr)?,
@@ -38,7 +38,7 @@ impl DatagramTransport {
     /// Query the UDP transport for details of the underlying network connection.
     ///
     /// Supported values: `peername`, `sockname`, `original_src`, and `original_dst`.
-    #[args(default = "None")]
+    #[pyo3(signature = (name, default=None))]
     fn get_extra_info(
         &self,
         py: Python,
