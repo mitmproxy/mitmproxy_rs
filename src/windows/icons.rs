@@ -1,8 +1,10 @@
 use std::{iter, mem};
 use std::collections::hash_map::DefaultHasher;
+use std::ffi::OsString;
 
 use std::hash::{Hash, Hasher};
 use std::mem::{MaybeUninit};
+use std::os::windows::prelude::OsStrExt;
 use std::ptr::addr_of_mut;
 
 use anyhow::{bail, Result};
@@ -39,9 +41,9 @@ impl PixelData {
     }
 }
 
-pub(crate) unsafe fn icon_for_executable(executable: &str, hinst: HMODULE) -> Result<PixelData> {
+pub(crate) unsafe fn icon_for_executable(executable: &OsString, hinst: HMODULE) -> Result<PixelData> {
     let mut icon_path_u16: [u16; 128] = executable
-        .encode_utf16()
+        .encode_wide()
         .chain(iter::repeat(0))
         .take(128)
         .collect::<Vec<u16>>()

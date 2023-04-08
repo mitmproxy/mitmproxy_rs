@@ -48,7 +48,7 @@ pub fn mitmproxy_rs(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<server::OsProxy>()?;
 
     m.add_function(wrap_pyfunction!(process_info::process_list, m)?)?;
-    m.add_class::<process_info::ProcessInfo>()?;
+    m.add_class::<process_info::ProcessList>()?;
 
     m.add_class::<tcp_stream::TcpStream>()?;
     m.add_class::<datagram_transport::DatagramTransport>()?;

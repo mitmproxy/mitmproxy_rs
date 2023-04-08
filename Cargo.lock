@@ -1276,7 +1276,7 @@ dependencies = [
 
 [[package]]
 name = "mitm-wg-test-client"
-version = "0.2.0-beta.8"
+version = "0.2.0-beta.9"
 dependencies = [
  "anyhow",
  "boringtun",
@@ -1288,7 +1288,7 @@ dependencies = [
 
 [[package]]
 name = "mitmproxy"
-version = "0.2.0-beta.8"
+version = "0.2.0-beta.9"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1311,7 +1311,7 @@ dependencies = [
 
 [[package]]
 name = "mitmproxy_rs"
-version = "0.2.0-beta.8"
+version = "0.2.0-beta.9"
 dependencies = [
  "anyhow",
  "console-subscriber",
@@ -2566,7 +2566,7 @@ dependencies = [
 
 [[package]]
 name = "windows-redirector"
-version = "0.2.0-beta.8"
+version = "0.2.0-beta.9"
 dependencies = [
  "anyhow",
  "bincode",
