@@ -42,6 +42,7 @@ boringtun = { version = "0.5", default-features = false }
 x25519-dalek = "2.0.0-pre.1"
 async-trait = "0.1.68"
 console-subscriber = { version = "0.1.9", optional = true }
+image = "0.24.6"
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
@@ -50,7 +51,6 @@ smoltcp = { git = 'https://github.com/mhils/smoltcp', rev = 'f65351adfa92db5193f
 
 [target.'cfg(windows)'.dependencies]
 bincode.workspace = true
-image = "0.24.6"
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.48.0"

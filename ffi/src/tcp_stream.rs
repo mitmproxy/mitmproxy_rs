@@ -17,7 +17,7 @@ use crate::util::{event_queue_unavailable, socketaddr_to_py};
 /// An individual TCP stream with an API that is similar to
 /// [`asyncio.StreamReader` and `asyncio.StreamWriter`](https://docs.python.org/3/library/asyncio-stream.html)
 /// from the Python standard library.
-#[pyclass(module="mitmproxy_rs")]
+#[pyclass(module = "mitmproxy_rs")]
 #[derive(Debug)]
 pub struct TcpStream {
     pub connection_id: ConnectionId,

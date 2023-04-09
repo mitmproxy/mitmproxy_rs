@@ -1,3 +1,3 @@
+mod icons;
 pub mod network;
 pub mod processes;
-mod icons;

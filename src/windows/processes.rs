@@ -1,36 +1,44 @@
-use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
 use std::iter;
-use std::mem::{size_of};
+use std::mem::size_of;
 use std::os::windows::prelude::{OsStrExt, OsStringExt};
 
 use anyhow::{anyhow, Result};
 use image::RgbaImage;
 use windows::core::{PCWSTR, PWSTR};
 use windows::w;
-use windows::Win32::Foundation::{BOOL, CloseHandle, HANDLE, HMODULE, HWND, LPARAM, MAX_PATH};
+use windows::Win32::Foundation::{CloseHandle, BOOL, HANDLE, HMODULE, HWND, LPARAM, MAX_PATH};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
-use windows::Win32::Storage::FileSystem::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW};
+use windows::Win32::Storage::FileSystem::{
+    GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
+};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::ProcessStatus::EnumProcesses;
-use windows::Win32::System::Threading::{IsProcessCritical, OpenProcess, PROCESS_NAME_NATIVE, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW};
-use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowThreadProcessId, IsIconic, IsWindowVisible};
+use windows::Win32::System::Threading::{
+    IsProcessCritical, OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_NATIVE,
+    PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+};
+use windows::Win32::UI::WindowsAndMessaging::{
+    EnumWindows, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
+};
 
 use crate::intercept_conf::PID;
+use crate::processes::{ProcessInfo, ProcessList};
 use crate::windows::icons::icon_for_executable;
-
-pub use image;
 
 pub fn get_process_name(pid: PID) -> Result<String> {
     unsafe {
         let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)?;
         let path = process_name(handle);
         CloseHandle(handle).ok()?;
-        path.map(|s| s.into_string().unwrap_or_else(|e| e.to_string_lossy().to_string()))
+        path.map(|s| {
+            s.into_string()
+                .unwrap_or_else(|e| e.to_string_lossy().to_string())
+        })
     }
 }
-
 
 unsafe fn process_name(handle: HANDLE) -> Result<OsString> {
     let mut buffer = Vec::with_capacity(MAX_PATH as usize);
@@ -50,27 +58,10 @@ unsafe fn process_name(handle: HANDLE) -> Result<OsString> {
     Ok(OsString::from_wide(path.as_wide()))
 }
 
-
 unsafe fn is_critical(handle: HANDLE) -> Result<bool> {
     let mut is_critical = BOOL::default();
-    IsProcessCritical(handle, &mut is_critical).ok()?;  // we're ok if this fails.
+    IsProcessCritical(handle, &mut is_critical).ok()?; // we're ok if this fails.
     Ok(is_critical.as_bool())
-}
-
-
-#[derive(Debug, Clone)]
-pub struct ProcessInfo {
-    pub executable: String,
-    pub display_name: String,
-    pub icon: Option<u64>,
-    pub is_visible: bool,
-    pub is_system: bool,
-}
-
-#[derive(Debug)]
-pub struct ProcessList {
-    pub processes: Vec<ProcessInfo>,
-    pub icons: HashMap<u64, RgbaImage>,
 }
 
 fn enumerate_pids() -> Result<Vec<PID>> {
@@ -79,11 +70,7 @@ fn enumerate_pids() -> Result<Vec<PID>> {
         let bytes_available = (size_of::<PID>() * pids.capacity()) as u32;
         let mut bytes_needed = 0;
         unsafe {
-            EnumProcesses(
-                pids.as_mut_ptr(),
-                bytes_available,
-                &mut bytes_needed,
-            ).ok()?;
+            EnumProcesses(pids.as_mut_ptr(), bytes_available, &mut bytes_needed).ok()?;
         }
         if bytes_needed < bytes_available {
             unsafe { pids.set_len((bytes_needed / 4) as usize) }
@@ -102,10 +89,7 @@ fn get_display_name(executable: &OsString) -> Result<String> {
             .collect::<Vec<u16>>();
 
         let version_info_size = {
-            let size = GetFileVersionInfoSizeW(
-                PCWSTR::from_raw(executable_path.as_ptr()),
-                None,
-            );
+            let size = GetFileVersionInfoSizeW(PCWSTR::from_raw(executable_path.as_ptr()), None);
             if size == 0 {
                 return Err(windows::core::Error::from_win32().into());
             }
@@ -117,7 +101,8 @@ fn get_display_name(executable: &OsString) -> Result<String> {
             0,
             version_info_size,
             version_info_buf.as_mut_ptr() as _,
-        ).ok()?;
+        )
+        .ok()?;
 
         // this is a pointer to an array of lang/codepage word pairs,
         // but in practice almost all apps only ship with one language.
@@ -130,21 +115,27 @@ fn get_display_name(executable: &OsString) -> Result<String> {
             w!("\\VarFileInfo\\Translation"),
             &mut lang_ptr as *const _ as _,
             &mut len,
-        ).ok()?;
+        )
+        .ok()?;
         if len == 0 {
             return Err(anyhow!("no translation info"));
         }
 
-        let sub_block = format!("\\StringFileInfo\\{:04x}{:04x}\\FileDescription\0", (*lang_ptr).0, (*lang_ptr).1)
-            .encode_utf16()
-            .collect::<Vec<u16>>();
+        let sub_block = format!(
+            "\\StringFileInfo\\{:04x}{:04x}\\FileDescription\0",
+            (*lang_ptr).0,
+            (*lang_ptr).1
+        )
+        .encode_utf16()
+        .collect::<Vec<u16>>();
         let mut file_description_ptr: *const u16 = std::ptr::null();
         VerQueryValueW(
             version_info_buf.as_mut_ptr() as _,
             PCWSTR::from_raw(sub_block.as_ptr()),
             &mut file_description_ptr as *const _ as _,
             &mut len,
-        ).ok()?;
+        )
+        .ok()?;
         if len == 0 {
             return Err(anyhow!("no file description"));
         }
@@ -158,7 +149,11 @@ fn get_display_name(executable: &OsString) -> Result<String> {
 
 /// Get the icon for a process.
 /// Updates icons to include the icon, and returns the icon's hash.
-fn get_icon(executable: &OsString, icons: &mut HashMap<u64, RgbaImage>, hinst: HMODULE) -> Result<u64> {
+fn get_icon(
+    executable: &OsString,
+    icons: &mut HashMap<u64, RgbaImage>,
+    hinst: HMODULE,
+) -> Result<u64> {
     let icon = unsafe { icon_for_executable(executable, hinst)? };
     let icon_hash = icon.hash();
     icons.entry(icon_hash).or_insert_with(|| icon.to_image());
@@ -197,7 +192,12 @@ pub fn active_executables() -> Result<ProcessList> {
                             break 'dn d;
                         }
                     }
-                    executable.to_string_lossy().rsplit('\\').next().unwrap().to_string()
+                    executable
+                        .to_string_lossy()
+                        .rsplit('\\')
+                        .next()
+                        .unwrap()
+                        .to_string()
                 };
                 let icon = get_icon(&executable, &mut icons, hinst).ok();
                 e.insert(ProcessInfo {
@@ -224,13 +224,18 @@ pub fn visible_windows() -> Result<HashSet<PID>> {
         unsafe {
             let mut pid: u32 = 0;
             if GetWindowThreadProcessId(window, Some(&mut pid)) == 0 {
-                return true;  // If the window handle is invalid, the return value is zero.
+                return true; // If the window handle is invalid, the return value is zero.
             }
             let is_visible = IsWindowVisible(window).as_bool();
             let is_iconic = IsIconic(window).as_bool();
             let is_cloaked = {
                 let mut cloaked = BOOL::default();
-                if let Err(e) = DwmGetWindowAttribute(window, DWMWA_CLOAKED, &mut cloaked as *mut BOOL as *mut _, size_of::<BOOL>() as u32) {
+                if let Err(e) = DwmGetWindowAttribute(
+                    window,
+                    DWMWA_CLOAKED,
+                    &mut cloaked as *mut BOOL as *mut _,
+                    size_of::<BOOL>() as u32,
+                ) {
                     log::debug!("DwmGetWindowAttribute failed: {:#}", e);
                     false
                 } else {
@@ -252,19 +257,22 @@ pub fn visible_windows() -> Result<HashSet<PID>> {
 }
 
 pub fn enum_windows<F>(func: F) -> Result<()>
-    where F: FnMut(HWND) -> bool,
+where
+    F: FnMut(HWND) -> bool,
 {
     unsafe {
         EnumWindows(
             Some(enum_windows_proc::<F> as _),
             LPARAM(&func as *const _ as _),
-        ).ok()?
+        )
+        .ok()?
     }
     Ok(())
 }
 
 extern "system" fn enum_windows_proc<F>(hwnd: HWND, lparam: LPARAM) -> BOOL
-    where F: FnMut(HWND) -> bool,
+where
+    F: FnMut(HWND) -> bool,
 {
     let func = unsafe { &mut *(lparam.0 as *mut F) };
     func(hwnd).into()
@@ -280,8 +288,7 @@ mod tests {
         let pids = super::visible_windows().unwrap();
         // no asserts here because tests should work on headless systems.
         for pid in pids {
-            let procname = super::get_process_name(pid)
-                .unwrap_or_else(|e| format!("<{:?}>", e));
+            let procname = super::get_process_name(pid).unwrap_or_else(|e| format!("<{:?}>", e));
 
             println!("{pid: >6} {procname}");
         }
@@ -298,10 +305,7 @@ mod tests {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("benches\\openvpnserv.exe");
         let d = d.into_os_string();
-        assert_eq!(
-            super::get_display_name(&d).unwrap(),
-            "OpenVPN Service"
-        );
+        assert_eq!(super::get_display_name(&d).unwrap(), "OpenVPN Service");
     }
 
     #[test]

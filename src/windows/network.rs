@@ -1,8 +1,12 @@
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use anyhow::{anyhow, Result};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use windows::Win32::Foundation::{ERROR_INSUFFICIENT_BUFFER, NO_ERROR};
+use windows::Win32::NetworkManagement::IpHelper::{
+    GetExtendedTcpTable, GetExtendedUdpTable, MIB_TCP6ROW_OWNER_PID, MIB_TCP6TABLE_OWNER_PID,
+    MIB_TCPROW_OWNER_PID, MIB_TCPTABLE_OWNER_PID, MIB_UDP6ROW_OWNER_PID, MIB_UDP6TABLE_OWNER_PID,
+    MIB_UDPROW_OWNER_PID, MIB_UDPTABLE_OWNER_PID, TCP_TABLE_OWNER_PID_ALL, UDP_TABLE_OWNER_PID,
+};
 use windows::Win32::Networking::WinSock::{AF_INET, AF_INET6};
-use windows::Win32::NetworkManagement::IpHelper::{GetExtendedTcpTable, GetExtendedUdpTable, MIB_TCP6ROW_OWNER_PID, MIB_TCP6TABLE_OWNER_PID, MIB_TCPROW_OWNER_PID, MIB_TCPTABLE_OWNER_PID, MIB_UDP6ROW_OWNER_PID, MIB_UDP6TABLE_OWNER_PID, MIB_UDPROW_OWNER_PID, MIB_UDPTABLE_OWNER_PID, TCP_TABLE_OWNER_PID_ALL, UDP_TABLE_OWNER_PID};
 
 #[derive(Debug, Clone)]
 pub struct NetworkTableEntry {

@@ -1,9 +1,9 @@
-use std::{iter, mem};
 use std::collections::hash_map::DefaultHasher;
 use std::ffi::OsString;
+use std::{iter, mem};
 
 use std::hash::{Hash, Hasher};
-use std::mem::{MaybeUninit};
+use std::mem::MaybeUninit;
 use std::os::windows::prelude::OsStrExt;
 use std::ptr::addr_of_mut;
 
@@ -12,9 +12,10 @@ use image::RgbaImage;
 
 use windows::Win32::Foundation::{HMODULE, HWND};
 
-use windows::Win32::Graphics::Gdi::{BI_RGB, BITMAP, BITMAPINFOHEADER, DeleteObject, DIB_RGB_COLORS, GetDC, GetDIBits, GetObjectW, HDC, ReleaseDC};
-
-
+use windows::Win32::Graphics::Gdi::{
+    DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFOHEADER, BI_RGB,
+    DIB_RGB_COLORS, HDC,
+};
 
 use windows::Win32::UI::Shell::ExtractAssociatedIconW;
 use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, GetIconInfo, HICON};
@@ -41,7 +42,10 @@ impl PixelData {
     }
 }
 
-pub(crate) unsafe fn icon_for_executable(executable: &OsString, hinst: HMODULE) -> Result<PixelData> {
+pub(crate) unsafe fn icon_for_executable(
+    executable: &OsString,
+    hinst: HMODULE,
+) -> Result<PixelData> {
     let mut icon_path_u16: [u16; 128] = executable
         .encode_wide()
         .chain(iter::repeat(0))

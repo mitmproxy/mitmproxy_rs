@@ -8,7 +8,7 @@ use mitmproxy::messages::{TransportCommand, TunnelInfo};
 
 use crate::util::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py};
 
-#[pyclass(module="mitmproxy_rs")]
+#[pyclass(module = "mitmproxy_rs")]
 #[derive(Debug)]
 pub struct DatagramTransport {
     pub event_tx: mpsc::UnboundedSender<TransportCommand>,
