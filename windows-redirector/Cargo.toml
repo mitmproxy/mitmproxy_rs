@@ -10,7 +10,7 @@ publish.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
+[target.'cfg(windows)'.dependencies]
 mitmproxy = { path = "../" }
 bincode.workspace = true
 tokio = { version = "1.23", features = ["macros", "net", "rt-multi-thread", "sync", "io-util"] }
@@ -21,10 +21,10 @@ log = "0.4.18"
 env_logger = "0.10.0"
 internet-checksum = "0.2.1"
 
-[dev-dependencies]
+[target.'cfg(windows)'.dev-dependencies]
 hex = "0.4.3"
 
-[build-dependencies]
+[target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"
 
 [package.metadata.winres]

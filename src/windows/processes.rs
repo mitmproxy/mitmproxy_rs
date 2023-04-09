@@ -64,7 +64,7 @@ unsafe fn is_critical(handle: HANDLE) -> Result<bool> {
     Ok(is_critical.as_bool())
 }
 
-fn enumerate_pids() -> Result<Vec<PID>> {
+pub fn enumerate_pids() -> Result<Vec<PID>> {
     let mut pids: Vec<PID> = Vec::with_capacity(1024);
     loop {
         let bytes_available = (size_of::<PID>() * pids.capacity()) as u32;
@@ -81,7 +81,7 @@ fn enumerate_pids() -> Result<Vec<PID>> {
     Ok(pids)
 }
 
-fn get_display_name(executable: &OsString) -> Result<String> {
+pub fn get_display_name(executable: &OsString) -> Result<String> {
     unsafe {
         let executable_path = executable
             .encode_wide()
@@ -149,7 +149,7 @@ fn get_display_name(executable: &OsString) -> Result<String> {
 
 /// Get the icon for a process.
 /// Updates icons to include the icon, and returns the icon's hash.
-fn get_icon(
+pub fn get_icon(
     executable: &OsString,
     icons: &mut HashMap<u64, RgbaImage>,
     hinst: HMODULE,

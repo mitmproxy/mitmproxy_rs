@@ -19,7 +19,7 @@ pub struct DatagramTransport {
 
 #[pymethods]
 impl DatagramTransport {
-    #[pyo3(signature = (data, addr=None))]
+    #[pyo3(text_signature = "(self, data, addr=None)")]
     fn sendto(&self, data: Vec<u8>, addr: Option<&PyTuple>) -> PyResult<()> {
         let dst_addr = match addr {
             Some(addr) => py_to_socketaddr(addr)?,
@@ -38,7 +38,7 @@ impl DatagramTransport {
     /// Query the UDP transport for details of the underlying network connection.
     ///
     /// Supported values: `peername`, `sockname`, `original_src`, and `original_dst`.
-    #[pyo3(signature = (name, default=None))]
+    #[pyo3(text_signature = "(self, name, default=None)")]
     fn get_extra_info(
         &self,
         py: Python,
