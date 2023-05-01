@@ -14,7 +14,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 mitmproxy = { path = "../" }
-anyhow = { version = "1.0.70", features = ["backtrace"] }
+anyhow = { version = "1.0.71", features = ["backtrace"] }
 data-encoding = "2.3.3"
 log = "0.4.17"
 once_cell = "1"
