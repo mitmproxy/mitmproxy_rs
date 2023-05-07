@@ -48,6 +48,12 @@ console-subscriber = { version = "0.1.8", optional = true }
 tokio = { git = 'https://github.com/tokio-rs/tokio', rev = '2e7f996f17ff9cac761c775d359355d4e37555b1' }
 smoltcp = { git = 'https://github.com/mhils/smoltcp', rev = 'f65351adfa92db5193f368368cb668bac721fe43' }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "2.8.2"
+pem-parser = "0.1.1"
+dirs = "5.0.1"
+
+
 [target.'cfg(windows)'.dependencies]
 bincode.workspace = true
 

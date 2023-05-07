@@ -8,6 +8,8 @@ use std::str::FromStr;
 use tokio::sync::mpsc;
 use x25519_dalek::{PublicKey, StaticSecret};
 
+use mitmproxy::macos;
+
 pub fn string_to_key<T>(data: String) -> PyResult<T>
 where
     T: From<[u8; 32]>,
@@ -60,4 +62,13 @@ pub fn genkey() -> String {
 pub fn pubkey(private_key: String) -> PyResult<String> {
     let private_key: StaticSecret = string_to_key(private_key)?;
     Ok(BASE64.encode(PublicKey::from(&private_key).as_bytes()))
+}
+
+#[cfg(target_os = "macos")]
+#[pyfunction]
+pub fn load_cert() -> PyResult<()>{
+   match macos::load_cert(){
+       Ok(_) => Ok(()),
+       Err(_) => Err(PyErr::new::<PyOSError, _>("Error loading the certificate on the keychain")),
+   }
 }

@@ -8,3 +8,6 @@ pub mod shutdown;
 pub mod util;
 #[cfg(windows)]
 pub mod windows;
+
+#[cfg(target_os = "macos")]
+pub mod macos;
