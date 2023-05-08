@@ -7,7 +7,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use tokio::sync::mpsc;
 use x25519_dalek::{PublicKey, StaticSecret};
-
+#[cfg(target_os="macos")]
 use mitmproxy::macos;
 
 pub fn string_to_key<T>(data: String) -> PyResult<T>
