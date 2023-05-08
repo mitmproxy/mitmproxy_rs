@@ -42,8 +42,7 @@ pub fn mitmproxy_rs(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<server::WireGuardServer>()?;
     m.add_function(wrap_pyfunction!(util::genkey, m)?)?;
     m.add_function(wrap_pyfunction!(util::pubkey, m)?)?;
-    #[cfg(target_os = "macos")]
-    m.add_function(wrap_pyfunction!(util::load_cert, m)?)?;
+    m.add_function(wrap_pyfunction!(util::add_cert, m)?)?;
 
     m.add_function(wrap_pyfunction!(server::start_os_proxy, m)?)?;
     m.add_class::<server::OsProxy>()?;

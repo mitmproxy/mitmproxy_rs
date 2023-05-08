@@ -1,4 +1,5 @@
 use data_encoding::BASE64;
+use mitmproxy::macos;
 use pyo3::exceptions::PyOSError;
 use pyo3::types::{PyString, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
@@ -7,8 +8,6 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use tokio::sync::mpsc;
 use x25519_dalek::{PublicKey, StaticSecret};
-#[cfg(target_os="macos")]
-use mitmproxy::macos;
 
 pub fn string_to_key<T>(data: String) -> PyResult<T>
 where
@@ -64,11 +63,24 @@ pub fn pubkey(private_key: String) -> PyResult<String> {
     Ok(BASE64.encode(PublicKey::from(&private_key).as_bytes()))
 }
 
-#[cfg(target_os = "macos")]
+/// Convert pem certificate to der certificate and add it to macos keychain.
 #[pyfunction]
-pub fn load_cert() -> PyResult<()>{
-   match macos::load_cert(){
-       Ok(_) => Ok(()),
-       Err(_) => Err(PyErr::new::<PyOSError, _>("Error loading the certificate on the keychain")),
-   }
+pub fn add_cert(pem: String) -> PyResult<()> {
+    #[cfg(target_os = "macos")]
+    {
+        let pem_body = pem
+            .lines()
+            .skip(1)
+            .take_while(|&line| line != "-----END CERTIFICATE-----")
+            .collect::<String>();
+        let der = BASE64.decode(pem_body.as_bytes()).unwrap();
+        match macos::add_cert(der) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(PyErr::new::<PyOSError, _>("Invalid certificate")),
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    Err(pyo3::exceptions::PyNotImplementedError::new_err(
+        "OS proxy mode is only available on macos",
+    ))
 }

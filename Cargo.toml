@@ -50,8 +50,6 @@ smoltcp = { git = 'https://github.com/mhils/smoltcp', rev = 'f65351adfa92db5193f
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "2.8.2"
-pem-parser = "0.1.1"
-dirs = "5.0.1"
 
 
 [target.'cfg(windows)'.dependencies]
