@@ -84,3 +84,20 @@ pub fn add_trusted_cert(pem: String) -> PyResult<()> {
         "OS proxy mode is only available on macos",
     ))
 }
+
+/// Delete mitmproxy certificate from the keychain.
+#[pyfunction]
+pub fn delete_cert() -> PyResult<()>{
+    #[cfg(target_os = "macos")]
+    {
+        match macos::delete_cert(){
+            Ok(_) => Ok(()),
+            Err(_) => Err(PyErr::new::<PyOSError, _>("Unable to delete certificate")),
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    Err(pyo3::exceptions::PyNotImplementedError::new_err(
+        "OS proxy mode is only available on macos",
+    ))
+
+}

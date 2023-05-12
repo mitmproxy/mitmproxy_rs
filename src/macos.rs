@@ -1,7 +1,7 @@
 use security_framework::{
     base::Result,
     certificate::SecCertificate,
-    item::{add_item, AddRef, ItemAddOptions, ItemAddValue, ItemClass, ItemSearchOptions},
+    item::{add_item, AddRef, ItemAddOptions,Reference, ItemAddValue, ItemClass, ItemSearchOptions, SearchResult},
 };
 
 pub fn add_trusted_cert(der: Vec<u8>) -> Result<()> {
@@ -27,5 +27,19 @@ pub fn add_trusted_cert(der: Vec<u8>) -> Result<()> {
     {
         panic!("Error during trust process: {:?}", err);
     }
+    Ok(())
+}
+
+pub fn delete_cert() -> Result<()>{
+    if let SearchResult::Ref(Reference::Certificate(cert)) = ItemSearchOptions::new()
+        .class(ItemClass::certificate())
+        .load_refs(true)
+        .label("mitmproxy")
+        .search()
+        .unwrap()
+        .first()
+        .unwrap(){
+            cert.delete().unwrap();
+    };
     Ok(())
 }
