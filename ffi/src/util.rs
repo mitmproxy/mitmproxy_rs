@@ -66,7 +66,7 @@ pub fn pubkey(private_key: String) -> PyResult<String> {
 
 /// Convert pem certificate to der certificate and add it to macos keychain.
 #[pyfunction]
-pub fn add_trusted_cert(pem: String) -> PyResult<()> {
+pub fn add_trusted_cert(_pem: String) -> PyResult<()> {
     #[cfg(target_os = "macos")]
     {
         let pem_body = pem
