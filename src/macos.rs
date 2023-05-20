@@ -1,11 +1,12 @@
+use anyhow::{anyhow, Result};
 use security_framework::{
-    base::Result,
     certificate::SecCertificate,
     item::{
         add_item, AddRef, ItemAddOptions, ItemAddValue, ItemClass, ItemSearchOptions, Reference,
         SearchResult,
     },
 };
+use tokio::process::Command;
 
 pub fn add_trusted_cert(der: Vec<u8>) -> Result<()> {
     let cert = SecCertificate::from_der(&der)?;
@@ -14,36 +15,39 @@ pub fn add_trusted_cert(der: Vec<u8>) -> Result<()> {
         .set_label("mitmproxy")
         .to_dictionary();
 
-    ItemSearchOptions::new()
+    let search_result = ItemSearchOptions::new()
         .class(ItemClass::certificate())
         .load_refs(true)
         .label("mitmproxy")
         .search()
-        .and_then(|_| Ok(()))
-        .unwrap_or_else(|_| add_item(add_option).unwrap());
+        .map_err(|e| anyhow!(e))?;
 
-    if let Err(err) = std::process::Command::new("open")
-        .arg("../macos-trust-cert.app")
-        .spawn()
-        .unwrap()
-        .wait()
-    {
-        panic!("Error during trust process: {:?}", err);
+    if let Some(search_result) = search_result.first() {
+        if let SearchResult::Ref(Reference::Certificate(cert)) = search_result {
+            cert.delete()?;
+        }
     }
+
+    add_item(add_option)?;
+
+    Command::new("open")
+        .arg("../macos-add-trusted-cert/macos-add-trusted-cert.app")
+        .spawn()
+        .map_err(|e| anyhow!(e))?;
     Ok(())
 }
 
-pub fn delete_cert() -> Result<()> {
+pub fn remove_trusted_cert() -> Result<()> {
     if let SearchResult::Ref(Reference::Certificate(cert)) = ItemSearchOptions::new()
         .class(ItemClass::certificate())
         .load_refs(true)
         .label("mitmproxy")
         .search()
-        .unwrap()
+        .map_err(|e| anyhow!(e))?
         .first()
-        .unwrap()
+        .ok_or_else(|| anyhow!("Certificate not found"))?
     {
-        cert.delete().unwrap();
+        cert.delete().map_err(|e| anyhow!(e))?;
     };
     Ok(())
 }
