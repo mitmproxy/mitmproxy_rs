@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use std::sync::Arc;
+use std::todo;
 
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
@@ -12,6 +13,8 @@ use mitmproxy::intercept_conf::InterceptConf;
 use mitmproxy::network::NetworkTask;
 #[cfg(windows)]
 use mitmproxy::packet_sources::windows::{WindowsConf, WindowsIpcSend};
+#[cfg(target_os = "macos")]
+use mitmproxy::packet_sources::macos::MacosConf;
 
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
 use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
@@ -296,6 +299,53 @@ pub fn start_os_proxy(
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
 
             Ok(OsProxy { server, conf_tx })
+        })
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let gateway = "10.0.0.1";
+        let netmask = "255.255.0.0";
+        let mut config = tun::Configuration::default();
+        config
+            .layer(tun::Layer::L3)
+            .address(gateway)
+            .netmask(netmask)
+            .up();
+
+        let tun_device = match tun::create(&config) {
+            Ok(dev) => dev,
+            Err(e) => return Err(anyhow!("{} does not exist", executable_path.display()).into()),
+        };
+
+        //reset dns when terminate
+        // #[cfg(target_os = "macos")]
+        // tokio::spawn(async {
+        //     use tokio::signal;
+        //     if let Ok(_) = signal::ctrl_c().await {
+        //         let _ = Command::new("networksetup")
+        //             .args(["-setdnsservers", "Wi-Fi", "empty"])
+        //             .output();
+        //
+        //         let _ = Command::new("route")
+        //             .args(["-n", "delete", "default"])
+        //             .output();
+        //         let _ = Command::new("route")
+        //             .args(["-n", "add", "default", "192.168.1.1"])
+        //             .output();
+        //         process::exit(0);
+        //     }
+        // });
+
+        let _ = Command::new("route").args(["delete", "default"]).output();
+        let _ = Command::new("route")
+                .args(["-n", "add", "default", gateway])
+                .output();
+
+        let conf = MacosConf;
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            //let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
+            todo!()
+            //Ok(OsProxy { server, conf_tx })
         })
     }
     #[cfg(not(windows))]

@@ -7,6 +7,8 @@ use crate::messages::{NetworkCommand, NetworkEvent};
 #[cfg(windows)]
 pub mod windows;
 pub mod wireguard;
+#[cfg(target_os = "macos")]
+pub mod macos;
 
 #[async_trait]
 pub trait PacketSourceConf {

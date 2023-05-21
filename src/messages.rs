@@ -14,6 +14,10 @@ pub enum TunnelInfo {
         pid: u32,
         process_name: Option<String>,
     },
+    Macos {
+        pid: u32,
+        process_name: Option<String>,
+    },
 }
 
 /// Events that are sent by WireGuard to the TCP stack.
