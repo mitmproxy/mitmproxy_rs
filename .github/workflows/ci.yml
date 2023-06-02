@@ -80,7 +80,7 @@ jobs:
           - os: macos-latest
           - os: macos-latest
             target: aarch64-apple-darwin
-            args: --universal2
+            args: --target universal2-apple-darwin
     runs-on: ${{ matrix.os }}
     name: build-wheel (${{ matrix.os }}, ${{ matrix.target || 'x64' }})
     steps:
