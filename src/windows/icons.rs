@@ -1,33 +1,73 @@
-use std::collections::hash_map::DefaultHasher;
-use std::ffi::OsString;
-use std::{iter, mem};
+use std::collections::hash_map::{DefaultHasher, Entry};
+use std::collections::HashMap;
 
 use std::hash::{Hash, Hasher};
+use std::io::Cursor;
 use std::mem::MaybeUninit;
 use std::os::windows::prelude::OsStrExt;
+use std::path::{Path, PathBuf};
 use std::ptr::addr_of_mut;
+use std::sync::Mutex;
+use std::{iter, mem};
 
 use anyhow::{bail, Result};
 use image::RgbaImage;
-
+use once_cell::sync::Lazy;
 use windows::Win32::Foundation::{HMODULE, HWND};
-
 use windows::Win32::Graphics::Gdi::{
     DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFOHEADER, BI_RGB,
     DIB_RGB_COLORS, HDC,
 };
-
+use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Shell::ExtractAssociatedIconW;
 use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, GetIconInfo, HICON};
 
-pub(crate) struct PixelData {
+pub static ICON_CACHE: Lazy<Mutex<IconCache>> = Lazy::new(|| Mutex::new(IconCache::default()));
+
+#[derive(Default)]
+pub struct IconCache {
+    /// executable name -> icon hash
+    executables: HashMap<PathBuf, u64>,
+    /// icon hash -> png bytes
+    icons: HashMap<u64, Vec<u8>>,
+}
+
+impl IconCache {
+    pub fn get_png(&mut self, executable: PathBuf) -> Result<&Vec<u8>> {
+        match self.executables.entry(executable) {
+            Entry::Occupied(e) => {
+                // Guaranteed to exist because we never clear the cache.
+                Ok(self.icons.get(e.get()).unwrap())
+            }
+            Entry::Vacant(e) => {
+                let pixels = unsafe {
+                    let hinst = GetModuleHandleW(None)?;
+                    icon_for_executable(e.key(), hinst)?
+                };
+                let pixel_hash = pixels.hash();
+                e.insert(pixel_hash);
+                let icon = self.icons.entry(pixel_hash).or_insert_with(|| {
+                    let mut c = Cursor::new(Vec::new());
+                    pixels
+                        .to_image()
+                        .write_to(&mut c, image::ImageOutputFormat::Png)
+                        .unwrap();
+                    c.into_inner()
+                });
+                Ok(icon)
+            }
+        }
+    }
+}
+
+struct PixelData {
     bgra: Vec<u32>,
     width: u32,
     height: u32,
 }
 
 impl PixelData {
-    pub(crate) fn to_image(&self) -> RgbaImage {
+    fn to_image(&self) -> RgbaImage {
         RgbaImage::from_fn(self.width, self.height, |x, y| {
             let idx = y * self.width + x;
             let [b, g, r, a] = self.bgra[idx as usize].to_le_bytes();
@@ -35,18 +75,16 @@ impl PixelData {
         })
     }
 
-    pub(crate) fn hash(&self) -> u64 {
+    fn hash(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.bgra.hash(&mut hasher);
         hasher.finish()
     }
 }
 
-pub(crate) unsafe fn icon_for_executable(
-    executable: &OsString,
-    hinst: HMODULE,
-) -> Result<PixelData> {
+unsafe fn icon_for_executable(executable: &Path, hinst: HMODULE) -> Result<PixelData> {
     let mut icon_path_u16: [u16; 128] = executable
+        .as_os_str()
         .encode_wide()
         .chain(iter::repeat(0))
         .take(128)

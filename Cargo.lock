@@ -1309,7 +1309,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "927a765cd3fc26206e66b296465fa9d3e5ab003e651c1b3c060e7956d96b19d2"
 dependencies = [
  "libc",
- "log",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys",
 ]
@@ -2159,8 +2158,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.27.0"
-source = "git+https://github.com/tokio-rs/tokio?rev=88445e762c569b538ac3f8d3dbb76887db421207#88445e762c569b538ac3f8d3dbb76887db421207"
+version = "1.28.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94d7b1cfd2aa4011f2de74c2c4c63665e27a71006b0a192dcd2710272e73dfa2"
 dependencies = [
  "autocfg",
  "bytes",
@@ -2186,8 +2186,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-macros"
-version = "2.0.0"
-source = "git+https://github.com/tokio-rs/tokio?rev=88445e762c569b538ac3f8d3dbb76887db421207#88445e762c569b538ac3f8d3dbb76887db421207"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "630bdcf245f78637c13ec01ffae6187cca34625e8c63150d424b59e55af2675e"
 dependencies = [
  "proc-macro2",
  "quote",

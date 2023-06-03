@@ -29,7 +29,7 @@ pub enum WindowsIpcRecv {
     Packet {
         data: Vec<u8>,
         pid: u32,
-        process_name: Option<String>,
+        process_name: Option<PathBuf>,
     },
 }
 

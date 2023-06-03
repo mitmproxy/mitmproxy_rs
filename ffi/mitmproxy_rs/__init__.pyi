@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from pathlib import Path
 from typing import Awaitable, Callable, Any
 from typing import final
 
@@ -74,6 +76,10 @@ class DatagramTransport:
 
 # Process Info
 
+
+def active_executables() -> list[Process]: ...
+def executable_icon(path: Path | str) -> bytes: ...
+
 @final
 class Process:
     @property
@@ -81,14 +87,7 @@ class Process:
     @property
     def display_name(self) -> str: ...
     @property
-    def icon(self) -> int: ...
-    @property
     def is_visible(self) -> bool: ...
     @property
     def is_system(self) -> bool: ...
 
-@final
-class ProcessIcon:
-    def png_bytes(self) -> bytes: ...
-
-def process_list() -> tuple[list[Process], dict[int, ProcessIcon]]: ...

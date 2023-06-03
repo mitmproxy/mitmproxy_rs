@@ -1,15 +1,14 @@
-use std::collections::HashMap;
-use std::io::Cursor;
+use std::path::{Path, PathBuf};
 
+use anyhow::Result;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
 #[allow(unused_imports)]
 use mitmproxy::processes::{image, ProcessList};
-
 #[cfg(windows)]
-use mitmproxy::windows::processes::active_executables;
+use mitmproxy::windows;
 
 #[pyclass(module = "mitmproxy_rs", frozen)]
 pub struct Process(mitmproxy::processes::ProcessInfo);
@@ -17,16 +16,12 @@ pub struct Process(mitmproxy::processes::ProcessInfo);
 #[pymethods]
 impl Process {
     #[getter]
-    fn executable(&self) -> &str {
+    fn executable(&self) -> &Path {
         &self.0.executable
     }
     #[getter]
     fn display_name(&self) -> &str {
         &self.0.display_name
-    }
-    #[getter]
-    fn icon(&self) -> Option<u64> {
-        self.0.icon
     }
     #[getter]
     fn is_visible(&self) -> bool {
@@ -38,50 +33,45 @@ impl Process {
     }
     fn __repr__(&self) -> String {
         format!(
-            "Process(executable={:?}, display_name={:?}, icon={:?}, is_visible={}, is_windows={})",
+            "Process(executable={:?}, display_name={:?}, is_visible={}, is_windows={})",
             self.executable(),
             self.display_name(),
-            self.icon(),
             self.is_visible(),
             self.is_system(),
         )
     }
 }
 
-#[pyclass(module = "mitmproxy_rs", frozen)]
-pub struct ProcessIcon(image::RgbaImage);
-
-#[pymethods]
-impl ProcessIcon {
-    fn png_bytes(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let mut c = Cursor::new(Vec::new());
-        self.0
-            .write_to(&mut c, image::ImageOutputFormat::Png)
-            .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))?;
-        Ok(PyBytes::new(py, &c.into_inner()).into())
-    }
-}
-
-/// Return a list of all running processes.
-/// The Windows implementation groups processes by executable name.
+/// Return a list of all running executables.
+/// Note that this groups multiple processes by executable name.
 ///
 /// *Availability: Windows*
 #[pyfunction]
-pub fn process_list(_py: Python<'_>) -> PyResult<(Vec<Process>, HashMap<u64, ProcessIcon>)> {
+pub fn active_executables() -> PyResult<Vec<Process>> {
     #[cfg(windows)]
     {
-        let ProcessList { icons, processes } =
-            active_executables().map_err(|e| PyRuntimeError::new_err(format!("{}", e)))?;
-
-        let icons = icons
-            .into_iter()
-            .map(|(k, v)| (k, ProcessIcon(v)))
-            .collect();
-        let processes = processes.into_iter().map(Process).collect();
-        Ok((processes, icons))
+        windows::processes::active_executables()
+            .map(|p| p.into_iter().map(Process).collect())
+            .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))
     }
     #[cfg(not(windows))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
-        "process_list is only available on Windows",
+        "active_executables is only available on Windows",
+    ))
+}
+
+#[pyfunction]
+pub fn executable_icon(executable: PathBuf) -> Result<PyObject> {
+    #[cfg(windows)]
+    {
+        let mut icon_cache = windows::icons::ICON_CACHE.lock().unwrap();
+        let png_bytes = icon_cache.get_png(executable)?;
+        Ok(Python::with_gil(|py| {
+            PyBytes::new(py, png_bytes).to_object(py)
+        }))
+    }
+    #[cfg(not(windows))]
+    Err(pyo3::exceptions::PyNotImplementedError::new_err(
+        "executable_icon is only available on Windows",
     ))
 }

@@ -4,17 +4,18 @@ use std::ffi::OsString;
 use std::iter;
 use std::mem::size_of;
 use std::os::windows::prelude::{OsStrExt, OsStringExt};
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use anyhow::{anyhow, Result};
-use image::RgbaImage;
+use once_cell::sync::Lazy;
 use windows::core::{PCWSTR, PWSTR};
 use windows::w;
-use windows::Win32::Foundation::{CloseHandle, BOOL, HANDLE, HMODULE, HWND, LPARAM, MAX_PATH};
+use windows::Win32::Foundation::{CloseHandle, BOOL, HANDLE, HWND, LPARAM, MAX_PATH};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::Storage::FileSystem::{
     GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
 };
-use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::ProcessStatus::EnumProcesses;
 use windows::Win32::System::Threading::{
     IsProcessCritical, OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_NATIVE,
@@ -26,21 +27,17 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 use crate::intercept_conf::PID;
 use crate::processes::{ProcessInfo, ProcessList};
-use crate::windows::icons::icon_for_executable;
 
-pub fn get_process_name(pid: PID) -> Result<String> {
+pub fn get_process_name(pid: PID) -> Result<PathBuf> {
     unsafe {
         let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)?;
         let path = process_name(handle);
         CloseHandle(handle).ok()?;
-        path.map(|s| {
-            s.into_string()
-                .unwrap_or_else(|e| e.to_string_lossy().to_string())
-        })
+        path
     }
 }
 
-unsafe fn process_name(handle: HANDLE) -> Result<OsString> {
+unsafe fn process_name(handle: HANDLE) -> Result<PathBuf> {
     let mut buffer = Vec::with_capacity(MAX_PATH as usize);
     let path = PWSTR(buffer.as_mut_ptr());
     let mut len = buffer.capacity() as u32;
@@ -55,7 +52,16 @@ unsafe fn process_name(handle: HANDLE) -> Result<OsString> {
                 path,
                 &mut len,
             ).ok())?;
-    Ok(OsString::from_wide(path.as_wide()))
+    Ok(PathBuf::from(OsString::from_wide(path.as_wide())))
+}
+
+pub fn get_is_critical(pid: PID) -> Result<bool> {
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)?;
+        let critical = is_critical(handle);
+        CloseHandle(handle).ok()?;
+        critical
+    }
 }
 
 unsafe fn is_critical(handle: HANDLE) -> Result<bool> {
@@ -81,9 +87,24 @@ pub fn enumerate_pids() -> Result<Vec<PID>> {
     Ok(pids)
 }
 
-pub fn get_display_name(executable: &OsString) -> Result<String> {
+pub static DISPLAY_NAME_CACHE: Lazy<Mutex<DisplayNameCache>> =
+    Lazy::new(|| Mutex::new(DisplayNameCache::default()));
+
+#[derive(Default)]
+pub struct DisplayNameCache(HashMap<PathBuf, Result<String>>);
+
+impl DisplayNameCache {
+    pub fn get(&mut self, executable: PathBuf) -> &Result<String> {
+        self.0
+            .entry(executable)
+            .or_insert_with_key(|path| get_display_name(path))
+    }
+}
+
+pub fn get_display_name(executable: &Path) -> Result<String> {
     unsafe {
         let executable_path = executable
+            .as_os_str()
             .encode_wide()
             .chain(iter::once(0))
             .collect::<Vec<u16>>();
@@ -147,25 +168,8 @@ pub fn get_display_name(executable: &OsString) -> Result<String> {
     }
 }
 
-/// Get the icon for a process.
-/// Updates icons to include the icon, and returns the icon's hash.
-pub fn get_icon(
-    executable: &OsString,
-    icons: &mut HashMap<u64, RgbaImage>,
-    hinst: HMODULE,
-) -> Result<u64> {
-    let icon = unsafe { icon_for_executable(executable, hinst)? };
-    let icon_hash = icon.hash();
-    icons.entry(icon_hash).or_insert_with(|| icon.to_image());
-    Ok(icon_hash)
-}
-
 pub fn active_executables() -> Result<ProcessList> {
-    let hinst = unsafe { GetModuleHandleW(None)? };
-
-    let mut executables: HashMap<OsString, ProcessInfo> = HashMap::new();
-
-    let mut icons: HashMap<u64, RgbaImage> = HashMap::new();
+    let mut executables: HashMap<PathBuf, ProcessInfo> = HashMap::new();
     let visible = visible_windows()?;
 
     for pid in enumerate_pids()? {
@@ -181,29 +185,41 @@ pub fn active_executables() -> Result<ProcessList> {
 
         match executables.entry(executable) {
             Entry::Occupied(mut e) => {
-                e.get_mut().is_visible |= visible.contains(&pid);
+                let process_info = e.get();
+                if !process_info.is_visible && visible.contains(&pid) {
+                    let mut display_name_cache = DISPLAY_NAME_CACHE.lock().unwrap();
+                    if let Ok(d) = display_name_cache.get(e.key().clone()) {
+                        e.get_mut().display_name = d.clone();
+                    }
+                    e.get_mut().is_visible = true;
+                }
             }
             Entry::Vacant(e) => {
                 let executable = e.key().clone();
                 let is_visible = visible.contains(&pid);
-                let display_name = 'dn: {
-                    if is_visible {
-                        if let Ok(d) = get_display_name(&executable) {
-                            break 'dn d;
+                let display_name = {
+                    let dn = if is_visible {
+                        let mut display_name_cache = DISPLAY_NAME_CACHE.lock().unwrap();
+                        if let Ok(d) = display_name_cache.get(executable.clone()) {
+                            Some(d.clone())
+                        } else {
+                            None
                         }
-                    }
-                    executable
-                        .to_string_lossy()
-                        .rsplit('\\')
-                        .next()
-                        .unwrap()
-                        .to_string()
+                    } else {
+                        None
+                    };
+                    dn.unwrap_or_else(|| {
+                        executable
+                            .to_string_lossy()
+                            .rsplit('\\')
+                            .next()
+                            .unwrap()
+                            .to_string()
+                    })
                 };
-                let icon = get_icon(&executable, &mut icons, hinst).ok();
                 e.insert(ProcessInfo {
-                    executable: executable.to_string_lossy().to_string(),
+                    executable,
                     display_name,
-                    icon,
                     is_visible,
                     is_system: is_critical,
                 });
@@ -211,10 +227,7 @@ pub fn active_executables() -> Result<ProcessList> {
         }
     }
 
-    Ok(ProcessList {
-        processes: executables.into_values().collect(),
-        icons,
-    })
+    Ok(executables.into_values().collect())
 }
 
 pub fn visible_windows() -> Result<HashSet<PID>> {
@@ -288,38 +301,37 @@ mod tests {
         let pids = super::visible_windows().unwrap();
         // no asserts here because tests should work on headless systems.
         for pid in pids {
-            let procname = super::get_process_name(pid).unwrap_or_else(|e| format!("<{:?}>", e));
+            let procname = super::get_process_name(pid)
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|e| format!("<{:?}>", e));
 
-            println!("{pid: >6} {procname}");
+            println!("{: >6} {}", pid, procname);
         }
     }
 
     #[test]
     fn get_process_name() {
         let name = super::get_process_name(std::process::id()).unwrap();
-        assert!(name.contains("mitmproxy"));
+        assert!(name.as_os_str().to_string_lossy().contains("mitmproxy"));
     }
 
     #[test]
     fn get_executable_name() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("benches\\openvpnserv.exe");
-        let d = d.into_os_string();
         assert_eq!(super::get_display_name(&d).unwrap(), "OpenVPN Service");
     }
 
     #[test]
     fn process_list() {
         let lst = super::active_executables().unwrap();
-        assert!(!lst.processes.is_empty());
-        assert!(!lst.icons.is_empty());
+        assert!(!lst.is_empty());
 
-        for proc in &lst.processes {
+        for proc in &lst {
             if proc.is_visible {
                 dbg!(proc);
             }
         }
-        dbg!(lst.processes.len());
-        dbg!(lst.icons.len());
+        dbg!(lst.len());
     }
 }
