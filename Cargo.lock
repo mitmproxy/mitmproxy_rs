@@ -1102,6 +1102,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc6d6206008e25125b1f97fbe5d309eb7b85141cf9199d52dbd3729a1584dd16"
 
 [[package]]
+name = "internet-packet"
+version = "0.1.0"
+source = "git+https://github.com/mhils/internet-packet.git#9d706e0f6a28da91f63e3417c7bb4c2e977a2385"
+dependencies = [
+ "internet-checksum",
+]
+
+[[package]]
 name = "io-lifetimes"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2607,7 +2615,7 @@ dependencies = [
  "bincode",
  "env_logger",
  "hex",
- "internet-checksum",
+ "internet-packet",
  "log",
  "lru_time_cache",
  "mitmproxy",
