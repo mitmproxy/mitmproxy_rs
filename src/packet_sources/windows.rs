@@ -12,7 +12,6 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
 use windows::core::PCWSTR;
 use windows::w;
-use windows::Win32::Foundation::GetLastError;
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::Shell::SE_ERR_ACCESSDENIED;
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
@@ -30,7 +29,7 @@ pub enum WindowsIpcRecv {
     Packet {
         data: Vec<u8>,
         pid: u32,
-        process_name: Option<String>,
+        process_name: Option<PathBuf>,
     },
 }
 
@@ -104,16 +103,16 @@ impl PacketSourceConf for WindowsConf {
 
         if cfg!(debug_assertions) {
             if result.0 <= 32 {
-                let error_msg = unsafe { GetLastError().to_hresult().message().to_string_lossy() };
-                log::warn!("Failed to start child process: {}", error_msg);
+                let err = windows::core::Error::from_win32();
+                log::warn!("Failed to start child process: {}", err);
             }
         } else if result.0 == SE_ERR_ACCESSDENIED as isize {
             return Err(anyhow!(
                 "Failed to start the interception process as administrator."
             ));
         } else if result.0 <= 32 {
-            let error_msg = unsafe { GetLastError().to_hresult().message().to_string_lossy() };
-            return Err(anyhow!("Failed to start the executable: {}", error_msg));
+            let err = windows::core::Error::from_win32();
+            return Err(anyhow!("Failed to start the executable: {}", err));
         }
 
         let (conf_tx, conf_rx) = unbounded_channel();

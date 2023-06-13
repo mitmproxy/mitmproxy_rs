@@ -15,12 +15,11 @@ use windivert::prelude::*;
 
 use mitmproxy::intercept_conf::{InterceptConf, ProcessInfo};
 use mitmproxy::packet_sources::windows::{WindowsIpcRecv, WindowsIpcSend, CONF, IPC_BUF_SIZE};
-use mitmproxy::windows::{get_process_name, network_table};
+use mitmproxy::windows::network::network_table;
+use mitmproxy::windows::processes::get_process_name;
 use mitmproxy::MAX_PACKET_SIZE;
 
-use crate::packet::{ConnectionId, InternetPacket, TransportProtocol};
-
-mod packet;
+use internet_packet::{ConnectionId, InternetPacket, TransportProtocol};
 
 #[derive(Debug)]
 enum Event {
@@ -141,7 +140,7 @@ async fn main() -> Result<()> {
             Event::NetworkPacket(address, data) => {
                 // We received a network packet and now need to figure out what to do with it.
 
-                let packet = match InternetPacket::new(data) {
+                let packet = match InternetPacket::try_from(data) {
                     Ok(p) => p,
                     Err(e) => {
                         debug!("Error parsing packet: {:?}", e);
@@ -321,7 +320,7 @@ async fn main() -> Result<()> {
                 address.set_tcp_checksum(false);
                 address.set_udp_checksum(false);
 
-                let packet = match InternetPacket::new(buf) {
+                let packet = match InternetPacket::try_from(buf) {
                     Ok(p) => p,
                     Err(e) => {
                         info!("Error parsing packet: {:?}", e);

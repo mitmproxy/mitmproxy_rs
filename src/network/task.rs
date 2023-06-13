@@ -533,7 +533,7 @@ impl NetworkTask<'_> {
             // 3. Check if we can wake up any waiters, move more data in the send buffer, or clean up sockets.
 
             // check device for timeouts
-            let delay = io.iface.poll_delay(Instant::now(), &mut io.sockets);
+            let delay = io.iface.poll_delay(Instant::now(), &io.sockets);
 
             #[cfg(debug_assertions)]
             if let Some(d) = delay {

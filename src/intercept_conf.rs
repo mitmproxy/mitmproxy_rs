@@ -2,13 +2,14 @@ use anyhow::bail;
 #[cfg(windows)]
 use bincode::{Decode, Encode};
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 pub type PID = u32;
 
 #[derive(Debug, Clone)]
 pub struct ProcessInfo {
     pub pid: PID,
-    pub process_name: Option<String>,
+    pub process_name: Option<PathBuf>,
 }
 
 #[cfg_attr(windows, derive(Decode, Encode))]
@@ -68,7 +69,10 @@ impl InterceptConf {
         self.invert ^ {
             if self.pids.contains(&process_info.pid) {
                 true
+            } else if self.process_names.is_empty() {
+                false // fast path to avoid conversion below.
             } else if let Some(name) = &process_info.process_name {
+                let name = name.to_string_lossy();
                 self.process_names.iter().any(|n| name.contains(n))
             } else {
                 false

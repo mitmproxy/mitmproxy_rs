@@ -1,45 +1,12 @@
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
-
 use anyhow::{anyhow, Result};
-use windows::core::PWSTR;
-use windows::Win32::Foundation::{CloseHandle, ERROR_INSUFFICIENT_BUFFER, MAX_PATH, NO_ERROR};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+use windows::Win32::Foundation::{ERROR_INSUFFICIENT_BUFFER, NO_ERROR};
 use windows::Win32::NetworkManagement::IpHelper::{
     GetExtendedTcpTable, GetExtendedUdpTable, MIB_TCP6ROW_OWNER_PID, MIB_TCP6TABLE_OWNER_PID,
     MIB_TCPROW_OWNER_PID, MIB_TCPTABLE_OWNER_PID, MIB_UDP6ROW_OWNER_PID, MIB_UDP6TABLE_OWNER_PID,
     MIB_UDPROW_OWNER_PID, MIB_UDPTABLE_OWNER_PID, TCP_TABLE_OWNER_PID_ALL, UDP_TABLE_OWNER_PID,
 };
 use windows::Win32::Networking::WinSock::{AF_INET, AF_INET6};
-use windows::Win32::System::Threading::{
-    OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_NATIVE, PROCESS_NAME_WIN32,
-    PROCESS_QUERY_LIMITED_INFORMATION,
-};
-
-use crate::intercept_conf::PID;
-
-pub fn get_process_name(pid: PID) -> Result<String> {
-    let mut buffer = [0u16; MAX_PATH as usize];
-    let path = PWSTR(buffer.as_mut_ptr());
-    let mut len = buffer.len() as u32;
-
-    unsafe {
-        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)?;
-        // K32GetProcessImageFileNameW(handle, &mut buffer);
-        let query_ok = QueryFullProcessImageNameW(handle, PROCESS_NAME_WIN32, path, &mut len)
-            .ok()
-            .or_else(|_|
-                // WSL wants PROCESS_NAME_NATIVE, see https://github.com/microsoft/WSL/issues/3478
-                QueryFullProcessImageNameW(
-                    handle,
-                    PROCESS_NAME_NATIVE,
-                    path,
-                    &mut len,
-                ).ok());
-        CloseHandle(handle).ok()?;
-        // checking for success only after closing the handle.
-        query_ok?;
-        path.to_string().map_err(|e| anyhow!(e))
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct NetworkTableEntry {
@@ -69,7 +36,7 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
             )
         };
         if res == ERROR_INSUFFICIENT_BUFFER.0 {
-            buf.resize(buf.len() * 2, 0);
+            buf.reserve(buf.capacity() + buf_size as usize);
         } else if res == NO_ERROR.0 {
             break;
         } else {
@@ -109,7 +76,7 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
             )
         };
         if res == ERROR_INSUFFICIENT_BUFFER.0 {
-            buf.resize(buf.len() * 2, 0);
+            buf.reserve(buf.capacity() + buf_size as usize);
         } else if res == NO_ERROR.0 {
             break;
         } else {
@@ -149,7 +116,7 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
             )
         };
         if res == ERROR_INSUFFICIENT_BUFFER.0 {
-            buf.resize(buf.len() * 2, 0);
+            buf.reserve(buf.capacity() + buf_size as usize);
         } else if res == NO_ERROR.0 {
             break;
         } else {
@@ -186,7 +153,7 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
             )
         };
         if res == ERROR_INSUFFICIENT_BUFFER.0 {
-            buf.resize(buf.len() * 2, 0);
+            buf.reserve(buf.capacity() + buf_size as usize);
         } else if res == NO_ERROR.0 {
             break;
         } else {
@@ -216,12 +183,6 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
 #[cfg(test)]
 mod tests {
     use std::net::{TcpListener, UdpSocket};
-
-    #[test]
-    fn get_process_name() {
-        let name = super::get_process_name(std::process::id()).unwrap();
-        assert!(name.contains("mitmproxy"));
-    }
 
     #[test]
     fn network_table() {
