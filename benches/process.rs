@@ -1,8 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use mitmproxy::windows::icons::IconCache;
 #[cfg(windows)]
-use mitmproxy::windows::processes;
-use std::path::PathBuf;
+use mitmproxy::windows::{icons, processes};
+
 #[cfg(windows)]
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 
@@ -12,7 +11,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     {
         let hinst = unsafe { GetModuleHandleW(None).unwrap() };
         let pid = std::process::id();
-        let mut test_exe = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut test_exe = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         test_exe.push("benches\\openvpnserv.exe");
         let test_exe = test_exe;
 
@@ -28,11 +27,13 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
         c.bench_function("get_icon", |b| {
             b.iter(|| {
-                IconCache::default().get_png(test_exe.clone()).unwrap();
+                icons::IconCache::default()
+                    .get_png(test_exe.clone())
+                    .unwrap();
             })
         });
 
-        let mut icon_cache = IconCache::default();
+        let mut icon_cache = icons::IconCache::default();
         c.bench_function("get_icon (cached)", |b| {
             b.iter(|| {
                 icon_cache.get_png(test_exe.clone()).unwrap();

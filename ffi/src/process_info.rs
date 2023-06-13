@@ -1,9 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
 
 #[allow(unused_imports)]
 use mitmproxy::processes::{image, ProcessList};
@@ -52,7 +50,7 @@ pub fn active_executables() -> PyResult<Vec<Process>> {
     {
         windows::processes::active_executables()
             .map(|p| p.into_iter().map(Process).collect())
-            .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{}", e)))
     }
     #[cfg(not(windows))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
@@ -61,17 +59,19 @@ pub fn active_executables() -> PyResult<Vec<Process>> {
 }
 
 #[pyfunction]
+#[allow(unused_variables)]
 pub fn executable_icon(executable: PathBuf) -> Result<PyObject> {
     #[cfg(windows)]
     {
         let mut icon_cache = windows::icons::ICON_CACHE.lock().unwrap();
         let png_bytes = icon_cache.get_png(executable)?;
         Ok(Python::with_gil(|py| {
-            PyBytes::new(py, png_bytes).to_object(py)
+            pyo3::types::PyBytes::new(py, png_bytes).to_object(py)
         }))
     }
     #[cfg(not(windows))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
         "executable_icon is only available on Windows",
-    ))
+    )
+    .into())
 }
