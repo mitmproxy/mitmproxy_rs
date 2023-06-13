@@ -125,8 +125,6 @@ jobs:
       artifact: wheels
       # repository: testpypi
       # environment: deploy-testpypi
-    secrets:
-      password: ${{ secrets.PYPI_TOKEN }}
 
   check:
     if: always()
