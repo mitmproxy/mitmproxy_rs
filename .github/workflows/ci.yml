@@ -119,14 +119,14 @@ jobs:
 
   deploy:
     uses: mhils/workflows/.github/workflows/python-deploy.yml@main
-    needs: check
+    needs: [test, build]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-    permissions:
-      id-token: write
     with:
       artifact: wheels
       # repository: testpypi
       # environment: deploy-testpypi
+    secrets:
+      password: ${{ secrets.PYPI_TOKEN }}
 
   check:
     if: always()
