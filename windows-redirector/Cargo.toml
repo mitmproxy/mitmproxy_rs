@@ -15,7 +15,7 @@ mitmproxy = { path = "../" }
 bincode.workspace = true
 tokio = { version = "1.23", features = ["macros", "net", "rt-multi-thread", "sync", "io-util"] }
 anyhow = { version = "1.0.71", features = ["backtrace"] }
-windivert = "0.6.0"
+windivert = { version = "0.6.0", features = ["vendored"] }
 lru_time_cache = "0.11.11"
 log = "0.4.18"
 env_logger = "0.10.0"
