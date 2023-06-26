@@ -2,6 +2,8 @@ use std::iter;
 use std::os::unix::ffi::OsStrExt;
 use std::process::Command;
 
+use std::path::Path;
+use std::fs;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
@@ -10,7 +12,6 @@ use tokio::net::unix::pipe;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
-use tun::Device;
 use nix::{unistd::mkfifo, sys::stat::Mode};
 // use windows::core::PCWSTR;
 // use windows::w;
@@ -26,6 +27,39 @@ use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 
 pub const CONF: bincode::config::Configuration = bincode::config::standard();
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
+
+
+pub mod raw_packet {
+    include!(concat!(env!("OUT_DIR"), "/pipe_rs.raw_packet.rs"));
+}
+
+pub fn serialize_packet(raw_packet: &raw_packet::Packet) -> Vec<u8> {
+    let mut buf = Vec::new();
+    buf.reserve(raw_packet.encoded_len());
+    // Unwrap is safe, since we have reserved sufficient capacity in the vector.
+    raw_packet.encode(&mut buf).unwrap();
+    buf
+}
+
+pub fn deserialize_packet(buf: &[u8]) -> Result<raw_packet::Packet, prost::DecodeError> {
+    raw_packet::Packet::decode(&mut Cursor::new(buf))
+}
+
+pub fn copy_dir(src: &Path, dst: &Path) -> io::Result<()> {
+    for entry in src.read_dir()? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if ty.is_dir() {
+            fs::create_dir_all(&dst_path)?;
+            copy_dir(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path)?;
+        }
+    }
+    Ok(())
+}
 
 #[derive(Decode, Encode, PartialEq, Eq, Debug)]
 pub enum MacosIpcRecv {
@@ -60,22 +94,8 @@ impl PacketSourceConf for MacosConf {
         sd_watcher: broadcast::Receiver<()>,
     ) -> Result<(MacosTask, Self::Data)> {
         
-        // create tun device
-        let gateway = "10.0.0.1";
-        let netmask = "255.255.0.0";
-        let mut config = tun::Configuration::default();
-        config
-            .layer(tun::Layer::L3)
-            .address(gateway)
-            .netmask(netmask)
-            .up();
 
-        let tun_device = match tun::create(&config) {
-            Ok(dev) => dev,
-            Err(e) => return Err(anyhow!("Tun creation failed: {:?}", e)),
-        };
 
-        //reset dns when terminate
         // #[cfg(target_os = "macos")]
         // tokio::spawn(async {
         //     use tokio::signal;
@@ -94,22 +114,20 @@ impl PacketSourceConf for MacosConf {
         //     }
         // });
 
-        let _ = Command::new("route").args(["delete", "default"]).output();
-        let _ = Command::new("route")
-                .args(["-n", "add", "default", gateway])
-                .output();
+        let home_dir = home_dir().unwrap();
+        let fifo_path = Path::new(&home_dir).join("Downloads/packets.pipe");
+        let executable_path = "/Applications/MitmproxyAppleTunnel.app/";
+        copy_dir(Path::new("../apple-tunnel/MitmproxyAppleTunnel.app/"), Path::new(executable_path))?;
 
-        //create the pipe
-        let pipe_name = format!(
-            r"\\.\pipe\mitmproxy-transparent-proxy-{}",
-            std::process::id()
-        );
-
-        mkfifo(pipe_name.as_str(), Mode::S_IRWXU)?;
+        // create new fifo and give read, write and execute rights to the owner
+        match mkfifo(&fifo_path, Mode::S_IRWXU) {
+            Ok(_) => println!("created {:?}", fifo_path),
+            Err(err) => println!("Error creating fifo: {}", err),
+        }
 
         let ipc_server = PipeServer::new(&pipe_name)?;
 
-        //log::debug!("starting {} {}", self.executable_path.display(), pipe_name);
+        log::debug!("starting {} {}", executable_path.display(), pipe_name);
 
         // let pipe_name = pipe_name
         //     .encode_utf16()
@@ -123,20 +141,14 @@ impl PacketSourceConf for MacosConf {
         //     .chain(iter::once(0))
         //     .collect::<Vec<u16>>();
         //
-        // let result = unsafe {
-        //     ShellExecuteW(
-        //         None,
-        //         w!("runas"),
-        //         PCWSTR::from_raw(executable_path.as_ptr()),
-        //         PCWSTR::from_raw(pipe_name.as_ptr()),
-        //         None,
-        //         if cfg!(debug_assertions) {
-        //             SW_SHOWNORMAL
-        //         } else {
-        //             SW_HIDE
-        //         },
-        //     )
-        // };
+
+        Command::new("open")
+            .arg("-a")
+            .arg(executable_path)
+            .arg("--args")
+            .arg(&fifo_path)
+            .spawn()
+            .expect("failed to execute process");
 
         // if cfg!(debug_assertions) {
         //     if result.0 <= 32 {
@@ -152,7 +164,7 @@ impl PacketSourceConf for MacosConf {
         //     return Err(anyhow!("Failed to start the executable: {}", error_msg));
         // }
         //
-        let (conf_tx, conf_rx) = unbounded_channel();
+        //let (conf_tx, conf_rx) = unbounded_channel();
 
         Ok((
             MacosTask {
@@ -160,10 +172,10 @@ impl PacketSourceConf for MacosConf {
                 buf: [0u8; IPC_BUF_SIZE],
                 net_tx,
                 net_rx,
-                conf_rx,
+                //conf_rx,
                 sd_watcher,
             },
-            conf_tx,
+            //conf_tx,
         ))
     }
 }
