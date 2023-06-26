@@ -13,12 +13,6 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
 use nix::{unistd::mkfifo, sys::stat::Mode};
-// use windows::core::PCWSTR;
-// use windows::w;
-// use windows::Win32::Foundation::GetLastError;
-// use windows::Win32::UI::Shell::ShellExecuteW;
-// use windows::Win32::UI::Shell::SE_ERR_ACCESSDENIED;
-// use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
 use crate::intercept_conf::InterceptConf;
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
