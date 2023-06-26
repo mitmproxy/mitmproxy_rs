@@ -142,29 +142,28 @@ impl PacketSourceConf for MacosConf {
         //     .collect::<Vec<u16>>();
         //
 
-        Command::new("open")
+        let result = Command::new("open")
             .arg("-a")
             .arg(executable_path)
             .arg("--args")
             .arg(&fifo_path)
-            .spawn()
-            .expect("failed to execute process");
+            .spawn();
 
-        // if cfg!(debug_assertions) {
-        //     if result.0 <= 32 {
-        //         let error_msg = unsafe { GetLastError().to_hresult().message().to_string_lossy() };
-        //         log::warn!("Failed to start child process: {}", error_msg);
-        //     }
-        // } else if result.0 == SE_ERR_ACCESSDENIED as isize {
-        //     return Err(anyhow!(
-        //         "Failed to start the interception process as administrator."
-        //     ));
-        // } else if result.0 <= 32 {
-        //     let error_msg = unsafe { GetLastError().to_hresult().message().to_string_lossy() };
-        //     return Err(anyhow!("Failed to start the executable: {}", error_msg));
-        // }
-        //
-        //let (conf_tx, conf_rx) = unbounded_channel();
+        if cfg!(debug_assertions) {
+            if result.0 <= 32 {
+                let error_msg = unsafe { GetLastError().to_hresult().message().to_string_lossy() };
+                log::warn!("Failed to start child process: {}", error_msg);
+            }
+        } else if result.0 == SE_ERR_ACCESSDENIED as isize {
+            return Err(anyhow!(
+                "Failed to start the interception process as administrator."
+            ));
+        } else if result.0 <= 32 {
+            let error_msg = unsafe { GetLastError().to_hresult().message().to_string_lossy() };
+            return Err(anyhow!("Failed to start the executable: {}", error_msg));
+        }
+
+        let (conf_tx, conf_rx) = unbounded_channel();
 
         Ok((
             MacosTask {
@@ -172,10 +171,10 @@ impl PacketSourceConf for MacosConf {
                 buf: [0u8; IPC_BUF_SIZE],
                 net_tx,
                 net_rx,
-                //conf_rx,
+                conf_rx,
                 sd_watcher,
             },
-            //conf_tx,
+            conf_tx,
         ))
     }
 }
@@ -215,11 +214,11 @@ impl PacketSourceTask for MacosTask {
                 // wait for graceful shutdown
                 _ = self.sd_watcher.recv() => break,
                 // pipe through changes to the intercept list
-                Some(cmd) = self.conf_rx.recv() => {
-                    assert!(matches!(cmd, MacosIpcSend::SetIntercept(_)));
-                    let len = bincode::encode_into_slice(&cmd, &mut self.buf, CONF)?;
-                    self.ipc_server.tx.try_write(&self.buf[..len])?;
-                },
+                // Some(cmd) = self.conf_rx.recv() => {
+                //     assert!(matches!(cmd, MacosIpcSend::SetIntercept(_)));
+                //     let len = bincode::encode_into_slice(&cmd, &mut self.buf, CONF)?;
+                //     self.ipc_server.tx.try_write(&self.buf[..len])?;
+                // },
                 // read packets from the IPC pipe into our network stack.
                 r = self.ipc_server.rx.read_exact(&mut self.buf) => {
                     let len = r.context("IPC read error.")?;
@@ -257,15 +256,15 @@ impl PacketSourceTask for MacosTask {
                     };
                 },
                 // write packets from the network stack to the IPC pipe to be reinjected.
-                Some(e) = self.net_rx.recv() => {
-                    match e {
-                        NetworkCommand::SendPacket(packet) => {
-                            let packet = MacosIpcSend::Packet(packet.into_inner());
-                            let len = bincode::encode_into_slice(&packet, &mut self.buf, CONF)?;
-                            self.ipc_server.tx.try_write(&self.buf[..len])?;
-                        }
-                    }
-                }
+                // Some(e) = self.net_rx.recv() => {
+                //     match e {
+                //         NetworkCommand::SendPacket(packet) => {
+                //             let packet = MacosIpcSend::Packet(packet.into_inner());
+                //             let len = bincode::encode_into_slice(&packet, &mut self.buf, CONF)?;
+                //             self.ipc_server.tx.try_write(&self.buf[..len])?;
+                //         }
+                //     }
+                // }
             }
         }
 

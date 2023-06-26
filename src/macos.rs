@@ -8,6 +8,39 @@ use security_framework::{
 };
 use tokio::process::Command;
 
+
+pub mod raw_packet {
+    include!(concat!(env!("OUT_DIR"), "/pipe_rs.raw_packet.rs"));
+}
+
+pub fn serialize_packet(raw_packet: &raw_packet::Packet) -> Vec<u8> {
+    let mut buf = Vec::new();
+    buf.reserve(raw_packet.encoded_len());
+    // Unwrap is safe, since we have reserved sufficient capacity in the vector.
+    raw_packet.encode(&mut buf).unwrap();
+    buf
+}
+
+pub fn deserialize_packet(buf: &[u8]) -> Result<raw_packet::Packet, prost::DecodeError> {
+    raw_packet::Packet::decode(&mut Cursor::new(buf))
+}
+
+pub fn copy_dir(src: &Path, dst: &Path) -> io::Result<()> {
+    for entry in src.read_dir()? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if ty.is_dir() {
+            fs::create_dir_all(&dst_path)?;
+            copy_dir(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path)?;
+        }
+    }
+    Ok(())
+}
+
 pub fn add_trusted_cert(der: Vec<u8>) -> Result<()> {
     let cert = SecCertificate::from_der(&der)?;
     let add_ref = AddRef::Certificate(cert.clone());
