@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package pipe_rs.raw_packet;
+
+message Packet {
+   string title = 1;
+}
