@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package pipe_rs.raw_packet;
+package mitmproxy.raw_packet;
 
 message Packet {
    string title = 1;

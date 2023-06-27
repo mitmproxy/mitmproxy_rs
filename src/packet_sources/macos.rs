@@ -18,13 +18,15 @@ use crate::intercept_conf::InterceptConf;
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+use prost::Message;
+use std::io::Cursor;
+use home::home_dir;
 
 pub const CONF: bincode::config::Configuration = bincode::config::standard();
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
 
-
 pub mod raw_packet {
-    include!(concat!(env!("OUT_DIR"), "/pipe_rs.raw_packet.rs"));
+    include!(concat!(env!("OUT_DIR"), "/mitmproxy.raw_packet.rs"));
 }
 
 pub fn serialize_packet(raw_packet: &raw_packet::Packet) -> Vec<u8> {
@@ -39,7 +41,7 @@ pub fn deserialize_packet(buf: &[u8]) -> Result<raw_packet::Packet, prost::Decod
     raw_packet::Packet::decode(&mut Cursor::new(buf))
 }
 
-pub fn copy_dir(src: &Path, dst: &Path) -> io::Result<()> {
+pub fn copy_dir(src: &Path, dst: &Path) -> Result<()> {
     for entry in src.read_dir()? {
         let entry = entry?;
         let ty = entry.file_type()?;
@@ -108,20 +110,14 @@ impl PacketSourceConf for MacosConf {
         //     }
         // });
 
-        let home_dir = home_dir().unwrap();
-        let fifo_path = Path::new(&home_dir).join("Downloads/packets.pipe");
         let executable_path = "/Applications/MitmproxyAppleTunnel.app/";
         copy_dir(Path::new("../apple-tunnel/MitmproxyAppleTunnel.app/"), Path::new(executable_path))?;
 
         // create new fifo and give read, write and execute rights to the owner
-        match mkfifo(&fifo_path, Mode::S_IRWXU) {
-            Ok(_) => println!("created {:?}", fifo_path),
-            Err(err) => println!("Error creating fifo: {}", err),
-        }
 
-        let ipc_server = PipeServer::new(&pipe_name)?;
+        let ipc_server = PipeServer::new("mitmproxy")?;
 
-        log::debug!("starting {} {}", executable_path.display(), pipe_name);
+        log::debug!("starting {}", executable_path.display());
 
         // let pipe_name = pipe_name
         //     .encode_utf16()
@@ -140,21 +136,19 @@ impl PacketSourceConf for MacosConf {
             .arg("-a")
             .arg(executable_path)
             .arg("--args")
-            .arg(&fifo_path)
+            .arg(&ipc_server.path)
             .spawn();
 
         if cfg!(debug_assertions) {
             if result.0 <= 32 {
-                let error_msg = unsafe { GetLastError().to_hresult().message().to_string_lossy() };
-                log::warn!("Failed to start child process: {}", error_msg);
+                log::warn!("Failed to start child process: {}", result.1);
             }
-        } else if result.0 == SE_ERR_ACCESSDENIED as isize {
+        } else if result.0 as isize {
             return Err(anyhow!(
                 "Failed to start the interception process as administrator."
             ));
         } else if result.0 <= 32 {
-            let error_msg = unsafe { GetLastError().to_hresult().message().to_string_lossy() };
-            return Err(anyhow!("Failed to start the executable: {}", error_msg));
+            return Err(anyhow!("Failed to start the executable: {}", result.1));
         }
 
         let (conf_tx, conf_rx) = unbounded_channel();
@@ -176,12 +170,20 @@ impl PacketSourceConf for MacosConf {
 pub struct PipeServer{
     tx: pipe::Sender,
     rx: pipe::Receiver,
+    path: Path,
 }
 impl PipeServer {
-    pub fn new(fifo_name: &str) -> Result<Self>{
+    pub fn new(fifo_name: &str) -> Result<()>{
+        let home_dir = home_dir().unwrap();
+        let fifo_path = Path::new(&home_dir).join(format!("Downloads/{:?}.pipe", &fifo_name));
+        match mkfifo(&fifo_path, Mode::S_IRWXU) {
+            Ok(_) => println!("created {:?}", fifo_path),
+            Err(err) => println!("Error creating fifo: {}", err),
+        }
        Ok(PipeServer{
-            tx: pipe::OpenOptions::new().open_sender(fifo_name)?,
-            rx: pipe::OpenOptions::new().open_receiver(fifo_name)?,
+            tx: pipe::OpenOptions::new().open_sender(fifo_path)?,
+            rx: pipe::OpenOptions::new().open_receiver(fifo_path)?,
+            path: fifo_path,
         })
     }
 }
