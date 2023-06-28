@@ -15,7 +15,6 @@ pub enum TunnelInfo {
         process_name: Option<String>,
     },
     Macos {
-        pid: u32,
         process_name: Option<String>,
     },
 }

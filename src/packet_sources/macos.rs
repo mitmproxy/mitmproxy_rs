@@ -1,13 +1,11 @@
-use std::iter;
-use std::os::unix::ffi::OsStrExt;
 use std::process::Command;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::fs;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use bincode::{Decode, Encode};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+//use bincode::{Decode, Encode};
+use tokio::io::{AsyncReadExt};
 use tokio::net::unix::pipe;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
@@ -22,7 +20,7 @@ use prost::Message;
 use std::io::Cursor;
 use home::home_dir;
 
-pub const CONF: bincode::config::Configuration = bincode::config::standard();
+//pub const CONF: bincode::config::Configuration = bincode::config::standard();
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
 
 pub mod raw_packet {
@@ -37,8 +35,15 @@ pub fn serialize_packet(raw_packet: &raw_packet::Packet) -> Vec<u8> {
     buf
 }
 
-pub fn deserialize_packet(buf: &[u8]) -> Result<raw_packet::Packet, prost::DecodeError> {
-    raw_packet::Packet::decode(&mut Cursor::new(buf))
+pub fn deserialize_packet(buf: &[u8]) -> Result<MacosIpcRecv, prost::DecodeError> {
+    if let Ok(packet) = raw_packet::Packet::decode(&mut Cursor::new(buf)){
+        return Ok(MacosIpcRecv::Packet{
+            data: packet.data,
+            process_name: Some(packet.process_name),
+        })
+    } else {
+        return Err(prost::DecodeError::new("Failed to decode packet")) 
+    }
 }
 
 pub fn copy_dir(src: &Path, dst: &Path) -> Result<()> {
@@ -57,22 +62,46 @@ pub fn copy_dir(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
-#[derive(Decode, Encode, PartialEq, Eq, Debug)]
+#[derive(Debug)]
+pub struct PipeServer{
+    tx: pipe::Sender,
+    rx: pipe::Receiver,
+    path: PathBuf,
+}
+
+impl PipeServer {
+    pub fn new(fifo_name: &str) -> Result<Self>{
+        let home_dir = home_dir().unwrap();
+        let fifo_path = Path::new(&home_dir).join(format!("Downloads/{:?}.pipe", &fifo_name));
+        match mkfifo(&fifo_path, Mode::S_IRWXU) {
+            Ok(_) => println!("created {:?}", fifo_path),
+            Err(err) => println!("Error creating fifo: {}", err),
+        }
+       Ok(PipeServer{
+            tx: pipe::OpenOptions::new().open_sender(&fifo_path)?,
+            rx: pipe::OpenOptions::new().open_receiver(&fifo_path)?,
+            path: fifo_path,
+        })
+    }
+}
+
+#[derive(PartialEq, Eq, Debug)]
 pub enum MacosIpcRecv {
     Packet {
         data: Vec<u8>,
-        pid: u32,
         process_name: Option<String>,
     },
 }
 
-#[derive(Decode, Encode, PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum MacosIpcSend {
     Packet(Vec<u8>),
     SetIntercept(InterceptConf),
 }
 
-pub struct MacosConf;
+pub struct MacosConf{
+    pub executable_path: PathBuf,
+}
 
 #[async_trait]
 impl PacketSourceConf for MacosConf {
@@ -117,7 +146,7 @@ impl PacketSourceConf for MacosConf {
 
         let ipc_server = PipeServer::new("mitmproxy")?;
 
-        log::debug!("starting {}", executable_path.display());
+        log::debug!("starting {}", executable_path);
 
         // let pipe_name = pipe_name
         //     .encode_utf16()
@@ -137,18 +166,10 @@ impl PacketSourceConf for MacosConf {
             .arg(executable_path)
             .arg("--args")
             .arg(&ipc_server.path)
-            .spawn();
+            .spawn()?;
 
-        if cfg!(debug_assertions) {
-            if result.0 <= 32 {
-                log::warn!("Failed to start child process: {}", result.1);
-            }
-        } else if result.0 as isize {
-            return Err(anyhow!(
-                "Failed to start the interception process as administrator."
-            ));
-        } else if result.0 <= 32 {
-            return Err(anyhow!("Failed to start the executable: {}", result.1));
+        if let Some(err) = result.stderr {
+                log::warn!("Failed to start child process: {:?}", err);
         }
 
         let (conf_tx, conf_rx) = unbounded_channel();
@@ -164,27 +185,6 @@ impl PacketSourceConf for MacosConf {
             },
             conf_tx,
         ))
-    }
-}
-
-pub struct PipeServer{
-    tx: pipe::Sender,
-    rx: pipe::Receiver,
-    path: Path,
-}
-impl PipeServer {
-    pub fn new(fifo_name: &str) -> Result<()>{
-        let home_dir = home_dir().unwrap();
-        let fifo_path = Path::new(&home_dir).join(format!("Downloads/{:?}.pipe", &fifo_name));
-        match mkfifo(&fifo_path, Mode::S_IRWXU) {
-            Ok(_) => println!("created {:?}", fifo_path),
-            Err(err) => println!("Error creating fifo: {}", err),
-        }
-       Ok(PipeServer{
-            tx: pipe::OpenOptions::new().open_sender(fifo_path)?,
-            rx: pipe::OpenOptions::new().open_receiver(fifo_path)?,
-            path: fifo_path,
-        })
     }
 }
 
@@ -228,10 +228,18 @@ impl PacketSourceTask for MacosTask {
                         // Instead, empty reads indicate that the IPC client has disconnected.
                         return Err(anyhow!("redirect daemon exited prematurely."));
                     }
-                    let Ok((MacosIpcRecv::Packet { data, pid, process_name }, n)) = bincode::decode_from_slice(&self.buf[..len], CONF) else {
+
+                    //let (splitted_msg, _) = &msg.split_at(n);
+                    let Ok(MacosIpcRecv::Packet { data, process_name })  = deserialize_packet(&self.buf[..len]) else {
                         return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
                     };
-                    assert_eq!(n, len);
+                    //println!("{:?}", raw_packet.title);
+                    //msg.truncate(n);
+
+                    //let Ok((MacosIpcRecv::Packet { data, pid, process_name }, n)) = bincode::decode_from_slice(&self.buf[..len], CONF) else {
+                        //return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
+                    //};
+                    //assert_eq!(n, len);
                     let Ok(mut packet) = IpPacket::try_from(data) else {
                         log::error!("Skipping invalid packet: {:?}", &self.buf[..len]);
                         continue;
@@ -243,7 +251,6 @@ impl PacketSourceTask for MacosTask {
                     let event = NetworkEvent::ReceivePacket {
                         packet,
                         tunnel_info: TunnelInfo::Macos {
-                            pid,
                             process_name,
                         },
                     };

@@ -1,10 +1,10 @@
 use std::net::SocketAddr;
 
 use std::sync::Arc;
-use std::todo;
 
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
+use mitmproxy::packet_sources::macos::MacosIpcSend;
 use pyo3::prelude::*;
 use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
 use x25519_dalek::PublicKey;
@@ -151,6 +151,8 @@ pub struct OsProxy {
     server: Server,
     #[cfg(windows)]
     conf_tx: mpsc::UnboundedSender<WindowsIpcSend>,
+    #[cfg(target_os = "macos")]
+    conf_tx: mpsc::UnboundedSender<MacosIpcSend>,
 }
 
 #[pymethods]
@@ -303,50 +305,21 @@ pub fn start_os_proxy(
     }
     #[cfg(target_os = "macos")]
     {
-        let gateway = "10.0.0.1";
-        let netmask = "255.255.0.0";
-        let mut config = tun::Configuration::default();
-        config
-            .layer(tun::Layer::L3)
-            .address(gateway)
-            .netmask(netmask)
-            .up();
+        let filename = py.import("mitmproxy_rs")?.filename()?;
+        let executable_path = std::path::Path::new(filename)
+            .parent()
+            .ok_or_else(|| anyhow!("invalid path"))?
+            .join("windows-redirector.exe");
 
-        let tun_device = match tun::create(&config) {
-            Ok(dev) => dev,
-            Err(e) => return Err(anyhow!("{} does not exist", executable_path.display()).into()),
-        };
-
-        //reset dns when terminate
-        // #[cfg(target_os = "macos")]
-        // tokio::spawn(async {
-        //     use tokio::signal;
-        //     if let Ok(_) = signal::ctrl_c().await {
-        //         let _ = Command::new("networksetup")
-        //             .args(["-setdnsservers", "Wi-Fi", "empty"])
-        //             .output();
-        //
-        //         let _ = Command::new("route")
-        //             .args(["-n", "delete", "default"])
-        //             .output();
-        //         let _ = Command::new("route")
-        //             .args(["-n", "add", "default", "192.168.1.1"])
-        //             .output();
-        //         process::exit(0);
-        //     }
-        // });
-
-        let _ = Command::new("route").args(["delete", "default"]).output();
-        let _ = Command::new("route")
-                .args(["-n", "add", "default", gateway])
-                .output();
-
-        let conf = MacosConf;
+        if !executable_path.exists() {
+            return Err(anyhow!("{} does not exist", executable_path.display()).into());
+        }
+        let conf = MacosConf { executable_path };
         pyo3_asyncio::tokio::future_into_py(py, async move {
-            //let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
-            todo!()
-            //Ok(OsProxy { server, conf_tx })
-        })
+            let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
+
+            Ok(OsProxy { server, conf_tx })
+        });
     }
     #[cfg(not(windows))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(

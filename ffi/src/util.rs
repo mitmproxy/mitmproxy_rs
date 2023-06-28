@@ -74,7 +74,8 @@ pub fn add_trusted_cert(pem: String) -> PyResult<()> {
             .skip(1)
             .take_while(|&line| line != "-----END CERTIFICATE-----")
             .collect::<String>();
-        let der = BASE64.decode(remove_trusted_cert.as_bytes()).unwrap();
+        //let der = BASE64.decode(remove_trusted_cert.as_bytes()).unwrap();
+        let der = BASE64.decode(&pem_body.as_bytes()).unwrap();
         match macos::add_trusted_cert(der) {
             Ok(_) => Ok(()),
             Err(e) => Err(PyErr::new::<PyOSError, _>(format!(

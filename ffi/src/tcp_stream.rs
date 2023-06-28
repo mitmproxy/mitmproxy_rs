@@ -117,18 +117,22 @@ impl TcpStream {
             ("sockname", _) => Ok(socketaddr_to_py(py, self.sockname)),
             ("original_src", _) => match self.tunnel_info {
                 TunnelInfo::WireGuard { src_addr, .. } => Ok(socketaddr_to_py(py, src_addr)),
-                TunnelInfo::Windows { .. } => Ok(py.None()),
+                _ => Ok(py.None()),
             },
             ("original_dst", _) => match self.tunnel_info {
                 TunnelInfo::WireGuard { dst_addr, .. } => Ok(socketaddr_to_py(py, dst_addr)),
-                TunnelInfo::Windows { .. } => Ok(py.None()),
+                _ => Ok(py.None()),
             },
             ("pid", _) => match &self.tunnel_info {
                 TunnelInfo::Windows { pid, .. } => Ok(pid.into_py(py)),
-                TunnelInfo::WireGuard { .. } => Ok(py.None()),
+                _ => Ok(py.None()),
             },
             ("process_name", _) => match &self.tunnel_info {
                 TunnelInfo::Windows {
+                    process_name: Some(x),
+                    ..
+                } => Ok(x.into_py(py)),
+                TunnelInfo::Macos {
                     process_name: Some(x),
                     ..
                 } => Ok(x.into_py(py)),
