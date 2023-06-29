@@ -62,7 +62,6 @@ pub fn copy_dir(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug)]
 pub struct PipeServer{
     tx: pipe::Sender,
     rx: pipe::Receiver,
@@ -72,7 +71,7 @@ pub struct PipeServer{
 impl PipeServer {
     pub fn new(fifo_name: &str) -> Result<Self>{
         let home_dir = home_dir().unwrap();
-        let fifo_path = Path::new(&home_dir).join(format!("Downloads/{:?}.pipe", &fifo_name));
+        let fifo_path = Path::new(&home_dir).join(format!("Downloads/{}.pipe", &fifo_name));
         match mkfifo(&fifo_path, Mode::S_IRWXU) {
             Ok(_) => println!("created {:?}", fifo_path),
             Err(err) => println!("Error creating fifo: {}", err),
@@ -99,9 +98,7 @@ pub enum MacosIpcSend {
     SetIntercept(InterceptConf),
 }
 
-pub struct MacosConf{
-    pub executable_path: PathBuf,
-}
+pub struct MacosConf;
 
 #[async_trait]
 impl PacketSourceConf for MacosConf {

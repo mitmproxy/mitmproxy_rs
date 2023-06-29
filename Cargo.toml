@@ -53,8 +53,6 @@ smoltcp = { git = 'https://github.com/mhils/smoltcp', rev = 'f65351adfa92db5193f
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "2.8.2"
-tun = {version = "0.5.5"}
-bincode.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 bincode.workspace = true

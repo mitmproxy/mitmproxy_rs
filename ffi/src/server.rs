@@ -306,22 +306,23 @@ pub fn start_os_proxy(
     #[cfg(target_os = "macos")]
     {
         let filename = py.import("mitmproxy_rs")?.filename()?;
-        let executable_path = std::path::Path::new(filename)
-            .parent()
-            .ok_or_else(|| anyhow!("invalid path"))?
-            .join("windows-redirector.exe");
+        // let executable_path = std::path::Path::new(filename)
+        //     .parent()
+        //     .ok_or_else(|| anyhow!("invalid path"))?
+        //     .join("windows-redirector.exe");
+        //
+        // if !executable_path.exists() {
+        //     return Err(anyhow!("{} does not exist", executable_path.display()).into());
+        // }
 
-        if !executable_path.exists() {
-            return Err(anyhow!("{} does not exist", executable_path.display()).into());
-        }
-        let conf = MacosConf { executable_path };
+        let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
-
+            println!("server set");
             Ok(OsProxy { server, conf_tx })
-        });
+        })
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
         "OS proxy mode is only available on Windows",
     ))
