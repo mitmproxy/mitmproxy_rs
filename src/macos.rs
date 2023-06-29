@@ -8,8 +8,6 @@ use security_framework::{
 };
 use tokio::process::Command;
 
-
-
 pub fn add_trusted_cert(der: Vec<u8>) -> Result<()> {
     let cert = SecCertificate::from_der(&der)?;
     let add_ref = AddRef::Certificate(cert.clone());

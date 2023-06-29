@@ -11,10 +11,10 @@ use x25519_dalek::PublicKey;
 
 use mitmproxy::intercept_conf::InterceptConf;
 use mitmproxy::network::NetworkTask;
-#[cfg(windows)]
-use mitmproxy::packet_sources::windows::{WindowsConf, WindowsIpcSend};
 #[cfg(target_os = "macos")]
 use mitmproxy::packet_sources::macos::MacosConf;
+#[cfg(windows)]
+use mitmproxy::packet_sources::windows::{WindowsConf, WindowsIpcSend};
 
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
 use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};

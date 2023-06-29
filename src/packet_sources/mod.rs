@@ -4,11 +4,11 @@ use tokio::sync::{broadcast, mpsc};
 
 use crate::messages::{NetworkCommand, NetworkEvent};
 
+#[cfg(target_os = "macos")]
+pub mod macos;
 #[cfg(windows)]
 pub mod windows;
 pub mod wireguard;
-#[cfg(target_os = "macos")]
-pub mod macos;
 
 #[async_trait]
 pub trait PacketSourceConf {

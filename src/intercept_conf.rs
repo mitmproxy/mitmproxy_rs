@@ -15,7 +15,7 @@ pub struct ProcessInfo {
 }
 
 #[cfg_attr(windows, derive(Decode, Encode))]
-#[cfg_attr(target_os="macos", derive(Decode, Encode))]
+#[cfg_attr(target_os = "macos", derive(Decode, Encode))]
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct InterceptConf {
     pids: HashSet<PID>,

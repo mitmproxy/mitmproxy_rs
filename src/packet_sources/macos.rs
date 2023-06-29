@@ -1,24 +1,24 @@
 use std::process::Command;
 
-use std::path::{Path, PathBuf};
-use std::fs;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
+use std::fs;
+use std::path::{Path, PathBuf};
 //use bincode::{Decode, Encode};
-use tokio::io::{AsyncReadExt};
+use nix::{sys::stat::Mode, unistd::mkfifo};
+use tokio::io::AsyncReadExt;
 use tokio::net::unix::pipe;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
-use nix::{unistd::mkfifo, sys::stat::Mode};
 
 use crate::intercept_conf::InterceptConf;
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+use home::home_dir;
 use prost::Message;
 use std::io::Cursor;
-use home::home_dir;
 
 //pub const CONF: bincode::config::Configuration = bincode::config::standard();
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
@@ -36,13 +36,13 @@ pub fn serialize_packet(raw_packet: &raw_packet::Packet) -> Vec<u8> {
 }
 
 pub fn deserialize_packet(buf: &[u8]) -> Result<MacosIpcRecv, prost::DecodeError> {
-    if let Ok(packet) = raw_packet::Packet::decode(&mut Cursor::new(buf)){
-        return Ok(MacosIpcRecv::Packet{
+    if let Ok(packet) = raw_packet::Packet::decode(&mut Cursor::new(buf)) {
+        return Ok(MacosIpcRecv::Packet {
             data: packet.data,
             process_name: Some(packet.process_name),
-        })
+        });
     } else {
-        return Err(prost::DecodeError::new("Failed to decode packet")) 
+        return Err(prost::DecodeError::new("Failed to decode packet"));
     }
 }
 
@@ -62,21 +62,21 @@ pub fn copy_dir(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
-pub struct PipeServer{
+pub struct PipeServer {
     tx: pipe::Sender,
     rx: pipe::Receiver,
     path: PathBuf,
 }
 
 impl PipeServer {
-    pub fn new(fifo_name: &str) -> Result<Self>{
+    pub fn new(fifo_name: &str) -> Result<Self> {
         let home_dir = home_dir().unwrap();
         let fifo_path = Path::new(&home_dir).join(format!("Downloads/{}.pipe", &fifo_name));
         match mkfifo(&fifo_path, Mode::S_IRWXU) {
             Ok(_) => println!("created {:?}", fifo_path),
             Err(err) => println!("Error creating fifo: {}", err),
         }
-       Ok(PipeServer{
+        Ok(PipeServer {
             tx: pipe::OpenOptions::new().open_sender(&fifo_path)?,
             rx: pipe::OpenOptions::new().open_receiver(&fifo_path)?,
             path: fifo_path,
@@ -115,9 +115,6 @@ impl PacketSourceConf for MacosConf {
         net_rx: Receiver<NetworkCommand>,
         sd_watcher: broadcast::Receiver<()>,
     ) -> Result<(MacosTask, Self::Data)> {
-        
-
-
         // #[cfg(target_os = "macos")]
         // tokio::spawn(async {
         //     use tokio::signal;
@@ -137,7 +134,10 @@ impl PacketSourceConf for MacosConf {
         // });
 
         let executable_path = "/Applications/MitmproxyAppleTunnel.app/";
-        copy_dir(Path::new("../apple-tunnel/MitmproxyAppleTunnel.app/"), Path::new(executable_path))?;
+        copy_dir(
+            Path::new("../apple-tunnel/MitmproxyAppleTunnel.app/"),
+            Path::new(executable_path),
+        )?;
 
         // create new fifo and give read, write and execute rights to the owner
 
@@ -166,7 +166,7 @@ impl PacketSourceConf for MacosConf {
             .spawn()?;
 
         if let Some(err) = result.stderr {
-                log::warn!("Failed to start child process: {:?}", err);
+            log::warn!("Failed to start child process: {:?}", err);
         }
 
         let (conf_tx, conf_rx) = unbounded_channel();
