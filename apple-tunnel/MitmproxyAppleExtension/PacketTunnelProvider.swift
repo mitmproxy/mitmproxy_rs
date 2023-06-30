@@ -93,7 +93,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         var includedRoutes: [NEIPv4Route] = []
         includedRoutes.append(NEIPv4Route.default())
         
-        let dnsSettings = NEDNSSettings(servers: ["8.8.8.8", "8.8.4.4"])
+        let dnsSettings = NEDNSSettings(servers: ["10.0.0.53"])
         dnsSettings.matchDomains = [""]
         dnsSettings.matchDomainsNoSearch = true
         tunnelNetworkSettings.dnsSettings = dnsSettings
@@ -114,12 +114,10 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     
     func handleflow(){
         os_log("qqq - intercepted")
-        self.packetFlow.readPackets { (packets, protocols) in
+        self.packetFlow.readPacketObjects { packets in
             os_log("qqq - inside packet")
-            for (i, packet) in packets.enumerated(){
-                os_log("qqq protocol - %{public}@", protocols[i])
-                os_log("qqq packet - %{public}@", packet.base64EncodedString())
-                self.writeToPipe(content: packet)
+            for (_, packet) in packets.enumerated(){
+                self.writeToPipe(data: packet.data, processName: packet.metadata!.sourceAppSigningIdentifier)
             }
             self.handleflow()
         }
@@ -141,15 +139,16 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
     
-    func writeToPipe(content: Data) {
+    func writeToPipe(data: Data, processName: String) {
         os_log("QQQ - I'm inside writeToPipe, I'm writing on %{public}@", self.pipe ?? "no self.pipe installed")
         if let pipe = self.pipe{
             do {
                 let handler = FileHandle(forWritingAtPath: pipe)
                 os_log("qqq url: \(pipe, privacy: .public)")
                 os_log("qqq bundle resources url: \(Bundle.main.resourcePath!, privacy: .public)")
-                var packet = PipeRs_RawPacket_Packet()
-                packet.title = content.base64EncodedString()
+                var packet = Mitmproxy_RawPacket_Packet()
+                packet.data = data
+                packet.processName = processName
                 if let serializedPacket = self.serializePacket(packet: packet){
                     try handler?.write(contentsOf: serializedPacket)
                     handler?.closeFile()
@@ -161,7 +160,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     // Serialize and deserialize UDP packets
-    func serializePacket(packet: PipeRs_RawPacket_Packet) -> Data? {
+    func serializePacket(packet: Mitmproxy_RawPacket_Packet) -> Data? {
         do {
             return try packet.serializedData()
         } catch {
@@ -170,9 +169,9 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
 
-    func deserializePacket(data: Data) -> PipeRs_RawPacket_Packet? {
+    func deserializePacket(data: Data) -> Mitmproxy_RawPacket_Packet? {
         do {
-            return try PipeRs_RawPacket_Packet(serializedData: data)
+            return try Mitmproxy_RawPacket_Packet(serializedData: data)
         } catch {
             print("Failed to deserialize UDP packet: \(error)")
             return nil

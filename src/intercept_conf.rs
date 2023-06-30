@@ -1,9 +1,6 @@
 use anyhow::bail;
 #[cfg(windows)]
 use bincode::{Decode, Encode};
-#[cfg(target_os = "macos")]
-use bincode::{Decode, Encode};
-
 use std::collections::HashSet;
 
 pub type PID = u32;
@@ -15,7 +12,6 @@ pub struct ProcessInfo {
 }
 
 #[cfg_attr(windows, derive(Decode, Encode))]
-#[cfg_attr(target_os = "macos", derive(Decode, Encode))]
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct InterceptConf {
     pids: HashSet<PID>,

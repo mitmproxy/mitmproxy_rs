@@ -46,22 +46,6 @@ pub fn deserialize_packet(buf: &[u8]) -> Result<MacosIpcRecv, prost::DecodeError
     }
 }
 
-pub fn copy_dir(src: &Path, dst: &Path) -> Result<()> {
-    for entry in src.read_dir()? {
-        let entry = entry?;
-        let ty = entry.file_type()?;
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
-        if ty.is_dir() {
-            fs::create_dir_all(&dst_path)?;
-            copy_dir(&src_path, &dst_path)?;
-        } else {
-            fs::copy(&src_path, &dst_path)?;
-        }
-    }
-    Ok(())
-}
-
 pub struct PipeServer {
     tx: pipe::Sender,
     rx: pipe::Receiver,
@@ -134,10 +118,10 @@ impl PacketSourceConf for MacosConf {
         // });
 
         let executable_path = "/Applications/MitmproxyAppleTunnel.app/";
-        copy_dir(
-            Path::new("../apple-tunnel/MitmproxyAppleTunnel.app/"),
-            Path::new(executable_path),
-        )?;
+        // copy_dir(
+        //     Path::new("../apple-tunnel/MitmproxyAppleTunnel.app/"),
+        //     Path::new(executable_path),
+        // )?;
 
         // create new fifo and give read, write and execute rights to the owner
 
