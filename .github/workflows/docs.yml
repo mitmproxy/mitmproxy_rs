@@ -33,7 +33,7 @@ jobs:
       - name: Install maturin[zig] from PyPI
         uses: install-pinned/maturin-with-zig@59341946682d2f69df7150f6941f53e026e344fd
       - name: Install mypy from PyPI
-        uses: install-pinned/mypy@2ee961c7fc5ea62306a61a5b86b9ffce6e9c1a3a
+        uses: install-pinned/mypy@0ac9691d218a55b59b345debcd9d4b3ca17b391b
       - name: Install pdoc from PyPI
         uses: install-pinned/pdoc@fac9037f8ea1d23a645d9ffe26f67877834518c8
 
