@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
-use mitmproxy::packet_sources::macos::MacosIpcSend;
 use pyo3::prelude::*;
 use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
 use x25519_dalek::PublicKey;
@@ -12,7 +11,7 @@ use x25519_dalek::PublicKey;
 use mitmproxy::intercept_conf::InterceptConf;
 use mitmproxy::network::NetworkTask;
 #[cfg(target_os = "macos")]
-use mitmproxy::packet_sources::macos::MacosConf;
+use mitmproxy::packet_sources::macos::{MacosConf, MacosIpcSend};
 #[cfg(windows)]
 use mitmproxy::packet_sources::windows::{WindowsConf, WindowsIpcSend};
 
@@ -173,6 +172,10 @@ impl OsProxy {
         self.conf_tx
             .send(WindowsIpcSend::SetIntercept(_conf))
             .map_err(crate::util::event_queue_unavailable)?;
+        #[cfg(target_os = "macos")]
+        self.conf_tx
+            .send(MacosIpcSend::SetIntercept(_conf))
+            .map_err(crate::util::event_queue_unavailable)?;
         Ok(())
     }
 
@@ -305,7 +308,7 @@ pub fn start_os_proxy(
     }
     #[cfg(target_os = "macos")]
     {
-        let filename = py.import("mitmproxy_rs")?.filename()?;
+        // let filename = py.import("mitmproxy_rs")?.filename()?;
         // let executable_path = std::path::Path::new(filename)
         //     .parent()
         //     .ok_or_else(|| anyhow!("invalid path"))?
@@ -318,12 +321,11 @@ pub fn start_os_proxy(
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
-            println!("server set");
             Ok(OsProxy { server, conf_tx })
         })
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
-        "OS proxy mode is only available on Windows",
+        "OS proxy mode is only available on this operating system",
     ))
 }

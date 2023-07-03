@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-pub fn copy_dir(src: &Path, dst: &Path){
+pub fn copy_dir(src: &Path, dst: &Path) {
     for entry in src.read_dir().unwrap() {
         let entry = entry.unwrap();
         let ty = entry.file_type().expect("Failed to get file type");
@@ -28,7 +28,6 @@ fn main() {
     println!("cargo:rerun-if-changed=../target/debug/windows-redirector.exe");
     println!("cargo:rerun-if-changed=../target/release/windows-redirector.exe");
     println!("cargo:rerun-if-changed=../windows-redirector/windivert/");
-
 
     #[cfg(windows)]
     {
@@ -59,11 +58,11 @@ fn main() {
             }
         }
     }
-    #[cfg(target_os="macos")]
+    #[cfg(target_os = "macos")]
     {
         copy_dir(
             Path::new("../apple-tunnel/MitmproxyAppleTunnel.app/"),
-            Path::new("/Applications/MitmproxyAppleTunnel.app/")
+            Path::new("/Applications/MitmproxyAppleTunnel.app/"),
         );
     }
 }

@@ -6,15 +6,15 @@
 	<dict>
 		<key>Resources/Base.lproj/Main.storyboardc/Info.plist</key>
 		<data>
-		RIi2KBy8M2QthoRBcINdnbp1ig0=
+		9qEb+DKaO8YwTaa/Tbm+aeWiV5g=
 		</data>
 		<key>Resources/Base.lproj/Main.storyboardc/MainMenu.nib</key>
 		<data>
-		W4nTlX5OiABXgkCh+bFyhIDyvYg=
+		0mIi+FDbtTvuQDCPdAiuSNmSRFo=
 		</data>
 		<key>Resources/Base.lproj/Main.storyboardc/NSWindowController-B8D-0N-5wS.nib</key>
 		<data>
-		LGY12UotBS8DeRKqOO0lYx/RaXU=
+		rucGYmLkD8lggT+3bM834O7M0OI=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -23,7 +23,7 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			9hPssa796emXTFOjvVf9MVP2mko=
+			Uh+Vhyy4DQWVTvkPomcJr+KFMpc=
 			</data>
 			<key>requirement</key>
 			<string>identifier "com.emanuele.MitmproxyAppleTunnel.MitmproxyAppleExtension" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: Maximilian Hils (N72CKJ646S)" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */</string>
@@ -32,21 +32,21 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			xweSI4apRgkGK2uDrlryguYbd7r1F0u1XrRZQ72jeF8=
+			FHP8+stCBrkBCJhzvD6ZTykpsmZifYWsW3IVZ8dJhVk=
 			</data>
 		</dict>
 		<key>Resources/Base.lproj/Main.storyboardc/MainMenu.nib</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			Z9Aop1NHdKoHKvTx9igkDsLp2A7ly+eke/L0y4rU1V8=
+			EWL+YDJS7jIPAHI25tLMNeIFFZne94Dv1hoO1elRV0Q=
 			</data>
 		</dict>
 		<key>Resources/Base.lproj/Main.storyboardc/NSWindowController-B8D-0N-5wS.nib</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			FkRfGv+u8s7IoM+Bf6hamMc5xBuPaeuhXPpx4XNqeng=
+			8CIr7kf5ReYyikmqfr6adHqoZ3E3DVzBy93a/UXVrfM=
 			</data>
 		</dict>
 		<key>embedded.provisionprofile</key>
