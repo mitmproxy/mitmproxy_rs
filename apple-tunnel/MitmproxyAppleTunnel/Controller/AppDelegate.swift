@@ -13,15 +13,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var proxy = Proxy()
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         let pipePath = CommandLine.arguments[1]
-        os_log("qqq - pipe path is: \(pipePath, privacy: .public)")
+        os_log("qqq - arguments are \(CommandLine.arguments, privacy: .public)")
         self.proxy.setPipePath(withPath: pipePath)
         Task.init{
-            if CommandLine.arguments.count > 2 {
-                await self.proxy.setProcessMatch(withString: CommandLine.arguments[2])
-                os_log("qqq - process to match: \(CommandLine.arguments[2], privacy: .public)")
-            } else {
-                os_log("qqq - no process to match as arguments")
-            }
+            await self.proxy.processToSkip(pid: CommandLine.arguments[2])
+            //os_log("qqq - mitmproxyidentifier: \(self.proxy.mitmproxyIdentifier ?? "no mitmproxy identifier", privacy: .public)")
             await self.proxy.initVPNTunnelProviderManager()
             await self.proxy.startTunnel()
         }

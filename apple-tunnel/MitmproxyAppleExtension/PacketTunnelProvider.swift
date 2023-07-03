@@ -37,20 +37,10 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             self.tunToUDP()
         }
     }
+*/
+    
 
-    func udpToTun() {
-        os_log("qqq - udpToTun")
-
-        // It's callback here
-        session?.setReadHandler({ (_packets: [Data]?, error: Error?) -> Void in
-            if let packets = _packets {
-                // This is where decrypt() should reside, I just omit it like above
-                self.packetFlow.writePackets(packets, withProtocols: [NSNumber](repeating: AF_INET as NSNumber, count: packets.count))
-            }
-        }, maxDatagrams: NSIntegerMax)
-    }
-
-   func setupPacketTunnelNetworkSettings() {
+ /*  func setupPacketTunnelNetworkSettings() {
         os_log("qqq - setupPacketTunnelNetworkSettings")
         let tunnelNetworkSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: self.protocolConfiguration.serverAddress!)
         tunnelNetworkSettings.ipv4Settings = NEIPv4Settings(addresses: [conf["ip"] as! String], subnetMasks: [conf["subnet"] as! String])
@@ -113,13 +103,11 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     func handleflow(){
-        os_log("qqq - intercepted")
         self.packetFlow.readPacketObjects { packets in
-            os_log("qqq - inside packet")
             for (_, packet) in packets.enumerated(){
                 self.writeToPipe(data: packet.data, processName: packet.metadata!.sourceAppSigningIdentifier)
             }
-            self.handleflow()
+            self.reinjectFlow()
         }
     }
 
@@ -130,7 +118,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)? = nil) {
-        os_log("qqq - handleAppMessage")
         let messageString = String(data: messageData, encoding: .utf8)
         os_log("qqq - handleAppMessage %{public}@", messageString ?? "no messageString")
         self.pipe = messageString
@@ -140,12 +127,11 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     func writeToPipe(data: Data, processName: String) {
-        os_log("QQQ - I'm inside writeToPipe, I'm writing on %{public}@", self.pipe ?? "no self.pipe installed")
+        //os_log("QQQ - I'm inside writeToPipe, I'm writing on %{public}@", self.pipe ?? "no self.pipe installed")
         if let pipe = self.pipe{
             do {
                 let handler = FileHandle(forWritingAtPath: pipe)
-                os_log("qqq url: \(pipe, privacy: .public)")
-                os_log("qqq bundle resources url: \(Bundle.main.resourcePath!, privacy: .public)")
+                //os_log("qqq - processname: \(processName, privacy: .public)")
                 var packet = Mitmproxy_RawPacket_Packet()
                 packet.data = data
                 packet.processName = processName
@@ -157,6 +143,27 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                os_log("qqq - fail to write due to \(error, privacy: .public)")
            }
         }
+    }
+    
+    func reinjectFlow() {
+        os_log("qqq - reinject flow")
+        if let pipe = self.pipe{
+            let handler = FileHandle(forReadingAtPath: pipe)
+            do{
+                if let data = try handler?.readToEnd(){
+                    let _packet = self.deserializePacket(data: data)
+                    if let data = _packet?.data {
+                        os_log("qqq - read data: \(data, privacy: .public)")
+                        // This is where decrypt() should reside, I just omit it like above
+                        self.packetFlow.writePackets([data], withProtocols: [NSNumber](repeating: AF_INET as NSNumber, count: data.count))
+                    }
+                }
+            } catch{
+                os_log("qqq - fail to read due to \(error, privacy: .public)")
+                reinjectFlow()
+            }
+        }
+        handleflow()
     }
     
     // Serialize and deserialize UDP packets

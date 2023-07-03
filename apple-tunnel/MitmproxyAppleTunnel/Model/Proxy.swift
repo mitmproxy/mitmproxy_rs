@@ -10,6 +10,7 @@ class Proxy {
     var process_match: String? = nil
     var appRules = [NEAppRule]()
     var processList = [String]()
+    var mitmproxyIdentifier: [String] = [""]
     
     func startTunnel() async {
         do{
@@ -43,14 +44,21 @@ class Proxy {
             getRunningApplication()
             os_log("qqq - processlist: \(self.processList, privacy: .public)")
             for identifier in processList{
+                os_log("qqq - mitmproxy identifier: \(self.mitmproxyIdentifier, privacy: .public)")
+                if self.mitmproxyIdentifier.contains(identifier){
+                    continue
+                }
+                
                 if identifier.contains("com.apple"){
                     continue
                 }
+                
                 if let designatedRequirement = getDesignatedRequirement(for: identifier) {
+                    //os_log("qqq - designated Requirement: \(designatedRequirement, privacy: .public)")
+                    
                     self.appRules.append(NEAppRule(signingIdentifier: identifier, designatedRequirement: designatedRequirement))
                 }
             }
-            os_log("qqq - app rules: \(self.appRules, privacy: .public)")
             manager.localizedDescription = "NEPacketTunnelVPNDemoConfig"
             manager.isEnabled = true
             manager.appRules = self.appRules
@@ -67,14 +75,14 @@ class Proxy {
             let managers = try await NETunnelProviderManager.loadAllFromPreferences()
             let tunnelManager = managers.first ?? NETunnelProviderManager.forPerAppVPN()
             return tunnelManager
-        } catch let error1 {
-            print("load error 1: %@", error1.localizedDescription)
+        } catch {
             return NETunnelProviderManager.forPerAppVPN()
         }
     }
     
     func getRunningApplication(){
         let running = NSWorkspace.shared.runningApplications
+        //os_log("qqq - running \(running, privacy: .public)")
         self.processList.removeAll()
         for process in running{
             if let identifier = process.bundleIdentifier{
@@ -122,8 +130,54 @@ class Proxy {
     }
     
     func setProcessMatch(withString process: String) async{
-        os_log("qqq - process match set: \(process, privacy: .public)")
+        //os_log("qqq - process match set: \(process, privacy: .public)")
         self.process_match = process
     }
+    
+    func processToSkip(pid: String) async{
+        self.mitmproxyIdentifier.append("net.kovidgoyal.kitty")
+        // check this pid
+        /*if let identifier = getIdentifierFrom(pid: pid){
+            self.mitmproxyIdentifier?.append(identifier)
+        } else {
+            // check children
+            let command = "ps -o ppid=\(pid)"
+            if let childPids = await run(command) {
+                for childPid in childPids.components(separatedBy: "\n"){
+                    if let identifier = getIdentifierFrom(pid: childPid){
+                        self.mitmproxyIdentifier?.append(identifier)
+                    }
+                }
+            }
+        }
+         */
+    }
+    
+    /*func getIdentifierFrom(pid: String) -> String?{
+        let pid = pid_t(Int(pid) ?? 0)
+        if let app = NSRunningApplication(processIdentifier: pid){
+            return app.bundleIdentifier
+        }
+        return nil
+    }
+    
+    func run(_ cmd: String) async -> String? {
+        let task = Process()
+        let pipe = Pipe()
+        
+        task.standardOutput = pipe
+        task.standardError = pipe
+        task.arguments = ["-c", cmd]
+        task.launchPath = "/bin/zsh"
+        task.standardInput = nil
+        task.launch()
+        
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8)!
+        os_log("qqq - command output is \(output, privacy: .public)")
+
+        return output
+    }
+     */
 }
 
