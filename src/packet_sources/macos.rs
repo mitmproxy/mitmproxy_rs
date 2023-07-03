@@ -28,8 +28,10 @@ pub mod raw_packet {
     include!(concat!(env!("OUT_DIR"), "/mitmproxy.raw_packet.rs"));
 }
 
-pub fn serialize_packet(raw_packet: &raw_packet::Packet) -> Vec<u8> {
+pub fn serialize_packet(raw_packet: MacosIpcSend) -> Vec<u8> {
     let mut buf = Vec::new();
+    let MacosIpcSend::Packet(raw_packet) = raw_packet else { panic!("Invalid packet")};
+    let raw_packet =  raw_packet::Packet {data: raw_packet, process_name: format!{""} };
     buf.reserve(raw_packet.encoded_len());
     // Unwrap is safe, since we have reserved sufficient capacity in the vector.
     raw_packet.encode(&mut buf).unwrap();
@@ -178,7 +180,7 @@ impl PacketSourceTask for MacosTask {
                 // pipe through changes to the intercept list
                 // Some(cmd) = self.conf_rx.recv() => {
                 //     //assert!(matches!(cmd, MacosIpcSend::SetIntercept(_)));
-                //     //let len = bincode::encode_into_slice(&cmd, &mut self.buf, CONF)?;
+            //     //let len = bincode::encode_into_slice(&cmd, &mut self.buf, CONF)?;
                 //     self.ipc_server.tx.try_write(&self.buf[..len])?;
                 // },
                 // read packets from the IPC pipe into our network stack.
@@ -223,61 +225,33 @@ impl PacketSourceTask for MacosTask {
                         Err(e) => panic!("Error reading pipe: {}", e)
                     };
                 },
-                // r = self.ipc_server.rx.read_exact(&mut self.buf) => {
-                //     let len = r.context("IPC read error.")?;
-                //     if len == 0 {
-                //         // https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-client
-                //         // Because the client is reading from the pipe in message-read mode, it is
-                //         // possible for the ReadFile operation to return zero after reading a partial
-                //         // message. This happens when the message is larger than the read buffer.
-                //         //
-                //         // We don't support messages larger than the buffer, so this cannot happen.
-                //         // Instead, empty reads indicate that the IPC client has disconnected.
-                //         println!("IPC client disconnected.");
-                //         return Err(anyhow!("redirect daemon exited prematurely."));
-                //     }
-                //
-                //     //let (splitted_msg, _) = &msg.split_at(n);
-                //     let Ok(MacosIpcRecv::Packet { data, process_name })  = deserialize_packet(&self.buf[..len]) else {
-                //         println!("Received invalid IPC message: {:?}", &self.buf[..len]);
-                //         return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
-                //     };
-                //     //println!("{:?}", raw_packet.title);
-                //     //msg.truncate(n);
-                //
-                //     //let Ok((MacosIpcRecv::Packet { data, pid, process_name }, n)) = bincode::decode_from_slice(&self.buf[..len], CONF) else {
-                //         //return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
-                //     //};
-                //     //assert_eq!(n, len);
-                //     let Ok(mut packet) = IpPacket::try_from(data) else {
-                //         println!("Skipping invalid packet: {:?}", &self.buf[..len]);
-                //         log::error!("Skipping invalid packet: {:?}", &self.buf[..len]);
-                //         continue;
-                //     };
-                //     packet.fill_ip_checksum();
-                //
-                //     let event = NetworkEvent::ReceivePacket {
-                //         packet,
-                //         tunnel_info: TunnelInfo::Macos {
-                //             process_name,
-                //         },
-                //     };
-                //     if self.net_tx.try_send(event).is_err() {
-                //         log::warn!("Dropping incoming packet, TCP channel is full.")
-                //     };
-                // },
-                // write packets from the network stack to the IPC pipe to be reinjected.
-                // Some(e) = self.net_rx.recv() => {
-                //     match e {
-                //         NetworkCommand::SendPacket(packet) => {
-                //             let packet = MacosIpcSend::Packet(packet.into_inner());
-                //             let len = bincode::encode_into_slice(&packet, &mut self.buf, CONF)?;
-                //             self.ipc_server.tx.try_write(&self.buf[..len])?;
-                //         }
-                //     }
-                // }
+                //write packets from the network stack to the IPC pipe to be reinjected.
+                Some(e) = self.net_rx.recv() => {
+                    match e {
+                        NetworkCommand::SendPacket(packet) => {
+                            let packet = serialize_packet(MacosIpcSend::Packet(packet.into_inner()));
+                            // Wait for the pipe to be writable
+                            self.ipc_server.tx.writable().await?;
+
+                            // Try to write data, this may still fail with `WouldBlock`
+                            // if the readiness event is a false positive.
+                            match self.ipc_server.tx.try_write(&packet){
+                                Ok(n) => {
+                                    break;
+                                },
+                                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                                    continue;
+                                },
+                                Err(e) => {
+                                    return Err(e.into());
+                                },
+                            }
+                            //self.ipc_server.tx.try_write(&self.buf[..len])?;
+                        }
+                    }
+                }
             }
-        }
+        } 
 
         log::info!("Macos OS proxy task shutting down.");
         Ok(())
