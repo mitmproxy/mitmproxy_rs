@@ -12,11 +12,12 @@ import OSLog
 class AppDelegate: NSObject, NSApplicationDelegate {
     var proxy = Proxy()
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        let pipePath = CommandLine.arguments[1]
+        let ipPipe = CommandLine.arguments[1]
+        let netPipe = CommandLine.arguments[2]
         os_log("qqq - arguments are \(CommandLine.arguments, privacy: .public)")
-        self.proxy.setPipePath(withPath: pipePath)
+        self.proxy.setPipePath(ip: ipPipe, net: netPipe)
         Task.init{
-            await self.proxy.processToSkip(pid: CommandLine.arguments[2])
+            await self.proxy.processToSkip(pid: CommandLine.arguments[3])
             //os_log("qqq - mitmproxyidentifier: \(self.proxy.mitmproxyIdentifier ?? "no mitmproxy identifier", privacy: .public)")
             await self.proxy.initVPNTunnelProviderManager()
             await self.proxy.startTunnel()

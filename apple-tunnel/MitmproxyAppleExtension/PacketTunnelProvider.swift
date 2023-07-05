@@ -13,7 +13,8 @@ import OSLog
 class PacketTunnelProvider: NEPacketTunnelProvider {
     var session: NWUDPSession? = nil
     var conf = [String: AnyObject]()
-    var pipe: String? = nil
+    var ipPipe: String? = nil
+    var netPipe: String? = nil
 
     /*// These 2 are core methods for VPN tunnelling
     //   - read from tun device, encrypt, write to UDP fd
@@ -95,19 +96,81 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             }
             os_log("QQQ - settings ok")
             completionHandler(error)
+            self.setupUDPSession()
+            //self.handleflow()
+            
+            //self.handleflow()
+            
             self.handleflow()
         }
-        
-        //self.handleflow()
-
     }
     
     func handleflow(){
+        //os_log("qqq - handleFlow")
         self.packetFlow.readPacketObjects { packets in
             for (_, packet) in packets.enumerated(){
+                //os_log("qqq - handleFlow \(packet.metadata!.sourceAppSigningIdentifier, privacy: .public)")
                 self.writeToPipe(data: packet.data, processName: packet.metadata!.sourceAppSigningIdentifier)
             }
-            self.reinjectFlow()
+            self.handleflow()
+        }
+    }
+    
+    func reinjectFlow() async throws {
+        //os_log("qqq - reinjectFlow")
+        //DispatchQueue.global(qos: .userInitiated).async{ [weak self] in
+        if let pipe = self.netPipe{
+                let url = URL(fileURLWithPath: pipe)
+            do {
+                try FileManager.default.removeItem(at: url)
+            } catch {
+                os_log("qqq - error deleting: \(error, privacy: .public)")
+            }
+            mkfifo(url.path, 0o600)
+            os_log("qqq - before timer")
+            try await Task.sleep(nanoseconds: UInt64(Double(NSEC_PER_SEC)))
+            os_log("qqq - after timer \(url.path, privacy: .public)")
+            
+            guard let handler = FileHandle(forReadingAtPath: url.path) else {
+                os_log("qqq - handler problem")
+                return
+            }
+            while true{
+            os_log("qqq - the handler is")
+                os_log("qqq - im inside netpipe inside the loop")
+                let data = handler.availableData
+                    let _packet = self.deserializePacket(data: data)
+                    if let packet = _packet {
+                        os_log("qqq - read packet from pipe -> process: \(packet.processName, privacy: .public)")
+                        os_log("qqq - read packet from pipe: \(packet.data, privacy: .public)")
+                        // This is where decrypt() should reside, I just omit it like above
+                        self.session?.writeDatagram(packet.data, completionHandler: { (error: Error?) in
+                            if let error = error {
+                                print(error)
+                                self.setupUDPSession()
+                                return
+                            }
+                        })
+                    }
+            }
+        } else {
+            try await self.reinjectFlow()
+        }
+    }
+    
+    func setupUDPSession() {
+        os_log("qqq - create UDP Session")
+        if self.session != nil {
+            self.reasserting = true
+            self.session = nil
+        }
+        let serverAddress = self.conf["server"] as! String
+        let serverPort = self.conf["port"] as! String
+        self.reasserting = false
+        self.session = self.createUDPSession(to: NWHostEndpoint(hostname: serverAddress, port: serverPort), from: nil)
+        Task.init{
+            try await self.reinjectFlow()
+            os_log("qqq - reinjectFlow did finish")
         }
     }
 
@@ -118,17 +181,20 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)? = nil) {
-        let messageString = String(data: messageData, encoding: .utf8)
-        os_log("qqq - handleAppMessage %{public}@", messageString ?? "no messageString")
-        self.pipe = messageString
-        if let handler = completionHandler {
-            handler(messageData)
+        if let messageString = String(data: messageData, encoding: .utf8)?.components(separatedBy: " "){
+            self.ipPipe = messageString[0]
+            self.netPipe = messageString[1]
+            os_log("qqq - the ip pipe is \(self.ipPipe ?? "no self.pipe installed", privacy: .public)")
+            os_log("qqq - the net pipe is \(self.netPipe ?? "no self.pipe installed", privacy: .public)")
+            if let handler = completionHandler {
+                handler(messageData)
+            }
         }
     }
     
     func writeToPipe(data: Data, processName: String) {
-        //os_log("QQQ - I'm inside writeToPipe, I'm writing on %{public}@", self.pipe ?? "no self.pipe installed")
-        if let pipe = self.pipe{
+        os_log("qqq - I'm inside writeToPipe, I'm writing on %{public}@", self.ipPipe ?? "no self.pipe installed")
+        if let pipe = self.ipPipe{
             do {
                 let handler = FileHandle(forWritingAtPath: pipe)
                 //os_log("qqq - processname: \(processName, privacy: .public)")
@@ -145,26 +211,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
     
-    func reinjectFlow() {
-        os_log("qqq - reinject flow")
-        if let pipe = self.pipe{
-            let handler = FileHandle(forReadingAtPath: pipe)
-            do{
-                if let data = try handler?.readToEnd(){
-                    let _packet = self.deserializePacket(data: data)
-                    if let data = _packet?.data {
-                        os_log("qqq - read data: \(data, privacy: .public)")
-                        // This is where decrypt() should reside, I just omit it like above
-                        self.packetFlow.writePackets([data], withProtocols: [NSNumber](repeating: AF_INET as NSNumber, count: data.count))
-                    }
-                }
-            } catch{
-                os_log("qqq - fail to read due to \(error, privacy: .public)")
-                reinjectFlow()
-            }
-        }
-        handleflow()
-    }
+    
     
     // Serialize and deserialize UDP packets
     func serializePacket(packet: Mitmproxy_RawPacket_Packet) -> Data? {

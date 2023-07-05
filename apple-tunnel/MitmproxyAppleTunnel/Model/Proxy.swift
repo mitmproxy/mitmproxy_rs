@@ -6,7 +6,8 @@ import OSLog
 
 class Proxy {
     let bundleIdentifier = K.bundleIdentifier
-    var pipe_path: String? = nil
+    var ipPipe: String? = nil
+    var netPipe: String? = nil
     var process_match: String? = nil
     var appRules = [NEAppRule]()
     var processList = [String]()
@@ -18,11 +19,15 @@ class Proxy {
             let session = manager.connection as? NETunnelProviderSession
             try session?.startTunnel(options: [:])
             try await Task.sleep(nanoseconds: UInt64(Double(NSEC_PER_SEC)))
-            if let message = self.pipe_path?.data(using: String.Encoding.utf8){
-                try session?.sendProviderMessage(message)
-                os_log("qqq - message with pipe path sent to provider: \(self.pipe_path!, privacy: .public)")
+            if let ipPipe = self.ipPipe, let netPipe = self.netPipe {
+                if let message = "\(ipPipe) \(netPipe)".data(using: String.Encoding.utf8){
+                    try session?.sendProviderMessage(message)
+                    os_log("qqq - message with pipe path sent to provider: \(self.ipPipe!, privacy: .public)")
+                } else {
+                    os_log("qqq - problem encoding pipes")
+                }
             } else {
-                os_log("qqq - PROBLEM message with pipe path sent to provider")
+                os_log("qqq - PROBLEM, ipPipe is \(self.ipPipe ?? "N/A", privacy: .public) and netPipe is : \(self.netPipe ?? "N/A", privacy: .public)")
             }
         } catch {
             print("error: \(error)")
@@ -37,14 +42,14 @@ class Proxy {
             try await manager.loadFromPreferences()
             let providerProtocol = NETunnelProviderProtocol()
             providerProtocol.providerBundleIdentifier = K.bundleIdentifier
-            providerProtocol.providerConfiguration = ["server": K.serverAddress]
+            providerProtocol.providerConfiguration = ["server": K.serverAddress, "port": K.port]
             providerProtocol.serverAddress = K.serverAddress
             manager.protocolConfiguration = providerProtocol
             
             getRunningApplication()
             os_log("qqq - processlist: \(self.processList, privacy: .public)")
             for identifier in processList{
-                os_log("qqq - mitmproxy identifier: \(self.mitmproxyIdentifier, privacy: .public)")
+                //os_log("qqq - mitmproxy identifier: \(self.mitmproxyIdentifier, privacy: .public)")
                 if self.mitmproxyIdentifier.contains(identifier){
                     continue
                 }
@@ -124,9 +129,10 @@ class Proxy {
         }
     }
     
-    func setPipePath(withPath path: String){
-        os_log("qqq - path set: \(path, privacy: .public)")
-        self.pipe_path = path
+    func setPipePath(ip: String, net: String){
+        os_log("qqq - pipes set: \(ip, privacy: .public) and \(net, privacy: .public)")
+        self.ipPipe = ip
+        self.netPipe = net
     }
     
     func setProcessMatch(withString process: String) async{
