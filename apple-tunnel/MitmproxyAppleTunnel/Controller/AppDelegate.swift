@@ -14,11 +14,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         let ipPipe = CommandLine.arguments[1]
         let netPipe = CommandLine.arguments[2]
+        let filterPipe = CommandLine.arguments[3]
         os_log("qqq - arguments are \(CommandLine.arguments, privacy: .public)")
-        self.proxy.setPipePath(ip: ipPipe, net: netPipe)
+        self.proxy.setPipePath(ip: ipPipe, net: netPipe, filter: filterPipe)
+        self.proxy.getRunningApplication()
         Task.init{
-            await self.proxy.processToSkip(pid: CommandLine.arguments[3])
-            //os_log("qqq - mitmproxyidentifier: \(self.proxy.mitmproxyIdentifier ?? "no mitmproxy identifier", privacy: .public)")
+            let interceptConf = DispatchQueue(label: "org.mitmproxy.interceptConf", attributes: .concurrent)
+            interceptConf.async {
+                self.proxy.interceptConf()
+            }
             await self.proxy.initVPNTunnelProviderManager()
             await self.proxy.startTunnel()
         }

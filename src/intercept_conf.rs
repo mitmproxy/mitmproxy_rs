@@ -1,6 +1,10 @@
 use anyhow::bail;
 #[cfg(windows)]
 use bincode::{Decode, Encode};
+#[cfg(target_os = "macos")]
+use crate::packet_sources::ipc;
+use prost::Message;
+
 use std::collections::HashSet;
 
 pub type PID = u32;
@@ -93,6 +97,15 @@ impl InterceptConf {
             "Intercepting packets from "
         };
         format!("{}{}", start, parts.join(" or "))
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        let ipc =  ipc::InterceptConf{pids: Vec::new(), process_names: self.process_names.clone(), invert: self.invert};
+        buf.reserve(ipc.encoded_len());
+        // Unwrap is safe, since we have reserved sufficient capacity in the vector.
+        ipc.encode(&mut buf).unwrap();
+        buf
     }
 }
 

@@ -10,6 +10,11 @@ pub mod macos;
 pub mod windows;
 pub mod wireguard;
 
+#[cfg(target_os = "macos")]
+pub mod ipc {
+    include!(concat!(env!("OUT_DIR"), "/mitmproxy.ipc.rs"));
+}
+
 #[async_trait]
 pub trait PacketSourceConf {
     type Task: PacketSourceTask + Send + 'static;
@@ -29,3 +34,4 @@ pub trait PacketSourceConf {
 pub trait PacketSourceTask {
     async fn run(mut self) -> Result<()>;
 }
+

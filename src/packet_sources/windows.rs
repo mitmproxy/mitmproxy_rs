@@ -155,9 +155,10 @@ impl PacketSourceTask for WindowsTask {
                 _ = self.sd_watcher.recv() => break,
                 // pipe through changes to the intercept list
                 Some(cmd) = self.conf_rx.recv() => {
-                    assert!(matches!(cmd, WindowsIpcSend::SetIntercept(_)));
-                    let len = bincode::encode_into_slice(&cmd, &mut self.buf, CONF)?;
-                    self.ipc_server.write_all(&self.buf[..len]).await?;
+                    println!("got conf: {:?}", cmd);
+                    // assert!(matches!(cmd, WindowsIpcSend::SetIntercept(_)));
+                    // let len = bincode::encode_into_slice(&cmd, &mut self.buf, CONF)?;
+                    // self.ipc_server.write_all(&self.buf[..len]).await?;
                 },
                 // read packets from the IPC pipe into our network stack.
                 r = self.ipc_server.read(&mut self.buf) => {

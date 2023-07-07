@@ -16,65 +16,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     var ipPipe: String? = nil
     var netPipe: String? = nil
 
-    /*// These 2 are core methods for VPN tunnelling
-    //   - read from tun device, encrypt, write to UDP fd
-    //   - read from UDP fd, decrypt, write to tun device
-    func tunToUDP() {
-        os_log("qqq - tunToUDP")
-        self.packetFlow.readPackets { (packets: [Data], protocols: [NSNumber]) in
-            for packet in packets {
-                // This is where encrypt() should reside
-                // A comprehensive encryption is not easy and not the point for this demo
-                // I just omit it
-                self.session?.writeDatagram(packet, completionHandler: { (error: Error?) in
-                    if let error = error {
-                        print(error)
-                        self.setupUDPSession()
-                        return
-                    }
-                })
-            }
-            // Recursive to keep reading
-            self.tunToUDP()
-        }
-    }
-*/
-    
-
- /*  func setupPacketTunnelNetworkSettings() {
-        os_log("qqq - setupPacketTunnelNetworkSettings")
-        let tunnelNetworkSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: self.protocolConfiguration.serverAddress!)
-        tunnelNetworkSettings.ipv4Settings = NEIPv4Settings(addresses: [conf["ip"] as! String], subnetMasks: [conf["subnet"] as! String])
-        tunnelNetworkSettings.ipv4Settings?.includedRoutes = [NEIPv4Route.default()]
-        tunnelNetworkSettings.mtu = Int(conf["mtu"] as! String) as NSNumber?
-        let dnsSettings = NEDNSSettings(servers: (conf["dns"] as! String).components(separatedBy: ","))
-        // This overrides system DNS settings
-        dnsSettings.matchDomains = [""]
-        tunnelNetworkSettings.dnsSettings = dnsSettings
-        self.setTunnelNetworkSettings(tunnelNetworkSettings) { (error: Error?) -> Void in
-            self.udpToTun()
-        }
-    }
-     
-     func setupUDPSession() {
-        os_log("qqq - setupUDPSession")
-        if self.session != nil {
-            self.reasserting = true
-            self.session = nil
-        }
-        let serverAddress = self.conf["server"] as! String
-        let serverPort = self.conf["port"] as! String
-        self.reasserting = false
-        self.setTunnelNetworkSettings(nil) { (error: Error?) -> Void in
-            if let error = error {
-                print(error)
-            }
-            self.session = self.createUDPSession(to: NWHostEndpoint(hostname: serverAddress, port: serverPort), from: nil)
-            self.setupPacketTunnelNetworkSettings()
-        }
-    }
-     */
-
     override func startTunnel(options: [String : NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         os_log("qqq - startTunnel")
         conf = (self.protocolConfiguration as! NETunnelProviderProtocol).providerConfiguration! as [String : AnyObject]
@@ -96,12 +37,18 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             }
             os_log("QQQ - settings ok")
             completionHandler(error)
-            self.setupUDPSession()
-            //self.handleflow()
-            
-            //self.handleflow()
-            
-            self.handleflow()
+            let reinject = DispatchQueue(label: "org.mitmproxy.reinject", attributes: .concurrent)
+            let write = DispatchQueue(label: "com.mitmproxy.write", attributes: .concurrent)
+
+            // Submit infinite loop blocks to the queues
+            reinject.async {
+                self.setupUDPSession()
+            }
+            write.async {
+                self.handleflow()
+            }
+
+            RunLoop.main.run()
         }
     }
     
@@ -116,50 +63,25 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
     
-    func reinjectFlow() async throws {
-        //os_log("qqq - reinjectFlow")
-        //DispatchQueue.global(qos: .userInitiated).async{ [weak self] in
+    func reinjectFlow() {
         if let pipe = self.netPipe{
-                let url = URL(fileURLWithPath: pipe)
-            do {
-                try FileManager.default.removeItem(at: url)
-            } catch {
-                os_log("qqq - error deleting: \(error, privacy: .public)")
-            }
-            mkfifo(url.path, 0o600)
-            os_log("qqq - before timer")
-            try await Task.sleep(nanoseconds: UInt64(Double(NSEC_PER_SEC)))
-            os_log("qqq - after timer \(url.path, privacy: .public)")
-            
-            guard let handler = FileHandle(forReadingAtPath: url.path) else {
-                os_log("qqq - handler problem")
-                return
-            }
-            while true{
-            os_log("qqq - the handler is")
-                os_log("qqq - im inside netpipe inside the loop")
-                let data = handler.availableData
+            let handler = FileHandle(forReadingAtPath: pipe)
+            while true {
+                if let data = handler?.availableData{
                     let _packet = self.deserializePacket(data: data)
                     if let packet = _packet {
-                        os_log("qqq - read packet from pipe -> process: \(packet.processName, privacy: .public)")
-                        os_log("qqq - read packet from pipe: \(packet.data, privacy: .public)")
                         // This is where decrypt() should reside, I just omit it like above
-                        self.session?.writeDatagram(packet.data, completionHandler: { (error: Error?) in
-                            if let error = error {
-                                print(error)
-                                self.setupUDPSession()
-                                return
-                            }
-                        })
+                        packetFlow.writePackets([packet.data], withProtocols: [AF_INET as NSNumber])
                     }
+                }
             }
         } else {
-            try await self.reinjectFlow()
+            reinjectFlow()
         }
     }
     
     func setupUDPSession() {
-        os_log("qqq - create UDP Session")
+        os_log("qqq - Create UDP Session")
         if self.session != nil {
             self.reasserting = true
             self.session = nil
@@ -168,10 +90,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let serverPort = self.conf["port"] as! String
         self.reasserting = false
         self.session = self.createUDPSession(to: NWHostEndpoint(hostname: serverAddress, port: serverPort), from: nil)
-        Task.init{
-            try await self.reinjectFlow()
-            os_log("qqq - reinjectFlow did finish")
-        }
+        self.reinjectFlow()
     }
 
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
@@ -184,8 +103,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         if let messageString = String(data: messageData, encoding: .utf8)?.components(separatedBy: " "){
             self.ipPipe = messageString[0]
             self.netPipe = messageString[1]
-            os_log("qqq - the ip pipe is \(self.ipPipe ?? "no self.pipe installed", privacy: .public)")
-            os_log("qqq - the net pipe is \(self.netPipe ?? "no self.pipe installed", privacy: .public)")
             if let handler = completionHandler {
                 handler(messageData)
             }
@@ -193,12 +110,11 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     func writeToPipe(data: Data, processName: String) {
-        os_log("qqq - I'm inside writeToPipe, I'm writing on %{public}@", self.ipPipe ?? "no self.pipe installed")
         if let pipe = self.ipPipe{
             do {
                 let handler = FileHandle(forWritingAtPath: pipe)
                 //os_log("qqq - processname: \(processName, privacy: .public)")
-                var packet = Mitmproxy_RawPacket_Packet()
+                var packet = Mitmproxy_Ipc_Packet()
                 packet.data = data
                 packet.processName = processName
                 if let serializedPacket = self.serializePacket(packet: packet){
@@ -211,23 +127,21 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
     
-    
-    
     // Serialize and deserialize UDP packets
-    func serializePacket(packet: Mitmproxy_RawPacket_Packet) -> Data? {
+    func serializePacket(packet: Mitmproxy_Ipc_Packet) -> Data? {
         do {
             return try packet.serializedData()
         } catch {
-            print("Failed to serialize UDP packet: \(error)")
+            print("Failed to serialize packet: \(error)")
             return nil
         }
     }
 
-    func deserializePacket(data: Data) -> Mitmproxy_RawPacket_Packet? {
+    func deserializePacket(data: Data) -> Mitmproxy_Ipc_Packet? {
         do {
-            return try Mitmproxy_RawPacket_Packet(serializedData: data)
+            return try Mitmproxy_Ipc_Packet(serializedData: data)
         } catch {
-            print("Failed to deserialize UDP packet: \(error)")
+            print("Failed to deserialize packet: \(error)")
             return nil
         }
     }

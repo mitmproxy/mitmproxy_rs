@@ -16,7 +16,7 @@ use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, Unbounde
 use crate::intercept_conf::InterceptConf;
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
-use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+use crate::packet_sources::{PacketSourceConf, PacketSourceTask, ipc};
 use home::home_dir;
 use prost::Message;
 use std::io::Cursor;
@@ -24,22 +24,22 @@ use std::io::Cursor;
 //pub const CONF: bincode::config::Configuration = bincode::config::standard();
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
 
-pub mod raw_packet {
-    include!(concat!(env!("OUT_DIR"), "/mitmproxy.raw_packet.rs"));
-}
+// pub mod ipc {
+//     include!(concat!(env!("OUT_DIR"), "/mitmproxy.ipc.rs"));
+// }
 
-pub fn serialize_packet(raw_packet: MacosIpcSend) -> Vec<u8> {
+pub fn serialize_packet(ipc: MacosIpcSend) -> Vec<u8> {
     let mut buf = Vec::new();
-    let MacosIpcSend::Packet(raw_packet) = raw_packet else { panic!("Invalid packet")};
-    let raw_packet =  raw_packet::Packet {data: raw_packet, process_name: format!{""} };
-    buf.reserve(raw_packet.encoded_len());
+    let MacosIpcSend::Packet(ipc) = ipc else { panic!("Invalid packet")};
+    let ipc =  ipc::Packet {data: ipc, process_name: format!{""} };
+    buf.reserve(ipc.encoded_len());
     // Unwrap is safe, since we have reserved sufficient capacity in the vector.
-    raw_packet.encode(&mut buf).unwrap();
+    ipc.encode(&mut buf).unwrap();
     buf
 }
 
 pub fn deserialize_packet(buf: &[u8]) -> Result<MacosIpcRecv, prost::DecodeError> {
-    if let Ok(packet) = raw_packet::Packet::decode(&mut Cursor::new(buf)) {
+    if let Ok(packet) = ipc::Packet::decode(&mut Cursor::new(buf)) {
         return Ok(MacosIpcRecv::Packet {
             data: packet.data,
             process_name: Some(packet.process_name),
@@ -48,6 +48,9 @@ pub fn deserialize_packet(buf: &[u8]) -> Result<MacosIpcRecv, prost::DecodeError
         return Err(prost::DecodeError::new("Failed to decode packet"));
     }
 }
+
+// pub fn serialize_intercept_conf(conf: MacosIpcSend) -> Vec<u8> {
+// }
 
 pub struct PipeServer {
     ip_rx: pipe::Receiver,
@@ -196,13 +199,14 @@ impl PacketSourceTask for MacosTask {
                 _ = self.sd_watcher.recv() => break,
                 // pipe through changes to the intercept list
                 Some(cmd) = self.conf_rx.recv() => {
-                    //assert!(matches!(cmd, MacosIpcSend::SetIntercept(_)));
-                //let len = bincode::encode_into_slice(&cmd, &mut self.buf, CONF)?;
-                    //self.ipc_server.tx.try_write(&self.buf[..len])?;
+                    assert!(matches!(cmd, MacosIpcSend::SetIntercept(_)));
+                    let MacosIpcSend::SetIntercept(cmd) = cmd else { log::error!("Invalid conf"); continue; };
+                    let data = cmd.serialize();
+                    self.ipc_server.filter_tx.try_write(&data)?;
                     println!("SetIntercept {:?}", cmd);
                 },
                 // read packets from the IPC pipe into our network stack.
-                r = self.ipc_server.ip_rx.readable() => {
+                _ = self.ipc_server.ip_rx.readable() => {
                     // Try to read data, this may still fail with `WouldBlock`
                     // if the readiness event is a false positive.
                     match self.ipc_server.ip_rx.try_read(&mut self.buf){

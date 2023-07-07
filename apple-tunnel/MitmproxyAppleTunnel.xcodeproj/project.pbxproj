@@ -15,10 +15,10 @@
 		F36606182A38600800FDF1B3 /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F366060D2A3858B300FDF1B3 /* PacketTunnelProvider.swift */; };
 		F3892D3A2A39CE3C008B7187 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F366060A2A3858B300FDF1B3 /* NetworkExtension.framework */; };
 		F3BBC1D82A3CCD5200CEFC1A /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = F3BBC1D72A3CCD5200CEFC1A /* SwiftProtobuf */; };
-		F3D39CF12A3CC83E008BAF95 /* raw_packet.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D39CF02A3CC83E008BAF95 /* raw_packet.pb.swift */; };
+		F3D39CF12A3CC83E008BAF95 /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D39CF02A3CC83E008BAF95 /* ipc.pb.swift */; };
 		F3D39CF42A3CC87C008BAF95 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = F3D39CF32A3CC87C008BAF95 /* SwiftProtobuf */; };
 		F3D39CF62A3CC87C008BAF95 /* SwiftProtobufPluginLibrary in Frameworks */ = {isa = PBXBuildFile; productRef = F3D39CF52A3CC87C008BAF95 /* SwiftProtobufPluginLibrary */; };
-		F3D39CF82A3CCBC9008BAF95 /* raw_packet.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D39CF02A3CC83E008BAF95 /* raw_packet.pb.swift */; };
+		F3D39CF82A3CCBC9008BAF95 /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D39CF02A3CC83E008BAF95 /* ipc.pb.swift */; };
 		F3EAC0CC2A3856E800DA5E00 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3EAC0CB2A3856E800DA5E00 /* AppDelegate.swift */; };
 		F3EAC0CE2A3856E800DA5E00 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3EAC0CD2A3856E800DA5E00 /* ViewController.swift */; };
 		F3EAC0D02A3856E900DA5E00 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F3EAC0CF2A3856E900DA5E00 /* Assets.xcassets */; };
@@ -57,7 +57,7 @@
 		F366060D2A3858B300FDF1B3 /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
 		F366060F2A3858B300FDF1B3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F36606102A3858B300FDF1B3 /* MitmproxyAppleExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MitmproxyAppleExtension.entitlements; sourceTree = "<group>"; };
-		F3D39CF02A3CC83E008BAF95 /* raw_packet.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = raw_packet.pb.swift; sourceTree = "<group>"; };
+		F3D39CF02A3CC83E008BAF95 /* ipc.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ipc.pb.swift; sourceTree = "<group>"; };
 		F3EAC0C82A3856E800DA5E00 /* MitmproxyAppleTunnel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MitmproxyAppleTunnel.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F3EAC0CB2A3856E800DA5E00 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		F3EAC0CD2A3856E800DA5E00 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -125,7 +125,7 @@
 		F366060C2A3858B300FDF1B3 /* MitmproxyAppleExtension */ = {
 			isa = PBXGroup;
 			children = (
-				F3D39CF02A3CC83E008BAF95 /* raw_packet.pb.swift */,
+				F3D39CF02A3CC83E008BAF95 /* ipc.pb.swift */,
 				F366060D2A3858B300FDF1B3 /* PacketTunnelProvider.swift */,
 				F366060F2A3858B300FDF1B3 /* Info.plist */,
 				F36606102A3858B300FDF1B3 /* MitmproxyAppleExtension.entitlements */,
@@ -276,7 +276,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F366060E2A3858B300FDF1B3 /* PacketTunnelProvider.swift in Sources */,
-				F3D39CF12A3CC83E008BAF95 /* raw_packet.pb.swift in Sources */,
+				F3D39CF12A3CC83E008BAF95 /* ipc.pb.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -289,7 +289,7 @@
 				F36606012A38584E00FDF1B3 /* Proxy.swift in Sources */,
 				F3EAC0CC2A3856E800DA5E00 /* AppDelegate.swift in Sources */,
 				F36606032A38587400FDF1B3 /* Constants.swift in Sources */,
-				F3D39CF82A3CCBC9008BAF95 /* raw_packet.pb.swift in Sources */,
+				F3D39CF82A3CCBC9008BAF95 /* ipc.pb.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package mitmproxy.ipc;
+
+message Packet {
+    bytes data = 1;
+    string process_name = 2;
+}
+
+message InterceptConf {
+  repeated int32 pids = 1;
+  repeated string process_names = 2;
+  bool invert = 3;
+}

@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-package mitmproxy.raw_packet;
-
-message Packet {
-    bytes data = 1;
-    string process_name = 2;
-}

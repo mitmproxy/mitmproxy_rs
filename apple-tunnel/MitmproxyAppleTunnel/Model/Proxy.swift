@@ -8,15 +8,16 @@ class Proxy {
     let bundleIdentifier = K.bundleIdentifier
     var ipPipe: String? = nil
     var netPipe: String? = nil
+    var filterPipe: String? = nil
     var process_match: String? = nil
     var appRules = [NEAppRule]()
     var processList = [String]()
-    var mitmproxyIdentifier: [String] = [""]
     
     func startTunnel() async {
         do{
             let manager = await getManager()
             let session = manager.connection as? NETunnelProviderSession
+            os_log("qqq - filtered process list is: \(self.processList, privacy: .public)")
             try session?.startTunnel(options: [:])
             try await Task.sleep(nanoseconds: UInt64(Double(NSEC_PER_SEC)))
             if let ipPipe = self.ipPipe, let netPipe = self.netPipe {
@@ -34,7 +35,6 @@ class Proxy {
         }
     }
 
-    
     func initVPNTunnelProviderManager() async {
         do {
             let savedManagers = try await NETunnelProviderManager.loadAllFromPreferences()
@@ -46,15 +46,9 @@ class Proxy {
             providerProtocol.serverAddress = K.serverAddress
             manager.protocolConfiguration = providerProtocol
             
-            getRunningApplication()
             os_log("qqq - processlist: \(self.processList, privacy: .public)")
             for identifier in processList{
-                //os_log("qqq - mitmproxy identifier: \(self.mitmproxyIdentifier, privacy: .public)")
-                if self.mitmproxyIdentifier.contains(identifier){
-                    continue
-                }
-                
-                if identifier.contains("com.apple"){
+                if identifier.contains("com.apple") || identifier.contains("net.kovidgoyal.kitty"){
                     continue
                 }
                 
@@ -101,7 +95,6 @@ class Proxy {
     
     func getDesignatedRequirement(for bundleIdentifier: String) -> String? {
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
-            print("Could not find the application with bundle identifier: \(bundleIdentifier)")
             return nil
         }
         
@@ -115,7 +108,6 @@ class Proxy {
         if SecRequirementCopyString(requirement!, [], &requirementString) == errSecSuccess {
             return requirementString! as String
         } else {
-            print("Failed to retrieve the designated requirement string.")
             return ""
         }
     }
@@ -125,65 +117,55 @@ class Proxy {
             let manager = await getManager()
             try await manager.removeFromPreferences()
         } catch {
-            print("error removing")
+            os_log("qqq - error removing \(error, privacy: .public)")
         }
     }
     
-    func setPipePath(ip: String, net: String){
+    func setPipePath(ip: String, net: String, filter: String){
         os_log("qqq - pipes set: \(ip, privacy: .public) and \(net, privacy: .public)")
         self.ipPipe = ip
         self.netPipe = net
+        self.filterPipe = filter
     }
     
     func setProcessMatch(withString process: String) async{
-        //os_log("qqq - process match set: \(process, privacy: .public)")
         self.process_match = process
     }
     
-    func processToSkip(pid: String) async{
-        self.mitmproxyIdentifier.append("net.kovidgoyal.kitty")
-        // check this pid
-        /*if let identifier = getIdentifierFrom(pid: pid){
-            self.mitmproxyIdentifier?.append(identifier)
-        } else {
-            // check children
-            let command = "ps -o ppid=\(pid)"
-            if let childPids = await run(command) {
-                for childPid in childPids.components(separatedBy: "\n"){
-                    if let identifier = getIdentifierFrom(pid: childPid){
-                        self.mitmproxyIdentifier?.append(identifier)
+    func interceptConf(){
+        os_log("inside interceptConf")
+        if let pipe = self.filterPipe{
+            let handler = FileHandle(forReadingAtPath: pipe)
+            while true {
+                if let data = handler?.availableData{
+                    let _conf = self.deserializeConf(data: data)
+                    if let conf = _conf {
+                        if conf.processNames.count > 0{
+                            self.processList = processList.filter{ process in
+                                conf.invert ? !conf.processNames.contains { process.contains($0) } : conf.processNames.contains { process.contains($0) }
+                            }
+                        }
+                        Task.init{
+                            await clearPreferences()
+                            await self.initVPNTunnelProviderManager()
+                            await self.startTunnel()
+                        }
                     }
                 }
             }
+        } else {
+            interceptConf()
         }
-         */
     }
     
-    /*func getIdentifierFrom(pid: String) -> String?{
-        let pid = pid_t(Int(pid) ?? 0)
-        if let app = NSRunningApplication(processIdentifier: pid){
-            return app.bundleIdentifier
+    func deserializeConf(data: Data) -> Mitmproxy_Ipc_InterceptConf? {
+        do {
+            return try Mitmproxy_Ipc_InterceptConf(serializedData: data)
+        } catch {
+            os_log("Failed to deserialize packet: \(error)")
+            return nil
         }
-        return nil
     }
     
-    func run(_ cmd: String) async -> String? {
-        let task = Process()
-        let pipe = Pipe()
-        
-        task.standardOutput = pipe
-        task.standardError = pipe
-        task.arguments = ["-c", cmd]
-        task.launchPath = "/bin/zsh"
-        task.standardInput = nil
-        task.launch()
-        
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8)!
-        os_log("qqq - command output is \(output, privacy: .public)")
-
-        return output
-    }
-     */
 }
 
