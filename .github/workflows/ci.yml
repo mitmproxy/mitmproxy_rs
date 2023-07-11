@@ -110,7 +110,7 @@ jobs:
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --release --package windows-redirector
         
-      - if: runner.os == 'macos-latest'
+      - if: runner.os == 'macOS'
         run: |
           xcodebuild -scheme MitmproxyAppleTunnel -archivePath build  
 
