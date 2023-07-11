@@ -112,7 +112,7 @@ jobs:
         
       - if: runner.os == 'macOS'
         run: |
-          xcodebuild -scheme MitmproxyAppleTunnel -archivePath build  
+          xcodebuild -scheme macos-redirector/MitmproxyAppleTunnel -archivePath build  
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
