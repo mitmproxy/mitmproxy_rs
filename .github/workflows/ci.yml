@@ -109,9 +109,12 @@ jobs:
       - if: runner.os == 'Windows'
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --release --package windows-redirector
+        
       - if: runner.os == 'macOS'
         uses: mxcl/xcodebuild@v1
-
+        with:
+          project: macos-redirect/MitmproxyAppleTunnel.xcodeproj
+          action: build
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
       - uses: actions/upload-artifact@v3
