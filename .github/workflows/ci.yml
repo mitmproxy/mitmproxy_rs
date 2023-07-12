@@ -116,7 +116,7 @@ jobs:
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          # create variables
+          # build macos App with signing
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
           PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
@@ -139,7 +139,8 @@ jobs:
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
           
           # build
-          xcodebuild -project ./macos-redirector/MitmproxyAppleTunnel.xcodeproj -scheme MitmproxyAppleTunnel -archivePath -allowProvisioningUpdates build  
+          xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -scheme MitmproxyAppleTunnel -allowProvisioningUpdates build
+  
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
