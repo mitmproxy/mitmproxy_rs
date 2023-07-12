@@ -139,7 +139,7 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
           
-          xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -scheme MitmproxyAppleTunnel -destination 'platform=macOS' PROVISIONING_PROFILE="$PP_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" build
+          xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -scheme MitmproxyAppleTunnel -destination 'platform=macOS' PROVISIONING_PROFILE="$PP_PATH" CODE_SIGN_IDENTITY="*" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" build
 
   deploy:
     uses: mhils/workflows/.github/workflows/python-deploy.yml@main
