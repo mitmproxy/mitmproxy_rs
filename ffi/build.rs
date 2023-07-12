@@ -18,18 +18,18 @@ pub fn copy_dir(src: &Path, dst: &Path) {
 fn main() {
     #[cfg(windows)]
     {
-    // This is slightly terrible:
-    // We want to bundle WinDivert with all Windows wheels, so we dynamically copy it into tree.
-    // Alternatively we could include_bytes!() it, but then we would need to extract to a temporary
-    // directory during execution, which is even worse.
+        // This is slightly terrible:
+        // We want to bundle WinDivert with all Windows wheels, so we dynamically copy it into tree.
+        // Alternatively we could include_bytes!() it, but then we would need to extract to a temporary
+        // directory during execution, which is even worse.
 
-    // Ideally we should also do https://github.com/rust-lang/cargo/issues/9096 here,
-    // but for now we want to stay on stable Rust.
+        // Ideally we should also do https://github.com/rust-lang/cargo/issues/9096 here,
+        // but for now we want to stay on stable Rust.
 
-    // xxx: untested
-    println!("cargo:rerun-if-changed=../target/debug/windows-redirector.exe");
-    println!("cargo:rerun-if-changed=../target/release/windows-redirector.exe");
-    println!("cargo:rerun-if-changed=../windows-redirector/windivert/");
+        // xxx: untested
+        println!("cargo:rerun-if-changed=../target/debug/windows-redirector.exe");
+        println!("cargo:rerun-if-changed=../target/release/windows-redirector.exe");
+        println!("cargo:rerun-if-changed=../windows-redirector/windivert/");
 
         let windivert_files = ["WinDivert.dll", "WinDivert.lib", "WinDivert64.sys"];
         if cfg!(debug_assertions) {
