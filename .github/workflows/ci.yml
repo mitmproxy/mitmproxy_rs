@@ -88,6 +88,7 @@ jobs:
           
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' PROVISIONING_PROFILE="$PPE_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" -scheme MitmproxyAppleExtension build
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' PROVISIONING_PROFILE="$PP_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" -scheme MitmproxyAppleTunnel build
+          ditto "$BUILT_PRODUCTS_DIR/$FULL_PRODUCT_NAME" "$GITHUB_WORKSPACE/macos-redirector/$FULL_PRODUCT_NAME"
           
       - name: Run "cargo check"
         # the action-rs/cargo action adds inline annotations for "cargo check" output
@@ -180,7 +181,7 @@ jobs:
           
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' PROVISIONING_PROFILE="$PPE_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" -scheme MitmproxyAppleExtension -configuration Release build
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' PROVISIONING_PROFILE="$PP_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" -scheme MitmproxyAppleTunnel -configuration Release build
-
+          ditto "$BUILT_PRODUCTS_DIR/$FULL_PRODUCT_NAME" "$GITHUB_WORKSPACE/macos-redirector/$FULL_PRODUCT_NAME"
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi

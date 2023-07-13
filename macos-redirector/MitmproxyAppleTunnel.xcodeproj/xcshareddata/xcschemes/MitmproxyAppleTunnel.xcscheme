@@ -10,7 +10,7 @@
             ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
             <ActionContent
                title = "Run Script"
-               scriptText = "# Copy to run from the Applications directory&#10;# This is needed for Network Extensions&#10;echo &quot;This is the post actions&quot;&#10;echo &quot;dir + name -&gt; ${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}&quot;&#10;ditto &quot;${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}&quot; &quot;./macos-redirector/${FULL_PRODUCT_NAME}&quot;&#10;ls ./&#10;">
+               scriptText = "# Copy to run from the Applications directory&#10;# This is needed for Network Extensions&#10;echo &quot;This is the post actions&quot;&#10;#echo &quot;dir + name -&gt; ${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}&quot;&#10;#ditto &quot;${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}&quot; &quot;./macos-redirector/${FULL_PRODUCT_NAME}&quot;&#10;#ls ./&#10;export BUILT_PRODUCTS_DIR = &quot;${BUILT_PRODUCTS_DIR}&quot;&#10;export FULL_PRODUCT_NAME = &quot;${FULL_PRODUCT_NAME}&quot;&#10;">
                <EnvironmentBuildable>
                   <BuildableReference
                      BuildableIdentifier = "primary"
