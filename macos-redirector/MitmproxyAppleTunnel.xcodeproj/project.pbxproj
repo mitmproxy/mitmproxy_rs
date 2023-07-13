@@ -9,11 +9,12 @@
 /* Begin PBXBuildFile section */
 		F36606012A38584E00FDF1B3 /* Proxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F36606002A38584E00FDF1B3 /* Proxy.swift */; };
 		F36606032A38587400FDF1B3 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = F36606022A38587400FDF1B3 /* Constants.swift */; };
-		F366060B2A3858B300FDF1B3 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F366060A2A3858B300FDF1B3 /* NetworkExtension.framework */; };
 		F366060E2A3858B300FDF1B3 /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F366060D2A3858B300FDF1B3 /* PacketTunnelProvider.swift */; };
 		F36606132A3858B300FDF1B3 /* MitmproxyAppleExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F36606082A3858B300FDF1B3 /* MitmproxyAppleExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F36606182A38600800FDF1B3 /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F366060D2A3858B300FDF1B3 /* PacketTunnelProvider.swift */; };
 		F3892D3A2A39CE3C008B7187 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F366060A2A3858B300FDF1B3 /* NetworkExtension.framework */; };
+		F39C31D32A5FF1A800A73A20 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F366060A2A3858B300FDF1B3 /* NetworkExtension.framework */; };
+		F39C31D42A5FF1A800A73A20 /* NetworkExtension.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F366060A2A3858B300FDF1B3 /* NetworkExtension.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F3BBC1D82A3CCD5200CEFC1A /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = F3BBC1D72A3CCD5200CEFC1A /* SwiftProtobuf */; };
 		F3D39CF12A3CC83E008BAF95 /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D39CF02A3CC83E008BAF95 /* ipc.pb.swift */; };
 		F3D39CF42A3CC87C008BAF95 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = F3D39CF32A3CC87C008BAF95 /* SwiftProtobuf */; };
@@ -47,6 +48,17 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F39C31D52A5FF1A800A73A20 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				F39C31D42A5FF1A800A73A20 /* NetworkExtension.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -71,8 +83,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F366060B2A3858B300FDF1B3 /* NetworkExtension.framework in Frameworks */,
 				F3BBC1D82A3CCD5200CEFC1A /* SwiftProtobuf in Frameworks */,
+				F39C31D32A5FF1A800A73A20 /* NetworkExtension.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -175,6 +187,7 @@
 				F36606042A3858B300FDF1B3 /* Sources */,
 				F36606052A3858B300FDF1B3 /* Frameworks */,
 				F36606062A3858B300FDF1B3 /* Resources */,
+				F39C31D52A5FF1A800A73A20 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -320,11 +333,10 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MitmproxyAppleExtension/MitmproxyAppleExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = S8XHQB96PW;
+				DEVELOPMENT_TEAM = S8XHQB96PW;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MitmproxyAppleExtension/Info.plist;
@@ -340,7 +352,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.emanuele.MitmproxyAppleTunnel.MitmproxyAppleExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = mitmproxyAppleExtension;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -352,11 +363,10 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MitmproxyAppleExtension/MitmproxyAppleExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = S8XHQB96PW;
+				DEVELOPMENT_TEAM = S8XHQB96PW;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MitmproxyAppleExtension/Info.plist;
@@ -372,7 +382,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.emanuele.MitmproxyAppleTunnel.MitmproxyAppleExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = mitmproxyAppleExtension;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -502,12 +511,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MitmproxyAppleTunnel/MitmproxyAppleTunnel.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = S8XHQB96PW;
+				DEVELOPMENT_TEAM = S8XHQB96PW;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -523,7 +531,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.emanuele.MitmproxyAppleTunnel;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = mitmproxyAppleTunnel;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -537,12 +544,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MitmproxyAppleTunnel/MitmproxyAppleTunnel.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = S8XHQB96PW;
+				DEVELOPMENT_TEAM = S8XHQB96PW;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -558,7 +564,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.emanuele.MitmproxyAppleTunnel;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = mitmproxyAppleTunnel;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
