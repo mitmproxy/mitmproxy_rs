@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		F32298662A5FF1C100129CBC /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F366060A2A3858B300FDF1B3 /* NetworkExtension.framework */; };
-		F32298672A5FF1C100129CBC /* NetworkExtension.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F366060A2A3858B300FDF1B3 /* NetworkExtension.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F36606012A38584E00FDF1B3 /* Proxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F36606002A38584E00FDF1B3 /* Proxy.swift */; };
 		F36606032A38587400FDF1B3 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = F36606022A38587400FDF1B3 /* Constants.swift */; };
 		F366060E2A3858B300FDF1B3 /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F366060D2A3858B300FDF1B3 /* PacketTunnelProvider.swift */; };
@@ -37,17 +36,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		F32298682A5FF1C100129CBC /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				F32298672A5FF1C100129CBC /* NetworkExtension.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		F36606172A3858B300FDF1B3 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -187,7 +175,6 @@
 				F36606042A3858B300FDF1B3 /* Sources */,
 				F36606052A3858B300FDF1B3 /* Frameworks */,
 				F36606062A3858B300FDF1B3 /* Resources */,
-				F32298682A5FF1C100129CBC /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -348,7 +335,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.emanuele.MitmproxyAppleTunnel.MitmproxyAppleExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -380,7 +367,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.emanuele.MitmproxyAppleTunnel.MitmproxyAppleExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -531,7 +518,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.emanuele.MitmproxyAppleTunnel;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -566,7 +553,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.emanuele.MitmproxyAppleTunnel;
 				PRODUCT_NAME = "$(TARGET_NAME)";
