@@ -1,4 +1,20 @@
-use std::fs;
+
+use std::{fs, path::Path};
+
+pub fn copy_dir(src: &Path, dst: &Path) {
+    for entry in src.read_dir().unwrap() {
+        let entry = entry.unwrap();
+        let ty = entry.file_type().expect("Failed to get file type");
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if ty.is_dir() {
+            fs::create_dir_all(&dst_path).expect("Failed to create directory");
+            copy_dir(&src_path, &dst_path);
+        } else {
+            fs::copy(&src_path, &dst_path).expect("Failed to copy {src_path} to {dst_path}");
+        }
+    }
+}
 
 fn main() {
     // This is slightly terrible:
@@ -14,8 +30,9 @@ fn main() {
     println!("cargo:rerun-if-changed=../target/release/windows-redirector.exe");
     println!("cargo:rerun-if-changed=../windows-redirector/windivert/");
 
-    let windivert_files = ["WinDivert.dll", "WinDivert.lib", "WinDivert64.sys"];
-    if cfg!(windows) {
+    #[cfg(windows)]
+    {
+        let windivert_files = ["WinDivert.dll", "WinDivert.lib", "WinDivert64.sys"];
         if cfg!(debug_assertions) {
             fs::copy(
                 "../target/debug/windows-redirector.exe",
@@ -41,10 +58,12 @@ fn main() {
                 }
             }
         }
-    } else {
-        fs::remove_file("mitmproxy_rs/windows-redirector.exe").ok();
-        for wd_file in windivert_files {
-            fs::remove_file(format!("mitmproxy_rs/{wd_file}")).ok();
-        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        copy_dir(
+            Path::new("../apple-tunnel/MitmproxyAppleTunnel.app/"),
+            Path::new("/Applications/MitmproxyAppleTunnel.app/"),
+        );
     }
 }
