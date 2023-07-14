@@ -10,19 +10,19 @@
 		</data>
 		<key>Resources/Assets.car</key>
 		<data>
-		e5HUW4yewUbOgZN+IWBcdPZQH2U=
+		lLcirn69HJGzm8rf6GlTb/yhBVQ=
 		</data>
 		<key>Resources/Base.lproj/Main.storyboardc/Info.plist</key>
 		<data>
-		vWuLJLF6I0FNi1SeuN6nK963d8g=
+		wNQ0/8QZe2Uia8TLOhsRu2BDy0k=
 		</data>
 		<key>Resources/Base.lproj/Main.storyboardc/MainMenu.nib</key>
 		<data>
-		R3hmM4hBKgMtvGPJCu/PfYWqoDQ=
+		eFNFhhLiB2+u6B6tXosvnD1AEsY=
 		</data>
 		<key>Resources/Base.lproj/Main.storyboardc/NSWindowController-B8D-0N-5wS.nib</key>
 		<data>
-		zNh7ucJcNohuEyhdlhfMVDmiSWU=
+		B8Qeuuk7WA12l+wS//yO3Zsg0GY=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -31,10 +31,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			OsFNKYDuz5F+x+ghMhLxA1ABBX0=
+			1+Myv1H/agyW3TJUGzrYXcHAQNk=
 			</data>
 			<key>requirement</key>
-			<string>identifier "com.emanuele.MitmproxyAppleTunnel.MitmproxyAppleExtension" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: Maximilian Hils (N72CKJ646S)" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */</string>
+			<string>identifier "org.mitmproxy.macos-redirector.network-extension" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: Maximilian Hils (N72CKJ646S)" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */</string>
 		</dict>
 		<key>Resources/AppIcon.icns</key>
 		<dict>
@@ -47,35 +47,35 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			7OECqHL7n/qYU/b2pPisz91P8OlzEIBk2Y9DkVww6J4=
+			NBrTCEwk6h/3S+6yI/k2+QLenDYvHxzDmBHjuUGT7fA=
 			</data>
 		</dict>
 		<key>Resources/Base.lproj/Main.storyboardc/Info.plist</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			W2EcD/gnuN0khCx3VWsBj0KR42YpeFoH9dT5oIAeCh0=
+			1uYoRvaFhh34FUUfUUO8WE5dQh2rf4KmK7dZdOahdyk=
 			</data>
 		</dict>
 		<key>Resources/Base.lproj/Main.storyboardc/MainMenu.nib</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			11g6QXDqvn9Uutkqe8jbk1626v6Vo/gLExXEociQa/Q=
+			Xm+60NCzotUcLy0bEDHkEwEQ8wYHcDae1aNxnnI9IJs=
 			</data>
 		</dict>
 		<key>Resources/Base.lproj/Main.storyboardc/NSWindowController-B8D-0N-5wS.nib</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			GxEQJTfFBZvT3bsBaRt6gvSfG+7jRSXr1KTWo9ligVU=
+			LO+me1yq9qaR/Un5Pc9VrH0oYwtJC6o3B23DG4gxZTU=
 			</data>
 		</dict>
 		<key>embedded.provisionprofile</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			S5DVEU1rYwk2X79SeqLAp4JNiHgwjzUEaX01hnINzzk=
+			UfIzMH+0iWduRKTdKnU03wd+NFU4YMraU7PMURLcbkY=
 			</data>
 		</dict>
 	</dict>
