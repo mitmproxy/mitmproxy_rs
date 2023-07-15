@@ -1,21 +1,38 @@
-use std::fs;
+use std::{fs, path::Path};
+use home::home_dir;
+
+pub fn copy_dir(src: &Path, dst: &Path) {
+    for entry in src.read_dir().unwrap() {
+        let entry = entry.unwrap();
+        let ty = entry.file_type().expect("Failed to get file type");
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if ty.is_dir() {
+            fs::create_dir_all(&dst_path).expect("Failed to create directory");
+            copy_dir(&src_path, &dst_path);
+        } else {
+            fs::copy(&src_path, &dst_path).expect("Failed to copy {src_path} to {dst_path}");
+        }
+    }
+}
 
 fn main() {
-    // This is slightly terrible:
-    // We want to bundle WinDivert with all Windows wheels, so we dynamically copy it into tree.
-    // Alternatively we could include_bytes!() it, but then we would need to extract to a temporary
-    // directory during execution, which is even worse.
+    #[cfg(windows)]
+    {
+        // This is slightly terrible:
+        // We want to bundle WinDivert with all Windows wheels, so we dynamically copy it into tree.
+        // Alternatively we could include_bytes!() it, but then we would need to extract to a temporary
+        // directory during execution, which is even worse.
 
-    // Ideally we should also do https://github.com/rust-lang/cargo/issues/9096 here,
-    // but for now we want to stay on stable Rust.
+        // Ideally we should also do https://github.com/rust-lang/cargo/issues/9096 here,
+        // but for now we want to stay on stable Rust.
 
-    // xxx: untested
-    println!("cargo:rerun-if-changed=../target/debug/windows-redirector.exe");
-    println!("cargo:rerun-if-changed=../target/release/windows-redirector.exe");
-    println!("cargo:rerun-if-changed=../windows-redirector/windivert/");
+        // xxx: untested
+        println!("cargo:rerun-if-changed=../target/debug/windows-redirector.exe");
+        println!("cargo:rerun-if-changed=../target/release/windows-redirector.exe");
+        println!("cargo:rerun-if-changed=../windows-redirector/windivert/");
 
-    let windivert_files = ["WinDivert.dll", "WinDivert.lib", "WinDivert64.sys"];
-    if cfg!(windows) {
+        let windivert_files = ["WinDivert.dll", "WinDivert.lib", "WinDivert64.sys"];
         if cfg!(debug_assertions) {
             fs::copy(
                 "../target/debug/windows-redirector.exe",
@@ -41,10 +58,48 @@ fn main() {
                 }
             }
         }
-    } else {
-        fs::remove_file("mitmproxy_rs/windows-redirector.exe").ok();
-        for wd_file in windivert_files {
-            fs::remove_file(format!("mitmproxy_rs/{wd_file}")).ok();
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let forlder_path = home_dir()
+                .unwrap()
+                .join("Library")
+                .join("Developer")
+                .join("Xcode")
+                .join("DerivedData");
+
+        let entries = fs::read_dir(&forlder_path).unwrap();
+
+        //I need to do this because xcode renames the build folder with an ever-changing hash suffix,
+        //since previously I totally clean the DerivedData folder inside it there is only a name
+        //starting with MitmproxyAppleTunnel-
+
+        for entry in entries {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.is_dir() {
+                    let file_name = path.file_name().unwrap().to_string_lossy();
+                    if file_name.starts_with("MitmproxyAppleTunnel-"){
+                        let build_path = path.join("Build")
+                            .join("Products")
+                            .join("Release")
+                            .join("MitmproxyAppleTunnel.app");
+
+                        copy_dir(
+                            &build_path,
+                            Path::new("../macos-redirector/MitmProxyAppleTunnel.app"),
+                        );
+                    }
+                }
+            }
         }
+
+        //To launch the app it is necessary to move the executable inside the /Applications folder
+        copy_dir(
+            Path::new("../macos-redirector/MitmproxyAppleTunnel.app/"),
+            Path::new("/Applications/MitmproxyAppleTunnel.app/"),
+        );
     }
 }
+
