@@ -1,4 +1,5 @@
 use std::{fs, path::Path};
+use home::home_dir;
 
 pub fn copy_dir(src: &Path, dst: &Path) {
     for entry in src.read_dir().unwrap() {
@@ -58,8 +59,43 @@ fn main() {
             }
         }
     }
+
     #[cfg(target_os = "macos")]
     {
+        let forlder_path = home_dir()
+                .unwrap()
+                .join("Library")
+                .join("Developer")
+                .join("Xcode")
+                .join("DerivedData");
+
+        let entries = fs::read_dir(&forlder_path).unwrap();
+
+        //I need to do this because xcode renames the build folder with an ever-changing hash suffix,
+        //since previously I totally clean the DerivedData folder inside it there is only a name
+        //starting with MitmproxyAppleTunnel-
+
+        for entry in entries {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.is_dir() {
+                    let file_name = path.file_name().unwrap().to_string_lossy();
+                    if file_name.starts_with("MitmproxyAppleTunnel-"){
+                        let build_path = path.join("Build")
+                            .join("Products")
+                            .join("Release")
+                            .join("MitmproxyAppleTunnel.app");
+
+                        copy_dir(
+                            &build_path,
+                            Path::new("../macos-redirector/MitmProxyAppleTunnel.app"),
+                        );
+                    }
+                }
+            }
+        }
+
+        //To launch the app it is necessary to move the executable inside the /Applications folder
         copy_dir(
             Path::new("../macos-redirector/MitmproxyAppleTunnel.app/"),
             Path::new("/Applications/MitmproxyAppleTunnel.app/"),
