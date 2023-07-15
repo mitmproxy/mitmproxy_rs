@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - macos-redirector
     tags:
       - "*"
   pull_request:
