@@ -1,4 +1,5 @@
 use std::{fs, path::Path};
+#[cfg(target_os = "macos")]
 use home::home_dir;
 
 pub fn copy_dir(src: &Path, dst: &Path) {
