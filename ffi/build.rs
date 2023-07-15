@@ -1,6 +1,6 @@
-use std::{fs, path::Path};
 #[cfg(target_os = "macos")]
 use home::home_dir;
+use std::{fs, path::Path};
 
 pub fn copy_dir(src: &Path, dst: &Path) {
     for entry in src.read_dir().unwrap() {
@@ -64,11 +64,11 @@ fn main() {
     #[cfg(target_os = "macos")]
     {
         let forlder_path = home_dir()
-                .unwrap()
-                .join("Library")
-                .join("Developer")
-                .join("Xcode")
-                .join("DerivedData");
+            .unwrap()
+            .join("Library")
+            .join("Developer")
+            .join("Xcode")
+            .join("DerivedData");
 
         let entries = fs::read_dir(&forlder_path).unwrap();
 
@@ -81,8 +81,9 @@ fn main() {
                 let path = entry.path();
                 if path.is_dir() {
                     let file_name = path.file_name().unwrap().to_string_lossy();
-                    if file_name.starts_with("MitmproxyAppleTunnel-"){
-                        let build_path = path.join("Build")
+                    if file_name.starts_with("MitmproxyAppleTunnel-") {
+                        let build_path = path
+                            .join("Build")
                             .join("Products")
                             .join("Release")
                             .join("MitmproxyAppleTunnel.app");
