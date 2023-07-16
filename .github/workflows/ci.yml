@@ -21,6 +21,7 @@ jobs:
     environment:
       ${{ github.event_name == 'pull_request_target' &&
       github.event.pull_request.head.repo.full_name != github.repository &&
+      matrix.os == 'macos-latest'
       'external' || 'internal' }}
     runs-on: macos-latest
     steps:
@@ -28,6 +29,7 @@ jobs:
 
   test:
     runs-on: ${{ matrix.os }}
+    needs: authorize
     strategy:
       matrix:
         include:
@@ -41,7 +43,6 @@ jobs:
             args: --exclude windows-redirector
           - os: windows-latest
             rust: 1.65.0  # MSRV
-    environment: 'external'
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -92,6 +93,7 @@ jobs:
           args: --workspace --verbose ${{ matrix.args }}
 
   build:
+    needs: authorize
     strategy:
       matrix:
         include:
