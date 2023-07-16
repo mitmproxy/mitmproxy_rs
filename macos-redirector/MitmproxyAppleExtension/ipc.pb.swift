@@ -29,6 +29,8 @@ struct Mitmproxy_Ipc_Packet {
 
   var processName: String = String()
 
+  var pid: Int32 = 0
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -64,6 +66,7 @@ extension Mitmproxy_Ipc_Packet: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "data"),
     2: .standard(proto: "process_name"),
+    3: .same(proto: "pid"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -74,6 +77,7 @@ extension Mitmproxy_Ipc_Packet: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBytesField(value: &self.data) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.processName) }()
+      case 3: try { try decoder.decodeSingularInt32Field(value: &self.pid) }()
       default: break
       }
     }
@@ -86,12 +90,16 @@ extension Mitmproxy_Ipc_Packet: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     if !self.processName.isEmpty {
       try visitor.visitSingularStringField(value: self.processName, fieldNumber: 2)
     }
+    if self.pid != 0 {
+      try visitor.visitSingularInt32Field(value: self.pid, fieldNumber: 3)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Mitmproxy_Ipc_Packet, rhs: Mitmproxy_Ipc_Packet) -> Bool {
     if lhs.data != rhs.data {return false}
     if lhs.processName != rhs.processName {return false}
+    if lhs.pid != rhs.pid {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
