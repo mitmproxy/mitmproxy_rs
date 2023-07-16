@@ -1,4 +1,6 @@
 use data_encoding::BASE64;
+#[cfg(target_os = "macos")]
+use mitmproxy::macos;
 use pyo3::exceptions::PyOSError;
 use pyo3::types::{PyString, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
@@ -60,4 +62,49 @@ pub fn genkey() -> String {
 pub fn pubkey(private_key: String) -> PyResult<String> {
     let private_key: StaticSecret = string_to_key(private_key)?;
     Ok(BASE64.encode(PublicKey::from(&private_key).as_bytes()))
+}
+
+/// Convert pem certificate to der certificate and add it to macos keychain.
+#[pyfunction]
+pub fn add_trusted_cert(pem: String) -> PyResult<()> {
+    #[cfg(target_os = "macos")]
+    {
+        let pem_body = pem
+            .lines()
+            .skip(1)
+            .take_while(|&line| line != "-----END CERTIFICATE-----")
+            .collect::<String>();
+        //let der = BASE64.decode(remove_trusted_cert.as_bytes()).unwrap();
+        let der = BASE64.decode(&pem_body.as_bytes()).unwrap();
+        match macos::add_trusted_cert(der) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(PyErr::new::<PyOSError, _>(format!(
+                "Failed to add certificate: {:?}",
+                e
+            ))),
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    Err(pyo3::exceptions::PyNotImplementedError::new_err(
+        "OS proxy mode is only available on macos",
+    ))
+}
+
+/// Delete mitmproxy certificate from the keychain.
+#[pyfunction]
+pub fn remove_trusted_cert() -> PyResult<()> {
+    #[cfg(target_os = "macos")]
+    {
+        match macos::remove_trusted_cert() {
+            Ok(_) => Ok(()),
+            Err(e) => Err(PyErr::new::<PyOSError, _>(format!(
+                "Failed to remove certificate: {:?}",
+                e
+            ))),
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    Err(pyo3::exceptions::PyNotImplementedError::new_err(
+        "OS proxy mode is only available on macos",
+    ))
 }
