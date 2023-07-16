@@ -17,6 +17,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  authorize:
+    environment:
+      ${{ github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name != github.repository &&
+      'external' || 'internal' }}
+    runs-on: macos-latest
+    steps:
+      - run: true
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -54,6 +63,7 @@ jobs:
         run: cargo build --package windows-redirector
         
       - if: runner.os == 'macOS'
+        needs: authorize
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }} 
@@ -122,7 +132,9 @@ jobs:
       - if: runner.os == 'Windows'
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --release --package windows-redirector
-      - if: runner.os =='macOS'
+
+      - if: runner.os == 'macOS'
+        needs: authorize
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }} 
