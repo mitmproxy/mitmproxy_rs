@@ -41,6 +41,11 @@ jobs:
             args: --exclude windows-redirector
           - os: windows-latest
             rust: 1.65.0  # MSRV
+    environment:
+      ${{ github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name != github.repository &&
+      runner.os == 'macOS' &&
+      'external' || 'internal' }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -62,7 +67,7 @@ jobs:
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --package windows-redirector
         
-      - if: ${{ runner.os == 'macOS' && needs.authorize.result == "accepted" }}
+      - if: ${{ runner.os == 'macOS' }}
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }} 
@@ -132,7 +137,7 @@ jobs:
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --release --package windows-redirector
 
-      - if: ${{ runner.os == 'macOS' && needs.authorize.result == "accepted" }}
+      - if: ${{ runner.os == 'macOS' }}
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }} 
