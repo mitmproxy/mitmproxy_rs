@@ -3,8 +3,7 @@ use anyhow::bail;
 use bincode::{Decode, Encode};
 use std::collections::HashSet;
 use std::path::PathBuf;
-
-pub type PID = u32;
+use crate::processes::PID;
 
 #[derive(Debug, Clone)]
 pub struct ProcessInfo {

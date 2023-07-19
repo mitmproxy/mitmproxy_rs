@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::Duration;
 use std::{env, thread};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use log::{debug, error, info, warn};
@@ -16,10 +17,11 @@ use windivert::prelude::*;
 use mitmproxy::intercept_conf::{InterceptConf, ProcessInfo};
 use mitmproxy::packet_sources::windows::{WindowsIpcRecv, WindowsIpcSend, CONF, IPC_BUF_SIZE};
 use mitmproxy::windows::network::network_table;
-use mitmproxy::windows::processes::get_process_name;
 use mitmproxy::MAX_PACKET_SIZE;
 
 use internet_packet::{ConnectionId, InternetPacket, TransportProtocol};
+use mitmproxy::active_sockets::{ActiveSockets};
+use mitmproxy::windows::processes::get_process_name;
 
 #[derive(Debug)]
 enum Event {
@@ -37,7 +39,7 @@ enum ConnectionState {
 #[derive(Debug, Clone)]
 enum ConnectionAction {
     None,
-    Intercept(ProcessInfo),
+    Intercept(Arc<ProcessInfo>),
 }
 
 struct ActiveListeners(HashMap<(SocketAddr, TransportProtocol), ProcessInfo>);
@@ -132,7 +134,7 @@ async fn main() -> Result<()> {
     let mut connections = LruCache::<ConnectionId, ConnectionState>::with_expiry_duration(
         Duration::from_secs(60 * 10),
     );
-    let mut active_listeners = ActiveListeners::new();
+    let mut active_sockets = ActiveSockets::default();
 
     loop {
         let result = event_rx.recv().await.unwrap();
@@ -192,7 +194,10 @@ async fn main() -> Result<()> {
                             // before it reaches the socket, so we need to make a decision now.
                             let action = {
                                 if let Some(proc_info) =
-                                    active_listeners.get(packet.dst(), packet.protocol())
+                                    active_sockets.get_listener(
+                                        packet.dst(),
+                                        packet.protocol(),
+                                    )
                                 {
                                     debug!(
                                         "Inbound packet for known application: {:?} ({})",
@@ -263,16 +268,10 @@ async fn main() -> Result<()> {
                             continue;
                         }
 
-                        let proc_info = {
-                            let pid = address.process_id();
-                            ProcessInfo {
-                                pid,
-                                process_name: get_process_name(pid).ok(),
-                            }
-                        };
+                        let proc_info = active_sockets.insert(connection_id.clone(), address.process_id());
 
                         let action = if state.should_intercept(&proc_info) {
-                            ConnectionAction::Intercept(proc_info)
+                            ConnectionAction::Intercept(proc_info.clone())
                         } else {
                             ConnectionAction::None
                         };
@@ -289,12 +288,11 @@ async fn main() -> Result<()> {
                     }
                     WinDivertEvent::SocketListen => {
                         let pid = address.process_id();
-                        let process_name = get_process_name(pid).ok();
-                        debug!("Registering {:?} on {}.", process_name, connection_id.src);
-                        active_listeners.insert(
+                        debug!("Registering {:?} on {}.", get_process_name(pid).ok(), connection_id.src);
+                        active_sockets.insert_listener(
                             connection_id.src,
                             proto,
-                            ProcessInfo { pid, process_name },
+                            pid,
                         );
                     }
                     WinDivertEvent::SocketClose => {
@@ -306,8 +304,7 @@ async fn main() -> Result<()> {
                             packets.clear();
                         }
 
-                        // There might be listen sockets we can clean up.
-                        active_listeners.remove(connection_id.src, proto);
+                        active_sockets.remove(&connection_id);
                     }
                     _ => {}
                 }
@@ -349,21 +346,18 @@ async fn main() -> Result<()> {
 
                 // Handle preexisting connections.
                 connections.clear();
-                active_listeners.clear();
+                active_sockets.clear();
                 for e in network_table()? {
-                    let proc_info = ProcessInfo {
-                        pid: e.pid,
-                        process_name: get_process_name(e.pid).ok(),
-                    };
                     let proto = TransportProtocol::try_from(e.protocol)?;
                     if e.remote_addr.ip().is_unspecified() {
-                        active_listeners.insert(e.local_addr, proto, proc_info);
+                        active_sockets.insert_listener(e.local_addr, proto, e.pid);
                     } else {
                         let connection_id = ConnectionId {
                             proto,
                             src: e.local_addr,
                             dst: e.remote_addr,
                         };
+                        let proc_info = active_sockets.insert(connection_id.clone(), e.pid);
                         let action = if state.should_intercept(&proc_info) {
                             ConnectionAction::Intercept(proc_info)
                         } else {
@@ -514,7 +508,7 @@ async fn process_packet(
                 })
                 .context("failed to re-inject packet")?;
         }
-        ConnectionAction::Intercept(ProcessInfo { pid, process_name }) => {
+        ConnectionAction::Intercept(procinfo) => {
             info!(
                 "Intercepting: {} {} outbound={} loopback={}",
                 packet.connection_id(),
@@ -535,8 +529,8 @@ async fn process_packet(
 
             ipc_tx.send(WindowsIpcRecv::Packet {
                 data: packet.inner(),
-                pid: *pid,
-                process_name: process_name.clone(),
+                pid: procinfo.pid,
+                process_name: procinfo.process_name.clone(),
             })?;
         }
     }

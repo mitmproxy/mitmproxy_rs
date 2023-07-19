@@ -25,7 +25,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
 };
 
-use crate::intercept_conf::PID;
+use crate::processes::PID;
 use crate::processes::{ProcessInfo, ProcessList};
 
 pub fn get_process_name(pid: PID) -> Result<PathBuf> {

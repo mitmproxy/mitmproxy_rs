@@ -1328,6 +1328,7 @@ dependencies = [
  "criterion",
  "env_logger",
  "image",
+ "internet-packet",
  "log",
  "once_cell",
  "pretty-hex",
