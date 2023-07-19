@@ -17,19 +17,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  authorize:
-    environment:
-      ${{ github.event_name == 'pull_request_target' &&
-      github.event.pull_request.head.repo.full_name != github.repository &&
-      matrix.os == 'macos-latest' &&
-      'external' || 'internal' }}
-    runs-on: macos-latest
-    steps:
-      - run: true
-
   test:
     runs-on: ${{ matrix.os }}
-    needs: authorize
     strategy:
       matrix:
         include:
@@ -74,8 +63,8 @@ jobs:
 
         run: |
           ./.github/scripts/sign_provision.sh
-          xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' PROVISIONING_PROFILE="$PPE_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" -scheme MitmproxyAppleExtension build
-          xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' PROVISIONING_PROFILE="$PP_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" -scheme MitmproxyAppleTunnel build
+          xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleExtension build
+          xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleTunnel build
           
       - name: Run "cargo check"
         # the action-rs/cargo action adds inline annotations for "cargo check" output
@@ -144,8 +133,8 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           ./.github/scripts/sign_provision.sh
-          xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' PROVISIONING_PROFILE="$PPE_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" -scheme MitmproxyAppleExtension -configuration Release build
-          xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' PROVISIONING_PROFILE="$PP_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" -scheme MitmproxyAppleTunnel -configuration Release build
+          xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleExtension -configuration Release build
+          xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleTunnel -Configuration Release build
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
