@@ -82,7 +82,6 @@ jobs:
           args: --workspace --verbose ${{ matrix.args }}
 
   build:
-    needs: authorize
     strategy:
       matrix:
         include:
