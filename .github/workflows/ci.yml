@@ -80,7 +80,7 @@ jobs:
           - os: macos-latest
           - os: macos-latest
             target: aarch64-apple-darwin
-            args: --universal2
+            args: --target universal2-apple-darwin
     runs-on: ${{ matrix.os }}
     name: build-wheel (${{ matrix.os }}, ${{ matrix.target || 'x64' }})
     steps:
@@ -104,7 +104,7 @@ jobs:
           python-version-file: .github/python-version.txt
 
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@99254730801be3d4d4af4c28b00b97103cbbd1ee
+        uses: install-pinned/maturin-with-zig@59341946682d2f69df7150f6941f53e026e344fd
 
       - if: runner.os == 'Windows'
         # workaround for https://github.com/rust-lang/cargo/issues/9096
