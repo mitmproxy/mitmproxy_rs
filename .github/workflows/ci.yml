@@ -122,7 +122,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: app
-          path: /Applications/MitmproxyAppleTunnel.app
+          path: /Applications/MitmproxyAppleTunnel.app/
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
