@@ -118,9 +118,14 @@ jobs:
         run: |
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleExtension -configuration Release build
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleTunnel -configuration Release build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: app
+          path: /Applications/MitmproxyAppleTunnel.app
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
+
       - uses: actions/upload-artifact@v3
         with:
           name: wheels
