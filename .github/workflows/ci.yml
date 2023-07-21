@@ -58,6 +58,11 @@ jobs:
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleExtension build
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleTunnel build
           
+      - uses: actions/upload-artifact@v3
+        with:
+          name: app-release
+          path: ~/Library/Developer/Xcode/DerivedData/MitmproxyAppleTunnel-*/Build/Products/Release/
+
       - name: Run "cargo check"
         # the action-rs/cargo action adds inline annotations for "cargo check" output
         uses: actions-rs/cargo@9e120dd99b0fbad1c065f686657e914e76bd7b72
@@ -119,10 +124,6 @@ jobs:
         run: |
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleExtension -configuration Release build
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleTunnel -configuration Release build
-      - uses: actions/upload-artifact@v3
-        with:
-          name: app
-          path: /Applications/MitmproxyAppleTunnel.app/
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
