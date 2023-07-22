@@ -61,7 +61,7 @@
       launchAutomaticallySubstyle = "2">
       <RemoteRunnable
          runnableDebuggingMode = "0"
-         BundleIdentifier = "com.emanuele.MitmproxyAppleTunnel"
+         BundleIdentifier = "org.mitmproxy.macos-redirector"
          RemotePath = "/Applications/MitmproxyAppleTunnel.app">
       </RemoteRunnable>
       <MacroExpansion>
@@ -75,8 +75,16 @@
       </MacroExpansion>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = ""
-            isEnabled = "NO">
+            argument = "test1"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "test2"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "test3"
+            isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
    </LaunchAction>
