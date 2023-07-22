@@ -60,9 +60,9 @@ fn main() {
     }
     #[cfg(target_os = "macos")]
     {
-        copy_dir(
-            Path::new("../apple-tunnel/MitmproxyAppleTunnel.app/"),
-            Path::new("/Applications/MitmproxyAppleTunnel.app/"),
-        );
+        // copy_dir(
+        //     Path::new("../apple-tunnel/MitmproxyAppleTunnel.app/"),
+        //     Path::new("/Applications/MitmproxyAppleTunnel.app/"),
+        // );
     }
 }
