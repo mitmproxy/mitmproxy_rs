@@ -58,7 +58,7 @@
       launchAutomaticallySubstyle = "2">
       <RemoteRunnable
          runnableDebuggingMode = "0"
-         BundleIdentifier = "com.emanuele.mitmproxyApple"
+         BundleIdentifier = "org.mitmproxy.macos-redirector"
          RemotePath = "/Applications/MitmproxyApple.app">
       </RemoteRunnable>
       <MacroExpansion>
