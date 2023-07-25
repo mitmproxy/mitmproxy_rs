@@ -58,10 +58,6 @@ jobs:
           TEST_1: ${{ github.event.pull_request.head.repo.full_name}}
           TEST_2: ${{ github.repository}}
         run: |
-          echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-          echo $TEST_1
-          echo $TEST_2
-          echo "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleExtension build
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleTunnel build
 
