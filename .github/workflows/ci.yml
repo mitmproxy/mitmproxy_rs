@@ -55,6 +55,10 @@ jobs:
         # External PR
       - if: ${{ runner.os == 'macOS' && github.event.pull_request.head.repo.full_name != github.repository}}
         run: |
+          echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+          echo $TEST_1
+          echo $TEST_2
+          echo "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleExtension build
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleTunnel build
 
@@ -69,10 +73,6 @@ jobs:
           TEST_1: ${{ github.event.pull_request.head.repo.full_name}}
           TEST_2: ${{ github.repository}}
         run: |
-          echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-          echo $TEST_1
-          echo $TEST_2
-          echo "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
           ./.github/scripts/sign_provision.sh
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' PROVISIONING_PROFILE="$PPE_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" -scheme MitmproxyAppleExtension build
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' PROVISIONING_PROFILE="$PP_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" -scheme MitmproxyAppleTunnel build
