@@ -48,8 +48,8 @@ jobs:
         with:
           python-version-file: .github/python-version.txt
 
-      # workaround for https://github.com/rust-lang/cargo/issues/9096
       - if: runner.os == 'Windows'
+        # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --package windows-redirector
       - if: runner.os == 'macOS'
         run: .github/scripts/build-macos-redirector.sh
@@ -113,9 +113,9 @@ jobs:
       - name: Install maturin[zig] from PyPI
         uses: install-pinned/maturin-with-zig@99254730801be3d4d4af4c28b00b97103cbbd1ee
 
-      # workaround for https://github.com/rust-lang/cargo/issues/9096
       - if: runner.os == 'Windows'
-        run: cargo build --package windows-redirector
+        # workaround for https://github.com/rust-lang/cargo/issues/9096
+        run: cargo build --release --package windows-redirector
       - if: runner.os == 'macOS'
         run: .github/scripts/build-macos-redirector.sh
         env:
