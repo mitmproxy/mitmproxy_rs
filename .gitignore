@@ -5,3 +5,4 @@
 /venv/
 /docs/
 __pycache__/
+*.xcuserstate
