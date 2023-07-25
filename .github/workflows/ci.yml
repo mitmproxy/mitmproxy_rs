@@ -54,9 +54,6 @@ jobs:
         
         # External PR
       - if: ${{ runner.os == 'macOS' && github.event.pull_request.head.repo.full_name != github.repository}}
-        env:
-          TEST_1: ${{ github.event.pull_request.head.repo.full_name}}
-          TEST_2: ${{ github.repository}}
         run: |
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleExtension build
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleTunnel build
@@ -69,17 +66,10 @@ jobs:
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
           BUILD_PROVISION_PROFILE_EXTENSION_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_EXTENSION_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          TEST_1: ${{ github.event.pull_request.head.repo.full_name}}
-          TEST_2: ${{ github.repository}}
         run: |
           ./.github/scripts/sign_provision.sh
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' PROVISIONING_PROFILE="$PPE_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" -scheme MitmproxyAppleExtension build
           xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' PROVISIONING_PROFILE="$PP_PATH" CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" -scheme MitmproxyAppleTunnel build
-          
-      - uses: actions/upload-artifact@v3
-        with:
-          name: app-release
-          path: ~/Library/Developer/Xcode/DerivedData/MitmproxyAppleTunnel-*/Build/Products/Release/
 
       - name: Run "cargo check"
         # the action-rs/cargo action adds inline annotations for "cargo check" output
@@ -106,6 +96,7 @@ jobs:
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             args: --compatibility manylinux2014 --zig --target aarch64-unknown-linux-gnu
+          - os: macos-latest
           - os: macos-latest
             target: aarch64-apple-darwin
             args: --universal2

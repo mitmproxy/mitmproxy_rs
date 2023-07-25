@@ -1,10 +1,3 @@
-//
-//  AppDelegate.swift
-//  MitmproxyAppleTunnel
-//
-//  Created by Emanuele Micheletti on 13/06/23.
-//
-
 import Cocoa
 import OSLog
 

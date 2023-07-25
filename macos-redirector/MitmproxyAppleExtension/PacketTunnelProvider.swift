@@ -1,11 +1,3 @@
-//
-//  PacketTunnelProvider.swift
-//  NEPacketTunnelVPNDemoTunnel
-//
-//  Created by lxd on 12/8/16.
-//  Copyright © 2016 lxd. All rights reserved.
-//
-
 import NetworkExtension
 import OSLog
 
