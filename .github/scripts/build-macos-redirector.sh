@@ -3,7 +3,8 @@
 set -eou pipefail
 
 # check if BUILD_CERTIFICATE_BASE64 is set
-if [ -z "$BUILD_CERTIFICATE_BASE64" ]; then
+if [ -n "$BUILD_CERTIFICATE_BASE64" ]; then
+  echo "Signing keys available, building signed binary..."
 
   # Create variables
   CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
@@ -33,6 +34,7 @@ if [ -z "$BUILD_CERTIFICATE_BASE64" ]; then
   xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleExtension build
   xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" -scheme MitmproxyAppleTunnel build
 else
+  echo "Signing keys not available, building unsigned binary..."
   xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" PROVISIONING_PROFILE="$PPE_PATH" -scheme MitmproxyAppleExtension build
   xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" PROVISIONING_PROFILE="$PP_PATH" -scheme MitmproxyAppleTunnel build
 fi
