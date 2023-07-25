@@ -54,6 +54,9 @@ jobs:
         
         # External PR
       - if: ${{ runner.os == 'macOS' && github.event.pull_request.head.repo.full_name != github.repository}}
+        env:
+          TEST_1: ${{ github.event.pull_request.head.repo.full_name}}
+          TEST_2: ${{ github.repository}}
         run: |
           echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
           echo $TEST_1
