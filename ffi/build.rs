@@ -63,6 +63,21 @@ fn main() {
 
     #[cfg(target_os = "macos")]
     {
+        // macos-add-trusted-cert binary
+        if cfg!(debug_assertions) {
+            fs::copy(
+                "../target/debug/macos-add-trusted-cert",
+                "mitmproxy_rs/macos-add-trusted-cert/macos-add-trusted-cert/Contents/MacOS/macos-add-trusted-cert",
+            )
+        } else {
+            fs::copy(
+                "../target/debug/macos-add-trusted-cert",
+                "mitmproxy_rs/macos-add-trusted-cert/macos-add-trusted-cert/Contents/MacOS/macos-add-trusted-cert",
+            )
+        }
+        .expect("Failed to copy macos-add-trusted-cert. Has it been built yet?");
+
+        // macos-redirector app
         let forlder_path = home_dir()
             .unwrap()
             .join("Library")
