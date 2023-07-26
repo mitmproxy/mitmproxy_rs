@@ -1,18 +1,15 @@
-use anyhow::bail;
-#[cfg(windows)]
-use bincode::{Decode, Encode};
 use std::collections::HashSet;
-use std::path::PathBuf;
+
+use anyhow::bail;
 
 pub type PID = u32;
 
 #[derive(Debug, Clone)]
 pub struct ProcessInfo {
     pub pid: PID,
-    pub process_name: Option<PathBuf>,
+    pub process_name: Option<String>,
 }
 
-#[cfg_attr(windows, derive(Decode, Encode))]
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct InterceptConf {
     pids: HashSet<PID>,
@@ -52,6 +49,24 @@ impl TryFrom<&str> for InterceptConf {
     }
 }
 
+impl ToString for InterceptConf {
+    fn to_string(&self) -> String {
+        let spec = self
+            .pids
+            .iter()
+            .map(|x| x.to_string())
+            .chain(self.process_names.clone())
+            .collect::<Vec<String>>()
+            .join(",");
+
+        if self.invert {
+            format!("!{}", spec)
+        } else {
+            spec
+        }
+    }
+}
+
 impl InterceptConf {
     pub fn new(pids: Vec<PID>, process_names: Vec<String>, invert: bool) -> Self {
         let pids = HashSet::from_iter(pids.into_iter());
@@ -72,7 +87,6 @@ impl InterceptConf {
             } else if self.process_names.is_empty() {
                 false // fast path to avoid conversion below.
             } else if let Some(name) = &process_info.process_name {
-                let name = name.to_string_lossy();
                 self.process_names.iter().any(|n| name.contains(n))
             } else {
                 false

@@ -11,10 +11,10 @@ use x25519_dalek::PublicKey;
 use mitmproxy::intercept_conf::InterceptConf;
 use mitmproxy::network::NetworkTask;
 #[cfg(windows)]
-use mitmproxy::packet_sources::windows::{WindowsConf, WindowsIpcSend};
+use mitmproxy::packet_sources::windows::WindowsConf;
 
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
-use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
+use mitmproxy::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
 
 use crate::task::PyInteropTask;
@@ -147,7 +147,7 @@ impl Drop for Server {
 pub struct OsProxy {
     server: Server,
     #[cfg(windows)]
-    conf_tx: mpsc::UnboundedSender<WindowsIpcSend>,
+    conf_tx: mpsc::UnboundedSender<ipc::FromProxy>,
 }
 
 #[pymethods]
@@ -162,11 +162,13 @@ impl OsProxy {
     }
 
     /// Set a new intercept spec.
-    pub fn set_intercept(&self, spec: &str) -> PyResult<()> {
-        let _conf = InterceptConf::try_from(spec)?;
+    pub fn set_intercept(&self, spec: String) -> PyResult<()> {
+        InterceptConf::try_from(spec.as_str())?;
         #[cfg(windows)]
         self.conf_tx
-            .send(WindowsIpcSend::SetIntercept(_conf))
+            .send(ipc::FromProxy {
+                message: Some(ipc::from_proxy::Message::InterceptSpec(spec)),
+            })
             .map_err(crate::util::event_queue_unavailable)?;
         Ok(())
     }
