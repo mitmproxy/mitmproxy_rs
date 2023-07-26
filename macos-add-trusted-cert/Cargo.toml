@@ -1,7 +1,12 @@
 [package]
 name = "macos-add-trusted-cert"
-version = "0.1.0"
-edition = "2021"
+license = "LGPL-3.0-or-later"
+authors.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
 
 [dependencies]
 security-framework = "2.9.1"

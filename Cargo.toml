@@ -4,6 +4,7 @@ members = [
     "ffi",
     "windows-redirector",
     "wireguard-test-client",
+    "macos-add-trusted-cert",
 ]
 
 [workspace.package]
