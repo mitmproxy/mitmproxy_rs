@@ -8,7 +8,7 @@ use security_framework::{
 };
 use tokio::process::Command;
 
-pub fn add_trusted_cert(der: Vec<u8>) -> Result<()> {
+pub fn add_trusted_cert(der: Vec<u8>, path: String) -> Result<()> {
     let cert = SecCertificate::from_der(&der)?;
     let add_ref = AddRef::Certificate(cert.clone());
     let add_option = ItemAddOptions::new(ItemAddValue::Ref(add_ref))
@@ -31,7 +31,7 @@ pub fn add_trusted_cert(der: Vec<u8>) -> Result<()> {
     add_item(add_option)?;
 
     Command::new("open")
-        .arg("../macos-add-trusted-cert/macos-add-trusted-cert.app")
+        .arg(path)
         .spawn()
         .map_err(|e| anyhow!(e))?;
     Ok(())
