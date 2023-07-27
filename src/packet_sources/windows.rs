@@ -1,10 +1,10 @@
+use std::io::Cursor;
 use std::iter;
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use bincode::{Decode, Encode};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
 use tokio::sync::broadcast;
@@ -16,28 +16,14 @@ use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::Shell::SE_ERR_ACCESSDENIED;
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
-use crate::intercept_conf::InterceptConf;
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
-use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+use crate::packet_sources::ipc::from_redirector::Message::Packet;
+use crate::packet_sources::ipc::{FromRedirector, PacketWithMeta};
+use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
+use prost::Message;
 
-pub const CONF: bincode::config::Configuration = bincode::config::standard();
-pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
-
-#[derive(Decode, Encode, PartialEq, Eq, Debug)]
-pub enum WindowsIpcRecv {
-    Packet {
-        data: Vec<u8>,
-        pid: u32,
-        process_name: Option<PathBuf>,
-    },
-}
-
-#[derive(Decode, Encode, PartialEq, Eq, Debug)]
-pub enum WindowsIpcSend {
-    Packet(Vec<u8>),
-    SetIntercept(InterceptConf),
-}
+pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 1024;
 
 pub struct WindowsConf {
     pub executable_path: PathBuf,
@@ -46,7 +32,7 @@ pub struct WindowsConf {
 #[async_trait]
 impl PacketSourceConf for WindowsConf {
     type Task = WindowsTask;
-    type Data = UnboundedSender<WindowsIpcSend>;
+    type Data = UnboundedSender<ipc::FromProxy>;
 
     fn name(&self) -> &'static str {
         "Windows proxy"
@@ -137,7 +123,7 @@ pub struct WindowsTask {
 
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
-    conf_rx: UnboundedReceiver<WindowsIpcSend>,
+    conf_rx: UnboundedReceiver<ipc::FromProxy>,
     sd_watcher: broadcast::Receiver<()>,
 }
 
@@ -154,8 +140,10 @@ impl PacketSourceTask for WindowsTask {
                 _ = self.sd_watcher.recv() => break,
                 // pipe through changes to the intercept list
                 Some(cmd) = self.conf_rx.recv() => {
-                    assert!(matches!(cmd, WindowsIpcSend::SetIntercept(_)));
-                    let len = bincode::encode_into_slice(&cmd, &mut self.buf, CONF)?;
+                    assert!(matches!(cmd, ipc::FromProxy { message: Some(ipc::from_proxy::Message::InterceptSpec(_)) }));
+                    cmd.encode(&mut self.buf.as_mut_slice())?;
+                    let len = cmd.encoded_len();
+
                     self.ipc_server.write_all(&self.buf[..len]).await?;
                 },
                 // read packets from the IPC pipe into our network stack.
@@ -171,10 +159,17 @@ impl PacketSourceTask for WindowsTask {
                         // Instead, empty reads indicate that the IPC client has disconnected.
                         return Err(anyhow!("redirect daemon exited prematurely."));
                     }
-                    let Ok((WindowsIpcRecv::Packet { data, pid, process_name }, n)) = bincode::decode_from_slice(&self.buf[..len], CONF) else {
+
+                    let mut cursor = Cursor::new(&self.buf[..len]);
+                    let Ok(FromRedirector { message: Some(message)}) = FromRedirector::decode(&mut cursor) else {
                         return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
                     };
-                    assert_eq!(n, len);
+                    assert_eq!(cursor.position(), len as u64);
+
+                    let (data, pid, process_name) = match message {
+                        Packet(PacketWithMeta { data, pid, process_name}) => (data, pid, process_name.map(PathBuf::from)),
+                    };
+
                     let Ok(mut packet) = IpPacket::try_from(data) else {
                         log::error!("Skipping invalid packet: {:?}", &self.buf[..len]);
                         continue;
@@ -198,8 +193,9 @@ impl PacketSourceTask for WindowsTask {
                 Some(e) = self.net_rx.recv() => {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
-                            let packet = WindowsIpcSend::Packet(packet.into_inner());
-                            let len = bincode::encode_into_slice(&packet, &mut self.buf, CONF)?;
+                            let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet(packet.into_inner()))};
+                            packet.encode(&mut self.buf.as_mut_slice())?;
+                            let len = packet.encoded_len();
                             self.ipc_server.write_all(&self.buf[..len]).await?;
                         }
                     }

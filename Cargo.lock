@@ -168,25 +168,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "604178f6c5c21f02dc555784810edfb88d34ac2c73b2eae109655649ee73ce3d"
 
 [[package]]
-name = "bincode"
-version = "2.0.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f11ea1a0346b94ef188834a65c068a03aec181c94896d481d7a0a40d85b0ce95"
-dependencies = [
- "bincode_derive",
- "serde",
-]
-
-[[package]]
-name = "bincode_derive"
-version = "2.0.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e30759b3b99a1b802a7a3aa21c85c3ded5c28e1c83170d82d70f08bbf7f3e4c"
-dependencies = [
- "virtue",
-]
-
-[[package]]
 name = "bit_field"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1344,7 +1325,6 @@ version = "0.2.0-beta.9"
 dependencies = [
  "anyhow",
  "async-trait",
- "bincode",
  "boringtun",
  "console-subscriber",
  "criterion",
@@ -1353,6 +1333,7 @@ dependencies = [
  "log",
  "once_cell",
  "pretty-hex",
+ "prost",
  "prost-build",
  "protoc-bin-vendored",
  "rand",
@@ -2534,12 +2515,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
-name = "virtue"
-version = "0.0.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dcc60c0624df774c82a0ef104151231d37da4962957d691c011c852b2473314"
-
-[[package]]
 name = "walkdir"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2713,13 +2688,13 @@ name = "windows-redirector"
 version = "0.2.0-beta.9"
 dependencies = [
  "anyhow",
- "bincode",
  "env_logger",
  "hex",
  "internet-packet",
  "log",
  "lru_time_cache",
  "mitmproxy",
+ "prost",
  "tokio",
  "windivert",
  "winres",
