@@ -30,9 +30,7 @@ jobs:
             args: --exclude windows-redirector
           - os: ubuntu-latest
             rust: stable
-            args:
-              - "--exclude windows-redirector"
-              - "--exclude macos-add-trusted-cert" 
+            args: --exclude windows-redirector --exclude macos-add-trusted-cert
           - os: windows-latest
             rust: 1.65.0  # MSRV
             args: --exclude macos-add-trusted-cert 
