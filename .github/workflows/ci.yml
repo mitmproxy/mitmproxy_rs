@@ -52,6 +52,9 @@ jobs:
       - if: runner.os == 'Windows'
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --package windows-redirector
+      - if: runner.os == 'macOS'
+        run: cargo build --package macos-add-trusted-cert
+
 
       - name: Run "cargo check"
         # the action-rs/cargo action adds inline annotations for "cargo check" output
@@ -110,6 +113,8 @@ jobs:
       - if: runner.os == 'Windows'
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --release --package windows-redirector
+      - if: runner.os == 'macOS'
+        run: cargo build --release -package macos-add-trusted-cert
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
