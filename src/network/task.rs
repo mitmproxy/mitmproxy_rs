@@ -9,7 +9,8 @@ use smoltcp::iface::{Config, SocketSet};
 use smoltcp::socket::{tcp, Socket};
 
 use smoltcp::wire::{
-    Icmpv4Message, Icmpv4Packet, Icmpv4Repr, Icmpv6Message, Icmpv6Packet, Icmpv6Repr,
+    HardwareAddress, Icmpv4Message, Icmpv4Packet, Icmpv4Repr, Icmpv6Message, Icmpv6Packet,
+    Icmpv6Repr,
 };
 use smoltcp::{
     iface::{Interface, SocketHandle},
@@ -65,8 +66,8 @@ impl<'a> NetworkIO<'a> {
     fn new(net_tx: Sender<NetworkCommand>) -> Self {
         let mut device = VirtualDevice::new(net_tx.clone());
 
-        let config = Config::new();
-        let mut iface = Interface::new(config, &mut device);
+        let config = Config::new(HardwareAddress::Ip);
+        let mut iface = Interface::new(config, &mut device, Instant::now());
 
         iface.set_any_ip(true);
 
