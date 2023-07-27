@@ -64,15 +64,19 @@ fn main() {
     #[cfg(target_os = "macos")]
     {
         // macos-add-trusted-cert binary
+        copy_dir(
+            &Path::new("../macos-add-trusted-cert/macos-add-trusted-cert.app/"),
+            &Path::new("mitmproxy_rs/macos-add-trusted-cert.app"),
+        );
         if cfg!(debug_assertions) {
             fs::copy(
                 "../target/debug/macos-add-trusted-cert",
-                "mitmproxy_rs/macos-add-trusted-cert/macos-add-trusted-cert/Contents/MacOS/macos-add-trusted-cert",
+                "mitmproxy_rs/macos-add-trusted-cert.app/Contents/MacOS/macos-add-trusted-cert",
             )
         } else {
             fs::copy(
                 "../target/debug/macos-add-trusted-cert",
-                "mitmproxy_rs/macos-add-trusted-cert/macos-add-trusted-cert/Contents/MacOS/macos-add-trusted-cert",
+                "mitmproxy_rs/macos-add-trusted-cert.app/Contents/MacOS/macos-add-trusted-cert",
             )
         }
         .expect("Failed to copy macos-add-trusted-cert. Has it been built yet?");
@@ -105,17 +109,12 @@ fn main() {
 
                         copy_dir(
                             &build_path,
-                            Path::new("../macos-redirector/MitmProxyAppleTunnel.app"),
+                            Path::new("mitmproxy_rs/MitmProxyAppleTunnel.app"),
                         );
                     }
                 }
             }
         }
 
-        //To launch the app it is necessary to move the executable inside the /Applications folder
-        copy_dir(
-            Path::new("../macos-redirector/MitmproxyAppleTunnel.app/"),
-            Path::new("/Applications/MitmproxyAppleTunnel.app/"),
-        );
     }
 }
