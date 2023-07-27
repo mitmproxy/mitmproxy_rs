@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - add-remove-certificate
     tags:
       - "*"
   pull_request:
