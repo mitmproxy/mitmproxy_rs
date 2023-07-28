@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package mitmproxy.ipc;
+
+message FromRedirector {
+  oneof message {
+    PacketWithMeta packet = 1;
+  }
+}
+message PacketWithMeta {
+  bytes data = 1;
+  uint32 pid = 2;
+  optional string process_name = 3;
+}
+
+
+message FromProxy {
+  oneof message {
+    bytes packet = 1;
+    string intercept_spec = 2;
+  }
+}

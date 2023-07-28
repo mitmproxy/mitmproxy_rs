@@ -56,7 +56,7 @@ pub fn event_queue_unavailable<T>(_: mpsc::error::SendError<T>) -> PyErr {
 /// Generate a WireGuard private key, analogous to the `wg genkey` command.
 #[pyfunction]
 pub fn genkey() -> String {
-    BASE64.encode(&StaticSecret::new(OsRng).to_bytes())
+    BASE64.encode(&StaticSecret::random_from_rng(OsRng).to_bytes())
 }
 
 /// Derive a WireGuard public key from a private key, analogous to the `wg pubkey` command.

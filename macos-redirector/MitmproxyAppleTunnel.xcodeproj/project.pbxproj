@@ -1,0 +1,629 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		F32298662A5FF1C100129CBC /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F366060A2A3858B300FDF1B3 /* NetworkExtension.framework */; };
+		F36606012A38584E00FDF1B3 /* Proxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F36606002A38584E00FDF1B3 /* Proxy.swift */; };
+		F36606032A38587400FDF1B3 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = F36606022A38587400FDF1B3 /* Constants.swift */; };
+		F366060E2A3858B300FDF1B3 /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F366060D2A3858B300FDF1B3 /* PacketTunnelProvider.swift */; };
+		F36606132A3858B300FDF1B3 /* MitmproxyAppleExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F36606082A3858B300FDF1B3 /* MitmproxyAppleExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F36606182A38600800FDF1B3 /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F366060D2A3858B300FDF1B3 /* PacketTunnelProvider.swift */; };
+		F3892D3A2A39CE3C008B7187 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F366060A2A3858B300FDF1B3 /* NetworkExtension.framework */; };
+		F3BBC1D82A3CCD5200CEFC1A /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = F3BBC1D72A3CCD5200CEFC1A /* SwiftProtobuf */; };
+		F3D39CF12A3CC83E008BAF95 /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D39CF02A3CC83E008BAF95 /* ipc.pb.swift */; };
+		F3D39CF42A3CC87C008BAF95 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = F3D39CF32A3CC87C008BAF95 /* SwiftProtobuf */; };
+		F3D39CF62A3CC87C008BAF95 /* SwiftProtobufPluginLibrary in Frameworks */ = {isa = PBXBuildFile; productRef = F3D39CF52A3CC87C008BAF95 /* SwiftProtobufPluginLibrary */; };
+		F3D39CF82A3CCBC9008BAF95 /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D39CF02A3CC83E008BAF95 /* ipc.pb.swift */; };
+		F3EAC0CC2A3856E800DA5E00 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3EAC0CB2A3856E800DA5E00 /* AppDelegate.swift */; };
+		F3EAC0CE2A3856E800DA5E00 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3EAC0CD2A3856E800DA5E00 /* ViewController.swift */; };
+		F3EAC0D02A3856E900DA5E00 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F3EAC0CF2A3856E900DA5E00 /* Assets.xcassets */; };
+		F3EAC0D32A3856E900DA5E00 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F3EAC0D12A3856E900DA5E00 /* Main.storyboard */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		F36606112A3858B300FDF1B3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F3EAC0C02A3856E800DA5E00 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F36606072A3858B300FDF1B3;
+			remoteInfo = MitmproxyAppleExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		F36606172A3858B300FDF1B3 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				F36606132A3858B300FDF1B3 /* MitmproxyAppleExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		F36606002A38584E00FDF1B3 /* Proxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Proxy.swift; sourceTree = "<group>"; };
+		F36606022A38587400FDF1B3 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		F36606082A3858B300FDF1B3 /* MitmproxyAppleExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MitmproxyAppleExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F366060A2A3858B300FDF1B3 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
+		F366060D2A3858B300FDF1B3 /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
+		F366060F2A3858B300FDF1B3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F36606102A3858B300FDF1B3 /* MitmproxyAppleExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MitmproxyAppleExtension.entitlements; sourceTree = "<group>"; };
+		F3D39CF02A3CC83E008BAF95 /* ipc.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ipc.pb.swift; sourceTree = "<group>"; };
+		F3EAC0C82A3856E800DA5E00 /* MitmproxyAppleTunnel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MitmproxyAppleTunnel.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F3EAC0CB2A3856E800DA5E00 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		F3EAC0CD2A3856E800DA5E00 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		F3EAC0CF2A3856E900DA5E00 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F3EAC0D22A3856E900DA5E00 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		F3EAC0D42A3856E900DA5E00 /* MitmproxyAppleTunnel.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MitmproxyAppleTunnel.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F36606052A3858B300FDF1B3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F3BBC1D82A3CCD5200CEFC1A /* SwiftProtobuf in Frameworks */,
+				F32298662A5FF1C100129CBC /* NetworkExtension.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F3EAC0C52A3856E800DA5E00 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F3D39CF62A3CC87C008BAF95 /* SwiftProtobufPluginLibrary in Frameworks */,
+				F3892D3A2A39CE3C008B7187 /* NetworkExtension.framework in Frameworks */,
+				F3D39CF42A3CC87C008BAF95 /* SwiftProtobuf in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F36605FD2A38581900FDF1B3 /* View */ = {
+			isa = PBXGroup;
+			children = (
+				F3EAC0D12A3856E900DA5E00 /* Main.storyboard */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
+		F36605FE2A38582000FDF1B3 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				F36606002A38584E00FDF1B3 /* Proxy.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		F36605FF2A38582500FDF1B3 /* Controller */ = {
+			isa = PBXGroup;
+			children = (
+				F3EAC0CB2A3856E800DA5E00 /* AppDelegate.swift */,
+				F3EAC0CD2A3856E800DA5E00 /* ViewController.swift */,
+			);
+			path = Controller;
+			sourceTree = "<group>";
+		};
+		F36606092A3858B300FDF1B3 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				F366060A2A3858B300FDF1B3 /* NetworkExtension.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F366060C2A3858B300FDF1B3 /* MitmproxyAppleExtension */ = {
+			isa = PBXGroup;
+			children = (
+				F3D39CF02A3CC83E008BAF95 /* ipc.pb.swift */,
+				F366060D2A3858B300FDF1B3 /* PacketTunnelProvider.swift */,
+				F366060F2A3858B300FDF1B3 /* Info.plist */,
+				F36606102A3858B300FDF1B3 /* MitmproxyAppleExtension.entitlements */,
+			);
+			path = MitmproxyAppleExtension;
+			sourceTree = "<group>";
+		};
+		F3EAC0BF2A3856E800DA5E00 = {
+			isa = PBXGroup;
+			children = (
+				F3EAC0CA2A3856E800DA5E00 /* MitmproxyAppleTunnel */,
+				F366060C2A3858B300FDF1B3 /* MitmproxyAppleExtension */,
+				F36606092A3858B300FDF1B3 /* Frameworks */,
+				F3EAC0C92A3856E800DA5E00 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F3EAC0C92A3856E800DA5E00 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F3EAC0C82A3856E800DA5E00 /* MitmproxyAppleTunnel.app */,
+				F36606082A3858B300FDF1B3 /* MitmproxyAppleExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F3EAC0CA2A3856E800DA5E00 /* MitmproxyAppleTunnel */ = {
+			isa = PBXGroup;
+			children = (
+				F36606022A38587400FDF1B3 /* Constants.swift */,
+				F36605FF2A38582500FDF1B3 /* Controller */,
+				F36605FE2A38582000FDF1B3 /* Model */,
+				F36605FD2A38581900FDF1B3 /* View */,
+				F3EAC0CF2A3856E900DA5E00 /* Assets.xcassets */,
+				F3EAC0D42A3856E900DA5E00 /* MitmproxyAppleTunnel.entitlements */,
+			);
+			path = MitmproxyAppleTunnel;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F36606072A3858B300FDF1B3 /* MitmproxyAppleExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F36606142A3858B300FDF1B3 /* Build configuration list for PBXNativeTarget "MitmproxyAppleExtension" */;
+			buildPhases = (
+				F36606042A3858B300FDF1B3 /* Sources */,
+				F36606052A3858B300FDF1B3 /* Frameworks */,
+				F36606062A3858B300FDF1B3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MitmproxyAppleExtension;
+			packageProductDependencies = (
+				F3BBC1D72A3CCD5200CEFC1A /* SwiftProtobuf */,
+			);
+			productName = MitmproxyAppleExtension;
+			productReference = F36606082A3858B300FDF1B3 /* MitmproxyAppleExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		F3EAC0C72A3856E800DA5E00 /* MitmproxyAppleTunnel */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F3EAC0D72A3856E900DA5E00 /* Build configuration list for PBXNativeTarget "MitmproxyAppleTunnel" */;
+			buildPhases = (
+				F3EAC0C42A3856E800DA5E00 /* Sources */,
+				F3EAC0C52A3856E800DA5E00 /* Frameworks */,
+				F3EAC0C62A3856E800DA5E00 /* Resources */,
+				F36606172A3858B300FDF1B3 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F36606122A3858B300FDF1B3 /* PBXTargetDependency */,
+			);
+			name = MitmproxyAppleTunnel;
+			packageProductDependencies = (
+				F3D39CF32A3CC87C008BAF95 /* SwiftProtobuf */,
+				F3D39CF52A3CC87C008BAF95 /* SwiftProtobufPluginLibrary */,
+			);
+			productName = MitmproxyAppleTunnel;
+			productReference = F3EAC0C82A3856E800DA5E00 /* MitmproxyAppleTunnel.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F3EAC0C02A3856E800DA5E00 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1430;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					F36606072A3858B300FDF1B3 = {
+						CreatedOnToolsVersion = 14.3;
+					};
+					F3EAC0C72A3856E800DA5E00 = {
+						CreatedOnToolsVersion = 14.3;
+					};
+				};
+			};
+			buildConfigurationList = F3EAC0C32A3856E800DA5E00 /* Build configuration list for PBXProject "MitmproxyAppleTunnel" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = F3EAC0BF2A3856E800DA5E00;
+			packageReferences = (
+				F3D39CF22A3CC87C008BAF95 /* XCRemoteSwiftPackageReference "swift-protobuf" */,
+			);
+			productRefGroup = F3EAC0C92A3856E800DA5E00 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F3EAC0C72A3856E800DA5E00 /* MitmproxyAppleTunnel */,
+				F36606072A3858B300FDF1B3 /* MitmproxyAppleExtension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F36606062A3858B300FDF1B3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F3EAC0C62A3856E800DA5E00 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F3EAC0D02A3856E900DA5E00 /* Assets.xcassets in Resources */,
+				F3EAC0D32A3856E900DA5E00 /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F36606042A3858B300FDF1B3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F366060E2A3858B300FDF1B3 /* PacketTunnelProvider.swift in Sources */,
+				F3D39CF12A3CC83E008BAF95 /* ipc.pb.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F3EAC0C42A3856E800DA5E00 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F36606182A38600800FDF1B3 /* PacketTunnelProvider.swift in Sources */,
+				F3EAC0CE2A3856E800DA5E00 /* ViewController.swift in Sources */,
+				F36606012A38584E00FDF1B3 /* Proxy.swift in Sources */,
+				F3EAC0CC2A3856E800DA5E00 /* AppDelegate.swift in Sources */,
+				F36606032A38587400FDF1B3 /* Constants.swift in Sources */,
+				F3D39CF82A3CCBC9008BAF95 /* ipc.pb.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F36606122A3858B300FDF1B3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F36606072A3858B300FDF1B3 /* MitmproxyAppleExtension */;
+			targetProxy = F36606112A3858B300FDF1B3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		F3EAC0D12A3856E900DA5E00 /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				F3EAC0D22A3856E900DA5E00 /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		F36606152A3858B300FDF1B3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = MitmproxyAppleExtension/MitmproxyAppleExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = S8XHQB96PW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MitmproxyAppleExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MitmproxyAppleExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.mitmproxy.macos-redirector.network-extension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "org.mitmproxy.macos-redirector.network-extension";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		F36606162A3858B300FDF1B3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = MitmproxyAppleExtension/MitmproxyAppleExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = S8XHQB96PW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MitmproxyAppleExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MitmproxyAppleExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.mitmproxy.macos-redirector.network-extension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "org.mitmproxy.macos-redirector.network-extension";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		F3EAC0D52A3856E900DA5E00 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F3EAC0D62A3856E900DA5E00 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		F3EAC0D82A3856E900DA5E00 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MitmproxyAppleTunnel/MitmproxyAppleTunnel.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = S8XHQB96PW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.mitmproxy.macos-redirector";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "org.mitmproxy.macos-redirector";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		F3EAC0D92A3856E900DA5E00 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MitmproxyAppleTunnel/MitmproxyAppleTunnel.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = S8XHQB96PW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.mitmproxy.macos-redirector";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "org.mitmproxy.macos-redirector";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F36606142A3858B300FDF1B3 /* Build configuration list for PBXNativeTarget "MitmproxyAppleExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F36606152A3858B300FDF1B3 /* Debug */,
+				F36606162A3858B300FDF1B3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F3EAC0C32A3856E800DA5E00 /* Build configuration list for PBXProject "MitmproxyAppleTunnel" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F3EAC0D52A3856E900DA5E00 /* Debug */,
+				F3EAC0D62A3856E900DA5E00 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F3EAC0D72A3856E900DA5E00 /* Build configuration list for PBXNativeTarget "MitmproxyAppleTunnel" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F3EAC0D82A3856E900DA5E00 /* Debug */,
+				F3EAC0D92A3856E900DA5E00 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		F3D39CF22A3CC87C008BAF95 /* XCRemoteSwiftPackageReference "swift-protobuf" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-protobuf.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F3BBC1D72A3CCD5200CEFC1A /* SwiftProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F3D39CF22A3CC87C008BAF95 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
+		};
+		F3D39CF32A3CC87C008BAF95 /* SwiftProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F3D39CF22A3CC87C008BAF95 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
+		};
+		F3D39CF52A3CC87C008BAF95 /* SwiftProtobufPluginLibrary */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F3D39CF22A3CC87C008BAF95 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobufPluginLibrary;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = F3EAC0C02A3856E800DA5E00 /* Project object */;
+}
