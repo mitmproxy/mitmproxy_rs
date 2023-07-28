@@ -23,16 +23,16 @@ jobs:
         include:
           - os: windows-latest
             rust: stable
-            args: --exclude macos-add-trusted-cert 
+            args: --exclude macos-certificate-truster 
           - os: macos-latest
             rust: stable
             args: --exclude windows-redirector
           - os: ubuntu-latest
             rust: stable
-            args: --exclude windows-redirector --exclude macos-add-trusted-cert
+            args: --exclude windows-redirector --exclude macos-certificate-truster
           - os: windows-latest
             rust: 1.65.0  # MSRV
-            args: --exclude macos-add-trusted-cert 
+            args: --exclude macos-certificate-truster 
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -55,7 +55,7 @@ jobs:
         run: cargo build --package windows-redirector
       - if: runner.os == 'macOS'
         run: |
-          cargo build --package macos-add-trusted-cert
+          cargo build --package macos-certificate-truster
           .github/scripts/build-macos-redirector.sh
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
@@ -122,7 +122,7 @@ jobs:
         run: cargo build --release --package windows-redirector
       - if: runner.os == 'macOS'
         run: |
-          cargo build --release --package macos-add-trusted-cert
+          cargo build --release --package macos-certificate-truster
           .github/scripts/build-macos-redirector.sh
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
