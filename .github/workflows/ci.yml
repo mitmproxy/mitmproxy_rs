@@ -54,9 +54,9 @@ jobs:
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --package windows-redirector
       - if: runner.os == 'macOS'
-        run: cargo build --package macos-add-trusted-cert
-
-        run: .github/scripts/build-macos-redirector.sh
+        run: |
+          cargo build --package macos-add-trusted-cert
+          .github/scripts/build-macos-redirector.sh
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
@@ -121,8 +121,9 @@ jobs:
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --release --package windows-redirector
       - if: runner.os == 'macOS'
-        run: cargo build --release --package macos-add-trusted-cert
-        run: .github/scripts/build-macos-redirector.sh
+        run: |
+          cargo build --release --package macos-add-trusted-cert
+          .github/scripts/build-macos-redirector.sh
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
