@@ -1,5 +1,5 @@
 [package]
-name = "macos-add-trusted-cert"
+name = "macos-certificate-truster"
 license = "LGPL-3.0-or-later"
 authors.workspace = true
 version.workspace = true

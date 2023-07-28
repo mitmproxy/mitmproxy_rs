@@ -2,8 +2,10 @@ use security_framework::{trust_settings::{TrustSettings, Domain}, item::{
      ItemClass, ItemSearchOptions, Reference,
     SearchResult,
 }};
+use embed_plist;
 
 fn main() {
+    embed_plist::embed_launchd_plist!("../macos-certificate-truster.app/Contents/Info.plist");
     if let SearchResult::Ref(Reference::Certificate(cert)) = ItemSearchOptions::new()
         .class(ItemClass::certificate())
         .load_refs(true)

@@ -85,7 +85,7 @@ pub fn add_trusted_cert(
         let executable_path = std::path::Path::new(filename)
             .parent()
             .ok_or_else(|| anyhow!("invalid path"))?
-            .join("macos-add-trusted-cert.app");
+            .join("macos-certificate-truster.app");
         if !executable_path.exists() {
             return Err(anyhow!("{} does not exist", executable_path.display()).into());
         }
