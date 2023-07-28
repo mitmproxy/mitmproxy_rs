@@ -8,6 +8,10 @@ use crate::messages::{NetworkCommand, NetworkEvent};
 pub mod windows;
 pub mod wireguard;
 
+pub mod ipc {
+    include!(concat!(env!("OUT_DIR"), "/mitmproxy.ipc.rs"));
+}
+
 #[async_trait]
 pub trait PacketSourceConf {
     type Task: PacketSourceTask + Send + 'static;
