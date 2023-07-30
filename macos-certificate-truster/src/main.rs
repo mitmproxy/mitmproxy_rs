@@ -20,5 +20,7 @@ fn main() {
         }
     }
     #[cfg(not(target_os = "macos"))]
+    {
     println!("Certificate truster is only available on macos");
+    }
 }

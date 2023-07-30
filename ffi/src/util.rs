@@ -90,7 +90,7 @@ pub fn add_trusted_cert(
             return Err(anyhow!("{} does not exist", executable_path.display()).into());
         }
         //let der = BASE64.decode(remove_trusted_cert.as_bytes()).unwrap();
-        let der = BASE64.decode(&pem_body.as_bytes()).unwrap();
+        let der = BASE64.decode(pem_body.as_bytes()).unwrap();
         match macos::add_trusted_cert(der, executable_path.to_str().unwrap()){
             Ok(_) => Ok(()),
             Err(e) => Err(PyErr::new::<PyOSError, _>(format!(
