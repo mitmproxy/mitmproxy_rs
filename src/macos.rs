@@ -22,10 +22,8 @@ pub fn add_trusted_cert(der: Vec<u8>, path: &str) -> Result<()> {
         .search()
         .map_err(|e| anyhow!(e))?;
 
-    if let Some(search_result) = search_result.first() {
-        if let SearchResult::Ref(Reference::Certificate(cert)) = search_result {
-            cert.delete()?;
-        }
+    if let Some(SearchResult::Ref(Reference::Certificate(cert))) = search_result.first() {
+        cert.delete()?;
     }
 
     add_item(add_option)?;
