@@ -13,6 +13,6 @@ fn main() {
         .first()
         .unwrap()
     {
-        TrustSettings::new(Domain::Admin).set_trust_settings_always(&cert).unwrap();
+        TrustSettings::new(Domain::Admin).set_trust_settings_always(cert).unwrap();
     }
 }

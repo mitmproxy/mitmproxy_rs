@@ -38,9 +38,6 @@ jobs:
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --package windows-redirector
 
-      - if: runner.os == 'MacOS'
-        run: cargo build --package macos-certificate-truster
-
       - run: cargo clippy --fix --workspace --allow-dirty
       - run: cargo fmt --all
 

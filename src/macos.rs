@@ -10,7 +10,7 @@ use tokio::process::Command;
 
 pub fn add_trusted_cert(der: Vec<u8>, path: &str) -> Result<()> {
     let cert = SecCertificate::from_der(&der)?;
-    let add_ref = AddRef::Certificate(cert.clone());
+    let add_ref = AddRef::Certificate(cert);
     let add_option = ItemAddOptions::new(ItemAddValue::Ref(add_ref))
         .set_label("mitmproxy")
         .to_dictionary();
