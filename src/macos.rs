@@ -8,7 +8,7 @@ use security_framework::{
 };
 use tokio::process::Command;
 
-pub fn add_trusted_cert(der: Vec<u8>, path: &str) -> Result<()> {
+pub fn add_cert(der: Vec<u8>, path: &str) -> Result<()> {
     let cert = SecCertificate::from_der(&der)?;
     let add_ref = AddRef::Certificate(cert);
     let add_option = ItemAddOptions::new(ItemAddValue::Ref(add_ref))
@@ -35,7 +35,7 @@ pub fn add_trusted_cert(der: Vec<u8>, path: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn remove_trusted_cert() -> Result<()> {
+pub fn remove_cert() -> Result<()> {
     if let SearchResult::Ref(Reference::Certificate(cert)) = ItemSearchOptions::new()
         .class(ItemClass::certificate())
         .load_refs(true)

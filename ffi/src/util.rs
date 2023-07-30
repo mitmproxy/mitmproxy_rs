@@ -69,7 +69,7 @@ pub fn pubkey(private_key: String) -> PyResult<String> {
 /// Convert pem certificate to der certificate and add it to macos keychain.
 #[pyfunction]
 #[allow(unused_variables)]
-pub fn add_trusted_cert(
+pub fn add_cert(
     py: Python<'_>,
     pem: String,
 ) -> PyResult<()> {
@@ -89,9 +89,8 @@ pub fn add_trusted_cert(
         if !executable_path.exists() {
             return Err(anyhow!("{} does not exist", executable_path.display()).into());
         }
-        //let der = BASE64.decode(remove_trusted_cert.as_bytes()).unwrap();
         let der = BASE64.decode(pem_body.as_bytes()).unwrap();
-        match macos::add_trusted_cert(der, executable_path.to_str().unwrap()){
+        match macos::add_cert(der, executable_path.to_str().unwrap()){
             Ok(_) => Ok(()),
             Err(e) => Err(PyErr::new::<PyOSError, _>(format!(
                 "Failed to add certificate: {:?}",
@@ -107,10 +106,10 @@ pub fn add_trusted_cert(
 
 /// Delete mitmproxy certificate from the keychain.
 #[pyfunction]
-pub fn remove_trusted_cert() -> PyResult<()> {
+pub fn remove_cert() -> PyResult<()> {
     #[cfg(target_os = "macos")]
     {
-        match macos::remove_trusted_cert() {
+        match macos::remove_cert() {
             Ok(_) => Ok(()),
             Err(e) => Err(PyErr::new::<PyOSError, _>(format!(
                 "Failed to remove certificate: {:?}",
