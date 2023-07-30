@@ -1,4 +1,4 @@
-#![allow(unused_imports)]
+#![cfg(target_os = "macos")]
 use security_framework::{trust_settings::{TrustSettings, Domain}, item::{
      ItemClass, ItemSearchOptions, Reference,
     SearchResult,
