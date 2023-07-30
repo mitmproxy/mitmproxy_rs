@@ -1,4 +1,4 @@
-#![cfg(target_os = "macos")]
+#[cfg(target_os = "macos")]
 use security_framework::{trust_settings::{TrustSettings, Domain}, item::{
      ItemClass, ItemSearchOptions, Reference,
     SearchResult,
@@ -20,7 +20,5 @@ fn main() {
         }
     }
     #[cfg(not(target_os = "macos"))]
-    {
     println!("Certificate truster is only available on macos");
-    }
 }
