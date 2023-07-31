@@ -3,6 +3,7 @@ use home::home_dir;
 use std::{fs, path::Path};
 
 pub fn copy_dir(src: &Path, dst: &Path) {
+    println!("{} -> {}", src.display(), dst.display());
     for entry in src.read_dir().unwrap() {
         let entry = entry.unwrap();
         let ty = entry.file_type().expect("Failed to get file type");
@@ -63,23 +64,23 @@ fn main() {
 
     #[cfg(target_os = "macos")]
     {
-        // macos-add-trusted-cert binary
+        // macos-certificate-truster binary
         copy_dir(
-            Path::new("../macos-add-trusted-cert/macos-add-trusted-cert.app/"),
-            Path::new("mitmproxy_rs/macos-add-trusted-cert.app"),
+            Path::new("../macos-certificate-truster/macos-certificate-truster.app/"),
+            Path::new("mitmproxy_rs/macos-certificate-truster.app"),
         );
         if cfg!(debug_assertions) {
             fs::copy(
-                "../target/debug/macos-add-trusted-cert",
-                "mitmproxy_rs/macos-add-trusted-cert.app/Contents/MacOS/macos-add-trusted-cert",
+                "../target/debug/macos-certificate-truster",
+                "mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/macos-certificate-truster",
             )
         } else {
             fs::copy(
-                "../target/debug/macos-add-trusted-cert",
-                "mitmproxy_rs/macos-add-trusted-cert.app/Contents/MacOS/macos-add-trusted-cert",
+                "../target/release/macos-certificate-truster",
+                "mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/macos-certificate-truster",
             )
         }
-        .expect("Failed to copy macos-add-trusted-cert. Has it been built yet?");
+        .expect("Failed to copy macos-certificate-truster. Has it been built yet?");
 
         // macos-redirector app
         let forlder_path = home_dir()

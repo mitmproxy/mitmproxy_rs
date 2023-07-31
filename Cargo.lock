@@ -44,13 +44,7 @@ checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
 
 [[package]]
 name = "anstyle"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41ed9a86bf92ae6580e0a31281f65a1b1d867c0cc68d5346e2ae128dddfa6a7d"
-
-[[package]]
-name = "anyhow"
-version = "1.0.71"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a30da5c5f2d5e72842e00bcb57657162cdabef0931f40e2deb9b4140440cecd"
 
@@ -2046,8 +2040,8 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "security-framework"
-version = "2.9.0"
-source = "git+https://github.com/emanuele-em/rust-security-framework?branch=main#1690e15d11a6d02675a871e42eab32c2fdb791c3"
+version = "2.9.2"
+source = "git+https://github.com/emanuele-em/rust-security-framework?branch=main#eb6abf2dabe3881620436eba952750600bef267b"
 dependencies = [
  "bitflags 1.3.2",
  "core-foundation",
@@ -2058,8 +2052,8 @@ dependencies = [
 
 [[package]]
 name = "security-framework-sys"
-version = "2.9.0"
-source = "git+https://github.com/emanuele-em/rust-security-framework?branch=main#1690e15d11a6d02675a871e42eab32c2fdb791c3"
+version = "2.9.1"
+source = "git+https://github.com/emanuele-em/rust-security-framework?branch=main#eb6abf2dabe3881620436eba952750600bef267b"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -2314,6 +2308,7 @@ dependencies = [
  "mio",
  "num_cpus",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "tracing",
