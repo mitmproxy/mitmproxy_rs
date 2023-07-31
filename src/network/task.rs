@@ -9,7 +9,8 @@ use smoltcp::iface::{Config, SocketSet};
 use smoltcp::socket::{tcp, Socket};
 
 use smoltcp::wire::{
-    Icmpv4Message, Icmpv4Packet, Icmpv4Repr, Icmpv6Message, Icmpv6Packet, Icmpv6Repr,
+    HardwareAddress, Icmpv4Message, Icmpv4Packet, Icmpv4Repr, Icmpv6Message, Icmpv6Packet,
+    Icmpv6Repr,
 };
 use smoltcp::{
     iface::{Interface, SocketHandle},
@@ -65,8 +66,8 @@ impl<'a> NetworkIO<'a> {
     fn new(net_tx: Sender<NetworkCommand>) -> Self {
         let mut device = VirtualDevice::new(net_tx.clone());
 
-        let config = Config::new();
-        let mut iface = Interface::new(config, &mut device);
+        let config = Config::new(HardwareAddress::Ip);
+        let mut iface = Interface::new(config, &mut device, Instant::now());
 
         iface.set_any_ip(true);
 
@@ -533,7 +534,7 @@ impl NetworkTask<'_> {
             // 3. Check if we can wake up any waiters, move more data in the send buffer, or clean up sockets.
 
             // check device for timeouts
-            let delay = io.iface.poll_delay(Instant::now(), &mut io.sockets);
+            let delay = io.iface.poll_delay(Instant::now(), &io.sockets);
 
             #[cfg(debug_assertions)]
             if let Some(d) = delay {

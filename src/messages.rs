@@ -1,4 +1,5 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
 use smoltcp::wire::{IpProtocol, Ipv4Packet, Ipv6Packet};
@@ -12,7 +13,7 @@ pub enum TunnelInfo {
     },
     Windows {
         pid: u32,
-        process_name: Option<String>,
+        process_name: Option<PathBuf>,
     },
     Macos {
         process_name: Option<String>,
@@ -67,7 +68,7 @@ pub enum TransportCommand {
     },
 }
 
-/// Generic IPv4/IPv6 packet type that wraps both IPv4 and IPv6 packet buffers
+/// Generic IPv4/IPv6 packet type that wraps smoltcp's IPv4 and IPv6 packet buffers
 #[derive(Debug)]
 pub enum IpPacket {
     V4(Ipv4Packet<Vec<u8>>),

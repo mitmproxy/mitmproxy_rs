@@ -4,8 +4,18 @@ use std::time::Duration;
 use std::{env, thread};
 
 use anyhow::{anyhow, Context, Result};
+use internet_packet::{ConnectionId, InternetPacket, TransportProtocol};
 use log::{debug, error, info, warn};
 use lru_time_cache::LruCache;
+use mitmproxy::intercept_conf::{InterceptConf, ProcessInfo};
+use mitmproxy::packet_sources::ipc;
+use mitmproxy::packet_sources::ipc::FromProxy;
+use mitmproxy::packet_sources::windows::IPC_BUF_SIZE;
+use mitmproxy::windows::network::network_table;
+use mitmproxy::windows::processes::get_process_name;
+use mitmproxy::MAX_PACKET_SIZE;
+use prost::Message;
+use std::io::Cursor;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient, PipeMode};
 use tokio::sync::mpsc;
@@ -13,20 +23,11 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use windivert::address::WinDivertAddress;
 use windivert::prelude::*;
 
-use mitmproxy::intercept_conf::{InterceptConf, ProcessInfo};
-use mitmproxy::packet_sources::windows::{WindowsIpcRecv, WindowsIpcSend, CONF, IPC_BUF_SIZE};
-use mitmproxy::windows::{get_process_name, network_table};
-use mitmproxy::MAX_PACKET_SIZE;
-
-use crate::packet::{ConnectionId, InternetPacket, TransportProtocol};
-
-mod packet;
-
 #[derive(Debug)]
 enum Event {
     NetworkPacket(WinDivertAddress<NetworkLayer>, Vec<u8>),
     SocketInfo(WinDivertAddress<SocketLayer>),
-    Ipc(WindowsIpcSend),
+    Ipc(ipc::from_proxy::Message),
 }
 
 #[derive(Debug)]
@@ -101,7 +102,7 @@ async fn main() -> Result<()> {
         .context("Cannot open pipe")?;
 
     let (event_tx, mut event_rx) = mpsc::unbounded_channel::<Event>();
-    let (mut ipc_tx, ipc_rx) = mpsc::unbounded_channel::<WindowsIpcRecv>();
+    let (mut ipc_tx, ipc_rx) = mpsc::unbounded_channel::<ipc::FromRedirector>();
 
     // We currently rely on handles being automatically closed when the program exits.
     // only needed for forward mode
@@ -121,7 +122,9 @@ async fn main() -> Result<()> {
     thread::spawn(move || relay_network_events(network_handle, tx_clone));
 
     let mut state = InterceptConf::new(vec![], vec![], false);
-    event_tx.send(Event::Ipc(WindowsIpcSend::SetIntercept(state.clone())))?;
+    event_tx.send(Event::Ipc(ipc::from_proxy::Message::InterceptSpec(
+        state.to_string(),
+    )))?;
 
     tokio::spawn(async move {
         if let Err(e) = handle_ipc(ipc_client, ipc_rx, event_tx).await {
@@ -141,7 +144,7 @@ async fn main() -> Result<()> {
             Event::NetworkPacket(address, data) => {
                 // We received a network packet and now need to figure out what to do with it.
 
-                let packet = match InternetPacket::new(data) {
+                let packet = match InternetPacket::try_from(data) {
                     Ok(p) => p,
                     Err(e) => {
                         debug!("Error parsing packet: {:?}", e);
@@ -268,7 +271,9 @@ async fn main() -> Result<()> {
                             let pid = address.process_id();
                             ProcessInfo {
                                 pid,
-                                process_name: get_process_name(pid).ok(),
+                                process_name: get_process_name(pid)
+                                    .map(|x| x.to_string_lossy().into_owned())
+                                    .ok(),
                             }
                         };
 
@@ -290,7 +295,9 @@ async fn main() -> Result<()> {
                     }
                     WinDivertEvent::SocketListen => {
                         let pid = address.process_id();
-                        let process_name = get_process_name(pid).ok();
+                        let process_name = get_process_name(pid)
+                            .map(|x| x.to_string_lossy().into_owned())
+                            .ok();
                         debug!("Registering {:?} on {}.", process_name, connection_id.src);
                         active_listeners.insert(
                             connection_id.src,
@@ -313,7 +320,7 @@ async fn main() -> Result<()> {
                     _ => {}
                 }
             }
-            Event::Ipc(WindowsIpcSend::Packet(buf)) => {
+            Event::Ipc(ipc::from_proxy::Message::Packet(buf)) => {
                 let mut address = unsafe { WinDivertAddress::<NetworkLayer>::new() };
                 // if outbound is false, incoming connections are not re-injected into the right iface.
                 address.set_outbound(true);
@@ -321,7 +328,7 @@ async fn main() -> Result<()> {
                 address.set_tcp_checksum(false);
                 address.set_udp_checksum(false);
 
-                let packet = match InternetPacket::new(buf) {
+                let packet = match InternetPacket::try_from(buf) {
                     Ok(p) => p,
                     Err(e) => {
                         info!("Error parsing packet: {:?}", e);
@@ -344,7 +351,8 @@ async fn main() -> Result<()> {
 
                 inject_handle.send(&packet)?;
             }
-            Event::Ipc(WindowsIpcSend::SetIntercept(conf)) => {
+            Event::Ipc(ipc::from_proxy::Message::InterceptSpec(spec)) => {
+                let conf = InterceptConf::try_from(spec.as_str())?;
                 info!("{}", conf.description());
                 state = conf;
 
@@ -354,7 +362,9 @@ async fn main() -> Result<()> {
                 for e in network_table()? {
                     let proc_info = ProcessInfo {
                         pid: e.pid,
-                        process_name: get_process_name(e.pid).ok(),
+                        process_name: get_process_name(e.pid)
+                            .map(|x| x.to_string_lossy().into_owned())
+                            .ok(),
                     };
                     let proto = TransportProtocol::try_from(e.protocol)?;
                     if e.remote_addr.ip().is_unspecified() {
@@ -388,7 +398,7 @@ async fn main() -> Result<()> {
 
 async fn handle_ipc(
     mut ipc: NamedPipeClient,
-    mut ipc_rx: UnboundedReceiver<WindowsIpcRecv>,
+    mut ipc_rx: UnboundedReceiver<ipc::FromRedirector>,
     tx: UnboundedSender<Event>,
 ) -> Result<()> {
     let mut buf = [0u8; IPC_BUF_SIZE];
@@ -397,11 +407,14 @@ async fn handle_ipc(
             r = ipc.read(&mut buf) => {
                 match r {
                     Ok(len) if len > 0 => {
-                        let Ok((call, n)) = bincode::decode_from_slice(&buf[..len], CONF) else {
+
+                        let mut cursor = Cursor::new(&buf[..len]);
+                        let Ok(FromProxy { message: Some(message)}) = FromProxy::decode(&mut cursor) else {
                             return Err(anyhow!("Received invalid IPC message: {:?}", &buf[..len]));
                         };
-                        assert_eq!(n, len);
-                        tx.send(Event::Ipc(call))?;
+                        assert_eq!(cursor.position(), len as u64);
+
+                        tx.send(Event::Ipc(message))?;
                     }
                     _ => {
                         info!("IPC read failed. Exiting.");
@@ -410,7 +423,10 @@ async fn handle_ipc(
                 }
             },
             Some(packet) = ipc_rx.recv() => {
-                let len = bincode::encode_into_slice(&packet, &mut buf, CONF)?;
+
+                packet.encode(&mut buf.as_mut_slice())?;
+                let len = packet.encoded_len();
+
                 ipc.write_all(&buf[..len]).await?;
             }
         }
@@ -468,7 +484,7 @@ async fn insert_into_connections(
     event: &WinDivertEvent,
     connections: &mut LruCache<ConnectionId, ConnectionState>,
     inject_handle: &WinDivert<NetworkLayer>,
-    ipc_tx: &mut UnboundedSender<WindowsIpcRecv>,
+    ipc_tx: &mut UnboundedSender<ipc::FromRedirector>,
 ) -> Result<()> {
     debug!("Adding: {} with {:?} ({:?})", &connection_id, action, event);
     // no matter which action we do, the reverse direction is whitelisted.
@@ -497,7 +513,7 @@ async fn process_packet(
     mut packet: InternetPacket,
     action: &ConnectionAction,
     inject_handle: &WinDivert<NetworkLayer>,
-    ipc_tx: &mut UnboundedSender<WindowsIpcRecv>,
+    ipc_tx: &mut UnboundedSender<ipc::FromRedirector>,
 ) -> Result<()> {
     match action {
         ConnectionAction::None => {
@@ -534,10 +550,12 @@ async fn process_packet(
                 packet.recalculate_udp_checksum();
             }
 
-            ipc_tx.send(WindowsIpcRecv::Packet {
-                data: packet.inner(),
-                pid: *pid,
-                process_name: process_name.clone(),
+            ipc_tx.send(ipc::FromRedirector {
+                message: Some(ipc::from_redirector::Message::Packet(ipc::PacketWithMeta {
+                    data: packet.inner(),
+                    pid: *pid,
+                    process_name: process_name.clone(),
+                })),
             })?;
         }
     }

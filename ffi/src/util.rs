@@ -1,4 +1,8 @@
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use data_encoding::BASE64;
+#[cfg(target_os = "macos")]
+use mitmproxy::macos;
 use pyo3::exceptions::PyOSError;
 use pyo3::types::{PyString, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
@@ -52,7 +56,7 @@ pub fn event_queue_unavailable<T>(_: mpsc::error::SendError<T>) -> PyErr {
 /// Generate a WireGuard private key, analogous to the `wg genkey` command.
 #[pyfunction]
 pub fn genkey() -> String {
-    BASE64.encode(&StaticSecret::new(OsRng).to_bytes())
+    BASE64.encode(&StaticSecret::random_from_rng(OsRng).to_bytes())
 }
 
 /// Derive a WireGuard public key from a private key, analogous to the `wg pubkey` command.
@@ -60,4 +64,58 @@ pub fn genkey() -> String {
 pub fn pubkey(private_key: String) -> PyResult<String> {
     let private_key: StaticSecret = string_to_key(private_key)?;
     Ok(BASE64.encode(PublicKey::from(&private_key).as_bytes()))
+}
+
+/// Convert pem certificate to der certificate and add it to macos keychain.
+#[pyfunction]
+#[allow(unused_variables)]
+pub fn add_cert(py: Python<'_>, pem: String) -> PyResult<()> {
+    #[cfg(target_os = "macos")]
+    {
+        let pem_body = pem
+            .lines()
+            .skip(1)
+            .take_while(|&line| line != "-----END CERTIFICATE-----")
+            .collect::<String>();
+
+        let filename = py.import("mitmproxy_rs")?.filename()?;
+        let executable_path = std::path::Path::new(filename)
+            .parent()
+            .ok_or_else(|| anyhow!("invalid path"))?
+            .join("macos-certificate-truster.app");
+        if !executable_path.exists() {
+            return Err(anyhow!("{} does not exist", executable_path.display()).into());
+        }
+        let der = BASE64.decode(pem_body.as_bytes()).unwrap();
+        match macos::add_cert(der, executable_path.to_str().unwrap()) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(PyErr::new::<PyOSError, _>(format!(
+                "Failed to add certificate: {:?}",
+                e
+            ))),
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    Err(pyo3::exceptions::PyNotImplementedError::new_err(
+        "OS proxy mode is only available on macos",
+    ))
+}
+
+/// Delete mitmproxy certificate from the keychain.
+#[pyfunction]
+pub fn remove_cert() -> PyResult<()> {
+    #[cfg(target_os = "macos")]
+    {
+        match macos::remove_cert() {
+            Ok(_) => Ok(()),
+            Err(e) => Err(PyErr::new::<PyOSError, _>(format!(
+                "Failed to remove certificate: {:?}",
+                e
+            ))),
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    Err(pyo3::exceptions::PyNotImplementedError::new_err(
+        "OS proxy mode is only available on macos",
+    ))
 }

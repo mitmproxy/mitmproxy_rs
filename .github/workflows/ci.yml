@@ -23,14 +23,16 @@ jobs:
         include:
           - os: windows-latest
             rust: stable
+            args: --exclude macos-certificate-truster 
           - os: macos-latest
             rust: stable
             args: --exclude windows-redirector
           - os: ubuntu-latest
             rust: stable
-            args: --exclude windows-redirector
+            args: --exclude windows-redirector --exclude macos-certificate-truster
           - os: windows-latest
             rust: 1.65.0  # MSRV
+            args: --exclude macos-certificate-truster 
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -51,6 +53,15 @@ jobs:
       - if: runner.os == 'Windows'
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --package windows-redirector
+      - if: runner.os == 'macOS'
+        run: |
+          cargo build --package macos-certificate-truster
+          .github/scripts/build-macos-redirector.sh
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          BUILD_PROVISION_PROFILE_EXTENSION_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_EXTENSION_BASE64 }}
 
       - name: Run "cargo check"
         # the action-rs/cargo action adds inline annotations for "cargo check" output
@@ -80,7 +91,7 @@ jobs:
           - os: macos-latest
           - os: macos-latest
             target: aarch64-apple-darwin
-            args: --universal2
+            args: --target universal2-apple-darwin
     runs-on: ${{ matrix.os }}
     name: build-wheel (${{ matrix.os }}, ${{ matrix.target || 'x64' }})
     steps:
@@ -104,19 +115,28 @@ jobs:
           python-version-file: .github/python-version.txt
 
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@99254730801be3d4d4af4c28b00b97103cbbd1ee
+        uses: install-pinned/maturin-with-zig@59341946682d2f69df7150f6941f53e026e344fd
 
       - if: runner.os == 'Windows'
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --release --package windows-redirector
+      - if: runner.os == 'macOS'
+        run: |
+          cargo build --release --package macos-certificate-truster
+          .github/scripts/build-macos-redirector.sh
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          BUILD_PROVISION_PROFILE_EXTENSION_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_EXTENSION_BASE64 }}
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
+
       - uses: actions/upload-artifact@v3
         with:
           name: wheels
           path: target/wheels
-
   deploy:
     uses: mhils/workflows/.github/workflows/python-deploy.yml@main
     needs: [test, build]

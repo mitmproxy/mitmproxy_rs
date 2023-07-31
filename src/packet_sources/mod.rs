@@ -10,7 +10,6 @@ pub mod macos;
 pub mod windows;
 pub mod wireguard;
 
-#[cfg(target_os = "macos")]
 pub mod ipc {
     include!(concat!(env!("OUT_DIR"), "/mitmproxy.ipc.rs"));
 }

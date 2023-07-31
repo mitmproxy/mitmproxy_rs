@@ -14,10 +14,11 @@ use mitmproxy::network::NetworkTask;
 #[cfg(target_os = "macos")]
 use mitmproxy::packet_sources::macos::{MacosConf, MacosIpcSend};
 #[cfg(windows)]
-use mitmproxy::packet_sources::windows::{WindowsConf, WindowsIpcSend};
+use mitmproxy::packet_sources::windows::WindowsConf;
 
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
-use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
+#[allow(unused_imports)]
+use mitmproxy::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
 
 use crate::task::PyInteropTask;
@@ -145,14 +146,12 @@ impl Drop for Server {
     }
 }
 
-#[pyclass]
+#[pyclass(module = "mitmproxy_rs")]
 #[derive(Debug)]
 pub struct OsProxy {
     server: Server,
     #[cfg(windows)]
-    conf_tx: mpsc::UnboundedSender<WindowsIpcSend>,
-    #[cfg(target_os = "macos")]
-    conf_tx: mpsc::UnboundedSender<MacosIpcSend>,
+    conf_tx: mpsc::UnboundedSender<ipc::FromProxy>,
 }
 
 #[pymethods]
@@ -167,11 +166,13 @@ impl OsProxy {
     }
 
     /// Set a new intercept spec.
-    pub fn set_intercept(&self, spec: &str) -> PyResult<()> {
-        let _conf = InterceptConf::try_from(spec)?;
+    pub fn set_intercept(&self, spec: String) -> PyResult<()> {
+        InterceptConf::try_from(spec.as_str())?;
         #[cfg(windows)]
         self.conf_tx
-            .send(WindowsIpcSend::SetIntercept(_conf))
+            .send(ipc::FromProxy {
+                message: Some(ipc::from_proxy::Message::InterceptSpec(spec)),
+            })
             .map_err(crate::util::event_queue_unavailable)?;
         #[cfg(target_os = "macos")]
         self.conf_tx
@@ -196,7 +197,7 @@ impl OsProxy {
 /// to be similar to the API provided by
 /// [`asyncio.Server`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.Server)
 /// from the Python standard library.
-#[pyclass]
+#[pyclass(module = "mitmproxy_rs")]
 #[derive(Debug)]
 pub struct WireGuardServer {
     /// local address of the WireGuard UDP socket

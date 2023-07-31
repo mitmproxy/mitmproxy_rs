@@ -6,6 +6,7 @@ use once_cell::sync::Lazy;
 use pyo3::{exceptions::PyException, prelude::*};
 
 mod datagram_transport;
+mod process_info;
 mod server;
 mod task;
 mod tcp_stream;
@@ -42,9 +43,15 @@ pub fn mitmproxy_rs(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<server::WireGuardServer>()?;
     m.add_function(wrap_pyfunction!(util::genkey, m)?)?;
     m.add_function(wrap_pyfunction!(util::pubkey, m)?)?;
+    m.add_function(wrap_pyfunction!(util::add_cert, m)?)?;
+    m.add_function(wrap_pyfunction!(util::remove_cert, m)?)?;
 
     m.add_function(wrap_pyfunction!(server::start_os_proxy, m)?)?;
     m.add_class::<server::OsProxy>()?;
+
+    m.add_function(wrap_pyfunction!(process_info::active_executables, m)?)?;
+    m.add_class::<process_info::Process>()?;
+    m.add_function(wrap_pyfunction!(process_info::executable_icon, m)?)?;
 
     m.add_class::<tcp_stream::TcpStream>()?;
     m.add_class::<datagram_transport::DatagramTransport>()?;
