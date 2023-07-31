@@ -14,6 +14,7 @@ use mitmproxy::network::NetworkTask;
 use mitmproxy::packet_sources::windows::WindowsConf;
 
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
+#[allow(unused_imports)]
 use mitmproxy::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
 

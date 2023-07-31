@@ -23,14 +23,16 @@ jobs:
         include:
           - os: windows-latest
             rust: stable
+            args: --exclude macos-certificate-truster 
           - os: macos-latest
             rust: stable
             args: --exclude windows-redirector
           - os: ubuntu-latest
             rust: stable
-            args: --exclude windows-redirector
+            args: --exclude windows-redirector --exclude macos-certificate-truster
           - os: windows-latest
             rust: 1.65.0  # MSRV
+            args: --exclude macos-certificate-truster 
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -52,7 +54,9 @@ jobs:
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --package windows-redirector
       - if: runner.os == 'macOS'
-        run: .github/scripts/build-macos-redirector.sh
+        run: |
+          cargo build --package macos-certificate-truster
+          .github/scripts/build-macos-redirector.sh
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
@@ -117,7 +121,9 @@ jobs:
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --release --package windows-redirector
       - if: runner.os == 'macOS'
-        run: .github/scripts/build-macos-redirector.sh
+        run: |
+          cargo build --release --package macos-certificate-truster
+          .github/scripts/build-macos-redirector.sh
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
