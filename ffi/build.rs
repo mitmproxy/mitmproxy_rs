@@ -65,8 +65,8 @@ fn main() {
     {
         // macos-add-trusted-cert binary
         copy_dir(
-            &Path::new("../macos-add-trusted-cert/macos-add-trusted-cert.app/"),
-            &Path::new("mitmproxy_rs/macos-add-trusted-cert.app"),
+            Path::new("../macos-add-trusted-cert/macos-add-trusted-cert.app/"),
+            Path::new("mitmproxy_rs/macos-add-trusted-cert.app"),
         );
         if cfg!(debug_assertions) {
             fs::copy(
@@ -89,7 +89,7 @@ fn main() {
             .join("Xcode")
             .join("DerivedData");
 
-        let entries = fs::read_dir(&forlder_path).unwrap();
+        let entries = fs::read_dir(forlder_path).unwrap();
 
         //I need to do this because xcode renames the build folder with an ever-changing hash suffix,
         //since previously I totally clean the DerivedData folder inside it there is only a name
