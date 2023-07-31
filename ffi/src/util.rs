@@ -1,6 +1,6 @@
-use data_encoding::BASE64;
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
+use data_encoding::BASE64;
 #[cfg(target_os = "macos")]
 use mitmproxy::macos;
 use pyo3::exceptions::PyOSError;
@@ -69,10 +69,7 @@ pub fn pubkey(private_key: String) -> PyResult<String> {
 /// Convert pem certificate to der certificate and add it to macos keychain.
 #[pyfunction]
 #[allow(unused_variables)]
-pub fn add_cert(
-    py: Python<'_>,
-    pem: String,
-) -> PyResult<()> {
+pub fn add_cert(py: Python<'_>, pem: String) -> PyResult<()> {
     #[cfg(target_os = "macos")]
     {
         let pem_body = pem
@@ -90,7 +87,7 @@ pub fn add_cert(
             return Err(anyhow!("{} does not exist", executable_path.display()).into());
         }
         let der = BASE64.decode(pem_body.as_bytes()).unwrap();
-        match macos::add_cert(der, executable_path.to_str().unwrap()){
+        match macos::add_cert(der, executable_path.to_str().unwrap()) {
             Ok(_) => Ok(()),
             Err(e) => Err(PyErr::new::<PyOSError, _>(format!(
                 "Failed to add certificate: {:?}",

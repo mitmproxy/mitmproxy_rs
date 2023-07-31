@@ -1,8 +1,8 @@
 #[cfg(target_os = "macos")]
-use security_framework::{trust_settings::{TrustSettings, Domain}, item::{
-     ItemClass, ItemSearchOptions, Reference,
-    SearchResult,
-}};
+use security_framework::{
+    item::{ItemClass, ItemSearchOptions, Reference, SearchResult},
+    trust_settings::{Domain, TrustSettings},
+};
 
 fn main() {
     #[cfg(target_os = "macos")]
@@ -16,7 +16,9 @@ fn main() {
             .first()
             .unwrap()
         {
-            TrustSettings::new(Domain::Admin).set_trust_settings_always(cert).unwrap();
+            TrustSettings::new(Domain::Admin)
+                .set_trust_settings_always(cert)
+                .unwrap();
         }
     }
     #[cfg(not(target_os = "macos"))]
