@@ -68,7 +68,7 @@ fn main() {
             Path::new("../macos-certificate-truster/macos-certificate-truster.app/"),
             Path::new("mitmproxy_rs/macos-certificate-truster.app"),
         );
-        if cfg!(debug_assertions) && fs::create_dir_all("mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/").is_ok() {
+        if fs::create_dir_all("mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/").is_ok() && cfg!(debug_assertions) {
             fs::copy(
                 "../target/debug/macos-certificate-truster",
                 "mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/macos-certificate-truster",
