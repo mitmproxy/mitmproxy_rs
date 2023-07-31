@@ -3,7 +3,6 @@ use home::home_dir;
 use std::{fs, path::Path};
 
 pub fn copy_dir(src: &Path, dst: &Path) {
-    println!("{} -> {}", src.display(), dst.display());
     for entry in src.read_dir().unwrap() {
         let entry = entry.unwrap();
         let ty = entry.file_type().expect("Failed to get file type");
@@ -69,7 +68,7 @@ fn main() {
             Path::new("../macos-certificate-truster/macos-certificate-truster.app/"),
             Path::new("mitmproxy_rs/macos-certificate-truster.app"),
         );
-        if cfg!(debug_assertions) {
+        if cfg!(debug_assertions) && fs::create_dir_all("mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/").is_ok() {
             fs::copy(
                 "../target/debug/macos-certificate-truster",
                 "mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/macos-certificate-truster",
