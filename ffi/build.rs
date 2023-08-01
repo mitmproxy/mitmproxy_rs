@@ -89,7 +89,7 @@ fn main() {
             .join("Developer")
             .join("Xcode")
             .join("DerivedData");
-        
+
         // xcode renames the build folder with an ever-changing hash suffix.
         // to work around this, we search for MitmproxyAppleTunnel-*
         for entry in fs::read_dir(derived_data_dir).unwrap() {
