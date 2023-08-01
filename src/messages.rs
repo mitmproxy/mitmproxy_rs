@@ -16,7 +16,7 @@ pub enum TunnelInfo {
         process_name: Option<PathBuf>,
     },
     Macos {
-        process_name: Option<String>,
+        process_name: Option<PathBuf>,
     },
 }
 

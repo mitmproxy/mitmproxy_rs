@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
 use anyhow::bail;
+#[cfg(target_os = "macos")]
+use crate::packet_sources::ipc;
+use prost::Message;
 
 pub type PID = u32;
 
@@ -113,14 +116,14 @@ impl InterceptConf {
         format!("{}{}", start, parts.join(" or "))
     }
 
-    pub fn serialize(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-        let ipc =  ipc::InterceptConf{pids: Vec::new(), process_names: self.process_names.clone(), invert: self.invert};
-        buf.reserve(ipc.encoded_len());
-        // Unwrap is safe, since we have reserved sufficient capacity in the vector.
-        ipc.encode(&mut buf).unwrap();
-        buf
-    }
+    // pub fn serialize(&self) -> Vec<u8> {
+    //     let mut buf = Vec::new();
+    //     let ipc =  ipc::InterceptConf{pids: Vec::new(), process_names: self.process_names.clone(), invert: self.invert};
+    //     buf.reserve(ipc.encoded_len());
+    //     // Unwrap is safe, since we have reserved sufficient capacity in the vector.
+    //     ipc.encode(&mut buf).unwrap();
+    //     buf
+    // }
 }
 
 #[cfg(test)]
