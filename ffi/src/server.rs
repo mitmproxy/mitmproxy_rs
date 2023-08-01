@@ -1,26 +1,20 @@
 use std::net::SocketAddr;
-
 use std::sync::Arc;
-
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
-use mitmproxy::packet_sources::macos::MacosIpcSend;
 use pyo3::prelude::*;
 use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
 use x25519_dalek::PublicKey;
-
 use mitmproxy::intercept_conf::InterceptConf;
 use mitmproxy::network::NetworkTask;
 #[cfg(target_os = "macos")]
-use mitmproxy::packet_sources::macos::{MacosConf, MacosIpcSend};
+use mitmproxy::packet_sources::macos::MacosConf;
 #[cfg(windows)]
 use mitmproxy::packet_sources::windows::WindowsConf;
-
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
 #[allow(unused_imports)]
 use mitmproxy::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
-
 use crate::task::PyInteropTask;
 use crate::util::{socketaddr_to_py, string_to_key};
 
@@ -39,7 +33,6 @@ impl Server {
         if !self.closing {
             self.closing = true;
             log::info!("Shutting down.");
-
             // notify tasks to shut down
             let _ = self.sd_trigger.send(());
         }
@@ -47,7 +40,6 @@ impl Server {
 
     pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         let barrier = self.sd_barrier.clone();
-
         pyo3_asyncio::tokio::future_into_py(py, async move {
             barrier.notified().await;
             Ok(())
@@ -150,7 +142,7 @@ impl Drop for Server {
 #[derive(Debug)]
 pub struct OsProxy {
     server: Server,
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     conf_tx: mpsc::UnboundedSender<ipc::FromProxy>,
 }
 
@@ -168,15 +160,11 @@ impl OsProxy {
     /// Set a new intercept spec.
     pub fn set_intercept(&self, spec: String) -> PyResult<()> {
         InterceptConf::try_from(spec.as_str())?;
-        #[cfg(windows)]
+        #[cfg(any(windows, target_os="macos"))]
         self.conf_tx
             .send(ipc::FromProxy {
                 message: Some(ipc::from_proxy::Message::InterceptSpec(spec)),
             })
-            .map_err(crate::util::event_queue_unavailable)?;
-        #[cfg(target_os = "macos")]
-        self.conf_tx
-            .send(MacosIpcSend::SetIntercept(_conf))
             .map_err(crate::util::event_queue_unavailable)?;
         Ok(())
     }
@@ -258,19 +246,16 @@ pub fn start_wireguard_server(
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
     let private_key = string_to_key(private_key)?;
-
     let peer_public_keys = peer_public_keys
         .into_iter()
         .map(string_to_key)
         .collect::<PyResult<Vec<PublicKey>>>()?;
-
     let conf = WireGuardConf {
         host,
         port,
         private_key,
         peer_public_keys,
     };
-
     pyo3_asyncio::tokio::future_into_py(py, async move {
         let (server, local_addr) = Server::init(conf, handle_connection, receive_datagram).await?;
         Ok(WireGuardServer { server, local_addr })
@@ -310,16 +295,6 @@ pub fn start_os_proxy(
     }
     #[cfg(target_os = "macos")]
     {
-        // let filename = py.import("mitmproxy_rs")?.filename()?;
-        // let executable_path = std::path::Path::new(filename)
-        //     .parent()
-        //     .ok_or_else(|| anyhow!("invalid path"))?
-        //     .join("windows-redirector.exe");
-        //
-        // if !executable_path.exists() {
-        //     return Err(anyhow!("{} does not exist", executable_path.display()).into());
-        // }
-
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;

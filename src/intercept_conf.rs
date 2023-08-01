@@ -1,9 +1,5 @@
 use std::collections::HashSet;
-
 use anyhow::bail;
-#[cfg(target_os = "macos")]
-use crate::packet_sources::ipc;
-use prost::Message;
 
 pub type PID = u32;
 

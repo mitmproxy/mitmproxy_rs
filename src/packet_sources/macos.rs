@@ -7,10 +7,8 @@ use tokio::net::unix::pipe;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
-use crate::intercept_conf::InterceptConf;
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
-//use crate::packet_sources::{PacketSourceConf, PacketSourceTask, ipc};
 use crate::packet_sources::ipc::from_redirector::Message::Packet;
 use crate::packet_sources::ipc::{FromRedirector, PacketWithMeta};
 use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
@@ -20,27 +18,7 @@ use std::io::Cursor;
 
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
 
-// pub fn serialize_packet(ipc: MacosIpcSend) -> Vec<u8> {
-//     let mut buf = Vec::new();
-//     let MacosIpcSend::Packet(ipc) = ipc else { panic!("Invalid packet")};
-//     let ipc =  ipc::Packet {data: ipc, process_name: format!{""} };
-//     buf.reserve(ipc.encoded_len());
-//     // Unwrap is safe, since we have reserved sufficient capacity in the vector.
-//     ipc.encode(&mut buf).unwrap();
-//     buf
-// }
-//
-// pub fn deserialize_packet(buf: &[u8]) -> Result<MacosIpcRecv, prost::DecodeError> {
-//     if let Ok(packet) = ipc::Packet::decode(&mut Cursor::new(buf)) {
-//         return Ok(MacosIpcRecv::Packet {
-//             data: packet.data,
-//             process_name: Some(packet.process_name),
-//         });
-//     } else {
-//         return Err(prost::DecodeError::new("Failed to decode packet"));
-//     }
-// }
-
+#[allow(dead_code)]
 pub struct PipeServer {
     ip_rx: pipe::Receiver,
     ip_tx: pipe::Sender,
@@ -97,26 +75,12 @@ impl PipeServer {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
-pub enum MacosIpcRecv {
-    Packet {
-        data: Vec<u8>,
-        process_name: Option<String>,
-    },
-}
-
-#[derive(PartialEq, Eq, Debug)]
-pub enum MacosIpcSend {
-    Packet(Vec<u8>),
-    SetIntercept(InterceptConf),
-}
-
 pub struct MacosConf;
 
 #[async_trait]
 impl PacketSourceConf for MacosConf {
     type Task = MacosTask;
-    type Data = UnboundedSender<MacosIpcSend>;
+    type Data = UnboundedSender<ipc::FromProxy>;
 
     fn name(&self) -> &'static str {
         "Macos proxy"
@@ -187,49 +151,30 @@ impl PacketSourceTask for MacosTask {
                 _ = self.sd_watcher.recv() => break,
                 // pipe through changes to the intercept list
                 Some(cmd) = self.conf_rx.recv() => {
-                    //assert!(matches!(cmd, MacosIpcSend::SetIntercept(_)));
                     assert!(matches!(cmd, ipc::FromProxy { message: Some(ipc::from_proxy::Message::InterceptSpec(_)) }));
-                    //let MacosIpcSend::SetIntercept(cmd) = cmd else { log::error!("Invalid conf"); continue; };
-                    //let data = cmd.serialize();
                     cmd.encode(&mut self.buf.as_mut_slice())?;
-                    //let len = cmd.encoded_len();
-                    self.ipc_server.filter_tx.try_write(&cmd)?;
+                    self.ipc_server.filter_tx.try_write(&self.buf)?;
                     println!("SetIntercept {:?}", cmd);
                 },
                 // read packets from the IPC pipe into our network stack.
                 _ = self.ipc_server.ip_rx.readable() => {
-                    // Try to read data, this may still fail with `WouldBlock`
-                    // if the readiness event is a false positive.
                     match self.ipc_server.ip_rx.try_read(&mut self.buf){
                         Ok(len) => {
                             if len == 0 {
                                 return Err(anyhow!("redirect daemon exited prematurely."));
                             }
-
-                            //from here
-                            // let Ok(MacosIpcRecv::Packet { data, process_name }) = deserialize_packet(&self.buf[..len]) else {
-                            //     panic!("Failed to deserialize packet");
-                            // };
-                            // let Ok(mut packet) = IpPacket::try_from(data) else {
-                            //     log::error!("Skipping invalid packet: {:?}", &self.buf[..len]);
-                            //     continue;
-                            // };
-
                             let mut cursor = Cursor::new(&self.buf[..len]);
                             let Ok(FromRedirector { message: Some(message)}) = FromRedirector::decode(&mut cursor) else {
                                 return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
                             };
                             assert_eq!(cursor.position(), len as u64);
-
-                            let (data, pid, process_name) = match message {
-                                Packet(PacketWithMeta { data, pid, process_name}) => (data, pid, process_name.map(PathBuf::from)),
+                            let (data, process_name) = match message {
+                                Packet(PacketWithMeta { data, process_name, ..}) => (data, process_name.map(PathBuf::from)),
                             };
-
                             let Ok(mut packet) = IpPacket::try_from(data) else {
                                 log::error!("Skipping invalid packet: {:?}", &self.buf[..len]);
                                 continue;
                             };
-                            //to here
                             packet.fill_ip_checksum();
                             let event = NetworkEvent::ReceivePacket {
                                 packet,
@@ -249,17 +194,12 @@ impl PacketSourceTask for MacosTask {
                 Some(e) = self.net_rx.recv() => {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
-                            //from here
-                            //let packet = serialize_packet(MacosIpcSend::Packet(packet.into_inner()));
                             let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet(packet.into_inner()))};
                             packet.encode(&mut self.buf.as_mut_slice())?;
-
                             loop {
                                     self.ipc_server.net_tx.writable().await?;
-                                    // Try to write data, this may still fail with `WouldBlock`
-                                    // if the readiness event is a false positive.
-                                    match self.ipc_server.net_tx.try_write(&packet) {
-                                        Ok(n) => {
+                                    match self.ipc_server.net_tx.try_write(&self.buf) {
+                                        Ok(_) => {
                                             break;
                                         }
                                         Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
