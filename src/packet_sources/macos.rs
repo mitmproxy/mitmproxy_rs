@@ -1,20 +1,20 @@
-use std::process::Command;
-use anyhow::{anyhow, Result};
-use async_trait::async_trait;
-use std::path::{Path, PathBuf};
-use nix::{sys::stat::Mode, unistd::mkfifo};
-use tokio::net::unix::pipe;
-use tokio::sync::broadcast;
-use tokio::sync::mpsc::Sender;
-use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::ipc::from_redirector::Message::Packet;
 use crate::packet_sources::ipc::{FromRedirector, PacketWithMeta};
 use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
+use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use home::home_dir;
+use nix::{sys::stat::Mode, unistd::mkfifo};
 use prost::Message;
 use std::io::Cursor;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use tokio::net::unix::pipe;
+use tokio::sync::broadcast;
+use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
 
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
 
@@ -25,7 +25,7 @@ pub struct PipeServer {
     net_rx: pipe::Receiver,
     net_tx: pipe::Sender,
     filter_rx: pipe::Receiver,
-    filter_tx:pipe::Sender,
+    filter_tx: pipe::Sender,
     ip_path: PathBuf,
     net_path: PathBuf,
     filter_path: PathBuf,
@@ -46,10 +46,20 @@ impl PipeServer {
         let (net_rx, net_tx) = Self::create_pipe(&net_path)?;
         let (filter_rx, filter_tx) = Self::create_pipe(&filter_path)?;
 
-        Ok(PipeServer { ip_rx, ip_tx, net_rx, net_tx, filter_rx, filter_tx, ip_path, net_path, filter_path })
+        Ok(PipeServer {
+            ip_rx,
+            ip_tx,
+            net_rx,
+            net_tx,
+            filter_rx,
+            filter_tx,
+            ip_path,
+            net_path,
+            filter_path,
+        })
     }
 
-    fn create_pipe(path: &PathBuf) -> Result<(pipe::Receiver, pipe::Sender)>{
+    fn create_pipe(path: &PathBuf) -> Result<(pipe::Receiver, pipe::Sender)> {
         if !path.exists() {
             match mkfifo(path, Mode::S_IRWXU) {
                 Ok(_) => println!("created {:?}", path),
@@ -63,13 +73,10 @@ impl PipeServer {
             Ok(rx) => rx,
             Err(e) => Err(anyhow!("Failed to open fifo receiver: {:?}", e))?,
         };
-        let tx = match pipe::OpenOptions::new()
-            .unchecked(true)
-            .open_sender(&path)
-        {
+        let tx = match pipe::OpenOptions::new().unchecked(true).open_sender(&path) {
             Ok(tx) => tx,
             Err(e) => Err(anyhow!("Failed to open fifo receiver: {:?}", e))?,
-       };
+        };
 
         Ok((rx, tx))
     }
@@ -214,7 +221,7 @@ impl PacketSourceTask for MacosTask {
                     }
                 },
             }
-        } 
+        }
 
         log::info!("Macos OS proxy task shutting down.");
         Ok(())

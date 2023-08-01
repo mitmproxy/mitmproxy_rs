@@ -1,10 +1,7 @@
-use std::net::SocketAddr;
-use std::sync::Arc;
+use crate::task::PyInteropTask;
+use crate::util::{socketaddr_to_py, string_to_key};
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
-use pyo3::prelude::*;
-use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
-use x25519_dalek::PublicKey;
 use mitmproxy::intercept_conf::InterceptConf;
 use mitmproxy::network::NetworkTask;
 #[cfg(target_os = "macos")]
@@ -15,8 +12,11 @@ use mitmproxy::packet_sources::wireguard::WireGuardConf;
 #[allow(unused_imports)]
 use mitmproxy::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
-use crate::task::PyInteropTask;
-use crate::util::{socketaddr_to_py, string_to_key};
+use pyo3::prelude::*;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
+use x25519_dalek::PublicKey;
 
 #[derive(Debug)]
 pub struct Server {
@@ -160,7 +160,7 @@ impl OsProxy {
     /// Set a new intercept spec.
     pub fn set_intercept(&self, spec: String) -> PyResult<()> {
         InterceptConf::try_from(spec.as_str())?;
-        #[cfg(any(windows, target_os="macos"))]
+        #[cfg(any(windows, target_os = "macos"))]
         self.conf_tx
             .send(ipc::FromProxy {
                 message: Some(ipc::from_proxy::Message::InterceptSpec(spec)),
