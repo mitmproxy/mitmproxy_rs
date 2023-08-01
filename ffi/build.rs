@@ -83,18 +83,16 @@ fn main() {
         .expect("Failed to copy macos-certificate-truster. Has it been built yet?");
 
         // macos-redirector app
-        let forlder_path = home_dir()
+        let derived_data_dir = home_dir()
             .unwrap()
             .join("Library")
             .join("Developer")
             .join("Xcode")
             .join("DerivedData");
-
-        let entries = fs::read_dir(forlder_path).unwrap();
-
-        //I need to do this because xcode renames the build folder with an ever-changing hash suffix,
-
-        for entry in entries {
+        
+        // xcode renames the build folder with an ever-changing hash suffix.
+        // to work around this, we search for MitmproxyAppleTunnel-*
+        for entry in fs::read_dir(derived_data_dir).unwrap() {
             if let Ok(entry) = entry {
                 let path = entry.path();
                 if path.is_dir() {
