@@ -63,10 +63,7 @@ impl PipeServer {
         if !path.exists() {
             mkfifo(path, Mode::S_IRWXU)?;
         }
-        let rx = match pipe::OpenOptions::new()
-            .unchecked(true)
-            .open_receiver(path)
-        {
+        let rx = match pipe::OpenOptions::new().unchecked(true).open_receiver(path) {
             Ok(rx) => rx,
             Err(e) => Err(anyhow!("Failed to open fifo receiver: {:?}", e))?,
         };
