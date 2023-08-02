@@ -61,21 +61,18 @@ impl PipeServer {
 
     fn create_pipe(path: &PathBuf) -> Result<(pipe::Receiver, pipe::Sender)> {
         if !path.exists() {
-            match mkfifo(path, Mode::S_IRWXU) {
-                Ok(_) => println!("created {:?}", path),
-                Err(e) => Err(anyhow!("Failed to create fifo: {:?}", e))?,
-            }
+            mkfifo(path, Mode::S_IRWXU)?;
         }
         let rx = match pipe::OpenOptions::new()
             .unchecked(true)
-            .open_receiver(&path)
+            .open_receiver(path)
         {
             Ok(rx) => rx,
             Err(e) => Err(anyhow!("Failed to open fifo receiver: {:?}", e))?,
         };
-        let tx = match pipe::OpenOptions::new().unchecked(true).open_sender(&path) {
+        let tx = match pipe::OpenOptions::new().unchecked(true).open_sender(path) {
             Ok(tx) => tx,
-            Err(e) => Err(anyhow!("Failed to open fifo receiver: {:?}", e))?,
+            Err(e) => Err(anyhow!("Failed to open fifo transmitter: {:?}", e))?,
         };
 
         Ok((rx, tx))
