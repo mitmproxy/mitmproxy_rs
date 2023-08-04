@@ -3,6 +3,7 @@
 - `mitmproxy_wireguard` is now `mitmproxy_rs`.
   As indicated by the name change, the scope of the project now goes beyond WireGuard.
 - Add transparent proxy functionality for Windows.
+  This will receive a proper announcement later on.
 
 ## 0.1.18
 
