@@ -5,8 +5,8 @@ import OSLog
 class PacketTunnelProvider: NEPacketTunnelProvider {
     var session: NWUDPSession? = nil
     var conf = [String: AnyObject]()
-    var ipPipe: String? = nil
-    var netPipe: String? = nil
+    var fromRedirectorPipe: String? = nil
+    var fromProxyPipe: String? = nil
 
     override func startTunnel(options: [String : NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         conf = (self.protocolConfiguration as! NETunnelProviderProtocol).providerConfiguration! as [String : AnyObject]
@@ -48,14 +48,14 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     func reinjectFlow() {
-        if let pipe = self.netPipe{
+        if let pipe = self.fromProxyPipe{
             let handler = FileHandle(forReadingAtPath: pipe)
             while true {
                 if let data = handler?.availableData{
-                    let _packet = self.deserializePacket(data: data)
-                    if let packet = _packet {
+                    let _fromProxy = self.deserializePacket(data: data)
+                    if let fromProxy = _fromProxy {
                         // This is where decrypt() should reside, I just omit it like above
-                        packetFlow.writePackets([packet.data], withProtocols: [AF_INET as NSNumber])
+                        packetFlow.writePackets([fromProxy.packet], withProtocols: [AF_INET as NSNumber])
                     }
                 }
             }
@@ -83,8 +83,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)? = nil) {
         if let messageString = String(data: messageData, encoding: .utf8)?.components(separatedBy: " "){
-            self.ipPipe = messageString[0]
-            self.netPipe = messageString[1]
+            self.fromRedirectorPipe = messageString[0]
+            self.fromProxyPipe = messageString[1]
             if let handler = completionHandler {
                 handler(messageData)
             }
@@ -92,12 +92,13 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     func writeToPipe(data: Data, processName: String) {
-        if let pipe = self.ipPipe{
+        if let pipe = self.fromRedirectorPipe{
             do {
                 let handler = FileHandle(forWritingAtPath: pipe)
                 //os_log("qqq - processname: \(processName, privacy: .public)")
-                var packet = Mitmproxy_Ipc_Packet()
+                var packet = Mitmproxy_Ipc_PacketWithMeta()
                 packet.data = data
+                packet.pid = 0
                 packet.processName = processName
                 if let serializedPacket = self.serializePacket(packet: packet){
                     try handler?.write(contentsOf: serializedPacket)
@@ -110,18 +111,20 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     // Serialize and deserialize UDP packets
-    func serializePacket(packet: Mitmproxy_Ipc_Packet) -> Data? {
+    func serializePacket(packet: Mitmproxy_Ipc_PacketWithMeta) -> Data? {
         do {
-            return try packet.serializedData()
+            var fromRedirector = Mitmproxy_Ipc_FromRedirector()
+            fromRedirector.packet = packet
+            return try fromRedirector.serializedData()
         } catch {
             os_log("Failed to serialize packet")
             return nil
         }
     }
 
-    func deserializePacket(data: Data) -> Mitmproxy_Ipc_Packet? {
+    func deserializePacket(data: Data) -> Mitmproxy_Ipc_FromProxy? {
         do {
-            return try Mitmproxy_Ipc_Packet(serializedData: data)
+            return try Mitmproxy_Ipc_FromProxy(serializedData: data)
         } catch {
             os_log("Failed to deserialize packet")
             return nil

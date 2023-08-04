@@ -6,9 +6,8 @@ import OSLog
 
 class Proxy {
     let bundleIdentifier = K.bundleIdentifier
-    var ipPipe: String? = nil
-    var netPipe: String? = nil
-    var filterPipe: String? = nil
+    var fromRedirectorPipe: String? = nil
+    var fromProxyPipe: String? = nil
     var process_match: String? = nil
     var appRules = [NEAppRule]()
     var processList = [String]()
@@ -19,14 +18,14 @@ class Proxy {
             let session = manager.connection as? NETunnelProviderSession
             try session?.startTunnel(options: [:])
             try await Task.sleep(nanoseconds: UInt64(Double(NSEC_PER_SEC)))
-            if let ipPipe = self.ipPipe, let netPipe = self.netPipe {
-                if let message = "\(ipPipe) \(netPipe)".data(using: String.Encoding.utf8){
+            if let fromRedirectorPipe = self.fromRedirectorPipe, let fromProxyPipe = self.fromProxyPipe {
+                if let message = "\(fromRedirectorPipe) \(fromProxyPipe)".data(using: String.Encoding.utf8){
                     try session?.sendProviderMessage(message)
                 } else {
                     os_log("Problem encoding pipes")
                 }
             } else {
-                os_log("IpPipe or NetPipe are not set")
+                os_log("fromRedirectorPipe or fromProxyPipe are not set")
             }
         } catch {
             os_log("Error: \(error, privacy: .public)")
@@ -112,10 +111,9 @@ class Proxy {
         }
     }
     
-    func setPipePath(ip: String, net: String, filter: String){
-        self.ipPipe = ip
-        self.netPipe = net
-        self.filterPipe = filter
+    func setPipePath(_ fromRedirectorPipe: String, _ fromProxyPipe: String){
+        self.fromRedirectorPipe = fromRedirectorPipe
+        self.fromProxyPipe = fromProxyPipe
     }
     
     func setProcessMatch(withString process: String) async{
@@ -123,15 +121,21 @@ class Proxy {
     }
     
     func interceptConf(){
-        if let pipe = self.filterPipe{
+        if let pipe = self.fromProxyPipe{
             let handler = FileHandle(forReadingAtPath: pipe)
             while true {
                 if let data = handler?.availableData{
                     let _conf = self.deserializeConf(data: data)
                     if let conf = _conf {
-                        if conf.processNames.count > 0{
+                        if conf.interceptSpec.count > 0{
+                            var interceptSpec = conf.interceptSpec
+                            var invert = true
+                            if interceptSpec.starts(with: "!"){
+                                interceptSpec.removeFirst()
+                                invert = true
+                            }
                             self.processList = processList.filter{ process in
-                                conf.invert ? !conf.processNames.contains { process.contains($0) } : conf.processNames.contains { process.contains($0) }
+                                invert ? !process.contains(interceptSpec) : process.contains(interceptSpec)
                             }
                         }
                         Task.init{
@@ -147,9 +151,9 @@ class Proxy {
         }
     }
     
-    func deserializeConf(data: Data) -> Mitmproxy_Ipc_InterceptConf? {
+    func deserializeConf(data: Data) -> Mitmproxy_Ipc_FromProxy? {
         do {
-            return try Mitmproxy_Ipc_InterceptConf(serializedData: data)
+            return try Mitmproxy_Ipc_FromProxy(serializedData: data)
         } catch {
             os_log("Error: \(error)")
             return nil
