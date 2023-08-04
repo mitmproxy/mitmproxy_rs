@@ -36,7 +36,7 @@ pretty-hex = "0.3.0"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 smoltcp = "0.10"
 tokio = { version = "1.29.1", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util", "process"] }
-boringtun = { version = "0.5", default-features = false }
+boringtun = { version = "0.6", default-features = false }
 x25519-dalek = "=2.0.0-rc.3"
 async-trait = "0.1.68"
 console-subscriber = { version = "0.1.9", optional = true }
