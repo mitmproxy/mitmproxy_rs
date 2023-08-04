@@ -84,7 +84,7 @@ impl PacketSourceConf for MacosConf {
     type Data = UnboundedSender<ipc::FromProxy>;
 
     fn name(&self) -> &'static str {
-        "Macos proxy"
+        "macOS proxy"
     }
 
     async fn build(
