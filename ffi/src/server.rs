@@ -1,5 +1,5 @@
 use crate::task::PyInteropTask;
-use crate::util::{socketaddr_to_py, string_to_key};
+use crate::util::{socketaddr_to_py, string_to_key, copy_dir};
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
 use mitmproxy::intercept_conf::InterceptConf;
@@ -15,6 +15,7 @@ use mitmproxy::shutdown::ShutdownTask;
 use pyo3::prelude::*;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::path::Path;
 use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
 use x25519_dalek::PublicKey;
 
@@ -32,6 +33,12 @@ impl Server {
     pub fn close(&mut self) {
         if !self.closing {
             self.closing = true;
+            #[cfg(target_os = "macos")]
+            {
+                if Path::new("/Applications/MitmproxyAppleTunnel.app").exists() {   
+                    std::fs::remove_dir_all("/Applications/MitmproxyAppleTunnel.app").expect("Failed to remove MitmproxyAppleTunnel.app from Applications folder");
+                }
+            }
             log::info!("Shutting down.");
             // notify tasks to shut down
             let _ = self.sd_trigger.send(());
@@ -142,7 +149,6 @@ impl Drop for Server {
 #[derive(Debug)]
 pub struct OsProxy {
     server: Server,
-    #[cfg(any(windows, target_os = "macos"))]
     conf_tx: mpsc::UnboundedSender<ipc::FromProxy>,
 }
 
@@ -278,7 +284,7 @@ pub fn start_os_proxy(
         // individual files. We'd need something like `as_dir` to ensure that redirector.exe and the
         // WinDivert dll/lib/sys files are in a single directory. So we just use __file__for now. 🤷
         let filename = py.import("mitmproxy_rs")?.filename()?;
-        let executable_path = std::path::Path::new(filename)
+        let executable_path = Path::new(filename)
             .parent()
             .ok_or_else(|| anyhow!("invalid path"))?
             .join("windows-redirector.exe");
@@ -295,6 +301,7 @@ pub fn start_os_proxy(
     }
     #[cfg(target_os = "macos")]
     {
+        copy_dir( Path::new("mitmproxy_rs/MitmProxyAppleTunnel.app/"), Path::new("/Applications/MitmproxyAppleTunnel.app/"));
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;

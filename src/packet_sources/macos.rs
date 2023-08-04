@@ -20,42 +20,34 @@ pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
 
 #[allow(dead_code)]
 pub struct PipeServer {
-    ip_rx: pipe::Receiver,
-    ip_tx: pipe::Sender,
-    net_rx: pipe::Receiver,
-    net_tx: pipe::Sender,
-    filter_rx: pipe::Receiver,
-    filter_tx: pipe::Sender,
-    ip_path: PathBuf,
-    net_path: PathBuf,
-    filter_path: PathBuf,
+    from_redirector_rx: pipe::Receiver,
+    from_redirector_tx: pipe::Sender,
+    from_proxy_rx: pipe::Receiver,
+    from_proxy_tx: pipe::Sender,
+    from_redirector_path: PathBuf,
+    from_proxy_path: PathBuf,
 }
 
 impl PipeServer {
-    pub async fn new(ip_pipe: &str, net_pipe: &str, filter_pipe: &str) -> Result<Self> {
+    pub async fn new(from_redirector_pipe: &str, from_proxy_pipe: &str) -> Result<Self> {
         let home_dir = match home_dir() {
-            Some(ip_path) => ip_path,
+            Some(from_redirector_path) => from_redirector_path,
             None => Err(anyhow!("Failed to get home directory"))?,
         };
 
-        let ip_path = Path::new(&home_dir).join(format!("Downloads/{}.pipe", &ip_pipe));
-        let net_path = Path::new(&home_dir).join(format!("Downloads/{}.pipe", &net_pipe));
-        let filter_path = Path::new(&home_dir).join(format!("Downloads/{}.pipe", &filter_pipe));
+        let from_redirector_path = Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_redirector_pipe));
+        let from_proxy_path = Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_proxy_pipe));
 
-        let (ip_rx, ip_tx) = Self::create_pipe(&ip_path)?;
-        let (net_rx, net_tx) = Self::create_pipe(&net_path)?;
-        let (filter_rx, filter_tx) = Self::create_pipe(&filter_path)?;
+        let (from_redirector_rx, from_redirector_tx) = Self::create_pipe(&from_redirector_path)?;
+        let (from_proxy_rx, from_proxy_tx) = Self::create_pipe(&from_proxy_path)?;
 
         Ok(PipeServer {
-            ip_rx,
-            ip_tx,
-            net_rx,
-            net_tx,
-            filter_rx,
-            filter_tx,
-            ip_path,
-            net_path,
-            filter_path,
+            from_redirector_rx,
+            from_redirector_tx,
+            from_proxy_rx,
+            from_proxy_tx,
+            from_redirector_path,
+            from_proxy_path,
         })
     }
 
@@ -89,13 +81,13 @@ impl PacketSourceConf for MacosConf {
 
     async fn build(
         self,
-        net_tx: Sender<NetworkEvent>,
-        net_rx: Receiver<NetworkCommand>,
+        from_proxy_tx: Sender<NetworkEvent>,
+        from_proxy_rx: Receiver<NetworkCommand>,
         sd_watcher: broadcast::Receiver<()>,
     ) -> Result<(MacosTask, Self::Data)> {
         let executable_path = "/Applications/MitmproxyAppleTunnel.app/";
 
-        let ipc_server = match PipeServer::new("ip", "net", "filter").await {
+        let ipc_server = match PipeServer::new("ip", "net").await {
             Ok(server) => server,
             Err(e) => Err(anyhow!("Failed to create pipe server: {:?}", e))?,
         };
@@ -104,9 +96,8 @@ impl PacketSourceConf for MacosConf {
             .arg("-a")
             .arg(executable_path)
             .arg("--args")
-            .arg(&ipc_server.ip_path)
-            .arg(&ipc_server.net_path)
-            .arg(&ipc_server.filter_path)
+            .arg(&ipc_server.from_redirector_path)
+            .arg(&ipc_server.from_proxy_path)
             .arg(format!("{}", std::os::unix::process::parent_id()))
             .spawn();
 
@@ -121,8 +112,8 @@ impl PacketSourceConf for MacosConf {
             MacosTask {
                 ipc_server,
                 buf: [0u8; IPC_BUF_SIZE],
-                net_tx,
-                net_rx,
+                from_proxy_tx,
+                from_proxy_rx,
                 conf_rx,
                 sd_watcher,
             },
@@ -134,8 +125,8 @@ impl PacketSourceConf for MacosConf {
 pub struct MacosTask {
     ipc_server: PipeServer,
     buf: [u8; IPC_BUF_SIZE],
-    net_tx: Sender<NetworkEvent>,
-    net_rx: Receiver<NetworkCommand>,
+    from_proxy_tx: Sender<NetworkEvent>,
+    from_proxy_rx: Receiver<NetworkCommand>,
     conf_rx: UnboundedReceiver<ipc::FromProxy>,
     sd_watcher: broadcast::Receiver<()>,
 }
@@ -154,12 +145,12 @@ impl PacketSourceTask for MacosTask {
                 Some(cmd) = self.conf_rx.recv() => {
                     assert!(matches!(cmd, ipc::FromProxy { message: Some(ipc::from_proxy::Message::InterceptSpec(_)) }));
                     cmd.encode(&mut self.buf.as_mut_slice())?;
-                    self.ipc_server.filter_tx.try_write(&self.buf)?;
+                    self.ipc_server.from_redirector_tx.try_write(&self.buf)?;
                     println!("SetIntercept {:?}", cmd);
                 },
                 // read packets from the IPC pipe into our network stack.
-                _ = self.ipc_server.ip_rx.readable() => {
-                    match self.ipc_server.ip_rx.try_read(&mut self.buf){
+                _ = self.ipc_server.from_redirector_rx.readable() => {
+                    match self.ipc_server.from_redirector_rx.try_read(&mut self.buf){
                         Ok(len) => {
                             if len == 0 {
                                 return Err(anyhow!("redirect daemon exited prematurely."));
@@ -179,11 +170,11 @@ impl PacketSourceTask for MacosTask {
                             packet.fill_ip_checksum();
                             let event = NetworkEvent::ReceivePacket {
                                 packet,
-                                tunnel_info: TunnelInfo::Macos {
+                                tunnel_info: TunnelInfo::MacOS {
                                     process_name,
                                 },
                             };
-                            if self.net_tx.try_send(event).is_err() {
+                            if self.from_proxy_tx.try_send(event).is_err() {
                                 log::warn!("Dropping incoming packet, TCP channel is full.")
                             };
                         },
@@ -192,14 +183,14 @@ impl PacketSourceTask for MacosTask {
                     };
                 },
                 //write packets from the network stack to the IPC pipe to be reinjected.
-                Some(e) = self.net_rx.recv() => {
+                Some(e) = self.from_proxy_rx.recv() => {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
                             let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet(packet.into_inner()))};
                             packet.encode(&mut self.buf.as_mut_slice())?;
                             loop {
-                                    self.ipc_server.net_tx.writable().await?;
-                                    match self.ipc_server.net_tx.try_write(&self.buf) {
+                                    self.ipc_server.from_proxy_tx.writable().await?;
+                                    match self.ipc_server.from_proxy_tx.try_write(&self.buf) {
                                         Ok(_) => {
                                             break;
                                         }

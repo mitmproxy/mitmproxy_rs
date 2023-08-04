@@ -9,6 +9,8 @@ use pyo3::{exceptions::PyValueError, prelude::*};
 use rand_core::OsRng;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
+use std::path::Path;
+use std::fs;
 use tokio::sync::mpsc;
 use x25519_dalek::{PublicKey, StaticSecret};
 
@@ -33,6 +35,21 @@ pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
                 (addr.ip().to_string(), addr.port())
             );
             (addr.ip().to_string(), addr.port()).into_py(py)
+        }
+    }
+}
+
+pub fn copy_dir(src: &Path, dst: &Path) {
+    for entry in src.read_dir().unwrap() {
+        let entry = entry.unwrap();
+        let ty = entry.file_type().expect("Failed to get file type");
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if ty.is_dir() {
+            fs::create_dir_all(&dst_path).expect("Failed to create directory");
+            copy_dir(&src_path, &dst_path);
+        } else {
+            fs::copy(&src_path, &dst_path).expect("Failed to copy {src_path} to {dst_path}");
         }
     }
 }

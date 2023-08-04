@@ -15,7 +15,7 @@ pub enum TunnelInfo {
         pid: u32,
         process_name: Option<PathBuf>,
     },
-    Macos {
+    MacOS {
         process_name: Option<PathBuf>,
     },
 }
