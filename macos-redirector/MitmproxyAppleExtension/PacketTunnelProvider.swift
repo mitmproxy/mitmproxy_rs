@@ -126,7 +126,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         do {
             return try Mitmproxy_Ipc_FromProxy(serializedData: data)
         } catch {
-            os_log("Failed to deserialize packet")
+            os_log("Failed to deserialize packet: \(error, privacy: .public)")
             return nil
         }
     }

@@ -81,13 +81,13 @@ impl PacketSourceConf for MacosConf {
 
     async fn build(
         self,
-        from_proxy_tx: Sender<NetworkEvent>,
-        from_proxy_rx: Receiver<NetworkCommand>,
+        net_tx: Sender<NetworkEvent>,
+        net_rx: Receiver<NetworkCommand>,
         sd_watcher: broadcast::Receiver<()>,
     ) -> Result<(MacosTask, Self::Data)> {
         let executable_path = "/Applications/MitmproxyAppleTunnel.app/";
 
-        let ipc_server = match PipeServer::new("ip", "net").await {
+        let ipc_server = match PipeServer::new("from_redirector", "from_proxy").await {
             Ok(server) => server,
             Err(e) => Err(anyhow!("Failed to create pipe server: {:?}", e))?,
         };
@@ -112,8 +112,8 @@ impl PacketSourceConf for MacosConf {
             MacosTask {
                 ipc_server,
                 buf: [0u8; IPC_BUF_SIZE],
-                from_proxy_tx,
-                from_proxy_rx,
+                net_tx,
+                net_rx,
                 conf_rx,
                 sd_watcher,
             },
@@ -125,8 +125,8 @@ impl PacketSourceConf for MacosConf {
 pub struct MacosTask {
     ipc_server: PipeServer,
     buf: [u8; IPC_BUF_SIZE],
-    from_proxy_tx: Sender<NetworkEvent>,
-    from_proxy_rx: Receiver<NetworkCommand>,
+    net_tx: Sender<NetworkEvent>,
+    net_rx: Receiver<NetworkCommand>,
     conf_rx: UnboundedReceiver<ipc::FromProxy>,
     sd_watcher: broadcast::Receiver<()>,
 }
@@ -145,7 +145,20 @@ impl PacketSourceTask for MacosTask {
                 Some(cmd) = self.conf_rx.recv() => {
                     assert!(matches!(cmd, ipc::FromProxy { message: Some(ipc::from_proxy::Message::InterceptSpec(_)) }));
                     cmd.encode(&mut self.buf.as_mut_slice())?;
-                    self.ipc_server.from_redirector_tx.try_write(&self.buf)?;
+                    loop {
+                        self.ipc_server.from_proxy_tx.writable().await?;
+                        match self.ipc_server.from_proxy_tx.try_write(&self.buf) {
+                            Ok(_) => {
+                                break;
+                            }
+                            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                                continue;
+                            }
+                            Err(e) => {
+                                return Err(e.into());
+                            }
+                        }
+                    }
                     println!("SetIntercept {:?}", cmd);
                 },
                 // read packets from the IPC pipe into our network stack.
@@ -174,7 +187,7 @@ impl PacketSourceTask for MacosTask {
                                     process_name,
                                 },
                             };
-                            if self.from_proxy_tx.try_send(event).is_err() {
+                            if self.net_tx.try_send(event).is_err() {
                                 log::warn!("Dropping incoming packet, TCP channel is full.")
                             };
                         },
@@ -183,7 +196,7 @@ impl PacketSourceTask for MacosTask {
                     };
                 },
                 //write packets from the network stack to the IPC pipe to be reinjected.
-                Some(e) = self.from_proxy_rx.recv() => {
+                Some(e) = self.net_rx.recv() => {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
                             let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet(packet.into_inner()))};

@@ -125,11 +125,10 @@ class Proxy {
             let handler = FileHandle(forReadingAtPath: pipe)
             while true {
                 if let data = handler?.availableData{
-                    let _conf = self.deserializeConf(data: data)
-                    if let conf = _conf {
-                        if conf.interceptSpec.count > 0{
+                    if let conf = self.deserializeConf(data: data) {
+                        if !conf.interceptSpec.isEmpty{
                             var interceptSpec = conf.interceptSpec
-                            var invert = true
+                            var invert = false
                             if interceptSpec.starts(with: "!"){
                                 interceptSpec.removeFirst()
                                 invert = true
