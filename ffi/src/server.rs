@@ -33,12 +33,6 @@ impl Server {
     pub fn close(&mut self) {
         if !self.closing {
             self.closing = true;
-            #[cfg(target_os = "macos")]
-            {
-                if Path::new("/Applications/MitmproxyAppleTunnel.app").exists() {   
-                    std::fs::remove_dir_all("/Applications/MitmproxyAppleTunnel.app").expect("Failed to remove MitmproxyAppleTunnel.app from Applications folder");
-                }
-            }
             log::info!("Shutting down.");
             // notify tasks to shut down
             let _ = self.sd_trigger.send(());
