@@ -166,7 +166,6 @@ impl OsProxy {
     /// Set a new intercept spec.
     pub fn set_intercept(&self, spec: String) -> PyResult<()> {
         InterceptConf::try_from(spec.as_str())?;
-        #[cfg(any(windows, target_os = "macos"))]
         self.conf_tx
             .send(ipc::FromProxy {
                 message: Some(ipc::from_proxy::Message::InterceptSpec(spec)),
