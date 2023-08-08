@@ -1,5 +1,5 @@
 use crate::task::PyInteropTask;
-use crate::util::{socketaddr_to_py, string_to_key};
+use crate::util::{socketaddr_to_py, string_to_key, copy_dir};
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
 use mitmproxy::intercept_conf::InterceptConf;
@@ -14,8 +14,8 @@ use mitmproxy::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
 use pyo3::prelude::*;
 use std::net::SocketAddr;
-use std::path::Path;
 use std::sync::Arc;
+use std::path::Path;
 use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
 use x25519_dalek::PublicKey;
 
@@ -35,10 +35,8 @@ impl Server {
             self.closing = true;
             #[cfg(target_os = "macos")]
             {
-                if Path::new("/Applications/MitmproxyAppleTunnel.app").exists() {
-                    std::fs::remove_dir_all("/Applications/MitmproxyAppleTunnel.app").expect(
-                        "Failed to remove MitmproxyAppleTunnel.app from Applications folder",
-                    );
+                if Path::new("/Applications/MitmproxyAppleTunnel.app").exists() {   
+                    std::fs::remove_dir_all("/Applications/MitmproxyAppleTunnel.app").expect("Failed to remove MitmproxyAppleTunnel.app from Applications folder");
                 }
             }
             log::info!("Shutting down.");
@@ -303,10 +301,7 @@ pub fn start_os_proxy(
     }
     #[cfg(target_os = "macos")]
     {
-        copy_dir(
-            Path::new("mitmproxy_rs/MitmProxyAppleTunnel.app/"),
-            Path::new("/Applications/MitmproxyAppleTunnel.app/"),
-        );
+        copy_dir( Path::new("mitmproxy_rs/MitmProxyAppleTunnel.app/"), Path::new("/Applications/MitmproxyAppleTunnel.app/"));
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
