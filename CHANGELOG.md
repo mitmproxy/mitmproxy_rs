@@ -1,8 +1,17 @@
+## 0.2.2
+
+- Fall back to system-provided `protoc` if `protoc-bin-vendored` is not available.
+
+## 0.2.1
+
+- Fix source distributions on Linux and macOS.
+
 ## 0.2.0
 
 - `mitmproxy_wireguard` is now `mitmproxy_rs`.
   As indicated by the name change, the scope of the project now goes beyond WireGuard.
 - Add transparent proxy functionality for Windows.
+  This will receive a proper announcement later on.
 
 ## 0.1.18
 
