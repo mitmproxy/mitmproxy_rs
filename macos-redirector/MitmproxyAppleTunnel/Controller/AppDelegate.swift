@@ -20,14 +20,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
-        os_log("qqq - application will terminate")
+        os_log("Application will terminate")
         Task.init{
             await proxy.clearPreferences()
         }
     }
     
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        os_log("qqq - application should terminate")
+        os_log("Application should terminate")
         Task.init{
             await proxy.clearPreferences()
             NSApplication.shared.reply(toApplicationShouldTerminate: true)

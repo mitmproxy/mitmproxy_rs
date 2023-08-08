@@ -48,19 +48,30 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     func reinjectFlow() {
-        if let pipe = self.fromProxyPipe{
-            let handler = FileHandle(forReadingAtPath: pipe)
-            while true {
-                if let data = handler?.availableData{
-                    let _fromProxy = self.deserializePacket(data: data)
-                    if let fromProxy = _fromProxy {
-                        // This is where decrypt() should reside, I just omit it like above
-                        packetFlow.writePackets([fromProxy.packet], withProtocols: [AF_INET as NSNumber])
-                    }
-                }
+        while self.fromProxyPipe == nil {
+            os_log("Waiting for self.fromProxyPipe to be set...")
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        
+        guard let pipe = self.fromProxyPipe else {
+            os_log("Not able to reinject the flow, self.fromProxyPipe does not exist")
+            return
+        }
+        
+        guard let handler = FileHandle(forReadingAtPath: pipe) else {
+            os_log("Failed to create file handler for reading at path: %@", pipe)
+            return
+        }
+        
+        while true {
+            let data = handler.availableData
+            guard !data.isEmpty else {
+                continue
             }
-        } else {
-            reinjectFlow()
+            
+            if let fromProxy = self.deserializePacket(data: data) {
+                packetFlow.writePackets([fromProxy.packet], withProtocols: [AF_INET as NSNumber])
+            }
         }
     }
     

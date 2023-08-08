@@ -18,17 +18,18 @@ class Proxy {
             let session = manager.connection as? NETunnelProviderSession
             try session?.startTunnel(options: [:])
             try await Task.sleep(nanoseconds: UInt64(Double(NSEC_PER_SEC)))
-            if let fromRedirectorPipe = self.fromRedirectorPipe, let fromProxyPipe = self.fromProxyPipe {
-                if let message = "\(fromRedirectorPipe) \(fromProxyPipe)".data(using: String.Encoding.utf8){
-                    try session?.sendProviderMessage(message)
-                } else {
-                    os_log("Problem encoding pipes")
-                }
+            guard let fromRedirectorPipe = self.fromRedirectorPipe, let fromProxyPipe = self.fromProxyPipe else {
+                os_log("Pipes are not set")
+                return
+            }
+            
+            if let message = "\(fromRedirectorPipe) \(fromProxyPipe)".data(using: String.Encoding.utf8){
+                try session?.sendProviderMessage(message)
             } else {
-                os_log("fromRedirectorPipe or fromProxyPipe are not set")
+                os_log("Problem encoding pipes")
             }
         } catch {
-            os_log("Error: \(error, privacy: .public)")
+            os_log("startTunnel error: \(error, privacy: .public)")
         }
     }
 
@@ -59,7 +60,7 @@ class Proxy {
             manager.appRules = self.appRules
             try await manager.saveToPreferences()
         } catch {
-            os_log("Error: \(error, privacy: .public)")
+            os_log("initVPNTunnelProviderManager error: \(error, privacy: .public)")
         }
     }
 
@@ -107,7 +108,7 @@ class Proxy {
             let manager = await getManager()
             try await manager.removeFromPreferences()
         } catch {
-            os_log("Error: \(error, privacy: .public)")
+            os_log("clearPreference error: \(error, privacy: .public)")
         }
     }
     
@@ -121,40 +122,49 @@ class Proxy {
     }
     
     func interceptConf(){
-        if let pipe = self.fromProxyPipe{
-            let handler = FileHandle(forReadingAtPath: pipe)
-            while true {
-                if let data = handler?.availableData{
-                    if let conf = self.deserializeConf(data: data) {
-                        if !conf.interceptSpec.isEmpty{
-                            var interceptSpec = conf.interceptSpec
-                            var invert = false
-                            if interceptSpec.starts(with: "!"){
-                                interceptSpec.removeFirst()
-                                invert = true
-                            }
-                            self.processList = processList.filter{ process in
-                                invert ? !process.contains(interceptSpec) : process.contains(interceptSpec)
-                            }
+        guard let pipe = self.fromProxyPipe else {
+            os_log("Self.proxypipe does not exist")
+            interceptConf()
+            return
+        }
+        let handler = FileHandle(forReadingAtPath: pipe)
+        while true {
+            if let data = handler?.availableData{
+                if let conf = self.deserializeConf(data: data) {
+                    if !conf.interceptSpec.isEmpty{
+                        var interceptSpec = conf.interceptSpec
+                        var invert = false
+                        if interceptSpec.starts(with: "!"){
+                            interceptSpec = String(interceptSpec.dropFirst())
+                            invert = true
                         }
-                        Task.init{
-                            await clearPreferences()
-                            await self.initVPNTunnelProviderManager()
-                            await self.startTunnel()
+                        self.processList = processList.filter{ process in
+                            invert ? !process.contains(interceptSpec) : process.contains(interceptSpec)
                         }
                     }
+                    
+                    Task.init{
+                        await clearPreferences()
+                        await self.initVPNTunnelProviderManager()
+                        await self.startTunnel()
+                    }
+                    do {
+                        try handler?.close()
+                    } catch {
+                        os_log("interceptConf error - \(error, privacy: .public)")
+                    }
+                    break
                 }
             }
-        } else {
-            interceptConf()
         }
+        
     }
     
     func deserializeConf(data: Data) -> Mitmproxy_Ipc_FromProxy? {
         do {
             return try Mitmproxy_Ipc_FromProxy(serializedData: data)
         } catch {
-            os_log("Error: \(error)")
+            os_log("deserializeConf error: \(error)")
             return nil
         }
     }

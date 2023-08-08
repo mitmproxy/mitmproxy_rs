@@ -144,10 +144,13 @@ impl PacketSourceTask for MacosTask {
                 // pipe through changes to the intercept list
                 Some(cmd) = self.conf_rx.recv() => {
                     assert!(matches!(cmd, ipc::FromProxy { message: Some(ipc::from_proxy::Message::InterceptSpec(_)) }));
-                    cmd.encode(&mut self.buf.as_mut_slice())?;
+                    println!("SetIntercept {:?}", cmd);
+                    let mut buf = Vec::new();
+                    buf.reserve(cmd.encoded_len());
+                    cmd.encode(&mut buf)?;
                     loop {
                         self.ipc_server.from_proxy_tx.writable().await?;
-                        match self.ipc_server.from_proxy_tx.try_write(&self.buf) {
+                        match self.ipc_server.from_proxy_tx.try_write(&buf) {
                             Ok(_) => {
                                 break;
                             }
@@ -159,7 +162,6 @@ impl PacketSourceTask for MacosTask {
                             }
                         }
                     }
-                    println!("SetIntercept {:?}", cmd);
                 },
                 // read packets from the IPC pipe into our network stack.
                 _ = self.ipc_server.from_redirector_rx.readable() => {
@@ -200,10 +202,13 @@ impl PacketSourceTask for MacosTask {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
                             let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet(packet.into_inner()))};
-                            packet.encode(&mut self.buf.as_mut_slice())?;
+                            //println!("SendPacket {:?}", packet);
+                            let mut buf = Vec::new();
+                            buf.reserve(packet.encoded_len());
+                            packet.encode(&mut buf).unwrap();
                             loop {
                                     self.ipc_server.from_proxy_tx.writable().await?;
-                                    match self.ipc_server.from_proxy_tx.try_write(&self.buf) {
+                                    match self.ipc_server.from_proxy_tx.try_write(&buf) {
                                         Ok(_) => {
                                             break;
                                         }
