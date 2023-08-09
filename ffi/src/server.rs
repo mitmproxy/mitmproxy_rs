@@ -1,6 +1,6 @@
 use crate::task::PyInteropTask;
 #[allow(unused_imports)]
-use crate::util::{socketaddr_to_py, string_to_key, copy_dir};
+use crate::util::{copy_dir, socketaddr_to_py, string_to_key};
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
 use mitmproxy::intercept_conf::InterceptConf;
