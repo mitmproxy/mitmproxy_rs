@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -eou pipefail
+set -eo pipefail
 
 # check if BUILD_CERTIFICATE_BASE64 is set
 if [ -n "$BUILD_CERTIFICATE_BASE64" ]; then
