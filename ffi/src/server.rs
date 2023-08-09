@@ -303,10 +303,20 @@ pub fn start_os_proxy(
     }
     #[cfg(target_os = "macos")]
     {
+        let filename = py.import("mitmproxy_rs")?.filename()?;
+        let executable_path = Path::new(filename)
+            .parent()
+            .ok_or_else(|| anyhow!("invalid path"))?
+            .join("macos-redirector.app");
+
+        if !executable_path.exists() {
+            return Err(anyhow!("{} does not exist", executable_path.display()).into());
+        }
+
         copy_dir(
-            Path::new("mitmproxy_rs/MitmProxyAppleTunnel.app/"),
+            executable_path.as_path(),
             Path::new("/Applications/MitmproxyAppleTunnel.app/"),
-        );
+        )?;
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
