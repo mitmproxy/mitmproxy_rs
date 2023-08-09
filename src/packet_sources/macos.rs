@@ -35,8 +35,10 @@ impl PipeServer {
             None => Err(anyhow!("Failed to get home directory"))?,
         };
 
-        let from_redirector_path = Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_redirector_pipe));
-        let from_proxy_path = Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_proxy_pipe));
+        let from_redirector_path =
+            Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_redirector_pipe));
+        let from_proxy_path =
+            Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_proxy_pipe));
 
         let (from_redirector_rx, from_redirector_tx) = Self::create_pipe(&from_redirector_path)?;
         let (from_proxy_rx, from_proxy_tx) = Self::create_pipe(&from_proxy_path)?;

@@ -7,10 +7,10 @@ use pyo3::exceptions::PyOSError;
 use pyo3::types::{PyString, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use rand_core::OsRng;
-use std::net::{IpAddr, SocketAddr};
-use std::str::FromStr;
-use std::path::Path;
 use std::fs;
+use std::net::{IpAddr, SocketAddr};
+use std::path::Path;
+use std::str::FromStr;
 use tokio::sync::mpsc;
 use x25519_dalek::{PublicKey, StaticSecret};
 
