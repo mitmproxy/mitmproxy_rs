@@ -39,19 +39,20 @@ pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
     }
 }
 
-pub fn copy_dir(src: &Path, dst: &Path) {
-    for entry in src.read_dir().unwrap() {
-        let entry = entry.unwrap();
-        let ty = entry.file_type().expect("Failed to get file type");
+pub fn copy_dir(src: &Path, dst: &Path) -> PyResult<()> {
+    for entry in src.read_dir()? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
         if ty.is_dir() {
             fs::create_dir_all(&dst_path).expect("Failed to create directory");
-            copy_dir(&src_path, &dst_path);
+            copy_dir(&src_path, &dst_path)?;
         } else {
             fs::copy(&src_path, &dst_path).expect("Failed to copy {src_path} to {dst_path}");
         }
     }
+    Ok(())
 }
 
 pub fn py_to_socketaddr(t: &PyTuple) -> PyResult<SocketAddr> {

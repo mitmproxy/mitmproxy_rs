@@ -1,5 +1,6 @@
 use crate::task::PyInteropTask;
-use crate::util::{socketaddr_to_py, string_to_key};
+#[allow(unused_imports)]
+use crate::util::{copy_dir, socketaddr_to_py, string_to_key};
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
 use mitmproxy::intercept_conf::InterceptConf;
@@ -33,6 +34,14 @@ impl Server {
     pub fn close(&mut self) {
         if !self.closing {
             self.closing = true;
+            #[cfg(target_os = "macos")]
+            {
+                if Path::new("/Applications/MitmproxyAppleTunnel.app").exists() {
+                    std::fs::remove_dir_all("/Applications/MitmproxyAppleTunnel.app").expect(
+                        "Failed to remove MitmproxyAppleTunnel.app from Applications folder",
+                    );
+                }
+            }
             log::info!("Shutting down.");
             // notify tasks to shut down
             let _ = self.sd_trigger.send(());
@@ -160,7 +169,6 @@ impl OsProxy {
     /// Set a new intercept spec.
     pub fn set_intercept(&self, spec: String) -> PyResult<()> {
         InterceptConf::try_from(spec.as_str())?;
-        #[cfg(any(windows, target_os = "macos"))]
         self.conf_tx
             .send(ipc::FromProxy {
                 message: Some(ipc::from_proxy::Message::InterceptSpec(spec)),
@@ -295,10 +303,20 @@ pub fn start_os_proxy(
     }
     #[cfg(target_os = "macos")]
     {
+        let filename = py.import("mitmproxy_rs")?.filename()?;
+        let executable_path = Path::new(filename)
+            .parent()
+            .ok_or_else(|| anyhow!("invalid path"))?
+            .join("macos-redirector.app");
+
+        if !executable_path.exists() {
+            return Err(anyhow!("{} does not exist", executable_path.display()).into());
+        }
+
         copy_dir(
-            Path::new("mitmproxy_rs/MitmProxyAppleTunnel.app/"),
+            executable_path.as_path(),
             Path::new("/Applications/MitmproxyAppleTunnel.app/"),
-        );
+        )?;
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
