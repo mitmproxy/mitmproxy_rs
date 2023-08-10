@@ -33,18 +33,20 @@ impl PipeServer {
             None => Err(anyhow!("Failed to get home directory"))?,
         };
 
-        let from_redirector_path = Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_redirector_pipe));
+        let from_redirector_path =
+            Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_redirector_pipe));
         mkfifo(&from_redirector_path, Mode::S_IRWXU)?;
         let from_redirector_rx = pipe::OpenOptions::new().open_receiver(&from_redirector_path)?;
 
-        let from_proxy_path = Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_proxy_pipe));
+        let from_proxy_path =
+            Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_proxy_pipe));
         mkfifo(&from_proxy_path, Mode::S_IRWXU)?;
         let p = from_proxy_path.clone();
         tokio::task::spawn_blocking(move || {
             std::fs::OpenOptions::new().write(true).open(p).unwrap();
-        }).await?;
+        })
+        .await?;
         let from_proxy_tx = pipe::OpenOptions::new().open_sender(&from_redirector_path)?;
-
 
         Ok(PipeServer {
             from_redirector_rx,
