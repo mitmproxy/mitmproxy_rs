@@ -12,6 +12,7 @@ use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tokio::net::unix::pipe;
+use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
@@ -21,7 +22,6 @@ pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
 #[allow(dead_code)]
 pub struct PipeServer {
     from_redirector_rx: pipe::Receiver,
-    from_proxy_tx: pipe::Sender,
     from_redirector_path: PathBuf,
     from_proxy_path: PathBuf,
 }
@@ -35,22 +35,17 @@ impl PipeServer {
 
         let from_redirector_path =
             Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_redirector_pipe));
+        if from_redirector_path.exists() { std::fs::remove_file(&from_redirector_path)?; }
         mkfifo(&from_redirector_path, Mode::S_IRWXU)?;
         let from_redirector_rx = pipe::OpenOptions::new().open_receiver(&from_redirector_path)?;
 
         let from_proxy_path =
             Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_proxy_pipe));
+        if from_proxy_path.exists() { std::fs::remove_file(&from_proxy_path)?; }
         mkfifo(&from_proxy_path, Mode::S_IRWXU)?;
-        let p = from_proxy_path.clone();
-        tokio::task::spawn_blocking(move || {
-            std::fs::OpenOptions::new().write(true).open(p).unwrap();
-        })
-        .await?;
-        let from_proxy_tx = pipe::OpenOptions::new().open_sender(&from_redirector_path)?;
 
         Ok(PipeServer {
             from_redirector_rx,
-            from_proxy_tx,
             from_redirector_path,
             from_proxy_path,
         })
@@ -133,28 +128,22 @@ impl PacketSourceTask for MacosTask {
                 // pipe through changes to the intercept list
                 Some(cmd) = self.conf_rx.recv() => {
                     assert!(matches!(cmd, ipc::FromProxy { message: Some(ipc::from_proxy::Message::InterceptSpec(_)) }));
-                    println!("SetIntercept {:?}", cmd);
-                    let mut buf = Vec::new();
-                    buf.reserve(cmd.encoded_len());
-                    cmd.encode(&mut buf)?;
-                    loop {
-                        self.ipc_server.from_proxy_tx.writable().await?;
-                        match self.ipc_server.from_proxy_tx.try_write(&buf) {
-                            Ok(_) => {
-                                break;
-                            }
-                            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                                continue;
-                            }
-                            Err(e) => {
-                                return Err(e.into());
-                            }
+                    cmd.encode(&mut self.buf.as_mut_slice())?;
+                    let len = cmd.encoded_len();
+                    let p  = self.ipc_server.from_proxy_path.clone();
+                    tokio::task::spawn_blocking(move || {
+                        match std::fs::OpenOptions::new().write(true).open(&p) {
+                            Ok(_) => (),
+                            Err(error) => log::error!("Faild to open pipe {}: {}", p.display(), error),
                         }
-                    }
+                    })
+                    .await?;
+                    let mut from_proxy_tx = pipe::OpenOptions::new().open_sender(&self.ipc_server.from_proxy_path)?;
+                    from_proxy_tx.write_all(&self.buf[..len]).await?;
                 },
                 // read packets from the IPC pipe into our network stack.
                 _ = self.ipc_server.from_redirector_rx.readable() => {
-                    match self.ipc_server.from_redirector_rx.try_read(&mut self.buf){
+                    match self.ipc_server.from_redirector_rx.read(&mut self.buf).await {
                         Ok(len) => {
                             if len == 0 {
                                 return Err(anyhow!("redirect daemon exited prematurely."));
@@ -179,7 +168,7 @@ impl PacketSourceTask for MacosTask {
                                 },
                             };
                             if self.net_tx.try_send(event).is_err() {
-                                log::warn!("Dropping incoming packet, TCP channel is full.")
+                                log::warn!("Dropping incoming packet, TCP channel is full.");
                             };
                         },
                         Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => continue,
@@ -191,24 +180,19 @@ impl PacketSourceTask for MacosTask {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
                             let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet(packet.into_inner()))};
-                            //println!("SendPacket {:?}", packet);
-                            let mut buf = Vec::new();
-                            buf.reserve(packet.encoded_len());
-                            packet.encode(&mut buf).unwrap();
-                            loop {
-                                    self.ipc_server.from_proxy_tx.writable().await?;
-                                    match self.ipc_server.from_proxy_tx.try_write(&buf) {
-                                        Ok(_) => {
-                                            break;
-                                        }
-                                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                                            continue;
-                                        }
-                                        Err(e) => {
-                                            return Err(e.into());
-                                        }
-                                    }
+                            packet.encode(&mut self.buf.as_mut_slice())?;
+                            let len = packet.encoded_len();
+                            let p  = self.ipc_server.from_proxy_path.clone();
+                            tokio::task::spawn_blocking(move || {
+                                match std::fs::OpenOptions::new().write(true).open(&p) {
+                                    Ok(_) => (),
+                                    Err(error) => log::error!("Faild to open pipe {}: {}", p.display(), error),
                                 }
+                            })
+                            .await?;
+
+                            let mut from_proxy_tx = pipe::OpenOptions::new().open_sender(&self.ipc_server.from_proxy_path)?;
+                            from_proxy_tx.write_all(&self.buf[..len]).await?;
                         }
                     }
                 },
