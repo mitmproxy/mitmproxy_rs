@@ -1,4 +1,4 @@
-use security_framework::{
+use apple_security::{
     item::{ItemClass, ItemSearchOptions, Reference, SearchResult},
     trust_settings::{Domain, TrustSettings},
 };
