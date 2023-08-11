@@ -11,8 +11,8 @@ use prost::Message;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::unix::pipe;
-use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
@@ -35,13 +35,17 @@ impl PipeServer {
 
         let from_redirector_path =
             Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_redirector_pipe));
-        if from_redirector_path.exists() { std::fs::remove_file(&from_redirector_path)?; }
+        if from_redirector_path.exists() {
+            std::fs::remove_file(&from_redirector_path)?;
+        }
         mkfifo(&from_redirector_path, Mode::S_IRWXU)?;
         let from_redirector_rx = pipe::OpenOptions::new().open_receiver(&from_redirector_path)?;
 
         let from_proxy_path =
             Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_proxy_pipe));
-        if from_proxy_path.exists() { std::fs::remove_file(&from_proxy_path)?; }
+        if from_proxy_path.exists() {
+            std::fs::remove_file(&from_proxy_path)?;
+        }
         mkfifo(&from_proxy_path, Mode::S_IRWXU)?;
 
         Ok(PipeServer {
