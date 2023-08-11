@@ -58,18 +58,14 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             return
         }
         
-        guard let handler = FileHandle(forReadingAtPath: pipe) else {
-            os_log("Failed to create file handler for reading at path: %@", pipe)
-            return
-        }
+        let handler = FileHandle(forReadingAtPath: pipe)
         
         while true {
-            let data = handler.availableData
-            guard !data.isEmpty else {
+            guard let data = try? handler?.readToEnd() else {
                 continue
             }
             
-            if let fromProxy = self.deserializePacket(data: data) {
+            if let fromProxy = try? Mitmproxy_Ipc_FromProxy(serializedData: data) {
                 packetFlow.writePackets([fromProxy.packet], withProtocols: [AF_INET as NSNumber])
             }
         }
@@ -106,39 +102,19 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         if let pipe = self.fromRedirectorPipe{
             do {
                 let handler = FileHandle(forWritingAtPath: pipe)
-                //os_log("qqq - processname: \(processName, privacy: .public)")
-                var packet = Mitmproxy_Ipc_PacketWithMeta()
-                packet.data = data
-                packet.pid = 0
-                packet.processName = processName
-                if let serializedPacket = self.serializePacket(packet: packet){
-                    try handler?.write(contentsOf: serializedPacket)
-                    handler?.closeFile()
+                var fromRedirector = Mitmproxy_Ipc_FromRedirector()
+                fromRedirector.packet.data = data
+                fromRedirector.packet.pid = 0
+                fromRedirector.packet.processName = processName
+                if let serializedPacket = try? fromRedirector.serializedData() {
+                    handler?.write(serializedPacket)
+                    try handler?.synchronize()
+                } else {
+                    os_log("Error: Unable to serialize packet")
                 }
            } catch{
                os_log("Error: \(error, privacy: .public)")
            }
-        }
-    }
-    
-    // Serialize and deserialize UDP packets
-    func serializePacket(packet: Mitmproxy_Ipc_PacketWithMeta) -> Data? {
-        do {
-            var fromRedirector = Mitmproxy_Ipc_FromRedirector()
-            fromRedirector.packet = packet
-            return try fromRedirector.serializedData()
-        } catch {
-            os_log("Failed to serialize packet")
-            return nil
-        }
-    }
-
-    func deserializePacket(data: Data) -> Mitmproxy_Ipc_FromProxy? {
-        do {
-            return try Mitmproxy_Ipc_FromProxy(serializedData: data)
-        } catch {
-            os_log("Failed to deserialize packet: \(error, privacy: .public)")
-            return nil
         }
     }
     

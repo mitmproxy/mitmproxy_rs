@@ -45,9 +45,9 @@ class Proxy {
             manager.protocolConfiguration = providerProtocol
             
             for identifier in processList{
-                //at the moment this sucks and only blocks my terminal emulator (kitty).
+                //at the moment this only blocks my terminal emulator (kitty).
                 //This is because you can't create AppRule by PID but only by Identifier and we need to bypass the terminal to avoid loops.
-                //
+                
                 if identifier.contains("com.apple") || identifier.contains("net.kovidgoyal.kitty"){
                     continue
                 }
@@ -127,46 +127,39 @@ class Proxy {
             interceptConf()
             return
         }
-        let handler = FileHandle(forReadingAtPath: pipe)
-        while true {
-            if let data = handler?.availableData{
-                if let conf = self.deserializeConf(data: data) {
-                    if !conf.interceptSpec.isEmpty{
-                        var interceptSpec = conf.interceptSpec
-                        var invert = false
-                        if interceptSpec.starts(with: "!"){
-                            interceptSpec = String(interceptSpec.dropFirst())
-                            invert = true
-                        }
-                        self.processList = processList.filter{ process in
-                            invert ? !process.contains(interceptSpec) : process.contains(interceptSpec)
-                        }
-                    }
-                    
-                    Task.init{
-                        await clearPreferences()
-                        await self.initVPNTunnelProviderManager()
-                        await self.startTunnel()
-                    }
-                    do {
-                        try handler?.close()
-                    } catch {
-                        os_log("interceptConf error - \(error, privacy: .public)")
-                    }
-                    break
-                }
-            }
+        guard let handler = FileHandle(forReadingAtPath: pipe) else {
+            return
         }
         
-    }
-    
-    func deserializeConf(data: Data) -> Mitmproxy_Ipc_FromProxy? {
-        do {
-            return try Mitmproxy_Ipc_FromProxy(serializedData: data)
-        } catch {
-            os_log("deserializeConf error: \(error)")
-            return nil
+        while true {
+            guard let data = try? handler.readToEnd(),
+                  let conf = try? Mitmproxy_Ipc_FromProxy(serializedData: data)
+            else {
+                continue
+            }
+            
+            if !conf.interceptSpec.isEmpty{
+                var interceptSpec = conf.interceptSpec
+                var invert = false
+                
+                if interceptSpec.starts(with: "!"){
+                    interceptSpec = String(interceptSpec.dropFirst())
+                    invert = true
+                }
+                
+                self.processList = processList.filter{ process in
+                    invert ? !process.contains(interceptSpec) : process.contains(interceptSpec)
+                }
+            }
+            
+            Task{
+                await clearPreferences()
+                await self.initVPNTunnelProviderManager()
+                await self.startTunnel()
+            }
+            break
         }
+        
     }
     
 }
