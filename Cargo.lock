@@ -1344,6 +1344,7 @@ dependencies = [
  "security-framework",
  "smoltcp",
  "tokio",
+ "which",
  "windows",
  "x25519-dalek",
 ]
