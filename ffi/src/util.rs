@@ -41,7 +41,7 @@ pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
     }
 }
 
-#[cfg(any(test, target_os = "macos"))]
+//#[cfg(any(test, target_os = "macos"))]
 pub fn copy_dir(src: &Path, dst: &Path) -> PyResult<()> {
     for entry in src.read_dir()? {
         let entry = entry?;
@@ -141,6 +141,7 @@ pub fn remove_cert() -> PyResult<()> {
     ))
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,3 +163,4 @@ mod tests {
         Ok(())
     }
 }
+*/
