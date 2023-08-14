@@ -7,10 +7,10 @@ use pyo3::exceptions::PyOSError;
 use pyo3::types::{PyString, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use rand_core::OsRng;
-//#[cfg(any(test, target_os = "macos"))]
+#[cfg(target_os = "macos")]
 use std::fs;
 use std::net::{IpAddr, SocketAddr};
-//#[cfg(any(test, target_os = "macos"))]
+#[cfg(target_os = "macos")]
 use std::path::Path;
 use std::str::FromStr;
 use tokio::sync::mpsc;
@@ -41,7 +41,7 @@ pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
     }
 }
 
-//#[cfg(any(test, target_os = "macos"))]
+#[cfg(target_os = "macos")]
 pub fn copy_dir(src: &Path, dst: &Path) -> PyResult<()> {
     for entry in src.read_dir()? {
         let entry = entry?;
@@ -140,27 +140,3 @@ pub fn remove_cert() -> PyResult<()> {
         "OS proxy mode is only available on macos",
     ))
 }
-
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs::File;
-    use tempfile::tempdir;
-
-    #[test]
-    fn test_copy_dir() -> Result<()> {
-        let a = tempdir()?;
-        let b = tempdir()?;
-
-        fs::create_dir_all(a.path().join("foo/bar"))?;
-        File::create(a.path().join("foo/bar/baz.txt"))?;
-
-        copy_dir(a.path(), b.path())?;
-
-        fs::metadata(b.path().join("foo/bar/baz.txt"))?;
-
-        Ok(())
-    }
-}
-*/
