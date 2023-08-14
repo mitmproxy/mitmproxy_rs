@@ -7,10 +7,10 @@ use pyo3::exceptions::PyOSError;
 use pyo3::types::{PyString, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use rand_core::OsRng;
-#[cfg(any(test, target_os = "macos"))]
+//#[cfg(any(test, target_os = "macos"))]
 use std::fs;
 use std::net::{IpAddr, SocketAddr};
-#[cfg(any(test, target_os = "macos"))]
+//#[cfg(any(test, target_os = "macos"))]
 use std::path::Path;
 use std::str::FromStr;
 use tokio::sync::mpsc;
