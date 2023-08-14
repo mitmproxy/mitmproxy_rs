@@ -5,11 +5,9 @@ import OSLog
 class AppDelegate: NSObject, NSApplicationDelegate {
     var proxy = Proxy()
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        let ipPipe = CommandLine.arguments[1]
-        let netPipe = CommandLine.arguments[2]
-        let filterPipe = CommandLine.arguments[3]
-        os_log("qqq - arguments are \(CommandLine.arguments, privacy: .public)")
-        self.proxy.setPipePath(ip: ipPipe, net: netPipe, filter: filterPipe)
+        let fromRedirectorPipe = CommandLine.arguments[1]
+        let fromProxyPipe = CommandLine.arguments[2]
+        self.proxy.setPipePath(fromRedirectorPipe, fromProxyPipe)
         self.proxy.getRunningApplication()
         Task.init{
             let interceptConf = DispatchQueue(label: "org.mitmproxy.interceptConf", attributes: .concurrent)
@@ -22,14 +20,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
-        os_log("qqq - application will terminate")
+        os_log("Application will terminate")
         Task.init{
             await proxy.clearPreferences()
         }
     }
     
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        os_log("qqq - application should terminate")
+        os_log("Application should terminate")
         Task.init{
             await proxy.clearPreferences()
             NSApplication.shared.reply(toApplicationShouldTerminate: true)

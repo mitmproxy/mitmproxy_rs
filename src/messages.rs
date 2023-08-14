@@ -11,7 +11,7 @@ pub enum TunnelInfo {
         src_addr: SocketAddr,
         dst_addr: SocketAddr,
     },
-    Windows {
+    OsProxy {
         pid: u32,
         process_name: Option<PathBuf>,
     },

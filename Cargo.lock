@@ -1326,8 +1326,10 @@ dependencies = [
  "console-subscriber",
  "criterion",
  "env_logger",
+ "home",
  "image",
  "log",
+ "nix",
  "once_cell",
  "pretty-hex",
  "prost",
@@ -1358,6 +1360,7 @@ dependencies = [
  "pyo3-asyncio",
  "pyo3-log",
  "rand_core",
+ "tempfile",
  "tokio",
  "x25519-dalek",
 ]
