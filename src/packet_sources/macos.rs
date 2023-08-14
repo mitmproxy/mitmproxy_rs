@@ -3,7 +3,7 @@ use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::ipc::from_redirector::Message::Packet;
 use crate::packet_sources::ipc::{FromRedirector, PacketWithMeta};
 use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
-use anyhow::{anyhow, Result, bail};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use home::home_dir;
 use nix::{sys::stat::Mode, unistd::mkfifo};
@@ -131,11 +131,14 @@ impl PacketSourceTask for MacosTask {
         tokio::task::spawn_blocking(move || {
             match std::fs::OpenOptions::new().write(true).open(read_pipe_file) {
                 Ok(_) => (),
-                Err(err) => log::error!("Failed to open pipe {}: {}", read_pipe_file.display(), err),
+                Err(err) => {
+                    log::error!("Failed to open pipe {}: {}", read_pipe_file.display(), err)
+                }
             }
         })
         .await?;
-        let mut from_proxy_tx = pipe::OpenOptions::new().open_sender(&self.ipc_server.from_proxy_path)?;
+        let mut from_proxy_tx =
+            pipe::OpenOptions::new().open_sender(&self.ipc_server.from_proxy_path)?;
 
         log::debug!("IPC connected!");
 

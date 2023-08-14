@@ -143,27 +143,22 @@ pub fn remove_cert() -> PyResult<()> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::fs::File;
     use tempfile::tempdir;
-    use super::*;
 
     #[test]
     fn test_copy_dir() -> Result<()> {
         let a = tempdir()?;
         let b = tempdir()?;
 
-        fs::create_dir_all(
-            a.path().join("foo/bar")
-        )?;
-        File::create(
-            a.path().join("foo/bar/baz.txt")
-        )?;
+        fs::create_dir_all(a.path().join("foo/bar"))?;
+        File::create(a.path().join("foo/bar/baz.txt"))?;
 
         copy_dir(a.path(), b.path())?;
 
         fs::metadata(b.path().join("foo/bar/baz.txt"))?;
 
         Ok(())
-
     }
 }
