@@ -36,6 +36,7 @@ impl Server {
     pub fn close(&mut self) {
         if !self.closing {
             self.closing = true;
+            // XXX: Does not really belong here.
             #[cfg(target_os = "macos")]
             {
                 if Path::new("/Applications/MitmproxyAppleTunnel.app").exists() {
@@ -327,6 +328,6 @@ pub fn start_os_proxy(
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
-        "OS proxy mode is only available on this operating system",
+        "OS proxy mode is only available on Windows and macOS",
     ))
 }
