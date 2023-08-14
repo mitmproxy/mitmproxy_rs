@@ -1,8 +1,10 @@
 use crate::task::PyInteropTask;
-#[allow(unused_imports)]
-use crate::util::{copy_dir, socketaddr_to_py, string_to_key};
-#[allow(unused_imports)]
-use anyhow::{anyhow, Result};
+#[cfg(target_os = "macos")]
+use crate::util::copy_dir;
+use crate::util::{socketaddr_to_py, string_to_key};
+#[cfg(windows)]
+use anyhow::anyhow;
+use anyhow::Result;
 use mitmproxy::intercept_conf::InterceptConf;
 use mitmproxy::network::NetworkTask;
 #[cfg(target_os = "macos")]
@@ -10,11 +12,11 @@ use mitmproxy::packet_sources::macos::MacosConf;
 #[cfg(windows)]
 use mitmproxy::packet_sources::windows::WindowsConf;
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
-#[allow(unused_imports)]
 use mitmproxy::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
 use pyo3::prelude::*;
 use std::net::SocketAddr;
+#[cfg(any(windows, target_os = "macos"))]
 use std::path::Path;
 use std::sync::Arc;
 use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
