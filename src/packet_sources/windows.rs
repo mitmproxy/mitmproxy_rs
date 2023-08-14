@@ -180,7 +180,7 @@ impl PacketSourceTask for WindowsTask {
 
                     let event = NetworkEvent::ReceivePacket {
                         packet,
-                        tunnel_info: TunnelInfo::Windows {
+                        tunnel_info: TunnelInfo::OsProxy {
                             pid,
                             process_name,
                         },

@@ -6,9 +6,8 @@ import OSLog
 
 class Proxy {
     let bundleIdentifier = K.bundleIdentifier
-    var ipPipe: String? = nil
-    var netPipe: String? = nil
-    var filterPipe: String? = nil
+    var fromRedirectorPipe: String? = nil
+    var fromProxyPipe: String? = nil
     var process_match: String? = nil
     var appRules = [NEAppRule]()
     var processList = [String]()
@@ -19,17 +18,18 @@ class Proxy {
             let session = manager.connection as? NETunnelProviderSession
             try session?.startTunnel(options: [:])
             try await Task.sleep(nanoseconds: UInt64(Double(NSEC_PER_SEC)))
-            if let ipPipe = self.ipPipe, let netPipe = self.netPipe {
-                if let message = "\(ipPipe) \(netPipe)".data(using: String.Encoding.utf8){
-                    try session?.sendProviderMessage(message)
-                } else {
-                    os_log("Problem encoding pipes")
-                }
+            guard let fromRedirectorPipe = self.fromRedirectorPipe, let fromProxyPipe = self.fromProxyPipe else {
+                os_log("Pipes are not set")
+                return
+            }
+            
+            if let message = "\(fromRedirectorPipe) \(fromProxyPipe)".data(using: String.Encoding.utf8){
+                try session?.sendProviderMessage(message)
             } else {
-                os_log("IpPipe or NetPipe are not set")
+                os_log("Problem encoding pipes")
             }
         } catch {
-            os_log("Error: \(error, privacy: .public)")
+            os_log("startTunnel error: \(error, privacy: .public)")
         }
     }
 
@@ -45,9 +45,9 @@ class Proxy {
             manager.protocolConfiguration = providerProtocol
             
             for identifier in processList{
-                //at the moment this sucks and only blocks my terminal emulator (kitty).
+                //at the moment this only blocks my terminal emulator (kitty).
                 //This is because you can't create AppRule by PID but only by Identifier and we need to bypass the terminal to avoid loops.
-                //
+                
                 if identifier.contains("com.apple") || identifier.contains("net.kovidgoyal.kitty"){
                     continue
                 }
@@ -60,7 +60,7 @@ class Proxy {
             manager.appRules = self.appRules
             try await manager.saveToPreferences()
         } catch {
-            os_log("Error: \(error, privacy: .public)")
+            os_log("initVPNTunnelProviderManager error: \(error, privacy: .public)")
         }
     }
 
@@ -108,14 +108,13 @@ class Proxy {
             let manager = await getManager()
             try await manager.removeFromPreferences()
         } catch {
-            os_log("Error: \(error, privacy: .public)")
+            os_log("clearPreference error: \(error, privacy: .public)")
         }
     }
     
-    func setPipePath(ip: String, net: String, filter: String){
-        self.ipPipe = ip
-        self.netPipe = net
-        self.filterPipe = filter
+    func setPipePath(_ fromRedirectorPipe: String, _ fromProxyPipe: String){
+        self.fromRedirectorPipe = fromRedirectorPipe
+        self.fromProxyPipe = fromProxyPipe
     }
     
     func setProcessMatch(withString process: String) async{
@@ -123,37 +122,44 @@ class Proxy {
     }
     
     func interceptConf(){
-        if let pipe = self.filterPipe{
-            let handler = FileHandle(forReadingAtPath: pipe)
-            while true {
-                if let data = handler?.availableData{
-                    let _conf = self.deserializeConf(data: data)
-                    if let conf = _conf {
-                        if conf.processNames.count > 0{
-                            self.processList = processList.filter{ process in
-                                conf.invert ? !conf.processNames.contains { process.contains($0) } : conf.processNames.contains { process.contains($0) }
-                            }
-                        }
-                        Task.init{
-                            await clearPreferences()
-                            await self.initVPNTunnelProviderManager()
-                            await self.startTunnel()
-                        }
-                    }
+        guard let pipe = self.fromProxyPipe else {
+            os_log("Self.proxypipe does not exist")
+            interceptConf()
+            return
+        }
+        guard let handler = FileHandle(forReadingAtPath: pipe) else {
+            return
+        }
+        
+        while true {
+            guard let data = try? handler.readToEnd(),
+                  let conf = try? Mitmproxy_Ipc_FromProxy(serializedData: data)
+            else {
+                continue
+            }
+            
+            if !conf.interceptSpec.isEmpty{
+                var interceptSpec = conf.interceptSpec
+                var invert = false
+                
+                if interceptSpec.starts(with: "!"){
+                    interceptSpec = String(interceptSpec.dropFirst())
+                    invert = true
+                }
+                
+                self.processList = processList.filter{ process in
+                    invert ? !process.contains(interceptSpec) : process.contains(interceptSpec)
                 }
             }
-        } else {
-            interceptConf()
+            
+            Task{
+                await clearPreferences()
+                await self.initVPNTunnelProviderManager()
+                await self.startTunnel()
+            }
+            break
         }
-    }
-    
-    func deserializeConf(data: Data) -> Mitmproxy_Ipc_InterceptConf? {
-        do {
-            return try Mitmproxy_Ipc_InterceptConf(serializedData: data)
-        } catch {
-            os_log("Error: \(error)")
-            return nil
-        }
+        
     }
     
 }

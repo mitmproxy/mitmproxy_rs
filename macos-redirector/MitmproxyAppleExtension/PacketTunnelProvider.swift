@@ -5,8 +5,8 @@ import OSLog
 class PacketTunnelProvider: NEPacketTunnelProvider {
     var session: NWUDPSession? = nil
     var conf = [String: AnyObject]()
-    var ipPipe: String? = nil
-    var netPipe: String? = nil
+    var fromRedirectorPipe: String? = nil
+    var fromProxyPipe: String? = nil
 
     override func startTunnel(options: [String : NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         conf = (self.protocolConfiguration as! NETunnelProviderProtocol).providerConfiguration! as [String : AnyObject]
@@ -48,19 +48,26 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     func reinjectFlow() {
-        if let pipe = self.netPipe{
-            let handler = FileHandle(forReadingAtPath: pipe)
-            while true {
-                if let data = handler?.availableData{
-                    let _packet = self.deserializePacket(data: data)
-                    if let packet = _packet {
-                        // This is where decrypt() should reside, I just omit it like above
-                        packetFlow.writePackets([packet.data], withProtocols: [AF_INET as NSNumber])
-                    }
-                }
+        while self.fromProxyPipe == nil {
+            os_log("Waiting for self.fromProxyPipe to be set...")
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        
+        guard let pipe = self.fromProxyPipe else {
+            os_log("Not able to reinject the flow, self.fromProxyPipe does not exist")
+            return
+        }
+        
+        let handler = FileHandle(forReadingAtPath: pipe)
+        
+        while true {
+            guard let data = try? handler?.readToEnd() else {
+                continue
             }
-        } else {
-            reinjectFlow()
+            
+            if let fromProxy = try? Mitmproxy_Ipc_FromProxy(serializedData: data) {
+                packetFlow.writePackets([fromProxy.packet], withProtocols: [AF_INET as NSNumber])
+            }
         }
     }
     
@@ -83,8 +90,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)? = nil) {
         if let messageString = String(data: messageData, encoding: .utf8)?.components(separatedBy: " "){
-            self.ipPipe = messageString[0]
-            self.netPipe = messageString[1]
+            self.fromRedirectorPipe = messageString[0]
+            self.fromProxyPipe = messageString[1]
             if let handler = completionHandler {
                 handler(messageData)
             }
@@ -92,39 +99,22 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     func writeToPipe(data: Data, processName: String) {
-        if let pipe = self.ipPipe{
+        if let pipe = self.fromRedirectorPipe{
             do {
                 let handler = FileHandle(forWritingAtPath: pipe)
-                //os_log("qqq - processname: \(processName, privacy: .public)")
-                var packet = Mitmproxy_Ipc_Packet()
-                packet.data = data
-                packet.processName = processName
-                if let serializedPacket = self.serializePacket(packet: packet){
-                    try handler?.write(contentsOf: serializedPacket)
-                    handler?.closeFile()
+                var fromRedirector = Mitmproxy_Ipc_FromRedirector()
+                fromRedirector.packet.data = data
+                fromRedirector.packet.pid = 0
+                fromRedirector.packet.processName = processName
+                if let serializedPacket = try? fromRedirector.serializedData() {
+                    handler?.write(serializedPacket)
+                    try handler?.synchronize()
+                } else {
+                    os_log("Error: Unable to serialize packet")
                 }
            } catch{
                os_log("Error: \(error, privacy: .public)")
            }
-        }
-    }
-    
-    // Serialize and deserialize UDP packets
-    func serializePacket(packet: Mitmproxy_Ipc_Packet) -> Data? {
-        do {
-            return try packet.serializedData()
-        } catch {
-            os_log("Failed to serialize packet")
-            return nil
-        }
-    }
-
-    func deserializePacket(data: Data) -> Mitmproxy_Ipc_Packet? {
-        do {
-            return try Mitmproxy_Ipc_Packet(serializedData: data)
-        } catch {
-            os_log("Failed to deserialize packet")
-            return nil
         }
     }
     

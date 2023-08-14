@@ -104,10 +104,7 @@ fn main() {
                             .join("Release")
                             .join("MitmproxyAppleTunnel.app");
 
-                        copy_dir(
-                            &build_path,
-                            Path::new("mitmproxy_rs/MitmProxyAppleTunnel.app"),
-                        );
+                        copy_dir(&build_path, Path::new("mitmproxy_rs/macos-redirector.app"));
                     }
                 }
             }

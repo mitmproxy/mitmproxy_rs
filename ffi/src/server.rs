@@ -1,25 +1,26 @@
-use std::net::SocketAddr;
-
-use std::sync::Arc;
-
-#[allow(unused_imports)]
-use anyhow::{anyhow, Result};
-use pyo3::prelude::*;
-use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
-use x25519_dalek::PublicKey;
-
+use crate::task::PyInteropTask;
+#[cfg(target_os = "macos")]
+use crate::util::copy_dir;
+use crate::util::{socketaddr_to_py, string_to_key};
+#[cfg(any(windows, target_os = "macos"))]
+use anyhow::anyhow;
+use anyhow::Result;
 use mitmproxy::intercept_conf::InterceptConf;
 use mitmproxy::network::NetworkTask;
+#[cfg(target_os = "macos")]
+use mitmproxy::packet_sources::macos::MacosConf;
 #[cfg(windows)]
 use mitmproxy::packet_sources::windows::WindowsConf;
-
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
-#[allow(unused_imports)]
 use mitmproxy::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
-
-use crate::task::PyInteropTask;
-use crate::util::{socketaddr_to_py, string_to_key};
+use pyo3::prelude::*;
+use std::net::SocketAddr;
+#[cfg(any(windows, target_os = "macos"))]
+use std::path::Path;
+use std::sync::Arc;
+use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
+use x25519_dalek::PublicKey;
 
 #[derive(Debug)]
 pub struct Server {
@@ -35,8 +36,16 @@ impl Server {
     pub fn close(&mut self) {
         if !self.closing {
             self.closing = true;
+            // XXX: Does not really belong here.
+            #[cfg(target_os = "macos")]
+            {
+                if Path::new("/Applications/MitmproxyAppleTunnel.app").exists() {
+                    std::fs::remove_dir_all("/Applications/MitmproxyAppleTunnel.app").expect(
+                        "Failed to remove MitmproxyAppleTunnel.app from Applications folder",
+                    );
+                }
+            }
             log::info!("Shutting down.");
-
             // notify tasks to shut down
             let _ = self.sd_trigger.send(());
         }
@@ -44,7 +53,6 @@ impl Server {
 
     pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         let barrier = self.sd_barrier.clone();
-
         pyo3_asyncio::tokio::future_into_py(py, async move {
             barrier.notified().await;
             Ok(())
@@ -147,7 +155,6 @@ impl Drop for Server {
 #[derive(Debug)]
 pub struct OsProxy {
     server: Server,
-    #[cfg(windows)]
     conf_tx: mpsc::UnboundedSender<ipc::FromProxy>,
 }
 
@@ -165,7 +172,6 @@ impl OsProxy {
     /// Set a new intercept spec.
     pub fn set_intercept(&self, spec: String) -> PyResult<()> {
         InterceptConf::try_from(spec.as_str())?;
-        #[cfg(windows)]
         self.conf_tx
             .send(ipc::FromProxy {
                 message: Some(ipc::from_proxy::Message::InterceptSpec(spec)),
@@ -251,19 +257,16 @@ pub fn start_wireguard_server(
     receive_datagram: PyObject,
 ) -> PyResult<&PyAny> {
     let private_key = string_to_key(private_key)?;
-
     let peer_public_keys = peer_public_keys
         .into_iter()
         .map(string_to_key)
         .collect::<PyResult<Vec<PublicKey>>>()?;
-
     let conf = WireGuardConf {
         host,
         port,
         private_key,
         peer_public_keys,
     };
-
     pyo3_asyncio::tokio::future_into_py(py, async move {
         let (server, local_addr) = Server::init(conf, handle_connection, receive_datagram).await?;
         Ok(WireGuardServer { server, local_addr })
@@ -286,7 +289,7 @@ pub fn start_os_proxy(
         // individual files. We'd need something like `as_dir` to ensure that redirector.exe and the
         // WinDivert dll/lib/sys files are in a single directory. So we just use __file__for now. 🤷
         let filename = py.import("mitmproxy_rs")?.filename()?;
-        let executable_path = std::path::Path::new(filename)
+        let executable_path = Path::new(filename)
             .parent()
             .ok_or_else(|| anyhow!("invalid path"))?
             .join("windows-redirector.exe");
@@ -301,8 +304,30 @@ pub fn start_os_proxy(
             Ok(OsProxy { server, conf_tx })
         })
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        let filename = py.import("mitmproxy_rs")?.filename()?;
+        let executable_path = Path::new(filename)
+            .parent()
+            .ok_or_else(|| anyhow!("invalid path"))?
+            .join("macos-redirector.app");
+
+        if !executable_path.exists() {
+            return Err(anyhow!("{} does not exist", executable_path.display()).into());
+        }
+
+        copy_dir(
+            executable_path.as_path(),
+            Path::new("/Applications/MitmproxyAppleTunnel.app/"),
+        )?;
+        let conf = MacosConf;
+        pyo3_asyncio::tokio::future_into_py(py, async move {
+            let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
+            Ok(OsProxy { server, conf_tx })
+        })
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
-        "OS proxy mode is only available on Windows",
+        "OS proxy mode is only available on Windows and macOS",
     ))
 }
