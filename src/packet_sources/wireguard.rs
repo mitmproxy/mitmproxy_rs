@@ -14,7 +14,7 @@ use tokio::{
     sync::{
         broadcast,
         mpsc::{Receiver, Sender},
-        RwLock,
+        Mutex,
     },
 };
 use x25519_dalek::{PublicKey, StaticSecret};
@@ -28,15 +28,8 @@ const WG_HEADER_SIZE: usize = 80;
 
 /// A WireGuard peer. We keep track of the tunnel state and the peer address.
 pub struct WireGuardPeer {
-    tunnel: Box<Tunn>,
-    endpoint: RwLock<Option<SocketAddr>>,
-}
-
-impl WireGuardPeer {
-    pub async fn set_endpoint(&self, addr: SocketAddr) {
-        let mut endpoint = self.endpoint.write().await;
-        *endpoint = Some(addr);
-    }
+    tunnel: Tunn,
+    endpoint: Option<SocketAddr>,
 }
 
 pub struct WireGuardConf {
@@ -77,10 +70,10 @@ impl PacketSourceConf for WireGuardConf {
             )
             .map_err(|error| anyhow!(error))?;
 
-            let peer = Arc::new(WireGuardPeer {
+            let peer = Arc::new(Mutex::new(WireGuardPeer {
                 tunnel,
-                endpoint: RwLock::new(None),
-            });
+                endpoint: None,
+            }));
 
             peers_by_idx.insert(index, peer.clone());
             peers_by_key.insert(public_key, peer);
@@ -135,9 +128,9 @@ pub struct WireGuardTask {
     private_key: StaticSecret,
     public_key: PublicKey,
 
-    peers_by_idx: HashMap<u32, Arc<WireGuardPeer>>,
-    peers_by_key: HashMap<PublicKey, Arc<WireGuardPeer>>,
-    peers_by_ip: HashMap<IpAddr, Arc<WireGuardPeer>>,
+    peers_by_idx: HashMap<u32, Arc<Mutex<WireGuardPeer>>>,
+    peers_by_key: HashMap<PublicKey, Arc<Mutex<WireGuardPeer>>>,
+    peers_by_ip: HashMap<IpAddr, Arc<Mutex<WireGuardPeer>>>,
 
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
@@ -189,7 +182,7 @@ impl PacketSourceTask for WireGuardTask {
 }
 
 impl WireGuardTask {
-    fn find_peer_for_datagram(&self, data: &[u8]) -> Option<Arc<WireGuardPeer>> {
+    fn find_peer_for_datagram(&self, data: &[u8]) -> Option<Arc<Mutex<WireGuardPeer>>> {
         let packet = match Tunn::parse_incoming_packet(data) {
             Ok(p) => p,
             Err(error) => {
@@ -240,17 +233,23 @@ impl WireGuardTask {
             None => return Ok(()),
         };
 
-        peer.set_endpoint(sender_addr).await;
-        let mut result = peer
-            .tunnel
-            .decapsulate(Some(sender_addr.ip()), data, &mut self.wg_buf);
+        let mut result = {
+            let mut peer = peer.lock().await;
+            peer.endpoint = Some(sender_addr);
+            peer.tunnel
+                .decapsulate(Some(sender_addr.ip()), data, &mut self.wg_buf)
+        };
 
         while let TunnResult::WriteToNetwork(b) = result {
             log::trace!("WG::process_incoming_datagram: WriteToNetwork");
             self.socket.send_to(b, sender_addr).await?;
 
             // check if there are more things to be handled
-            result = peer.tunnel.decapsulate(None, &[0; 0], &mut self.wg_buf);
+            result = peer
+                .lock()
+                .await
+                .tunnel
+                .decapsulate(None, &[0; 0], &mut self.wg_buf);
         }
 
         match result {
@@ -367,6 +366,7 @@ impl WireGuardTask {
             return Ok(());
         }
 
+        let mut peer = peer.lock().await;
         match peer.tunnel.encapsulate(&packet_bytes, &mut self.wg_buf) {
             TunnResult::Done => {
                 log::trace!("WG::process_outgoing_packet: Done");
@@ -375,7 +375,8 @@ impl WireGuardTask {
                 log::error!("WG::process_outgoing_packet: Err: {:?}", error);
             }
             TunnResult::WriteToNetwork(buf) => {
-                let dst_addr = peer.endpoint.read().await.unwrap();
+                let dst_addr = peer.endpoint.unwrap();
+                drop(peer);
 
                 log::trace!(
                     "WG::process_outgoing_packet: WriteToNetwork
