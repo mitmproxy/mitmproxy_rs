@@ -127,9 +127,9 @@ impl PacketSourceTask for MacosTask {
         // and that requires a reader to be present or open_sender() will fail.
         // workaround: spawn reader first (in build() above), then use blocking I/O in a thread
         // to determine when we can safely open.
-        let read_pipe_file = &self.ipc_server.from_proxy_path;
+        let read_pipe_file = self.ipc_server.from_proxy_path.clone();
         tokio::task::spawn_blocking(move || {
-            match std::fs::OpenOptions::new().write(true).open(read_pipe_file) {
+            match std::fs::OpenOptions::new().write(true).open(&read_pipe_file) {
                 Ok(_) => (),
                 Err(err) => {
                     log::error!("Failed to open pipe {}: {}", read_pipe_file.display(), err)
