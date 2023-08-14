@@ -148,7 +148,7 @@ jobs:
           path: dist/
       - uses: actions/setup-python@v4
         with:
-          python-version-file: .github/python-version.txt
+          python-version: '3.11'
       - run: "pip install --no-binary :all: dist/*.tar.gz"
 
   deploy:
