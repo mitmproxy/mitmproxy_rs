@@ -129,7 +129,10 @@ impl PacketSourceTask for MacosTask {
         // to determine when we can safely open.
         let read_pipe_file = self.ipc_server.from_proxy_path.clone();
         tokio::task::spawn_blocking(move || {
-            match std::fs::OpenOptions::new().write(true).open(&read_pipe_file) {
+            match std::fs::OpenOptions::new()
+                .write(true)
+                .open(&read_pipe_file)
+            {
                 Ok(_) => (),
                 Err(err) => {
                     log::error!("Failed to open pipe {}: {}", read_pipe_file.display(), err)
