@@ -3,6 +3,7 @@ import OSLog
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
+    let logger = Logger()
     var proxy = Proxy()
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         let fromRedirectorPipe = CommandLine.arguments[1]
@@ -20,14 +21,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
-        os_log("Application will terminate")
+        logger.info("Application will terminate")
         Task.init{
             await proxy.clearPreferences()
         }
     }
     
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        os_log("Application should terminate")
+        logger.info("Application should terminate")
         Task.init{
             await proxy.clearPreferences()
             NSApplication.shared.reply(toApplicationShouldTerminate: true)

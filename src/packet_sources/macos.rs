@@ -127,6 +127,21 @@ impl PacketSourceTask for MacosTask {
         // and that requires a reader to be present or open_sender() will fail.
         // workaround: spawn reader first (in build() above), then use blocking I/O in a thread
         // to determine when we can safely open.
+        let read_pipe_file = self.ipc_server.from_proxy_path.clone();
+        tokio::task::spawn_blocking(move || {
+            match std::fs::OpenOptions::new()
+                .write(true)
+                .open(&read_pipe_file)
+            {
+                Ok(_) => (),
+                Err(err) => {
+                    log::error!("Failed to open pipe {}: {}", read_pipe_file.display(), err)
+                }
+            }
+        })
+        .await?;
+        let mut from_proxy_tx =
+            pipe::OpenOptions::new().unchecked(true).open_sender(&self.ipc_server.from_proxy_path)?;
 
         log::debug!("IPC connected!");
 
@@ -139,22 +154,7 @@ impl PacketSourceTask for MacosTask {
                     assert!(matches!(cmd, ipc::FromProxy { message: Some(ipc::from_proxy::Message::InterceptSpec(_)) }));
                     cmd.encode(&mut self.buf.as_mut_slice())?;
                     let len = cmd.encoded_len();
-                    let read_pipe_file = self.ipc_server.from_proxy_path.clone();
-                    tokio::task::spawn_blocking(move || {
-                        match std::fs::OpenOptions::new()
-                            .write(true)
-                            .open(&read_pipe_file)
-                        {
-                            Ok(_) => (),
-                            Err(err) => {
-                                log::error!("Failed to open pipe {}: {}", read_pipe_file.display(), err)
-                            }
-                        }
-                    })
-                    .await?;
-                    let mut from_proxy_tx =
-                        pipe::OpenOptions::new().open_sender(&self.ipc_server.from_proxy_path)?;
-                    from_proxy_tx.write_all(&self.buf[..len]).await?;
+                    from_proxy_tx.write_all(&[&len.to_be_bytes(), &self.buf[..len]].concat()).await?;
                 },
                 // read packets from the IPC pipe into our network stack.
                 _ = self.ipc_server.from_redirector_rx.readable() => {
@@ -198,22 +198,7 @@ impl PacketSourceTask for MacosTask {
                             let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet(packet.into_inner()))};
                             packet.encode(&mut self.buf.as_mut_slice())?;
                             let len = packet.encoded_len();
-                            let read_pipe_file = self.ipc_server.from_proxy_path.clone();
-                            tokio::task::spawn_blocking(move || {
-                                match std::fs::OpenOptions::new()
-                                    .write(true)
-                                    .open(&read_pipe_file)
-                                {
-                                    Ok(_) => (),
-                                    Err(err) => {
-                                        log::error!("Failed to open pipe {}: {}", read_pipe_file.display(), err)
-                                    }
-                                }
-                            })
-                            .await?;
-                            let mut from_proxy_tx =
-                                pipe::OpenOptions::new().open_sender(&self.ipc_server.from_proxy_path)?;
-                            from_proxy_tx.write_all(&self.buf[..len]).await?;
+                            from_proxy_tx.write_all(&[&len.to_be_bytes(), &self.buf[..len]].concat()).await?;
                         }
                     }
                 },
