@@ -6,7 +6,8 @@ import SwiftProtobuf
 
 let log = Logger(subsystem: "org.mitmproxy.macos-redirector", category: "app")
 let networkExtensionIdentifier = "org.mitmproxy.macos-redirector.network-extension"
-
+/* a designated requirement that matches all apps. */
+let designatedRequirementWildcard = "identifier exists"
 
 @main
 struct App {
@@ -14,29 +15,27 @@ struct App {
     static func main() async throws {
         log.debug("app starting with \(CommandLine.arguments)")
         
-        /*
-        let request = OSSystemExtensionRequest.deactivationRequest(
-            forExtensionWithIdentifier: networkExtensionIdentifier,
-            queue: DispatchQueue.main
-        )
-        OSSystemExtensionManager.shared.submitRequest(request)
-        try await Task.sleep(nanoseconds: 5_000_000_000)
-         */
-        
         try await SystemExtensionInstaller.run()
         let manager = try await startVPN()
         
         log.debug("reading...")
-        
-        while let message = try readIpcMessage(ofType: Mitmproxy_Ipc_InterceptSpec.self, fh: FileHandle.standardInput) {
-            print("readMessage: \(message)")
-            return
+        while let spec = try readIpcMessage(ofType: Mitmproxy_Ipc_InterceptSpec.self, fh: FileHandle.standardInput) {
+            
+            log.debug("received intercept spec: \(spec.spec)")
+            
+            guard !spec.spec.starts(with: "!") else {
+                log.error("inverse specs are not implemented yet.")
+                continue
+            }
+            let bundleIds = spec.spec.split(separator: ",");
+            manager.appRules = bundleIds.map({
+                NEAppRule(signingIdentifier: String($0), designatedRequirement: designatedRequirementWildcard)
+            });
+            
         }
         
         log.debug("exiting...")
-        
         try await manager.removeFromPreferences()
-        
     }
 }
 
@@ -98,23 +97,14 @@ func startVPN() async throws -> NETunnelProviderManager {
     
     let providerProtocol = NETunnelProviderProtocol()
     providerProtocol.providerBundleIdentifier = networkExtensionIdentifier
-    providerProtocol.providerConfiguration = ["server": "127.0.0.1", "port": 1234]
-    providerProtocol.serverAddress = "127.0.0.1"
+    // TODO: Use either of these to signal pipes.
+    //providerProtocol.providerConfiguration = ["server": "127.0.0.1", "port": 1234]
+    providerProtocol.serverAddress = "mitmproxy"
     
     manager.protocolConfiguration = providerProtocol
     manager.localizedDescription = "mitmproxy"
     manager.isEnabled = true
-    
-    /*
-     TODO: do those from the extension?
-     FIXME: not possible
-    manager.appRules = [
-        NEAppRule(signingIdentifier: "com.apple.curl", designatedRequirement: "(identifier \"com.apple.curl\") and (anchor apple)")
-    ]
-     */
-    manager.appRules = [
-        NEAppRule(signingIdentifier: "com.apple.curl", designatedRequirement: "identifier exists")
-    ]
+    manager.appRules = []
     
     try await manager.saveToPreferences()
     // https://stackoverflow.com/a/47569982/934719 - we need to call load again before starting the tunnel.
