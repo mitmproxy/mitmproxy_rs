@@ -140,8 +140,9 @@ impl PacketSourceTask for MacosTask {
             }
         })
         .await?;
-        let mut from_proxy_tx =
-            pipe::OpenOptions::new().unchecked(true).open_sender(&self.ipc_server.from_proxy_path)?;
+        let mut from_proxy_tx = pipe::OpenOptions::new()
+            .unchecked(true)
+            .open_sender(&self.ipc_server.from_proxy_path)?;
 
         log::debug!("IPC connected!");
 
