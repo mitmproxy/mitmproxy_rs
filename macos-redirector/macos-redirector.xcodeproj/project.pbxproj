@@ -12,8 +12,13 @@
 		CE7A86C32A8CFBAD009E0B82 /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A86C22A8CFBAD009E0B82 /* PacketTunnelProvider.swift */; };
 		CE7A86C52A8CFBAD009E0B82 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A86C42A8CFBAD009E0B82 /* main.swift */; };
 		CE7A86CA2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = CE7A86BD2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		CEB5389C2A8E6F0500CB505F /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = CEB5389B2A8E6F0500CB505F /* SwiftProtobuf */; };
-		CEC7D6772A8E2B2300E1A6E9 /* app.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC7D6762A8E2B2300E1A6E9 /* app.swift */; };
+		CE904BCE2A8E9B2600A7DF8A /* app.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC7D6762A8E2B2300E1A6E9 /* app.swift */; };
+		CE904BCF2A8E9B3100A7DF8A /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */; };
+		CE904BD22A8E9B6A00A7DF8A /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = CE904BD12A8E9B6A00A7DF8A /* SwiftProtobuf */; };
+		CE904BD42A8E9BD500A7DF8A /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = CE904BD32A8E9BD500A7DF8A /* SwiftProtobuf */; };
+		CE904BD52A8E9C5600A7DF8A /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */; };
+		CE904BD82A8EA0C600A7DF8A /* utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BD72A8EA0C600A7DF8A /* utils.swift */; };
+		CE904BD92A8EA0C600A7DF8A /* utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BD72A8EA0C600A7DF8A /* utils.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +55,8 @@
 		CE7A86C42A8CFBAD009E0B82 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		CE7A86C62A8CFBAD009E0B82 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CE7A86C72A8CFBAD009E0B82 /* network_extension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = network_extension.entitlements; sourceTree = "<group>"; };
+		CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ipc.pb.swift; sourceTree = "<group>"; };
+		CE904BD72A8EA0C600A7DF8A /* utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = utils.swift; sourceTree = "<group>"; };
 		CEC7D6762A8E2B2300E1A6E9 /* app.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = app.swift; sourceTree = "<group>"; };
 		CEC7D6792A8E444600E1A6E9 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -59,7 +66,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CEB5389C2A8E6F0500CB505F /* SwiftProtobuf in Frameworks */,
+				CE904BD22A8E9B6A00A7DF8A /* SwiftProtobuf in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -68,6 +75,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CE7A86C02A8CFBAD009E0B82 /* NetworkExtension.framework in Frameworks */,
+				CE904BD42A8E9BD500A7DF8A /* SwiftProtobuf in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -77,6 +85,7 @@
 		CE7A869E2A8CFB86009E0B82 = {
 			isa = PBXGroup;
 			children = (
+				CE904BD62A8EA0B300A7DF8A /* ipc */,
 				CEC7D6792A8E444600E1A6E9 /* README.md */,
 				CE7A86A92A8CFB86009E0B82 /* macos-redirector */,
 				CE7A86C12A8CFBAD009E0B82 /* network-extension */,
@@ -123,6 +132,15 @@
 			path = "network-extension";
 			sourceTree = "<group>";
 		};
+		CE904BD62A8EA0B300A7DF8A /* ipc */ = {
+			isa = PBXGroup;
+			children = (
+				CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */,
+				CE904BD72A8EA0C600A7DF8A /* utils.swift */,
+			);
+			path = ipc;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -142,7 +160,7 @@
 			);
 			name = "macos-redirector";
 			packageProductDependencies = (
-				CEB5389B2A8E6F0500CB505F /* SwiftProtobuf */,
+				CE904BD12A8E9B6A00A7DF8A /* SwiftProtobuf */,
 			);
 			productName = "macos-redirector";
 			productReference = CE7A86A72A8CFB86009E0B82 /* macos-redirector.app */;
@@ -161,6 +179,9 @@
 			dependencies = (
 			);
 			name = "network-extension";
+			packageProductDependencies = (
+				CE904BD32A8E9BD500A7DF8A /* SwiftProtobuf */,
+			);
 			productName = "network-extension";
 			productReference = CE7A86BD2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension */;
 			productType = "com.apple.product-type.system-extension";
@@ -193,7 +214,7 @@
 			);
 			mainGroup = CE7A869E2A8CFB86009E0B82;
 			packageReferences = (
-				CEB5389A2A8E6F0500CB505F /* XCRemoteSwiftPackageReference "swift-protobuf" */,
+				CE904BD02A8E9B6A00A7DF8A /* XCRemoteSwiftPackageReference "swift-protobuf" */,
 			);
 			productRefGroup = CE7A86A82A8CFB86009E0B82 /* Products */;
 			projectDirPath = "";
@@ -228,7 +249,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CEC7D6772A8E2B2300E1A6E9 /* app.swift in Sources */,
+				CE904BD82A8EA0C600A7DF8A /* utils.swift in Sources */,
+				CE904BCE2A8E9B2600A7DF8A /* app.swift in Sources */,
+				CE904BD52A8E9C5600A7DF8A /* ipc.pb.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -236,8 +259,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CE904BCF2A8E9B3100A7DF8A /* ipc.pb.swift in Sources */,
 				CE7A86C52A8CFBAD009E0B82 /* main.swift in Sources */,
 				CE7A86C32A8CFBAD009E0B82 /* PacketTunnelProvider.swift in Sources */,
+				CE904BD92A8EA0C600A7DF8A /* utils.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -526,7 +551,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		CEB5389A2A8E6F0500CB505F /* XCRemoteSwiftPackageReference "swift-protobuf" */ = {
+		CE904BD02A8E9B6A00A7DF8A /* XCRemoteSwiftPackageReference "swift-protobuf" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-protobuf.git";
 			requirement = {
@@ -537,9 +562,14 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		CEB5389B2A8E6F0500CB505F /* SwiftProtobuf */ = {
+		CE904BD12A8E9B6A00A7DF8A /* SwiftProtobuf */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = CEB5389A2A8E6F0500CB505F /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			package = CE904BD02A8E9B6A00A7DF8A /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
+		};
+		CE904BD32A8E9BD500A7DF8A /* SwiftProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CE904BD02A8E9B6A00A7DF8A /* XCRemoteSwiftPackageReference "swift-protobuf" */;
 			productName = SwiftProtobuf;
 		};
 /* End XCSwiftPackageProductDependency section */

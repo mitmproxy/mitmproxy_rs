@@ -11,18 +11,16 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             
             log.debug("setting network settings")
             
-            // TODO: All untested.
-            let tunnelNetworkSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.1.1.1")
-            let ipv4Settings = NEIPv4Settings(addresses: ["192.168.1.2"], subnetMasks: ["255.255.255.0"])
+            let tunnelNetworkSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "10.0.0.42")
+            
+            let ipv4Settings = NEIPv4Settings(addresses: ["10.0.0.1"], subnetMasks: ["255.255.255.0"])
             ipv4Settings.includedRoutes = [
                 NEIPv4Route.default()
             ]
-            let dnsSettings = NEDNSSettings(servers: ["10.0.0.53"])
-            dnsSettings.matchDomains = [""]
-            dnsSettings.matchDomainsNoSearch = true
-            tunnelNetworkSettings.dnsSettings = dnsSettings
             tunnelNetworkSettings.ipv4Settings = ipv4Settings
             
+            tunnelNetworkSettings.dnsSettings = NEDNSSettings(servers: ["10.0.0.53"])
+
             do {
                 try await self.setTunnelNetworkSettings(tunnelNetworkSettings)
             } catch let error {

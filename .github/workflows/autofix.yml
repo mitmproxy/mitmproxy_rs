@@ -18,7 +18,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - run: brew install swift-protobuf
-      - run: protoc --swift_out=./macos-redirector --proto_path=./src/packet_sources/ ipc.proto
+      - run: protoc --swift_out=./macos-redirector/ipc --proto_path=./src/packet_sources/ ipc.proto
 
   rustfmt:
     runs-on: ${{ matrix.os }}
