@@ -1,4 +1,6 @@
 import NetworkExtension
+import Foundation
+import AppKit
 import OSLog
 
 @available(macOSApplicationExtension 11.0, *)
@@ -7,6 +9,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     var conf = [String: AnyObject]()
     var fromRedirectorPipe: String? = nil
     var fromProxyPipe: String? = nil
+    var logger = Logger()
 
     override func startTunnel(options: [String : NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         conf = (self.protocolConfiguration as! NETunnelProviderProtocol).providerConfiguration! as [String : AnyObject]
@@ -20,9 +23,9 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         tunnelNetworkSettings.dnsSettings = dnsSettings
         tunnelNetworkSettings.ipv4Settings = ipv4Settings
         
-        setTunnelNetworkSettings(tunnelNetworkSettings) { error in
+        setTunnelNetworkSettings(tunnelNetworkSettings) { [self] error in
             if let applyError = error {
-                os_log("Failed to apply tunnel settings settings: %{public}@", applyError.localizedDescription)
+                logger.error("Failed to apply tunnel settings: \(applyError, privacy: .public)")
             }
             completionHandler(error)
             let reinject = DispatchQueue(label: "org.mitmproxy.reinject", attributes: .concurrent)
@@ -49,24 +52,33 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     
     func reinjectFlow() {
         while self.fromProxyPipe == nil {
-            os_log("Waiting for self.fromProxyPipe to be set...")
-            Thread.sleep(forTimeInterval: 0.1)
+            logger.info("Waiting for self.fromProxyPipe to be set...")
+            Thread.sleep(forTimeInterval: 0.3)
         }
         
         guard let pipe = self.fromProxyPipe else {
-            os_log("Not able to reinject the flow, self.fromProxyPipe does not exist")
+            logger.error("Not able to reinject the flow, self.fromProxyPipe does not exist")
             return
         }
         
-        let handler = FileHandle(forReadingAtPath: pipe)
+        guard let handler = FileHandle(forReadingAtPath: pipe) else {
+            return
+        }
         
         while true {
-            guard let data = try? handler?.readToEnd() else {
+            guard let data = try? handler.read(upToCount: 8) else {
+                continue
+            }
+            let length = UInt64(bigEndian: data.withUnsafeBytes { $0.load(as: UInt64.self) })
+                                
+            guard let data = try? handler.read(upToCount: Int(length)),
+                  let fromProxy = try? Mitmproxy_Ipc_FromProxy(serializedData: data)
+            else {
                 continue
             }
             
-            if let fromProxy = try? Mitmproxy_Ipc_FromProxy(serializedData: data) {
-                packetFlow.writePackets([fromProxy.packet], withProtocols: [AF_INET as NSNumber])
+            if !packetFlow.writePackets([fromProxy.packet], withProtocols: [AF_INET as NSNumber]){
+                logger.fault("Failed to write packets to packet flow")
             }
         }
     }
@@ -110,10 +122,10 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                     handler?.write(serializedPacket)
                     try handler?.synchronize()
                 } else {
-                    os_log("Error: Unable to serialize packet")
+                    logger.fault("Unable to serialize packet")
                 }
            } catch{
-               os_log("Error: \(error, privacy: .public)")
+               logger.error("WriteToPipe problem: \(error, privacy: .public)")
            }
         }
     }
