@@ -86,7 +86,7 @@ func startVPN() async throws -> NETunnelProviderManager {
     let savedManagers = try await NETunnelProviderManager.loadAllFromPreferences()
     for m in savedManagers {
         if (m.protocolConfiguration as? NETunnelProviderProtocol)?.providerBundleIdentifier == networkExtensionIdentifier {
-            if !m.isEnabled {
+            if !m.isEnabled || m.connection.status != NEVPNStatus.connected {
                 log.info("Cleaning up old VPN.")
                 try await m.removeFromPreferences()
             }
@@ -100,6 +100,14 @@ func startVPN() async throws -> NETunnelProviderManager {
     // TODO: Use either of these to signal pipes.
     //providerProtocol.providerConfiguration = ["server": "127.0.0.1", "port": 1234]
     providerProtocol.serverAddress = "mitmproxy"
+    // XXX: it's unclear if these are actually necessary for per-app VPNs
+    providerProtocol.enforceRoutes = true
+    providerProtocol.includeAllNetworks = true
+    providerProtocol.excludeLocalNetworks = false
+    if #available(macOS 13.3, *) {
+        providerProtocol.excludeAPNs = false
+        providerProtocol.excludeCellularServices = false
+    }
     
     manager.protocolConfiguration = providerProtocol
     manager.localizedDescription = "mitmproxy"
