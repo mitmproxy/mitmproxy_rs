@@ -110,24 +110,23 @@ class Proxy {
     
     func createProcessList() {
         let running = NSWorkspace.shared.runningApplications
-        let invertedFilters = self.filterProcesses.filter { $0.starts(with: "!") }.map { String($0.dropFirst()) }
-        let normalFilters = self.filterProcesses.filter { !$0.starts(with: "!") }
+        let invert = !self.filterProcesses.isEmpty && self.filterProcesses[0].starts(with: "!")
+        var filters = self.filterProcesses.map{ $0.lowercased()};
+        filters[0] = invert ? String(filters[0].dropFirst()) : filters[0]
         for process in running {
             let processIdentifier = String(process.processIdentifier)
-            if let bundleIdentifier = process.bundleIdentifier,
+            if let bundleIdentifier = process.bundleIdentifier?.lowercased(),
                !bundleIdentifier.contains("com.apple"),
                processIdentifier != self.terminalPid {
-                var shouldAddToList = true
-                // Check inverted filters
-                if invertedFilters.contains(where: { $0 == processIdentifier || $0 == bundleIdentifier }) {
-                    shouldAddToList = false
+                var shouldIntercept = true
+                
+                if !filters.isEmpty {
+                    shouldIntercept = invert ?
+                    !filters.contains { bundleIdentifier.contains($0) || processIdentifier.contains($0) }:
+                    filters.contains { bundleIdentifier.contains($0) || processIdentifier.contains($0) }
                 }
-                // Check normal filters
-                if shouldAddToList && !normalFilters.isEmpty {
-                    shouldAddToList = normalFilters.contains(processIdentifier) || normalFilters.contains(bundleIdentifier)
-                }
-                if shouldAddToList {
-                    logger.log("qqq - process \(bundleIdentifier, privacy: .public) added")
+                
+                if shouldIntercept {
                     self.processList.append(bundleIdentifier)
                 }
             }
@@ -158,8 +157,7 @@ class Proxy {
             else { continue }
             
             self.filterProcesses.removeAll()
-            logger.log("qqq - process removed <<<<<<<<<<<<<<<<<<<<<<<<<")
-            conf.interceptSpec.split(separator: " ").forEach{ filter in
+            conf.interceptSpec.split(separator: ",").forEach{ filter in
                 self.filterProcesses.append(String(filter))
             }
 
