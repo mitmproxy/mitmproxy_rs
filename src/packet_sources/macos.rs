@@ -5,7 +5,6 @@ use crate::packet_sources::ipc::{FromRedirector, PacketWithMeta};
 use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
-use home::home_dir;
 use nix::{sys::stat::Mode, unistd::mkfifo};
 use prost::Message;
 use std::io::Cursor;
@@ -27,21 +26,19 @@ pub struct PipeServer {
 
 impl PipeServer {
     pub async fn new(from_redirector_pipe: &str, from_proxy_pipe: &str) -> Result<Self> {
-        let home_dir = match home_dir() {
-            Some(from_redirector_path) => from_redirector_path,
-            None => Err(anyhow!("Failed to get home directory"))?,
+        let tmp_dir = match std::fs::create_dir_all("/tmp/mitmproxy/") {
+            Ok(()) => Path::new("/tmp/mitmproxy/"),
+            _ => Err(anyhow!("Failed to get tmp directory"))?,
         };
 
-        let from_redirector_path =
-            Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_redirector_pipe));
+        let from_redirector_path = tmp_dir.join(format!("{}.pipe", &from_redirector_pipe));
         if from_redirector_path.exists() {
             std::fs::remove_file(&from_redirector_path)?;
         }
         mkfifo(&from_redirector_path, Mode::S_IRWXU)?;
         let from_redirector_rx = pipe::OpenOptions::new().open_receiver(&from_redirector_path)?;
 
-        let from_proxy_path =
-            Path::new(&home_dir).join(format!("Downloads/{}.pipe", &from_proxy_pipe));
+        let from_proxy_path = tmp_dir.join(format!("{}.pipe", &from_proxy_pipe));
         if from_proxy_path.exists() {
             std::fs::remove_file(&from_proxy_path)?;
         }
