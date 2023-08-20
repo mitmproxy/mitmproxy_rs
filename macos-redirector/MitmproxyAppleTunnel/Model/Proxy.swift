@@ -11,7 +11,9 @@ class Proxy {
     var process_match: String? = nil
     var appRules = [NEAppRule]()
     var processList = [String]()
+    var filterProcesses = [String]()
     var logger = Logger()
+    var terminalPid = String()
     
     func startTunnel() async {
         do{
@@ -46,12 +48,6 @@ class Proxy {
             manager.protocolConfiguration = providerProtocol
             
             for identifier in processList{
-                //at the moment this only blocks my terminal emulator (kitty).
-                //This is because you can't create AppRule by PID but only by Identifier and we need to bypass the terminal to avoid loops.
-                
-                if identifier.contains("com.apple") || identifier.contains("net.kovidgoyal.kitty"){
-                    continue
-                }
                 if let designatedRequirement = getDesignatedRequirement(for: identifier) {
                     self.appRules.append(NEAppRule(signingIdentifier: identifier, designatedRequirement: designatedRequirement))
                 }
@@ -75,18 +71,7 @@ class Proxy {
         }
     }
     
-    func getRunningApplication(){
-        let running = NSWorkspace.shared.runningApplications
-        self.processList.removeAll()
-        for process in running{
-            if let identifier = process.bundleIdentifier{
-                self.processList.append(identifier)
-            }
-        }
-        if let process_match = self.process_match{
-            self.processList = self.processList.filter { $0.contains(process_match) }
-        }
-    }
+    
 
     func getDesignatedRequirement(for bundleIdentifier: String) -> String? {
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
@@ -113,16 +98,43 @@ class Proxy {
         }
     }
     
-    func setPipePath(_ fromRedirectorPipe: String, _ fromProxyPipe: String){
+    func setPipePath(_ fromRedirectorPipe: String, _ fromProxyPipe: String, _ terminalPid: String){
         self.fromRedirectorPipe = fromRedirectorPipe
         self.fromProxyPipe = fromProxyPipe
+        self.terminalPid = terminalPid
     }
     
     func setProcessMatch(withString process: String) async{
         self.process_match = process
     }
     
-    func interceptConf(){        
+    func createProcessList() {
+        let running = NSWorkspace.shared.runningApplications
+        let invertedFilters = self.filterProcesses.filter { $0.starts(with: "!") }.map { String($0.dropFirst()) }
+        let normalFilters = self.filterProcesses.filter { !$0.starts(with: "!") }
+        for process in running {
+            let processIdentifier = String(process.processIdentifier)
+            if let bundleIdentifier = process.bundleIdentifier,
+               !bundleIdentifier.contains("com.apple"),
+               processIdentifier != self.terminalPid {
+                var shouldAddToList = true
+                // Check inverted filters
+                if invertedFilters.contains(where: { $0 == processIdentifier || $0 == bundleIdentifier }) {
+                    shouldAddToList = false
+                }
+                // Check normal filters
+                if shouldAddToList && !normalFilters.isEmpty {
+                    shouldAddToList = normalFilters.contains(processIdentifier) || normalFilters.contains(bundleIdentifier)
+                }
+                if shouldAddToList {
+                    logger.log("qqq - process \(bundleIdentifier, privacy: .public) added")
+                    self.processList.append(bundleIdentifier)
+                }
+            }
+        }
+    }
+    
+    func interceptSpec(){
         while self.fromProxyPipe == nil {
             Thread.sleep(forTimeInterval: 0.1)
         }
@@ -144,22 +156,14 @@ class Proxy {
             guard let data = try? handler.read(upToCount: Int(length)),
                   let conf = try? Mitmproxy_Ipc_FromProxy(serializedData: data)
             else { continue }
-                
-            if !conf.interceptSpec.isEmpty{
-                var interceptSpec = conf.interceptSpec
-                var invert = false
-                
-                logger.debug("InterceptConf: \(interceptSpec, privacy: .public)")
-                
-                if interceptSpec.starts(with: "!"){
-                    interceptSpec = String(interceptSpec.dropFirst())
-                    invert = true
-                }
-                
-                self.processList = processList.filter{ process in
-                    invert ? !process.contains(interceptSpec) : process.contains(interceptSpec)
-                }
+            
+            self.filterProcesses.removeAll()
+            logger.log("qqq - process removed <<<<<<<<<<<<<<<<<<<<<<<<<")
+            conf.interceptSpec.split(separator: " ").forEach{ filter in
+                self.filterProcesses.append(String(filter))
             }
+
+            self.createProcessList()
                 
             Task{
                 await clearPreferences()

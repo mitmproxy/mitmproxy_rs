@@ -8,12 +8,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         let fromRedirectorPipe = CommandLine.arguments[1]
         let fromProxyPipe = CommandLine.arguments[2]
-        self.proxy.setPipePath(fromRedirectorPipe, fromProxyPipe)
-        self.proxy.getRunningApplication()
+        let terminalPid = CommandLine.arguments[3]
+        self.proxy.setPipePath(fromRedirectorPipe, fromProxyPipe, terminalPid)
+        self.proxy.createProcessList()
         Task.init{
             let interceptConf = DispatchQueue(label: "org.mitmproxy.interceptConf", attributes: .concurrent)
             interceptConf.async {
-                self.proxy.interceptConf()
+                self.proxy.interceptSpec()
             }
             await self.proxy.initVPNTunnelProviderManager()
             await self.proxy.startTunnel()

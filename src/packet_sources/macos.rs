@@ -85,7 +85,7 @@ impl PacketSourceConf for MacosConf {
             .arg("--args")
             .arg(&ipc_server.from_redirector_path)
             .arg(&ipc_server.from_proxy_path)
-            .arg(format!("{}", std::os::unix::process::parent_id()))
+            .arg(format!("!{}", std::os::unix::process::parent_id()))
             .spawn();
 
         match result {
