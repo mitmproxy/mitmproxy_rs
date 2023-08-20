@@ -31,16 +31,14 @@ impl PipeServer {
             _ => Err(anyhow!("Failed to get tmp directory"))?,
         };
 
-        let from_redirector_path =
-            tmp_dir.join(format!("{}.pipe", &from_redirector_pipe));
+        let from_redirector_path = tmp_dir.join(format!("{}.pipe", &from_redirector_pipe));
         if from_redirector_path.exists() {
             std::fs::remove_file(&from_redirector_path)?;
         }
         mkfifo(&from_redirector_path, Mode::S_IRWXU)?;
         let from_redirector_rx = pipe::OpenOptions::new().open_receiver(&from_redirector_path)?;
 
-        let from_proxy_path =
-            tmp_dir.join(format!("{}.pipe", &from_proxy_pipe));
+        let from_proxy_path = tmp_dir.join(format!("{}.pipe", &from_proxy_pipe));
         if from_proxy_path.exists() {
             std::fs::remove_file(&from_proxy_path)?;
         }
