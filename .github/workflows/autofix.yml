@@ -17,6 +17,7 @@ jobs:
   protobuf:
     runs-on: macos-latest
     steps:
+      - uses: actions/checkout@v3
       - run: brew install swift-protobuf
       - run: protoc --swift_out=./macos-redirector/ipc --proto_path=./src/packet_sources/ ipc.proto
 
