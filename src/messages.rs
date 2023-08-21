@@ -1,5 +1,4 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
 use smoltcp::wire::{IpProtocol, Ipv4Packet, Ipv6Packet};
@@ -13,7 +12,7 @@ pub enum TunnelInfo {
     },
     OsProxy {
         pid: u32,
-        process_name: Option<PathBuf>,
+        process_name: Option<String>,
     },
 }
 
