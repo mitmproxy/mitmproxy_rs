@@ -60,7 +60,7 @@
       <PathRunnable
          runnableDebuggingMode = "0"
          BundleIdentifier = "org.mitmproxy.macos-redirector"
-         FilePath = "/Applications/macos-redirector.app">
+         FilePath = "/Applications/Mitmproxy Redirector.app">
       </PathRunnable>
       <MacroExpansion>
          <BuildableReference

@@ -46,7 +46,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		CE7A86A72A8CFB86009E0B82 /* macos-redirector.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "macos-redirector.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CE7A86A72A8CFB86009E0B82 /* Mitmproxy Redirector.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Mitmproxy Redirector.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE7A86AE2A8CFB87009E0B82 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CE7A86B32A8CFB87009E0B82 /* macos_redirector.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = macos_redirector.entitlements; sourceTree = "<group>"; };
 		CE7A86BD2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension */ = {isa = PBXFileReference; explicitFileType = "wrapper.system-extension"; includeInIndex = 0; path = "org.mitmproxy.macos-redirector.network-extension.systemextension"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -97,7 +97,7 @@
 		CE7A86A82A8CFB86009E0B82 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				CE7A86A72A8CFB86009E0B82 /* macos-redirector.app */,
+				CE7A86A72A8CFB86009E0B82 /* Mitmproxy Redirector.app */,
 				CE7A86BD2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension */,
 			);
 			name = Products;
@@ -163,7 +163,7 @@
 				CE904BD12A8E9B6A00A7DF8A /* SwiftProtobuf */,
 			);
 			productName = "macos-redirector";
-			productReference = CE7A86A72A8CFB86009E0B82 /* macos-redirector.app */;
+			productReference = CE7A86A72A8CFB86009E0B82 /* Mitmproxy Redirector.app */;
 			productType = "com.apple.product-type.application";
 		};
 		CE7A86BC2A8CFBAD009E0B82 /* network-extension */ = {
@@ -407,7 +407,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Mitmproxy Redirector for macOS";
+				INFOPLIST_KEY_CFBundleDisplayName = "Mitmproxy Redirector";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -416,7 +416,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.mitmproxy.macos-redirector";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Mitmproxy Redirector";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Mitmproxy Redirector";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -441,7 +441,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Mitmproxy Redirector for macOS";
+				INFOPLIST_KEY_CFBundleDisplayName = "Mitmproxy Redirector";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -450,7 +450,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.mitmproxy.macos-redirector";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Mitmproxy Redirector";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Mitmproxy Redirector";
 				SWIFT_EMIT_LOC_STRINGS = YES;

@@ -61,7 +61,7 @@ impl PacketSourceConf for MacosConf {
         let redirector_rx = pipe::OpenOptions::new().open_receiver(&redirector_rx_path)?;
 
         let redirector_process =
-            Command::new("/Applications/macos-redirector.app/Contents/MacOS/macos-redirector")
+            Command::new("/Applications/Mitmproxy Redirector.app/Contents/MacOS/macos-redirector")
                 .arg(&pipe_base)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())

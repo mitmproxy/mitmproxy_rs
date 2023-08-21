@@ -15,8 +15,17 @@ struct App {
     static func main() async throws {
         log.debug("app starting with \(CommandLine.arguments, privacy: .public)")
         
+        let pipeBase = CommandLine.arguments.last!;
+        if !pipeBase.starts(with: "/tmp/") {
+            let notification = NSAlert()
+            notification.messageText = "Mitmproxy Redirector"
+            notification.informativeText = "This helper application is used to redirect local traffic to your mitmproxy instance. It cannot be run standalone.";
+            notification.runModal()
+            return;
+        }
+        
         try await SystemExtensionInstaller.run()
-        let manager = try await startVPN(pipeBase: CommandLine.arguments.last!)
+        let manager = try await startVPN(pipeBase: pipeBase)
         
         log.debug("reading...")
         while let spec = try readIpcMessage(ofType: Mitmproxy_Ipc_InterceptSpec.self, fh: FileHandle.standardInput) {
