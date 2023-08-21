@@ -22,7 +22,6 @@ struct App {
         while let spec = try readIpcMessage(ofType: Mitmproxy_Ipc_InterceptSpec.self, fh: FileHandle.standardInput) {
             
             log.debug("received intercept spec: \(spec.spec)")
-            
             guard !spec.spec.starts(with: "!") else {
                 log.error("inverse specs are not implemented yet.")
                 continue
@@ -97,9 +96,8 @@ func startVPN() async throws -> NETunnelProviderManager {
     
     let providerProtocol = NETunnelProviderProtocol()
     providerProtocol.providerBundleIdentifier = networkExtensionIdentifier
-    // TODO: Use either of these to signal pipes.
-    //providerProtocol.providerConfiguration = ["server": "127.0.0.1", "port": 1234]
-    providerProtocol.serverAddress = "mitmproxy"
+    providerProtocol.serverAddress = "/tmp/mitmproxy-123"
+    
     // XXX: it's unclear if these are actually necessary for per-app VPNs
     providerProtocol.enforceRoutes = true
     providerProtocol.includeAllNetworks = true
