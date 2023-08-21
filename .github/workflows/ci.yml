@@ -23,7 +23,7 @@ jobs:
         include:
           - os: windows-latest
             rust: stable
-            args: --exclude macos-certificate-truster 
+            args: --exclude macos-certificate-truster
           - os: macos-latest
             rust: stable
             args: --exclude windows-redirector
@@ -32,7 +32,7 @@ jobs:
             args: --exclude windows-redirector --exclude macos-certificate-truster
           - os: windows-latest
             rust: 1.65.0  # MSRV
-            args: --exclude macos-certificate-truster 
+            args: --exclude macos-certificate-truster
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -50,10 +50,12 @@ jobs:
         with:
           python-version-file: .github/python-version.txt
 
-      - if: runner.os == 'Windows'
+      - name: Compiling Windows prerequisites...
+        if: runner.os == 'Windows'
         # workaround for https://github.com/rust-lang/cargo/issues/9096
         run: cargo build --package windows-redirector
-      - if: runner.os == 'macOS'
+      - name: Compiling macOS prerequisites...
+        if: runner.os == 'macOS'
         run: |
           cargo build --package macos-certificate-truster
           .github/scripts/build-macos-redirector.sh
