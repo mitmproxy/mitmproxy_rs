@@ -27,8 +27,12 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             completionHandler(err)
             log.debug("tunnel settings set (err=\(err))")
             if err == nil {
-                self.redirectPackets(redir_file)
-                self.reinjectPackets(proxy_file)
+                DispatchQueue.global().async {
+                    self.redirectPackets(redir_file)
+                }
+                DispatchQueue.global().async {
+                    self.reinjectPackets(proxy_file)
+                }
             }
         }
         
