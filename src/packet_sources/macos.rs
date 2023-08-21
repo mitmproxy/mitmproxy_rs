@@ -42,7 +42,6 @@ impl PacketSourceConf for MacosConf {
         net_rx: Receiver<NetworkCommand>,
         sd_watcher: broadcast::Receiver<()>,
     ) -> Result<(MacOsTask, Self::Data)> {
-
         let pipe_base = PathBuf::from(format!("/tmp/mitmproxy-{}", std::process::id()));
         let network_extension_rx_path = pipe_base.with_extension("redir");
         let network_extension_tx_path = pipe_base.with_extension("proxy");
@@ -57,7 +56,8 @@ impl PacketSourceConf for MacosConf {
         mkfifo(&network_extension_rx_path, Mode::S_IRWXU)?;
         mkfifo(&network_extension_tx_path, Mode::S_IRWXU)?;
 
-        let network_extension_rx = pipe::OpenOptions::new().open_receiver(&network_extension_rx_path)?;
+        let network_extension_rx =
+            pipe::OpenOptions::new().open_receiver(&network_extension_rx_path)?;
         let redirector_process =
             Command::new("/Applications/Mitmproxy Redirector.app/Contents/MacOS/macos-redirector")
                 .arg(&pipe_base)
