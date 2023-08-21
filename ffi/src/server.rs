@@ -1,9 +1,7 @@
 use crate::task::PyInteropTask;
-#[cfg(target_os = "macos")]
-use crate::util::copy_dir;
+
 use crate::util::{socketaddr_to_py, string_to_key};
-#[cfg(any(windows, target_os = "macos"))]
-use anyhow::anyhow;
+
 use anyhow::Result;
 use mitmproxy::intercept_conf::InterceptConf;
 use mitmproxy::network::NetworkTask;
@@ -174,7 +172,9 @@ impl OsProxy {
         InterceptConf::try_from(spec.as_str())?;
         self.conf_tx
             .send(ipc::FromProxy {
-                message: Some(ipc::from_proxy::Message::InterceptSpec(spec)),
+                message: Some(ipc::from_proxy::Message::InterceptSpec(
+                    ipc::InterceptSpec { spec },
+                )),
             })
             .map_err(crate::util::event_queue_unavailable)?;
         Ok(())
@@ -306,6 +306,8 @@ pub fn start_os_proxy(
     }
     #[cfg(target_os = "macos")]
     {
+        // FIXME: Adjust
+        /*
         let filename = py.import("mitmproxy_rs")?.filename()?;
         let executable_path = Path::new(filename)
             .parent()
@@ -320,6 +322,7 @@ pub fn start_os_proxy(
             executable_path.as_path(),
             Path::new("/Applications/MitmproxyAppleTunnel.app/"),
         )?;
+         */
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;

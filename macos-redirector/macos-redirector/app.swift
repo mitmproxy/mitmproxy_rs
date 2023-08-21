@@ -13,15 +13,15 @@ let designatedRequirementWildcard = "identifier exists"
 struct App {
     
     static func main() async throws {
-        log.debug("app starting with \(CommandLine.arguments)")
+        log.debug("app starting with \(CommandLine.arguments, privacy: .public)")
         
         try await SystemExtensionInstaller.run()
-        let manager = try await startVPN()
+        let manager = try await startVPN(pipeBase: CommandLine.arguments.last!)
         
         log.debug("reading...")
         while let spec = try readIpcMessage(ofType: Mitmproxy_Ipc_InterceptSpec.self, fh: FileHandle.standardInput) {
             
-            log.debug("received intercept spec: \(spec.spec)")
+            log.debug("received intercept spec: \(spec.spec, privacy: .public)")
             guard !spec.spec.starts(with: "!") else {
                 log.error("inverse specs are not implemented yet.")
                 continue
@@ -30,6 +30,7 @@ struct App {
             manager.appRules = bundleIds.map({
                 NEAppRule(signingIdentifier: String($0), designatedRequirement: designatedRequirementWildcard)
             });
+            try await manager.saveToPreferences()
             
         }
         
@@ -81,7 +82,7 @@ class SystemExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
 }
 
 
-func startVPN() async throws -> NETunnelProviderManager {
+func startVPN(pipeBase: String) async throws -> NETunnelProviderManager {
     let savedManagers = try await NETunnelProviderManager.loadAllFromPreferences()
     for m in savedManagers {
         if (m.protocolConfiguration as? NETunnelProviderProtocol)?.providerBundleIdentifier == networkExtensionIdentifier {
@@ -96,7 +97,7 @@ func startVPN() async throws -> NETunnelProviderManager {
     
     let providerProtocol = NETunnelProviderProtocol()
     providerProtocol.providerBundleIdentifier = networkExtensionIdentifier
-    providerProtocol.serverAddress = "/tmp/mitmproxy-123"
+    providerProtocol.serverAddress = pipeBase
     
     // XXX: it's unclear if these are actually necessary for per-app VPNs
     providerProtocol.enforceRoutes = true

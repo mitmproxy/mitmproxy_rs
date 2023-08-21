@@ -1326,7 +1326,7 @@ dependencies = [
  "console-subscriber",
  "criterion",
  "env_logger",
- "home",
+ "futures-util",
  "image",
  "log",
  "nix",
@@ -1340,6 +1340,7 @@ dependencies = [
  "security-framework",
  "smoltcp",
  "tokio",
+ "tokio-util",
  "windows",
  "x25519-dalek",
 ]

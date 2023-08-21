@@ -42,6 +42,8 @@ async-trait = "0.1.68"
 console-subscriber = { version = "0.1.9", optional = true }
 image = "0.24.6"
 prost = "0.11.9"
+tokio-util = { version = "0.7.8", features = ["codec"] }
+futures-util = { version = "0.3.28", features = ["sink"] }
 
 # [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
@@ -66,7 +68,6 @@ features = [
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = { git="https://github.com/emanuele-em/apple-security", rev = "eb6abf2dabe3881620436eba952750600bef267b"}
 nix = { version = "0.25.1", default-features = false, features = ["fs"] }
-home = "0.5.5"
 
 [dev-dependencies]
 env_logger = "0.10"
