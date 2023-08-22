@@ -80,6 +80,23 @@ jobs:
           command: test
           args: --workspace --verbose ${{ matrix.args }}
 
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        id: cache-app
+        with:
+          path: macos-redirector/dist/
+          key: macos-${{ hashFiles('macos-redirector/**') }}
+      - if: steps.cache-app.outputs.cache-hit != 'true'
+        run: .github/scripts/build-macos-redirector.sh
+        working-directory: macos-redirector
+      - uses: actions/upload-artifact@v3
+        with:
+          name: macos-app
+          path: macos-redirector/dist/
+
   build:
     strategy:
       matrix:
