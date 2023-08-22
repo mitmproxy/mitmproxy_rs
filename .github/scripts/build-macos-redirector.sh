@@ -51,7 +51,7 @@ if [ -n "$APPLE_ID" ]; then
 #  security import "$RUNNER_TEMP/build.cer" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
 #  security list-keychain -d user -s $KEYCHAIN_PATH
 
-  ls -l "~/Library/MobileDevice/Provisioning Profiles/"
+  # ls -l "~/Library/MobileDevice/Provisioning Profiles/"
 
   mkdir build
   xcodebuild \
