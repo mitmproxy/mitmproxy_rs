@@ -1,6 +1,8 @@
 use crate::task::PyInteropTask;
 
-use crate::util::{copy_dir, socketaddr_to_py, string_to_key};
+#[cfg(target_os = "macos")]
+use crate::util::copy_dir;
+use crate::util::{socketaddr_to_py, string_to_key};
 
 use anyhow::Result;
 use mitmproxy::intercept_conf::InterceptConf;

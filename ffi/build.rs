@@ -1,5 +1,6 @@
 use std::{fs, io, path::Path};
 
+#[allow(unused)]
 pub fn copy_dir(src: &Path, dst: &Path) -> Result<(), io::Error> {
     for entry in src.read_dir()? {
         let entry = entry?;
@@ -16,12 +17,14 @@ pub fn copy_dir(src: &Path, dst: &Path) -> Result<(), io::Error> {
     Ok(())
 }
 
+#[allow(unused)]
 const TARGET: &str = if cfg!(debug_assertions) {
     "debug"
 } else {
     "release"
 };
 
+#[allow(unused)]
 fn panic_unless_ci(message: &str) {
     if std::env::var("CI").is_ok() {
         println!("cargo:warning={}", message);
