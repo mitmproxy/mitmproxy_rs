@@ -15,6 +15,7 @@ if [ -n "${APPLE_ID+x}" ]; then
   ## Exported from keychain to .p12 and then
   ## openssl pkcs12 -in key.p12 -nodes -legacy
   security import <(echo -n "$APPLE_CERTIFICATE") -A
+  security set-keychain-settings -lut 21600
   security unlock-keychain
 
   mkdir build
