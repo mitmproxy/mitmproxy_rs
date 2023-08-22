@@ -112,10 +112,13 @@ func startVPN(pipeBase: String) async throws -> NETunnelProviderManager {
     providerProtocol.enforceRoutes = true
     providerProtocol.includeAllNetworks = true
     providerProtocol.excludeLocalNetworks = false
+    /*
+     XXX: This somehow does not compile on GHA
     if #available(macOS 13.3, *) {
         providerProtocol.excludeAPNs = false
         providerProtocol.excludeCellularServices = false
     }
+    */
     
     manager.protocolConfiguration = providerProtocol
     manager.localizedDescription = "mitmproxy"
