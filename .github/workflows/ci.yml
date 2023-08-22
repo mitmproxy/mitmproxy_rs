@@ -80,6 +80,7 @@ jobs:
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_PROVISIONING_PROFILE_APP: ${{ secrets.APPLE_PROVISIONING_PROFILE_APP }}
           APPLE_PROVISIONING_PROFILE_EXT: ${{ secrets.APPLE_PROVISIONING_PROFILE_EXT }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
 
       - uses: actions/upload-artifact@v3
         with:
