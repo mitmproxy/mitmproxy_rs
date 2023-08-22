@@ -17,7 +17,7 @@ if [ -n "${APPLE_ID+x}" ]; then
   security import <(echo -n "$APPLE_CERTIFICATE") -A
 #
 #  echo "a"
-#   security list-keychain
+#  security list-keychain
 #  echo "b"
 #  security list-keychain -d user
 #
