@@ -132,7 +132,10 @@ jobs:
       - if: runner.os == 'macOS'
         run: cargo build --release --package macos-certificate-truster
       - if: runner.os == 'macOS'
-        run: echo "TODO get artifacts here."
+        uses: actions/download-artifact@v3
+        with:
+          name: macos-app
+          path: macos-redirector/dist/
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi

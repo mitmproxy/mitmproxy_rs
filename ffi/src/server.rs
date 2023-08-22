@@ -1,6 +1,6 @@
 use crate::task::PyInteropTask;
 
-use crate::util::{socketaddr_to_py, string_to_key};
+use crate::util::{copy_dir, socketaddr_to_py, string_to_key};
 
 use anyhow::Result;
 use mitmproxy::intercept_conf::InterceptConf;
@@ -306,23 +306,26 @@ pub fn start_os_proxy(
     }
     #[cfg(target_os = "macos")]
     {
-        // FIXME: Adjust
-        /*
-        let filename = py.import("mitmproxy_rs")?.filename()?;
-        let executable_path = Path::new(filename)
-            .parent()
-            .ok_or_else(|| anyhow!("invalid path"))?
-            .join("macos-redirector.app");
+        let destination_path = Path::new("/Applications/Mitmproxy Redirector.app");
+        if destination_path.exists() {
+            log::info!("Using existing mitmproxy redirector app.");
+        } else {
+            let filename = py.import("mitmproxy_rs")?.filename()?;
 
-        if !executable_path.exists() {
-            return Err(anyhow!("{} does not exist", executable_path.display()).into());
+            let source_path = Path::new(filename)
+                .parent()
+                .ok_or_else(|| anyhow::anyhow!("invalid path"))?
+                .join("Mitmproxy Redirector.app");
+
+            if !source_path.exists() {
+                anyhow::bail!("{} does not exist", executable_path.display());
+            }
+
+            copy_dir(
+                source_path.as_path(),
+                destination_path.as_path(),
+            )?;
         }
-
-        copy_dir(
-            executable_path.as_path(),
-            Path::new("/Applications/MitmproxyAppleTunnel.app/"),
-        )?;
-         */
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
