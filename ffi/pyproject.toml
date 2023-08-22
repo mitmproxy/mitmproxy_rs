@@ -16,6 +16,12 @@ classifiers = [
     "Development Status :: 3 - Alpha",
 ]
 
+[tool.maturin]
+include = [
+    "mitmproxy_rs/macos-redirector.app/**/*",
+    "mitmproxy_rs/macos-certificate-truster.app/**/*",
+]
+
 [tool.black]
 line-length = 140
 include = '\.pyi?$'
