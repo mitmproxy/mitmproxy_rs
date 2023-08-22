@@ -5,10 +5,11 @@ set -eo pipefail
 if [ -n "$APPLE_ID" ]; then
   echo "Signing keys available, building signed binary..."
 
-  xcrun notarytool store-credentials "AC_PASSWORD" \
-    --apple-id "$APPLE_ID" \
-    --team-id "$APPLE_TEAM_ID" \
-    --password "$APPLE_APP_PASSWORD"
+  # Install provisioning profiles
+  mkdir -p "~/Library/MobileDevice/Provisioning Profiles"
+  # from https://developer.apple.com/account/resources/profiles/list, base64'd
+  echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/app.provisionprofile"
+  echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/ext.provisionprofile"
 
   mkdir build
   xcodebuild \
@@ -23,12 +24,18 @@ if [ -n "$APPLE_ID" ]; then
 
   # Notarize
   # https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution/customizing_the_notarization_workflow
+  xcrun notarytool store-credentials "AC_PASSWORD" \
+    --apple-id "$APPLE_ID" \
+    --team-id "$APPLE_TEAM_ID" \
+    --password "$APPLE_APP_PASSWORD"
   ditto -c -k --keepParent "./build/Mitmproxy Redirector.app" "./build/Mitmproxy Redirector.zip"
   xcrun notarytool submit \
     "./build/Mitmproxy Redirector.zip" \
     --keychain-profile "AC_PASSWORD" \
     --wait
   xcrun stapler staple "./build/Mitmproxy Redirector.app"
+
+  mv "./build/Mitmproxy Redirector.app" "./dist/Mitmproxy Redirector.app"
 
 #
 #  # Create variables
