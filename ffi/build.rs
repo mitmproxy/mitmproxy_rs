@@ -1,19 +1,35 @@
-#[cfg(target_os = "macos")]
-use home::home_dir;
-use std::{fs, path::Path};
+use std::{fs, io, path::Path};
 
-pub fn copy_dir(src: &Path, dst: &Path) {
-    for entry in src.read_dir().unwrap() {
-        let entry = entry.unwrap();
-        let ty = entry.file_type().expect("Failed to get file type");
+#[allow(unused)]
+pub fn copy_dir(src: &Path, dst: &Path) -> Result<(), io::Error> {
+    for entry in src.read_dir()? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
         if ty.is_dir() {
-            fs::create_dir_all(&dst_path).expect("Failed to create directory");
-            copy_dir(&src_path, &dst_path);
+            fs::create_dir_all(&dst_path)?;
+            copy_dir(&src_path, &dst_path)?;
         } else {
-            fs::copy(&src_path, &dst_path).expect("Failed to copy {src_path} to {dst_path}");
+            fs::copy(&src_path, &dst_path)?;
         }
+    }
+    Ok(())
+}
+
+#[allow(unused)]
+const TARGET: &str = if cfg!(debug_assertions) {
+    "debug"
+} else {
+    "release"
+};
+
+#[allow(unused)]
+fn panic_unless_ci(message: &str) {
+    if std::env::var("CI").is_ok() {
+        println!("cargo:warning={}", message);
+    } else {
+        panic!("{}", message);
     }
 }
 
@@ -34,18 +50,6 @@ fn main() {
         println!("cargo:rerun-if-changed=../windows-redirector/windivert/");
 
         let windivert_files = ["WinDivert.dll", "WinDivert.lib", "WinDivert64.sys"];
-        if cfg!(debug_assertions) {
-            fs::copy(
-                "../target/debug/windows-redirector.exe",
-                "mitmproxy_rs/windows-redirector.exe",
-            )
-        } else {
-            fs::copy(
-                "../target/release/windows-redirector.exe",
-                "mitmproxy_rs/windows-redirector.exe",
-            )
-        }
-        .expect("Failed to copy windows-redirector.exe. Has it been built yet?");
         for file in windivert_files {
             if fs::copy(
                 format!("../windows-redirector/windivert/{file}"),
@@ -59,6 +63,15 @@ fn main() {
                 }
             }
         }
+
+        if fs::copy(
+            format!("../target/{TARGET}/windows-redirector.exe"),
+            "mitmproxy_rs/windows-redirector.exe",
+        )
+        .is_err()
+        {
+            panic_unless_ci("Failed to copy windows-redirector.exe. Has it been built yet?");
+        };
     }
 
     #[cfg(target_os = "macos")]
@@ -67,46 +80,26 @@ fn main() {
         copy_dir(
             Path::new("../macos-certificate-truster/macos-certificate-truster.app/"),
             Path::new("mitmproxy_rs/macos-certificate-truster.app"),
-        );
+        )
+        .unwrap();
         fs::create_dir_all("mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/").unwrap();
-        if cfg!(debug_assertions) {
-            fs::copy(
-                "../target/debug/macos-certificate-truster",
-                "mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/macos-certificate-truster",
-            )
-        } else {
-            fs::copy(
-                "../target/release/macos-certificate-truster",
-                "mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/macos-certificate-truster",
-            )
+        if let Err(_) = fs::copy(
+            format!("../target/{TARGET}/macos-certificate-truster"),
+            "mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/macos-certificate-truster",
+        ) {
+            panic_unless_ci("Failed to copy macos-certificate-truster. Has it been built yet?");
         }
-        .expect("Failed to copy macos-certificate-truster. Has it been built yet?");
 
-        // macos-redirector app
-        let derived_data_dir = home_dir()
-            .unwrap()
-            .join("Library")
-            .join("Developer")
-            .join("Xcode")
-            .join("DerivedData");
-
-        // xcode renames the build folder with an ever-changing hash suffix.
-        // to work around this, we search for MitmproxyAppleTunnel-*
-        for entry in fs::read_dir(derived_data_dir).unwrap() {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                if path.is_dir() {
-                    let file_name = path.file_name().unwrap().to_string_lossy();
-                    if file_name.starts_with("MitmproxyAppleTunnel-") {
-                        let build_path = path
-                            .join("Build")
-                            .join("Products")
-                            .join("Release")
-                            .join("MitmproxyAppleTunnel.app");
-
-                        copy_dir(&build_path, Path::new("mitmproxy_rs/macos-redirector.app"));
-                    }
-                }
+        if copy_dir(
+            Path::new("../macos-redirector/dist/Mitmproxy Redirector.app/"),
+            Path::new("mitmproxy_rs/Mitmproxy Redirector.app/"),
+        )
+        .is_err()
+        {
+            if Path::new("/Applications/Mitmproxy Redirector.app/").exists() {
+                println!("cargo:warning=Using already-installed redirector app.");
+            } else {
+                panic_unless_ci("Failed to copy macos-redirector. Has it been built yet?");
             }
         }
     }

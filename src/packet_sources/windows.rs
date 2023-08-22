@@ -166,9 +166,7 @@ impl PacketSourceTask for WindowsTask {
                     };
                     assert_eq!(cursor.position(), len as u64);
 
-                    let (data, pid, process_name) = match message {
-                        Packet(PacketWithMeta { data, pid, process_name}) => (data, pid, process_name.map(PathBuf::from)),
-                    };
+                    let Packet(PacketWithMeta { data, pid, process_name}) = message;
 
                     let Ok(mut packet) = IpPacket::try_from(data) else {
                         log::error!("Skipping invalid packet: {:?}", &self.buf[..len]);
@@ -193,7 +191,7 @@ impl PacketSourceTask for WindowsTask {
                 Some(e) = self.net_rx.recv() => {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
-                            let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet(packet.into_inner()))};
+                            let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet( ipc::Packet { data: packet.into_inner() }))};
                             packet.encode(&mut self.buf.as_mut_slice())?;
                             let len = packet.encoded_len();
                             self.ipc_server.write_all(&self.buf[..len]).await?;

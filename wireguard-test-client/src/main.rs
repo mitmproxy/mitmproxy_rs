@@ -65,8 +65,7 @@ cafe005012345678000000008002faf0FFFF0000020405b40103030801010402",
     let mut tcp_done = false;
 
     while !(udp_done && tcp_done) {
-        while !packets_to_do.is_empty() {
-            let packet = packets_to_do.pop().unwrap();
+        while let Some(packet) = packets_to_do.pop() {
             println!("Sending packet: {}", hex::encode(&packet));
             match tunn.encapsulate(&packet, &mut buf_out) {
                 TunnResult::WriteToNetwork(b) => {

@@ -124,7 +124,9 @@ async fn main() -> Result<()> {
 
     let mut state = InterceptConf::new(vec![], vec![], false);
     event_tx.send(Event::Ipc(ipc::from_proxy::Message::InterceptSpec(
-        state.to_string(),
+        ipc::InterceptSpec {
+            spec: state.to_string(),
+        }
     )))?;
 
     tokio::spawn(async move {
@@ -321,7 +323,7 @@ async fn main() -> Result<()> {
                     _ => {}
                 }
             }
-            Event::Ipc(ipc::from_proxy::Message::Packet(buf)) => {
+            Event::Ipc(ipc::from_proxy::Message::Packet(ipc::Packet { data: buf })) => {
                 let mut address = unsafe { WinDivertAddress::<NetworkLayer>::new() };
                 // if outbound is false, incoming connections are not re-injected into the right iface.
                 address.set_outbound(true);
@@ -352,7 +354,7 @@ async fn main() -> Result<()> {
 
                 inject_handle.send(&packet)?;
             }
-            Event::Ipc(ipc::from_proxy::Message::InterceptSpec(spec)) => {
+            Event::Ipc(ipc::from_proxy::Message::InterceptSpec(ipc::InterceptSpec { spec })) => {
                 let conf = InterceptConf::try_from(spec.as_str())?;
                 info!("{}", conf.description());
                 state = conf;

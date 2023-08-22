@@ -14,8 +14,25 @@ env:
   rust_clippy: 1.65  # MSRV
 
 jobs:
-  autofix:
-    runs-on: windows-latest
+  protobuf:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: brew install swift-protobuf
+      - run: protoc --swift_out=./macos-redirector/ipc --proto_path=./src/packet_sources/ ipc.proto
+      - uses: autofix-ci/action@8caa572fd27b0019a65e4c695447089c8d3138b9
+
+  rustfmt:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            args: --package windows-redirector
+          - os: macos-latest
+            args: --package macos-certificate-truster
+          - os: ubuntu-latest
+            args: --workspace --exclude windows-redirector --exclude macos-certificate-truster
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -26,19 +43,12 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: autofix-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-autofix-${{ hashFiles('**/Cargo.lock') }}
 
       - run: rustup toolchain install ${{ env.rust_clippy }} --profile minimal --component rustfmt --component clippy
       - run: rustup default ${{ env.rust_clippy }}
-      - uses: actions/setup-python@v4
-        with:
-          python-version-file: .github/python-version.txt
 
-      - if: runner.os == 'Windows'
-        # workaround for https://github.com/rust-lang/cargo/issues/9096
-        run: cargo build --package windows-redirector
-
-      - run: cargo clippy --fix --workspace --allow-dirty --exclude macos-certificate-truster
+      - run: cargo clippy --fix --allow-dirty ${{ matrix.args }}
       - run: cargo fmt --all
 
       - uses: autofix-ci/action@8caa572fd27b0019a65e4c695447089c8d3138b9

@@ -1,0 +1,578 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		CE7A86AF2A8CFB87009E0B82 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CE7A86AE2A8CFB87009E0B82 /* Assets.xcassets */; };
+		CE7A86C02A8CFBAD009E0B82 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE7A86BF2A8CFBAD009E0B82 /* NetworkExtension.framework */; };
+		CE7A86C32A8CFBAD009E0B82 /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A86C22A8CFBAD009E0B82 /* PacketTunnelProvider.swift */; };
+		CE7A86C52A8CFBAD009E0B82 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A86C42A8CFBAD009E0B82 /* main.swift */; };
+		CE7A86CA2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = CE7A86BD2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		CE904BCE2A8E9B2600A7DF8A /* app.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC7D6762A8E2B2300E1A6E9 /* app.swift */; };
+		CE904BCF2A8E9B3100A7DF8A /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */; };
+		CE904BD22A8E9B6A00A7DF8A /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = CE904BD12A8E9B6A00A7DF8A /* SwiftProtobuf */; };
+		CE904BD42A8E9BD500A7DF8A /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = CE904BD32A8E9BD500A7DF8A /* SwiftProtobuf */; };
+		CE904BD52A8E9C5600A7DF8A /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */; };
+		CE904BD82A8EA0C600A7DF8A /* utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BD72A8EA0C600A7DF8A /* utils.swift */; };
+		CE904BD92A8EA0C600A7DF8A /* utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BD72A8EA0C600A7DF8A /* utils.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		CE7A86C82A8CFBAD009E0B82 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CE7A869F2A8CFB86009E0B82 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CE7A86BC2A8CFBAD009E0B82;
+			remoteInfo = "network-extension";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		CE7A86CE2A8CFBAD009E0B82 /* Embed System Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SYSTEM_EXTENSIONS_FOLDER_PATH)";
+			dstSubfolderSpec = 16;
+			files = (
+				CE7A86CA2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension in Embed System Extensions */,
+			);
+			name = "Embed System Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		CE7A86A72A8CFB86009E0B82 /* Mitmproxy Redirector.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Mitmproxy Redirector.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CE7A86AE2A8CFB87009E0B82 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CE7A86B32A8CFB87009E0B82 /* macos_redirector.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = macos_redirector.entitlements; sourceTree = "<group>"; };
+		CE7A86BD2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension */ = {isa = PBXFileReference; explicitFileType = "wrapper.system-extension"; includeInIndex = 0; path = "org.mitmproxy.macos-redirector.network-extension.systemextension"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CE7A86BF2A8CFBAD009E0B82 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
+		CE7A86C22A8CFBAD009E0B82 /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
+		CE7A86C42A8CFBAD009E0B82 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		CE7A86C62A8CFBAD009E0B82 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		CE7A86C72A8CFBAD009E0B82 /* network_extension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = network_extension.entitlements; sourceTree = "<group>"; };
+		CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ipc.pb.swift; sourceTree = "<group>"; };
+		CE904BD72A8EA0C600A7DF8A /* utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = utils.swift; sourceTree = "<group>"; };
+		CEC7D6762A8E2B2300E1A6E9 /* app.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = app.swift; sourceTree = "<group>"; };
+		CEC7D6792A8E444600E1A6E9 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CE7A86A42A8CFB86009E0B82 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CE904BD22A8E9B6A00A7DF8A /* SwiftProtobuf in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE7A86BA2A8CFBAD009E0B82 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CE7A86C02A8CFBAD009E0B82 /* NetworkExtension.framework in Frameworks */,
+				CE904BD42A8E9BD500A7DF8A /* SwiftProtobuf in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		CE7A869E2A8CFB86009E0B82 = {
+			isa = PBXGroup;
+			children = (
+				CE904BD62A8EA0B300A7DF8A /* ipc */,
+				CEC7D6792A8E444600E1A6E9 /* README.md */,
+				CE7A86A92A8CFB86009E0B82 /* macos-redirector */,
+				CE7A86C12A8CFBAD009E0B82 /* network-extension */,
+				CE7A86BE2A8CFBAD009E0B82 /* Frameworks */,
+				CE7A86A82A8CFB86009E0B82 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CE7A86A82A8CFB86009E0B82 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CE7A86A72A8CFB86009E0B82 /* Mitmproxy Redirector.app */,
+				CE7A86BD2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CE7A86A92A8CFB86009E0B82 /* macos-redirector */ = {
+			isa = PBXGroup;
+			children = (
+				CE7A86AE2A8CFB87009E0B82 /* Assets.xcassets */,
+				CE7A86B32A8CFB87009E0B82 /* macos_redirector.entitlements */,
+				CEC7D6762A8E2B2300E1A6E9 /* app.swift */,
+			);
+			path = "macos-redirector";
+			sourceTree = "<group>";
+		};
+		CE7A86BE2A8CFBAD009E0B82 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				CE7A86BF2A8CFBAD009E0B82 /* NetworkExtension.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		CE7A86C12A8CFBAD009E0B82 /* network-extension */ = {
+			isa = PBXGroup;
+			children = (
+				CE7A86C22A8CFBAD009E0B82 /* PacketTunnelProvider.swift */,
+				CE7A86C42A8CFBAD009E0B82 /* main.swift */,
+				CE7A86C62A8CFBAD009E0B82 /* Info.plist */,
+				CE7A86C72A8CFBAD009E0B82 /* network_extension.entitlements */,
+			);
+			path = "network-extension";
+			sourceTree = "<group>";
+		};
+		CE904BD62A8EA0B300A7DF8A /* ipc */ = {
+			isa = PBXGroup;
+			children = (
+				CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */,
+				CE904BD72A8EA0C600A7DF8A /* utils.swift */,
+			);
+			path = ipc;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CE7A86A62A8CFB86009E0B82 /* macos-redirector */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CE7A86B62A8CFB87009E0B82 /* Build configuration list for PBXNativeTarget "macos-redirector" */;
+			buildPhases = (
+				CE7A86A32A8CFB86009E0B82 /* Sources */,
+				CE7A86A42A8CFB86009E0B82 /* Frameworks */,
+				CE7A86A52A8CFB86009E0B82 /* Resources */,
+				CE7A86CE2A8CFBAD009E0B82 /* Embed System Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CE7A86C92A8CFBAD009E0B82 /* PBXTargetDependency */,
+			);
+			name = "macos-redirector";
+			packageProductDependencies = (
+				CE904BD12A8E9B6A00A7DF8A /* SwiftProtobuf */,
+			);
+			productName = "macos-redirector";
+			productReference = CE7A86A72A8CFB86009E0B82 /* Mitmproxy Redirector.app */;
+			productType = "com.apple.product-type.application";
+		};
+		CE7A86BC2A8CFBAD009E0B82 /* network-extension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CE7A86CB2A8CFBAD009E0B82 /* Build configuration list for PBXNativeTarget "network-extension" */;
+			buildPhases = (
+				CE7A86B92A8CFBAD009E0B82 /* Sources */,
+				CE7A86BA2A8CFBAD009E0B82 /* Frameworks */,
+				CE7A86BB2A8CFBAD009E0B82 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "network-extension";
+			packageProductDependencies = (
+				CE904BD32A8E9BD500A7DF8A /* SwiftProtobuf */,
+			);
+			productName = "network-extension";
+			productReference = CE7A86BD2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension */;
+			productType = "com.apple.product-type.system-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CE7A869F2A8CFB86009E0B82 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1430;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					CE7A86A62A8CFB86009E0B82 = {
+						CreatedOnToolsVersion = 14.3.1;
+					};
+					CE7A86BC2A8CFBAD009E0B82 = {
+						CreatedOnToolsVersion = 14.3.1;
+					};
+				};
+			};
+			buildConfigurationList = CE7A86A22A8CFB86009E0B82 /* Build configuration list for PBXProject "macos-redirector" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = CE7A869E2A8CFB86009E0B82;
+			packageReferences = (
+				CE904BD02A8E9B6A00A7DF8A /* XCRemoteSwiftPackageReference "swift-protobuf" */,
+			);
+			productRefGroup = CE7A86A82A8CFB86009E0B82 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CE7A86A62A8CFB86009E0B82 /* macos-redirector */,
+				CE7A86BC2A8CFBAD009E0B82 /* network-extension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CE7A86A52A8CFB86009E0B82 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CE7A86AF2A8CFB87009E0B82 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE7A86BB2A8CFBAD009E0B82 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CE7A86A32A8CFB86009E0B82 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CE904BD82A8EA0C600A7DF8A /* utils.swift in Sources */,
+				CE904BCE2A8E9B2600A7DF8A /* app.swift in Sources */,
+				CE904BD52A8E9C5600A7DF8A /* ipc.pb.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE7A86B92A8CFBAD009E0B82 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CE904BCF2A8E9B3100A7DF8A /* ipc.pb.swift in Sources */,
+				CE7A86C52A8CFBAD009E0B82 /* main.swift in Sources */,
+				CE7A86C32A8CFBAD009E0B82 /* PacketTunnelProvider.swift in Sources */,
+				CE904BD92A8EA0C600A7DF8A /* utils.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		CE7A86C92A8CFBAD009E0B82 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CE7A86BC2A8CFBAD009E0B82 /* network-extension */;
+			targetProxy = CE7A86C82A8CFBAD009E0B82 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		CE7A86B42A8CFB87009E0B82 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		CE7A86B52A8CFB87009E0B82 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		CE7A86B72A8CFB87009E0B82 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = "macos-redirector/macos_redirector.entitlements";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = S8XHQB96PW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Mitmproxy Redirector";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.mitmproxy.macos-redirector";
+				PRODUCT_NAME = "Mitmproxy Redirector";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Mitmproxy Redirector";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		CE7A86B82A8CFB87009E0B82 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = "macos-redirector/macos_redirector.entitlements";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = S8XHQB96PW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Mitmproxy Redirector";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.mitmproxy.macos-redirector";
+				PRODUCT_NAME = "Mitmproxy Redirector";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Mitmproxy Redirector";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		CE7A86CC2A8CFBAD009E0B82 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "network-extension/network_extension.entitlements";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = S8XHQB96PW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "network-extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "network-extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.mitmproxy.macos-redirector.network-extension";
+				PRODUCT_NAME = "$(inherited)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Mitmproxy Redirector Network Extension";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		CE7A86CD2A8CFBAD009E0B82 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "network-extension/network_extension.entitlements";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = S8XHQB96PW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "network-extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "network-extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.mitmproxy.macos-redirector.network-extension";
+				PRODUCT_NAME = "$(inherited)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Mitmproxy Redirector Network Extension";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CE7A86A22A8CFB86009E0B82 /* Build configuration list for PBXProject "macos-redirector" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CE7A86B42A8CFB87009E0B82 /* Debug */,
+				CE7A86B52A8CFB87009E0B82 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CE7A86B62A8CFB87009E0B82 /* Build configuration list for PBXNativeTarget "macos-redirector" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CE7A86B72A8CFB87009E0B82 /* Debug */,
+				CE7A86B82A8CFB87009E0B82 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CE7A86CB2A8CFBAD009E0B82 /* Build configuration list for PBXNativeTarget "network-extension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CE7A86CC2A8CFBAD009E0B82 /* Debug */,
+				CE7A86CD2A8CFBAD009E0B82 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		CE904BD02A8E9B6A00A7DF8A /* XCRemoteSwiftPackageReference "swift-protobuf" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-protobuf.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		CE904BD12A8E9B6A00A7DF8A /* SwiftProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CE904BD02A8E9B6A00A7DF8A /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
+		};
+		CE904BD32A8E9BD500A7DF8A /* SwiftProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CE904BD02A8E9B6A00A7DF8A /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = CE7A869F2A8CFB86009E0B82 /* Project object */;
+}

@@ -16,7 +16,13 @@ message PacketWithMeta {
 
 message FromProxy {
   oneof message {
-    bytes packet = 1;
-    string intercept_spec = 2;
+    Packet packet = 1;
+    InterceptSpec intercept_spec = 2;
   }
+}
+message Packet {
+  bytes data = 1;
+}
+message InterceptSpec {
+  string spec = 1;
 }
