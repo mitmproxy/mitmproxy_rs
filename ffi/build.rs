@@ -1,20 +1,19 @@
-#[cfg(target_os = "macos")]
-use home::home_dir;
-use std::{fs, path::Path};
+use std::{fs, io, path::Path};
 
-pub fn copy_dir(src: &Path, dst: &Path) {
-    for entry in src.read_dir().unwrap() {
-        let entry = entry.unwrap();
-        let ty = entry.file_type().expect("Failed to get file type");
+pub fn copy_dir(src: &Path, dst: &Path) -> Result<(), io::Error> {
+    for entry in src.read_dir()? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
         if ty.is_dir() {
-            fs::create_dir_all(&dst_path).expect("Failed to create directory");
-            copy_dir(&src_path, &dst_path);
+            fs::create_dir_all(&dst_path)?;
+            copy_dir(&src_path, &dst_path)?;
         } else {
-            fs::copy(&src_path, &dst_path).expect("Failed to copy {src_path} to {dst_path}");
+            fs::copy(&src_path, &dst_path)?;
         }
     }
+    Ok(())
 }
 
 const TARGET: &str = if cfg!(debug_assertions) {
@@ -63,7 +62,7 @@ fn main() {
         }
 
         if let Err(_) = fs::copy(
-            format!("../{TARGET}/debug/windows-redirector.exe"),
+            format!("../target/{TARGET}/windows-redirector.exe"),
             "mitmproxy_rs/windows-redirector.exe",
         ) {
             panic_unless_ci("Failed to copy windows-redirector.exe. Has it been built yet?");
@@ -76,10 +75,10 @@ fn main() {
         copy_dir(
             Path::new("../macos-certificate-truster/macos-certificate-truster.app/"),
             Path::new("mitmproxy_rs/macos-certificate-truster.app"),
-        );
+        ).unwrap();
         fs::create_dir_all("mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/").unwrap();
         if let Err(_) = fs::copy(
-            format!("../{TARGET}/debug/macos-certificate-truster"),
+            format!("../target/{TARGET}/macos-certificate-truster"),
             "mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/macos-certificate-truster",
         ) {
             panic_unless_ci("Failed to copy macos-certificate-truster. Has it been built yet?");
