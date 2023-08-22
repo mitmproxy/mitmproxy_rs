@@ -55,6 +55,7 @@ if [ -n "${APPLE_ID+x}" ]; then
   mkdir build
   xcodebuild \
     -scheme macos-redirector \
+    -destination 'platform=macOS' \
     -archivePath build/macos-redirector.xcarchive \
     -configuration Release \
     archive
