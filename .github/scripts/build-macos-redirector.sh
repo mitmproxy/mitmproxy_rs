@@ -22,7 +22,7 @@ if [ -n "${APPLE_ID+x}" ]; then
   security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
   security unlock-keychain -p "app-signing" $KEYCHAIN_PATH
   security import <(echo -n "$APPLE_CERTIFICATE" | base64 --decode) \
-    -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+    -A -t cert -k $KEYCHAIN_PATH
   security list-keychain -d user -s $KEYCHAIN_PATH
 
 #  echo -n "$APPLE_CERTIFICATE" | base64 --decode -o  "$RUNNER_TEMP/build.cer"
