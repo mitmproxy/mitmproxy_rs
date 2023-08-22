@@ -13,7 +13,7 @@ if [ -n "$APPLE_ID" ]; then
   echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/99970b7c-e88e-44b5-b44a-e0eabf3c291f.provisionprofile"
   echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/474ba41d-1dac-40c2-88a5-4ab7266108c7.provisionprofile"
 
-  mkdir -p "/Library/MobileDevice/Provisioning Profiles"
+  sudo mkdir -p "/Library/MobileDevice/Provisioning Profiles"
   echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o "/Library/MobileDevice/Provisioning Profiles/99970b7c-e88e-44b5-b44a-e0eabf3c291f.provisionprofile"
   echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o "/Library/MobileDevice/Provisioning Profiles/474ba41d-1dac-40c2-88a5-4ab7266108c7.provisionprofile"
 
