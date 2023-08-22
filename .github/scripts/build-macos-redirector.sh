@@ -48,6 +48,7 @@ if [ -n "${APPLE_ID+x}" ]; then
     --wait
   xcrun stapler staple "./build/Mitmproxy Redirector.app"
 
+  mkdir dist
   mv "./build/Mitmproxy Redirector.app" "./dist/Mitmproxy Redirector.app"
 else
   echo "Signing keys not available, building unsigned binary..."
