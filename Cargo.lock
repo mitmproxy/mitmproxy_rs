@@ -1351,7 +1351,6 @@ dependencies = [
  "pyo3-asyncio",
  "pyo3-log",
  "rand_core",
- "tempfile",
  "tokio",
  "x25519-dalek",
 ]
