@@ -12,16 +12,20 @@ if [ -n "${APPLE_ID+x}" ]; then
   echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o ~/Library/MobileDevice/Provisioning\ Profiles/app.provisionprofile
   echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o ~/Library/MobileDevice/Provisioning\ Profiles/ext.provisionprofile
 
-  ## Exported from keychain to .p12 and then
-  ## openssl pkcs12 -in key.p12 -nodes -legacy
-  security import <(echo -n "$APPLE_CERTIFICATE") -A
-  security set-keychain-settings -lut 21600
-  security unlock-keychain
+  # Create temporary keychain
+  KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain
+  security create-keychain -p "app-signing" $KEYCHAIN_PATH
+  security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+  security unlock-keychain -p "app-signing" $KEYCHAIN_PATH
+  # Import certificate to keychain
+  security import <(echo -n "$APPLE_CERTIFICATE") -A -k $KEYCHAIN_PATH
+  security list-keychain -s $KEYCHAIN_PATH
 
   mkdir build
   xcodebuild \
     -scheme macos-redirector \
     -archivePath build/macos-redirector.xcarchive \
+    OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" \
     archive
   xcodebuild \
     -exportArchive \
@@ -32,12 +36,14 @@ if [ -n "${APPLE_ID+x}" ]; then
   # Notarize
   # https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution/customizing_the_notarization_workflow
   xcrun notarytool store-credentials "AC_PASSWORD" \
+    --keychain "$KEYCHAIN_PATH" \
     --apple-id "$APPLE_ID" \
     --team-id "$APPLE_TEAM_ID" \
     --password "$APPLE_APP_PASSWORD"
   ditto -c -k --keepParent "./build/Mitmproxy Redirector.app" "./build/Mitmproxy Redirector.zip"
   xcrun notarytool submit \
     "./build/Mitmproxy Redirector.zip" \
+    --keychain "$KEYCHAIN_PATH" \
     --keychain-profile "AC_PASSWORD" \
     --wait
   xcrun stapler staple "./build/Mitmproxy Redirector.app"
