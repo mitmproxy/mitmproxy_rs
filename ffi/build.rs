@@ -64,10 +64,10 @@ fn main() {
             }
         }
 
-        if let Err(_) = fs::copy(
+        if fs::copy(
             format!("../target/{TARGET}/windows-redirector.exe"),
             "mitmproxy_rs/windows-redirector.exe",
-        ) {
+        ).is_err() {
             panic_unless_ci("Failed to copy windows-redirector.exe. Has it been built yet?");
         };
     }
@@ -88,10 +88,10 @@ fn main() {
             panic_unless_ci("Failed to copy macos-certificate-truster. Has it been built yet?");
         }
 
-        if let Err(_) = copy_dir(
+        if copy_dir(
             Path::new("../macos-redirector/dist/Mitmproxy Redirector.app/"),
             Path::new("mitmproxy_rs/Mitmproxy Redirector.app/"),
-        ) {
+        ).is_err() {
             if Path::new("/Applications/Mitmproxy Redirector.app/").exists() {
                 println!("cargo:warning=Using already-installed redirector app.");
             } else {
