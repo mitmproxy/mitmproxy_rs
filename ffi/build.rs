@@ -75,7 +75,8 @@ fn main() {
         copy_dir(
             Path::new("../macos-certificate-truster/macos-certificate-truster.app/"),
             Path::new("mitmproxy_rs/macos-certificate-truster.app"),
-        ).unwrap();
+        )
+        .unwrap();
         fs::create_dir_all("mitmproxy_rs/macos-certificate-truster.app/Contents/MacOS/").unwrap();
         if let Err(_) = fs::copy(
             format!("../target/{TARGET}/macos-certificate-truster"),
