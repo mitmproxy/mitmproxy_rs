@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-set -eo pipefail
+set -eou pipefail
 
-if [ -n "$APPLE_ID" ]; then
+if [ -n "${APPLE_ID+x}" ]; then
   echo "Signing keys available, building signed binary..."
 
   APPLE_TEAM_ID=S8XHQB96PW
@@ -12,23 +12,18 @@ if [ -n "$APPLE_ID" ]; then
   echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o ~/Library/MobileDevice/Provisioning\ Profiles/app.mobileprovision
   echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o ~/Library/MobileDevice/Provisioning\ Profiles/ext.mobileprovision
 
-
-  #mkdir -p "~/Library/MobileDevice/Provisioning Profiles"
-  # from https://developer.apple.com/account/resources/profiles/list, base64'd
-  #echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/99970b7c-e88e-44b5-b44a-e0eabf3c291f.provisionprofile"
-  #echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/474ba41d-1dac-40c2-88a5-4ab7266108c7.provisionprofile"
-
-  #sudo mkdir -p "/Library/MobileDevice/Provisioning Profiles"
-  #sudo echo -n "$APPLE_PROVISIONING_PROFILE_APP" | sudo base64 --decode -o "/Library/MobileDevice/Provisioning Profiles/99970b7c-e88e-44b5-b44a-e0eabf3c291f.provisionprofile"
-  #sudo echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | sudo base64 --decode -o "/Library/MobileDevice/Provisioning Profiles/474ba41d-1dac-40c2-88a5-4ab7266108c7.provisionprofile"
-
-  #echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/Mitmproxy_Redirector.provisionprofile"
-  #echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/Mitmproxy_Redirector_Network_Extension.provisionprofile"
-  #sudo echo -n "$APPLE_PROVISIONING_PROFILE_APP" | sudo base64 --decode -o "/Library/MobileDevice/Provisioning Profiles/Mitmproxy_Redirector.provisionprofile"
-  #sudo echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | sudo base64 --decode -o "/Library/MobileDevice/Provisioning Profiles/Mitmproxy_Redirector_Network_Extension.provisionprofile"
-
-
   security import <(echo -n "$APPLE_CERTIFICATE" | base64 --decode) -A
+
+  security list-keychain
+  security list-keychain -d user
+
+  KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+  security create-keychain -p "app-signing" $KEYCHAIN_PATH
+  security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+  security unlock-keychain -p "app-signing" $KEYCHAIN_PATH
+  security import <(echo -n "$APPLE_CERTIFICATE" | base64 --decode) \
+    -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+  security list-keychain -d user -s $KEYCHAIN_PATH
 
 #  echo -n "$APPLE_CERTIFICATE" | base64 --decode -o  "$RUNNER_TEMP/build.cer"
 #  ls -l "$RUNNER_TEMP"
