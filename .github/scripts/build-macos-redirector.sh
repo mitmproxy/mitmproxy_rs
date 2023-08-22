@@ -24,44 +24,20 @@ if [ -n "${APPLE_ID+x}" ]; then
 
   # Import certificate to keychain
   security import <(echo -n "$APPLE_CERTIFICATE") -A -k $KEYCHAIN_PATH
-  security list-keychain -d user -s $KEYCHAIN_PATH
+  security list-keychain -s $KEYCHAIN_PATH
 
-#
-#  echo "a"
-#  security list-keychain
-#  echo "b"
-#  security list-keychain -d user
-#
-#  KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-#  security create-keychain -p "app-signing" $KEYCHAIN_PATH
-#  security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-#  security unlock-keychain -p "app-signing" $KEYCHAIN_PATH
-#  security import <(echo -n "$APPLE_CERTIFICATE" | base64 --decode) \
-#    -A -t cert -k $KEYCHAIN_PATH
-#  echo "c"
-#  security list-keychain -s $KEYCHAIN_PATH
-#  echo "d"
-#  security list-keychain -d user -s $KEYCHAIN_PATH
-#
-#  echo "e"
-#  security dump-keychain
 
-#  echo -n "$APPLE_CERTIFICATE" | base64 --decode -o  "$RUNNER_TEMP/build.cer"
-#  ls -l "$RUNNER_TEMP"
-#  # security import "$RUNNER_TEMP/build.cer" -A -t cert
-#
-#
-#  # create temporary keychain
-#  KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-#  security create-keychain -p "app-signing" $KEYCHAIN_PATH
-#  security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-#  security unlock-keychain -p "app-signing" $KEYCHAIN_PATH
-#
-#  # import certificate to keychain
-#  security import "$RUNNER_TEMP/build.cer" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-#  security list-keychain -d user -s $KEYCHAIN_PATH
+  echo "wat"
+  xcodebuild \
+    -project macos-redirector.xcodeproj \
+    -destination 'platform=macOS' \
+    CODE_SIGN_IDENTITY="Developer ID Application: Maximilian Hils (S8XHQB96PW)" \
+    OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" \
+    # PROVISIONING_PROFILE="$PPE_PATH" \
+    -scheme macos-redirector \
+    build
 
-  # ls -l "~/Library/MobileDevice/Provisioning Profiles/"
+  echo "watwat"
 
   mkdir build
   xcodebuild \
