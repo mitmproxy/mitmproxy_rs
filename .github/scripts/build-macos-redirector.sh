@@ -16,36 +16,19 @@ if [ -n "${APPLE_ID+x}" ]; then
   # openssl pkcs12 -in key.p12 -nodes -legacy
   security import <(echo -n "$APPLE_CERTIFICATE") -A
 
-  # Create temporary keychain
-  KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-  security create-keychain -p "app-signing" $KEYCHAIN_PATH
-  security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-  security unlock-keychain -p "app-signing" $KEYCHAIN_PATH
-
-  # Import certificate to keychain
-  security import <(echo -n "$APPLE_CERTIFICATE") -A -k $KEYCHAIN_PATH
-  security list-keychain -s $KEYCHAIN_PATH
-
-
-  echo "wat"
-  xcodebuild \
-    -project macos-redirector.xcodeproj \
-    -destination 'platform=macOS' \
-    CODE_SIGN_IDENTITY="Developer ID Application: Maximilian Hils (S8XHQB96PW)" \
-    OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" \
-    # PROVISIONING_PROFILE="$PPE_PATH" \
-    -scheme macos-redirector \
-    build
-
-  echo "watwat"
+  ## Create temporary keychain
+  #KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+  #security create-keychain -p "app-signing" $KEYCHAIN_PATH
+  #security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+  #security unlock-keychain -p "app-signing" $KEYCHAIN_PATH
+  ## Import certificate to keychain
+  #security import <(echo -n "$APPLE_CERTIFICATE") -A -k $KEYCHAIN_PATH
+  #security list-keychain -s $KEYCHAIN_PATH
 
   mkdir build
   xcodebuild \
     -scheme macos-redirector \
-    -target macos-redirector \
-    -destination 'platform=macOS' \
     -archivePath build/macos-redirector.xcarchive \
-    -configuration Release \
     archive
   xcodebuild \
     -exportArchive \
