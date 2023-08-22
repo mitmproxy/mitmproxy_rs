@@ -11,7 +11,7 @@ if [ -n "$APPLE_ID" ]; then
   echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/Mitmproxy_Redirector.provisionprofile"
   echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/Mitmproxy_Redirector_Network_Extension.provisionprofile"
 
-  ll "~/Library/MobileDevice/Provisioning Profiles/"
+  ls -l "~/Library/MobileDevice/Provisioning Profiles/"
 
   mkdir build
   xcodebuild \
