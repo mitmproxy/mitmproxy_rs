@@ -9,8 +9,8 @@ if [ -n "${APPLE_ID+x}" ]; then
 
   # Install provisioning profiles
   mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-  echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o ~/Library/MobileDevice/Provisioning\ Profiles/app.mobileprovision
-  echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o ~/Library/MobileDevice/Provisioning\ Profiles/ext.mobileprovision
+  echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o ~/Library/MobileDevice/Provisioning\ Profiles/app.provisionprofile
+  echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o ~/Library/MobileDevice/Provisioning\ Profiles/ext.provisionprofile
 
   # Exported from keychain to .p12 and then
   # openssl pkcs12 -in key.p12 -nodes -legacy
