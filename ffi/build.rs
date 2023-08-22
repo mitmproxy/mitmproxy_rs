@@ -32,9 +32,6 @@ fn panic_unless_ci(message: &str) {
 }
 
 fn main() {
-
-
-
     #[cfg(windows)]
     {
         // This is slightly terrible:
@@ -90,14 +87,13 @@ fn main() {
 
         if let Err(_) = copy_dir(
             Path::new("../macos-redirector/dist/Mitmproxy Redirector.app/"),
-            Path::new("mitmproxy_rs/Mitmproxy Redirector.app/")
+            Path::new("mitmproxy_rs/Mitmproxy Redirector.app/"),
         ) {
             if Path::new("/Applications/Mitmproxy Redirector.app/").exists() {
                 println!("cargo:warning=Using already-installed redirector app.");
             } else {
                 panic_unless_ci("Failed to copy macos-redirector. Has it been built yet?");
             }
-
         }
     }
 }
