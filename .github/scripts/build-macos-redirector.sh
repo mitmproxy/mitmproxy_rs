@@ -11,9 +11,23 @@ if [ -n "$APPLE_ID" ]; then
   echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/99970b7c-e88e-44b5-b44a-e0eabf3c291f.provisionprofile"
   echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/474ba41d-1dac-40c2-88a5-4ab7266108c7.provisionprofile"
 
+
   echo -n "$APPLE_CERTIFICATE" | base64 --decode -o  "$RUNNER_TEMP/build.cer"
   ls -l "$RUNNER_TEMP"
-  security import "$RUNNER_TEMP/build.cer" -A -t cert
+  # security import "$RUNNER_TEMP/build.cer" -A -t cert
+
+
+  # create temporary keychain
+  KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+  security create-keychain -p "app-signing" $KEYCHAIN_PATH
+  security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+  security unlock-keychain -p "app-signing" $KEYCHAIN_PATH
+
+  # import certificate to keychain
+  security import "$RUNNER_TEMP/build.cer" -A -t cert -k $KEYCHAIN_PATH
+  security list-keychain -d user -s $KEYCHAIN_PATH
+
+
 
   ls -l "~/Library/MobileDevice/Provisioning Profiles/"
 
