@@ -8,15 +8,9 @@ if [ -n "$APPLE_ID" ]; then
   APPLE_TEAM_ID=S8XHQB96PW
 
   # Install provisioning profiles
-
-  PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-  PPE_PATH=$RUNNER_TEMP/build_ppe.mobileprovision
-  echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o $PP_PATH
-  echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o $PPE_PATH
   mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-  cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
-  cp $PPE_PATH ~/Library/MobileDevice/Provisioning\ Profiles
-
+  echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o ~/Library/MobileDevice/Provisioning\ Profiles/app.mobileprovision
+  echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o ~/Library/MobileDevice/Provisioning\ Profiles/ext.mobileprovision
 
 
   #mkdir -p "~/Library/MobileDevice/Provisioning Profiles"
