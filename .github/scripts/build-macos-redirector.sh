@@ -14,7 +14,9 @@ if [ -n "${APPLE_ID+x}" ]; then
 
   security import <(echo -n "$APPLE_CERTIFICATE" | base64 --decode) -A
 
+  echo "a"
   security list-keychain
+  echo "b"
   security list-keychain -d user
 
   KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
@@ -23,7 +25,13 @@ if [ -n "${APPLE_ID+x}" ]; then
   security unlock-keychain -p "app-signing" $KEYCHAIN_PATH
   security import <(echo -n "$APPLE_CERTIFICATE" | base64 --decode) \
     -A -t cert -k $KEYCHAIN_PATH
+  echo "c"
+  security list-keychain -s $KEYCHAIN_PATH
+  echo "d"
   security list-keychain -d user -s $KEYCHAIN_PATH
+
+  echo "e"
+  security dump-keychain
 
 #  echo -n "$APPLE_CERTIFICATE" | base64 --decode -o  "$RUNNER_TEMP/build.cer"
 #  ls -l "$RUNNER_TEMP"
