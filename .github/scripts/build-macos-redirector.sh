@@ -15,6 +15,17 @@ if [ -n "${APPLE_ID+x}" ]; then
   # Exported from keychain to .p12 and then
   # openssl pkcs12 -in key.p12 -nodes -legacy
   security import <(echo -n "$APPLE_CERTIFICATE") -A
+
+  # Create temporary keychain
+  KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+  security create-keychain -p "app-signing" $KEYCHAIN_PATH
+  security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+  security unlock-keychain -p "app-signing" $KEYCHAIN_PATH
+
+  # Import certificate to keychain
+  security import <(echo -n "$APPLE_CERTIFICATE") -A -k $KEYCHAIN_PATH
+  security list-keychain -d user -s $KEYCHAIN_PATH
+
 #
 #  echo "a"
 #  security list-keychain
