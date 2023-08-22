@@ -69,5 +69,5 @@ if [ -n "$APPLE_ID" ]; then
 #  xcodebuild -project macos-redirector/MitmproxyAppleTunnel.xcodeproj -destination 'platform=macOS' CODE_SIGN_IDENTITY="Apple Development: Maximilian Hils (N72CKJ646S)" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH" PROVISIONING_PROFILE="$PP_PATH" -scheme MitmproxyAppleTunnel build
 else
   echo "Signing keys not available, building unsigned binary..."
-  xcodebuild -scheme macos-redirector build
+  xcodebuild -scheme macos-redirector CODE_SIGNING_ALLOWED="NO" build
 fi
