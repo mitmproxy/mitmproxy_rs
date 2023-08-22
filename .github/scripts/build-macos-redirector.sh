@@ -12,7 +12,7 @@ if [ -n "$APPLE_ID" ]; then
   echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/474ba41d-1dac-40c2-88a5-4ab7266108c7.provisionprofile"
 
   echo -n "$APPLE_CERTIFICATE" | base64 --decode -o  "$RUNNER_TEMP/build.cer"
-  ls -l "RUNNER_TEMP"
+  ls -l "$RUNNER_TEMP"
   security import "$RUNNER_TEMP/build.cer" -A -t cert
 
   ls -l "~/Library/MobileDevice/Provisioning Profiles/"
