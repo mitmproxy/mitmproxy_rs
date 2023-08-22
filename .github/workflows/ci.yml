@@ -90,7 +90,7 @@ jobs:
           path: macos-redirector/dist/
           key: macos-${{ hashFiles('macos-redirector/**') }}
       - if: steps.cache-app.outputs.cache-hit != 'true'
-        run: .github/scripts/build-macos-redirector.sh
+        run: ../.github/scripts/build-macos-redirector.sh
         working-directory: macos-redirector
       - uses: actions/upload-artifact@v3
         with:
