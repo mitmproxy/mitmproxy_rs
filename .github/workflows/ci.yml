@@ -150,7 +150,7 @@ jobs:
           python-version-file: .github/python-version.txt
 
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@59341946682d2f69df7150f6941f53e026e344fd
+        uses: install-pinned/maturin-with-zig@a0e4b2f7abbe1a8483bc0362911557a62cb842e2
 
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         run: |
