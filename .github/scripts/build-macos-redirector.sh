@@ -24,7 +24,7 @@ if [ -n "$APPLE_ID" ]; then
   security unlock-keychain -p "app-signing" $KEYCHAIN_PATH
 
   # import certificate to keychain
-  security import "$RUNNER_TEMP/build.cer" -A -t cert -k $KEYCHAIN_PATH
+  security import "$RUNNER_TEMP/build.cer" -A -k $KEYCHAIN_PATH
   security list-keychain -d user -s $KEYCHAIN_PATH
 
 
