@@ -321,10 +321,7 @@ pub fn start_os_proxy(
                 anyhow::bail!("{} does not exist", executable_path.display());
             }
 
-            copy_dir(
-                source_path.as_path(),
-                destination_path.as_path(),
-            )?;
+            copy_dir(source_path.as_path(), destination_path.as_path())?;
         }
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
