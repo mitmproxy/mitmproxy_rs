@@ -19,6 +19,7 @@ func readIpcMessage<T: SwiftProtobuf.Message>(ofType: T.Type, fh: FileHandle) th
     guard len < 1024 * 1024 else { throw IpcError.tooLarge(len) }
     // read protobuf data
     guard let data = try fh.read(upToCount: len) else { throw IpcError.incompleteRead }
+    guard data.count == len else { throw IpcError.incompleteRead }
     // decode protobuf
     return try T(contiguousBytes: data)
 }

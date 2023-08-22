@@ -293,11 +293,11 @@ pub fn start_os_proxy(
         let filename = py.import("mitmproxy_rs")?.filename()?;
         let executable_path = Path::new(filename)
             .parent()
-            .ok_or_else(|| anyhow!("invalid path"))?
+            .ok_or_else(|| anyhow::anyhow!("invalid path"))?
             .join("windows-redirector.exe");
 
         if !executable_path.exists() {
-            return Err(anyhow!("{} does not exist", executable_path.display()).into());
+            return Err(anyhow::anyhow!("{} does not exist", executable_path.display()).into());
         }
         let conf = WindowsConf { executable_path };
         pyo3_asyncio::tokio::future_into_py(py, async move {
@@ -320,10 +320,10 @@ pub fn start_os_proxy(
                 .join("Mitmproxy Redirector.app");
 
             if !source_path.exists() {
-                anyhow::bail!("{} does not exist", executable_path.display());
+                return Err(anyhow::anyhow!("{} does not exist", source_path.display()).into());
             }
 
-            copy_dir(source_path.as_path(), destination_path.as_path())?;
+            copy_dir(source_path.as_path(), destination_path)?;
         }
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
