@@ -76,7 +76,7 @@ jobs:
         working-directory: macos-redirector
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_TEAM_ID: S8XHQB96PW
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_PROVISIONING_PROFILE_APP: ${{ secrets.APPLE_PROVISIONING_PROFILE_APP }}
           APPLE_PROVISIONING_PROFILE_EXT: ${{ secrets.APPLE_PROVISIONING_PROFILE_EXT }}

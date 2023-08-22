@@ -8,8 +8,8 @@ if [ -n "$APPLE_ID" ]; then
   # Install provisioning profiles
   mkdir -p "~/Library/MobileDevice/Provisioning Profiles"
   # from https://developer.apple.com/account/resources/profiles/list, base64'd
-  echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/Mitmproxy_Redirector.provisionprofile"
-  echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/Mitmproxy_Redirector_Network_Extension.provisionprofile"
+  echo -n "$APPLE_PROVISIONING_PROFILE_APP" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/99970b7c-e88e-44b5-b44a-e0eabf3c291f.provisionprofile"
+  echo -n "$APPLE_PROVISIONING_PROFILE_EXT" | base64 --decode -o "~/Library/MobileDevice/Provisioning Profiles/474ba41d-1dac-40c2-88a5-4ab7266108c7.provisionprofile"
 
   ls -l "~/Library/MobileDevice/Provisioning Profiles/"
 
