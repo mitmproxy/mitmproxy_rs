@@ -34,46 +34,6 @@ fn panic_unless_ci(message: &str) {
 }
 
 fn main() {
-    #[cfg(windows)]
-    {
-        // This is slightly terrible:
-        // We want to bundle WinDivert with all Windows wheels, so we dynamically copy it into tree.
-        // Alternatively we could include_bytes!() it, but then we would need to extract to a temporary
-        // directory during execution, which is even worse.
-
-        // Ideally we should also do https://github.com/rust-lang/cargo/issues/9096 here,
-        // but for now we want to stay on stable Rust.
-
-        // xxx: untested
-        println!("cargo:rerun-if-changed=../target/debug/windows-redirector.exe");
-        println!("cargo:rerun-if-changed=../target/release/windows-redirector.exe");
-        println!("cargo:rerun-if-changed=../windows-redirector/windivert/");
-
-        let windivert_files = ["WinDivert.dll", "WinDivert.lib", "WinDivert64.sys"];
-        for file in windivert_files {
-            if fs::copy(
-                format!("../windows-redirector/windivert/{file}"),
-                format!("mitmproxy_rs/{file}"),
-            )
-            .is_err()
-            {
-                // WinDivert64.sys is sometimes weirdly locked, we can ignore that.
-                if file != "WinDivert64.sys" {
-                    panic!("Failed to copy {file}")
-                }
-            }
-        }
-
-        if fs::copy(
-            format!("../target/{TARGET}/windows-redirector.exe"),
-            "mitmproxy_rs/windows-redirector.exe",
-        )
-        .is_err()
-        {
-            panic_unless_ci("Failed to copy windows-redirector.exe. Has it been built yet?");
-        };
-    }
-
     #[cfg(target_os = "macos")]
     {
         // macos-certificate-truster binary

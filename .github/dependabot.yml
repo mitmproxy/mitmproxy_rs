@@ -17,7 +17,7 @@ updates:
     schedule:
       interval: "monthly"
   - package-ecosystem: cargo
-    directory: "/windows-redirector"
+    directory: "/mitmproxy-windows/redirector"
     schedule:
       interval: "monthly"
   - package-ecosystem: cargo

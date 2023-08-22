@@ -2,7 +2,7 @@
 members = [
     ".",
     "ffi",
-    "windows-redirector",
+    "mitmproxy-windows/redirector",
     "wireguard-test-client",
     "macos-certificate-truster",
 ]
