@@ -27,7 +27,7 @@ fn panic_unless_ci(message: &str) {
     if std::env::var("CI").is_ok() {
         println!("cargo:warning={}", message);
     } else {
-        panic!(message);
+        panic!("{}", message);
     }
 }
 

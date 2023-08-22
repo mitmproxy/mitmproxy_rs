@@ -22,17 +22,14 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            rust: stable
-            args: --exclude macos-certificate-truster
-          - os: macos-latest
-            rust: stable
-            args: --exclude windows-redirector
-          - os: ubuntu-latest
-            rust: stable
-            args: --exclude windows-redirector --exclude macos-certificate-truster
-          - os: windows-latest
             rust: 1.65.0  # MSRV
             args: --exclude macos-certificate-truster
+          - os: macos-latest
+            rust: 1.65.0
+            args: --exclude windows-redirector
+          - os: ubuntu-latest
+            rust: 1.65.0
+            args: --exclude windows-redirector --exclude macos-certificate-truster
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
