@@ -80,6 +80,8 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version-file: .github/python-version.txt
+      - name: Install build from PyPI
+        uses: install-pinned/build@3f4552ef2aab2ffefe2461e1cb506609d0dbf07a
 
       - run: cargo build --release --package windows-redirector
       - run: python -m build --wheel mitmproxy-windows --outdir target/wheels/
