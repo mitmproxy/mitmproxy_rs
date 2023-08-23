@@ -2,7 +2,7 @@
 
 set -eou pipefail
 
-if [ -n "${APPLE_ID+x}" ]; then
+if [ -n "${APPLE_ID-}" ]; then
   echo "Signing keys available, building signed binary..."
 
   APPLE_TEAM_ID=S8XHQB96PW
@@ -53,4 +53,6 @@ if [ -n "${APPLE_ID+x}" ]; then
 else
   echo "Signing keys not available, building unsigned binary..."
   xcodebuild -scheme macos-redirector CODE_SIGNING_ALLOWED="NO" build
+  mkdir dist
+  touch dist/dev-build
 fi

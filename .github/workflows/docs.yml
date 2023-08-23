@@ -20,15 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: Swatinem/rust-cache@e207df5d269b42b69c8bc5101da26f7d31feddb4  # v2.6.2
 
       - name: Install maturin[zig] from PyPI
         uses: install-pinned/maturin-with-zig@930de5c8284dfb26f11fd30a35a0df4c15ee4f8b
@@ -38,10 +30,10 @@ jobs:
         uses: install-pinned/pdoc@9c418cd240bd030d158f48187a6aa9946439b51e
 
       - run: maturin build
-        working-directory: ./ffi
+        working-directory: ./mitmproxy-rs
       - run: pip install --no-index --find-links target/wheels/ mitmproxy_rs
 
-      - run: stubtest --allowlist ffi/stubtest-allowlist.txt --mypy-config-file ffi/pyproject.toml mitmproxy_rs
+      - run: stubtest --allowlist mitmproxy-rs/stubtest-allowlist.txt --mypy-config-file mitmproxy-rs/pyproject.toml mitmproxy_rs
 
       - run: pdoc -o docs/ mitmproxy_rs
 
