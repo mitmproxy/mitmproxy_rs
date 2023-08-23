@@ -53,4 +53,6 @@ if [ -n "${APPLE_ID-}" ]; then
 else
   echo "Signing keys not available, building unsigned binary..."
   xcodebuild -scheme macos-redirector CODE_SIGNING_ALLOWED="NO" build
+  mkdir dist
+  touch dist/dev-build
 fi
