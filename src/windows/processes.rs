@@ -9,8 +9,8 @@ use std::sync::Mutex;
 
 use anyhow::{anyhow, Result};
 use once_cell::sync::Lazy;
+use windows::core::w;
 use windows::core::{PCWSTR, PWSTR};
-use windows::w;
 use windows::Win32::Foundation::{CloseHandle, BOOL, HANDLE, HWND, LPARAM, MAX_PATH};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::Storage::FileSystem::{
@@ -32,7 +32,7 @@ pub fn get_process_name(pid: PID) -> Result<PathBuf> {
     unsafe {
         let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)?;
         let path = process_name(handle);
-        CloseHandle(handle).ok()?;
+        CloseHandle(handle)?;
         path
     }
 }
@@ -42,16 +42,14 @@ unsafe fn process_name(handle: HANDLE) -> Result<PathBuf> {
     let path = PWSTR(buffer.as_mut_ptr());
     let mut len = buffer.capacity() as u32;
 
-    QueryFullProcessImageNameW(handle, PROCESS_NAME_WIN32, path, &mut len)
-        .ok()
-        .or_else(|_|
+    QueryFullProcessImageNameW(handle, PROCESS_NAME_WIN32, path, &mut len).or_else(|_|
             // WSL wants PROCESS_NAME_NATIVE, see https://github.com/microsoft/WSL/issues/3478
             QueryFullProcessImageNameW(
                 handle,
                 PROCESS_NAME_NATIVE,
                 path,
                 &mut len,
-            ).ok())?;
+            ))?;
     Ok(PathBuf::from(OsString::from_wide(path.as_wide())))
 }
 
@@ -59,14 +57,14 @@ pub fn get_is_critical(pid: PID) -> Result<bool> {
     unsafe {
         let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)?;
         let critical = is_critical(handle);
-        CloseHandle(handle).ok()?;
+        CloseHandle(handle)?;
         critical
     }
 }
 
 unsafe fn is_critical(handle: HANDLE) -> Result<bool> {
     let mut is_critical = BOOL::default();
-    IsProcessCritical(handle, &mut is_critical).ok()?; // we're ok if this fails.
+    IsProcessCritical(handle, &mut is_critical)?; // we're ok if this fails.
     Ok(is_critical.as_bool())
 }
 
@@ -76,7 +74,7 @@ pub fn enumerate_pids() -> Result<Vec<PID>> {
         let bytes_available = (size_of::<PID>() * pids.capacity()) as u32;
         let mut bytes_needed = 0;
         unsafe {
-            EnumProcesses(pids.as_mut_ptr(), bytes_available, &mut bytes_needed).ok()?;
+            EnumProcesses(pids.as_mut_ptr(), bytes_available, &mut bytes_needed)?;
         }
         if bytes_needed < bytes_available {
             unsafe { pids.set_len((bytes_needed / 4) as usize) }
@@ -122,8 +120,7 @@ pub fn get_display_name(executable: &Path) -> Result<String> {
             0,
             version_info_size,
             version_info_buf.as_mut_ptr() as _,
-        )
-        .ok()?;
+        )?;
 
         // this is a pointer to an array of lang/codepage word pairs,
         // but in practice almost all apps only ship with one language.
@@ -179,7 +176,7 @@ pub fn active_executables() -> Result<ProcessList> {
             };
             let path = process_name(handle);
             let is_critical = is_critical(handle);
-            CloseHandle(handle).ok()?;
+            CloseHandle(handle)?;
             (path?, is_critical?)
         };
 
@@ -277,8 +274,7 @@ where
         EnumWindows(
             Some(enum_windows_proc::<F> as _),
             LPARAM(&func as *const _ as _),
-        )
-        .ok()?
+        )?
     }
     Ok(())
 }

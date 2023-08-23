@@ -102,7 +102,7 @@ unsafe fn icon_for_executable(executable: &Path, hinst: HMODULE) -> Result<Pixel
     }
 
     let pixels = icon_to_pixels(icon);
-    DestroyIcon(icon).ok()?;
+    DestroyIcon(icon)?;
 
     Ok(pixels)
 }
