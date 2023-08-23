@@ -10,7 +10,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
-anyhow = "1.0.71"
+anyhow = "1.0.75"
 data-encoding = "2.4.0"
 boringtun = { version = "0.6", default-features = false }
 hex = "0.4"
