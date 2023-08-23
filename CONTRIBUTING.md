@@ -11,7 +11,7 @@ virtualenv activated and run the following:
 pip install maturin
 git clone https://github.com/mitmproxy/mitmproxy_rs.git
 
-cd mitmproxy_rs/ffi
+cd mitmproxy_rs/mitmproxy-rs
 maturin develop
 ```
 

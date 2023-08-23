@@ -12,15 +12,3 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
-  - package-ecosystem: cargo
-    directory: "/ffi"
-    schedule:
-      interval: "monthly"
-  - package-ecosystem: cargo
-    directory: "/mitmproxy-windows/redirector"
-    schedule:
-      interval: "monthly"
-  - package-ecosystem: cargo
-    directory: "/wireguard-test-client"
-    schedule:
-      interval: "monthly"

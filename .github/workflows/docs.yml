@@ -38,10 +38,10 @@ jobs:
         uses: install-pinned/pdoc@9c418cd240bd030d158f48187a6aa9946439b51e
 
       - run: maturin build
-        working-directory: ./ffi
+        working-directory: ./mitmproxy-rs
       - run: pip install --no-index --find-links target/wheels/ mitmproxy_rs
 
-      - run: stubtest --allowlist ffi/stubtest-allowlist.txt --mypy-config-file ffi/pyproject.toml mitmproxy_rs
+      - run: stubtest --allowlist mitmproxy-rs/stubtest-allowlist.txt --mypy-config-file mitmproxy-rs/pyproject.toml mitmproxy_rs
 
       - run: pdoc -o docs/ mitmproxy_rs
 

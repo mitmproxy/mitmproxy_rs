@@ -1,7 +1,7 @@
 [workspace]
 members = [
     ".",
-    "ffi",
+    "mitmproxy-rs",
     "mitmproxy-windows/redirector",
     "wireguard-test-client",
     "mitmproxy-macos/certificate-truster",
