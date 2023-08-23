@@ -18,7 +18,9 @@ if [ -n "${APPLE_ID+x}" ]; then
   security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
   security unlock-keychain -p "app-signing" $KEYCHAIN_PATH
   # Import certificate to keychain
-  security import <(echo -n "$APPLE_CERTIFICATE") -A -k $KEYCHAIN_PATH
+  # needs a temporary file, see https://github.com/orgs/community/discussions/63731#discussioncomment-6746600
+  echo -n "$APPLE_CERTIFICATE" > "$RUNNER_TEMP/cert"
+  security import "$RUNNER_TEMP/cert" -A -k $KEYCHAIN_PATH
   security list-keychain -s $KEYCHAIN_PATH
 
   mkdir build
