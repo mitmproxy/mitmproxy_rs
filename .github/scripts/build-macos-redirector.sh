@@ -5,6 +5,8 @@ set -eou pipefail
 if [ -n "${APPLE_ID+x}" ]; then
   echo "Signing keys available, building signed binary..."
 
+  echo $APPLE_ID
+
   APPLE_TEAM_ID=S8XHQB96PW
 
   # Install provisioning profiles
