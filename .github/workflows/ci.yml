@@ -68,7 +68,7 @@ jobs:
             target: aarch64-apple-darwin
             args: --target universal2-apple-darwin
     runs-on: ${{ matrix.os }}
-    name: build-wheel (${{ matrix.os }}, ${{ matrix.target || 'x64' }})
+    name: build mitmproxy-rs (${{ matrix.os }}, ${{ matrix.target || 'x64' }})
     steps:
       - uses: actions/checkout@v3
       - uses: Swatinem/rust-cache@e207df5d269b42b69c8bc5101da26f7d31feddb4  # v2.6.2
