@@ -31,11 +31,11 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@a0e4b2f7abbe1a8483bc0362911557a62cb842e2
+        uses: install-pinned/maturin-with-zig@930de5c8284dfb26f11fd30a35a0df4c15ee4f8b
       - name: Install mypy from PyPI
-        uses: install-pinned/mypy@b771204aeb43c0c0fb5019cc5f4f9a1eef4fef8e
+        uses: install-pinned/mypy@0feb6aed4c70a9b071a929e12b2fc5bd5c035b60
       - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@c1e2d2c336f5b98e0bba9501619b3b60c9060681
+        uses: install-pinned/pdoc@9c418cd240bd030d158f48187a6aa9946439b51e
 
       - run: maturin build
         working-directory: ./ffi
