@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: Swatinem/rust-cache@e207df5d269b42b69c8bc5101da26f7d31feddb4  # v2.6.2
-
+        timeout-minutes: 2
       - run: rustup toolchain install ${{ env.rust_clippy }} --profile minimal --component rustfmt --component clippy
       - run: rustup default ${{ env.rust_clippy }}
 

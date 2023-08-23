@@ -33,6 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: Swatinem/rust-cache@e207df5d269b42b69c8bc5101da26f7d31feddb4  # v2.6.2
+        timeout-minutes: 2
       - name: Set up Rust toolchain
         run: rustup toolchain install ${{ matrix.rust }} --profile minimal
       - uses: actions/setup-python@v4
@@ -72,6 +73,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: Swatinem/rust-cache@e207df5d269b42b69c8bc5101da26f7d31feddb4  # v2.6.2
+        timeout-minutes: 2
       - run: rustup toolchain install stable --profile minimal
       - run: rustup default stable
       - if: matrix.target
@@ -138,6 +140,7 @@ jobs:
 
       # Build Rust
       - uses: Swatinem/rust-cache@e207df5d269b42b69c8bc5101da26f7d31feddb4  # v2.6.2
+        timeout-minutes: 2
       - run: rustup toolchain install stable --profile minimal
       - run: rustup default stable
       - run: cargo build --release ${{ matrix.build-rust }}
