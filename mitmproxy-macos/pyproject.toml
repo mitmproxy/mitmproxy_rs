@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mitmproxy-macos"
+dynamic = ["version"]
+license = "MIT"
+
+[project.urls]
+Source = "https://github.com/mitmproxy/mitmproxy-rs"
+
+[tool.hatch.build]
+only-include = ["mitmproxy_macos"]
+
+[tool.hatch.build.force-include]
+"../target/release/macos-certificate-truster" = "mitmproxy_macos/macos-certificate-truster.app/Contents/MacOS/macos-certificate-truster"
+"./redirector/dist/Mitmproxy Redirector.app/" = "mitmproxy_macos/Mitmproxy Redirector.app/"
+
+[tool.hatch.version]
+path = "../Cargo.toml"
+pattern = "version = \"(?P<version>.+?)\""

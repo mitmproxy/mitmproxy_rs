@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin>=0.14,<0.15"]
+requires = ["maturin>=1.2.3,<2"]
 build-backend = "maturin"
 
 [project]
@@ -17,13 +17,8 @@ classifiers = [
 ]
 
 dependencies = [
-  "mitmproxy_windows; os_name == 'nt'"
-]
-
-[tool.maturin]
-include = [
-    "mitmproxy_rs/macos-redirector.app/**/*",
-    "mitmproxy_rs/macos-certificate-truster.app/**/*",
+    "mitmproxy_windows; os_name == 'nt'",
+    "mitmproxy_macos; sys_platform == 'darwin'",
 ]
 
 [tool.black]

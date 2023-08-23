@@ -62,61 +62,7 @@ jobs:
           command: test
           args: --workspace --verbose ${{ matrix.args }}
 
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: windows-redirector-${{ hashFiles('**/Cargo.lock') }}
-      - run: rustup toolchain install stable --profile minimal
-      - run: rustup default stable
-      - uses: actions/setup-python@v4
-        with:
-          python-version-file: .github/python-version.txt
-      - name: Install build from PyPI
-        uses: install-pinned/build@11bbf2deeb1a44228c45910f3b57e346927960b4
-
-      - run: cargo build --release --package windows-redirector
-      - run: python -m build --wheel mitmproxy-windows --outdir target/wheels/
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: wheels
-          path: target/wheels
-
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        id: cache-app
-        with:
-          path: macos-redirector/dist/
-          key: macos-${{ hashFiles('macos-redirector/**', '.github/scripts/build-macos-redirector.sh') }}
-      - if: steps.cache-app.outputs.cache-hit != 'true'
-        run: ../.github/scripts/build-macos-redirector.sh
-        working-directory: macos-redirector
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          APPLE_PROVISIONING_PROFILE_APP: ${{ secrets.APPLE_PROVISIONING_PROFILE_APP }}
-          APPLE_PROVISIONING_PROFILE_EXT: ${{ secrets.APPLE_PROVISIONING_PROFILE_EXT }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: macos-app
-          path: macos-redirector/dist/
-
   build:
-    needs: build-macos
     strategy:
       matrix:
         include:
@@ -158,14 +104,7 @@ jobs:
         run: |
           VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r .packages[0].version)
           sed -i "s/mitmproxy_windows/mitmproxy_windows==$VERSION/g" ffi/pyproject.toml
-
-      - if: runner.os == 'macOS'
-        run: cargo build --release --package macos-certificate-truster
-      - if: runner.os == 'macOS'
-        uses: actions/download-artifact@v3
-        with:
-          name: macos-app
-          path: macos-redirector/dist/
+          sed -i "s/mitmproxy_macos/mitmproxy_macos==$VERSION/g" ffi/pyproject.toml
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./ffi
@@ -174,9 +113,91 @@ jobs:
         with:
           name: wheels
           path: target/wheels
+
+  build-macos-app:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        id: cache-app
+        with:
+          path: mitmproxy-macos/redirector/dist/
+          key: macos-${{ hashFiles('mitmproxy-macos/redirector/**', '.github/scripts/build-macos-redirector.sh') }}
+      - if: steps.cache-app.outputs.cache-hit != 'true'
+        run: $GITHUB_WORKSPACE/.github/scripts/build-macos-redirector.sh
+        working-directory: mitmproxy-macos/redirector
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_PROVISIONING_PROFILE_APP: ${{ secrets.APPLE_PROVISIONING_PROFILE_APP }}
+          APPLE_PROVISIONING_PROFILE_EXT: ${{ secrets.APPLE_PROVISIONING_PROFILE_EXT }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: macos-app
+          path: mitmproxy-macos/redirector/dist/
+
+  build-os-wheels:
+    needs: build-macos-app
+    strategy:
+      matrix:
+        include:
+          - os: windows
+            build-rust: --package windows-redirector
+          - os: macos
+            build-rust: --package macos-certificate-truster
+    runs-on: ${{ matrix.os }}-latest
+    name: build mitmproxy-${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      # Build Rust
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-build_os_wheels-${{ hashFiles('**/Cargo.lock') }}
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup default stable
+      - run: cargo build --release ${{ matrix.build-rust }}
+
+      # Download macOS app
+      - if: runner.os == 'macOS'
+        uses: actions/download-artifact@v3
+        with:
+          name: macos-app
+          path: mitmproxy-macos/redirector/dist/
+
+      # Build & upload wheel
+      - uses: actions/setup-python@v4
+        with:
+          python-version-file: .github/python-version.txt
+      - name: Install build from PyPI
+        uses: install-pinned/build@3f4552ef2aab2ffefe2461e1cb506609d0dbf07a
+      - run: python -m build --wheel ./mitmproxy-${{ matrix.os }} --outdir target/wheels/
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: target/wheels
+
+  check:
+    if: always()
+    needs:
+    - test
+    - build
+    - build-os-wheels
+    uses: mhils/workflows/.github/workflows/alls-green.yml@main
+    with:
+      jobs: ${{ toJSON(needs) }}
+
   deploy:
     uses: mhils/workflows/.github/workflows/python-deploy.yml@main
-    needs: [test, build]
+    needs: check
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     with:
       artifact: wheels
@@ -184,12 +205,3 @@ jobs:
       # environment: deploy-testpypi
     secrets:
       password: ${{ secrets.PYPI_TOKEN }}
-
-  check:
-    if: always()
-    needs:
-    - test
-    - build
-    uses: mhils/workflows/.github/workflows/alls-green.yml@main
-    with:
-      jobs: ${{ toJSON(needs) }}
