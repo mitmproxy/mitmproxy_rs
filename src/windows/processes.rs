@@ -9,8 +9,8 @@ use std::sync::Mutex;
 
 use anyhow::{anyhow, Result};
 use once_cell::sync::Lazy;
-use windows::core::{PCWSTR, PWSTR};
 use windows::core::w;
+use windows::core::{PCWSTR, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, BOOL, HANDLE, HWND, LPARAM, MAX_PATH};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::Storage::FileSystem::{
@@ -42,8 +42,7 @@ unsafe fn process_name(handle: HANDLE) -> Result<PathBuf> {
     let path = PWSTR(buffer.as_mut_ptr());
     let mut len = buffer.capacity() as u32;
 
-    QueryFullProcessImageNameW(handle, PROCESS_NAME_WIN32, path, &mut len)
-        .or_else(|_|
+    QueryFullProcessImageNameW(handle, PROCESS_NAME_WIN32, path, &mut len).or_else(|_|
             // WSL wants PROCESS_NAME_NATIVE, see https://github.com/microsoft/WSL/issues/3478
             QueryFullProcessImageNameW(
                 handle,
