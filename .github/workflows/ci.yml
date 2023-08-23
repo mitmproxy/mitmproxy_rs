@@ -146,7 +146,7 @@ jobs:
       - if: runner.os == 'macOS'
         uses: actions/download-artifact@v3
         with:
-          name: build-macos-app
+          name: macos-app
           path: mitmproxy-macos/redirector/dist/
 
       # Build & upload wheel
