@@ -2,7 +2,7 @@
 
 set -eou pipefail
 
-if [[ -v APPLE_ID ]] && [[ -n "$APPLE_ID" ]]; then
+if [ -n "${APPLE_ID-}" ]; then
   echo "Signing keys available, building signed binary..."
 
   APPLE_TEAM_ID=S8XHQB96PW
