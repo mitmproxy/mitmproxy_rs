@@ -24,7 +24,7 @@ re-run `maturin develop` and restart mitmproxy** for changes to apply.
 If you've followed the procedure above, you can run the basic test suite as follows:
 
 ```shell
-cargo test
+cargo test --workspace
 ```
 
 Please ensure that all patches are accompanied by matching changes in the test suite.

@@ -312,7 +312,7 @@ pub fn start_os_proxy(
         if destination_path.exists() {
             log::info!("Using existing mitmproxy redirector app.");
         } else {
-            let filename = py.import("mitmproxy_rs")?.filename()?;
+            let filename = py.import("mitmproxy_macos")?.filename()?;
 
             let source_path = Path::new(filename)
                 .parent()

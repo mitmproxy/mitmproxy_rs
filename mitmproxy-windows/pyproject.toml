@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "mitmproxy-windows"
 dynamic = ["version"]
 license = "LGPL-3.0-or-later"
+requires-python = ">=3.10"
 
 [project.urls]
 Source = "https://github.com/mitmproxy/mitmproxy-rs"
@@ -13,9 +14,9 @@ Source = "https://github.com/mitmproxy/mitmproxy-rs"
 [tool.hatch.build]
 only-include = ["mitmproxy_windows"]
 
-[tool.hatch.build.force-include]
-"../target/release/windows-redirector.exe" = "mitmproxy_windows/windows-redirector.exe"
-
 [tool.hatch.version]
 path = "../Cargo.toml"
 pattern = "version = \"(?P<version>.+?)\""
+
+[tool.hatch.build.force-include]
+"../target/release/windows-redirector.exe" = "mitmproxy_windows/windows-redirector.exe"
