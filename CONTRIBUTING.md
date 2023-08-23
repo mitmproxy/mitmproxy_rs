@@ -5,14 +5,11 @@
 To get started hacking on mitmproxy_rs, please [install mitmproxy as described 
 in the main mitmproxy repository](https://github.com/mitmproxy/mitmproxy/blob/main/CONTRIBUTING.md#development-setup)
 and [install the latest Rust release](https://www.rust-lang.org/tools/install). Make sure that you have mitmproxy's
-virtualenv acticvated and run the following:
+virtualenv activated and run the following:
 
 ```shell
 pip install maturin
 git clone https://github.com/mitmproxy/mitmproxy_rs.git
-
-# Windows only workaround for https://github.com/rust-lang/cargo/issues/9096
-cd mitmproxy_rs && cargo build --package windows-redirector && cd ..
 
 cd mitmproxy_rs/ffi
 maturin develop

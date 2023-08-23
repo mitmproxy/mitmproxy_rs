@@ -16,6 +16,10 @@ classifiers = [
     "Development Status :: 3 - Alpha",
 ]
 
+dependencies = [
+  "mitmproxy_windows; os_name == 'nt'"
+]
+
 [tool.maturin]
 include = [
     "mitmproxy_rs/macos-redirector.app/**/*",

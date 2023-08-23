@@ -1,2 +1,2 @@
 [env]
-WINDIVERT_PATH = { value = "windows-redirector/windivert/", relative = true }
+WINDIVERT_PATH = { value = "mitmproxy-windows/mitmproxy_windows/", relative = true }

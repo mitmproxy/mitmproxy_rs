@@ -62,6 +62,35 @@ jobs:
           command: test
           args: --workspace --verbose ${{ matrix.args }}
 
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: windows-redirector-${{ hashFiles('**/Cargo.lock') }}
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup default stable
+      - uses: actions/setup-python@v4
+        with:
+          python-version-file: .github/python-version.txt
+      - name: Install build from PyPI
+        uses: install-pinned/build@3f4552ef2aab2ffefe2461e1cb506609d0dbf07a
+
+      - run: cargo build --release --package windows-redirector
+      - run: python -m build --wheel mitmproxy-windows --outdir target/wheels/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: target/wheels
+
   build-macos:
     runs-on: macos-latest
     steps:
@@ -123,11 +152,13 @@ jobs:
           python-version-file: .github/python-version.txt
 
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@59341946682d2f69df7150f6941f53e026e344fd
+        uses: install-pinned/maturin-with-zig@a0e4b2f7abbe1a8483bc0362911557a62cb842e2
 
-      - if: runner.os == 'Windows'
-        # workaround for https://github.com/rust-lang/cargo/issues/9096
-        run: cargo build --release --package windows-redirector
+      - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+        run: |
+          VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r .packages[0].version)
+          sed -i "s/mitmproxy_windows/mitmproxy_windows==$VERSION/g" ffi/pyproject.toml
+
       - if: runner.os == 'macOS'
         run: cargo build --release --package macos-certificate-truster
       - if: runner.os == 'macOS'

@@ -11,7 +11,7 @@ publish.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [target.'cfg(windows)'.dependencies]
-mitmproxy = { path = "../" }
+mitmproxy = { path = "../../" }
 tokio = { version = "1.29", features = ["macros", "net", "rt-multi-thread", "sync", "io-util"] }
 anyhow = { version = "1.0.71", features = ["backtrace"] }
 windivert = "0.6.0"

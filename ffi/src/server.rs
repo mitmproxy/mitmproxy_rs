@@ -290,7 +290,7 @@ pub fn start_os_proxy(
         // 2022: Ideally we'd use importlib.resources here, but that only provides `as_file` for
         // individual files. We'd need something like `as_dir` to ensure that redirector.exe and the
         // WinDivert dll/lib/sys files are in a single directory. So we just use __file__for now. 🤷
-        let filename = py.import("mitmproxy_rs")?.filename()?;
+        let filename = py.import("mitmproxy_windows")?.filename()?;
         let executable_path = Path::new(filename)
             .parent()
             .ok_or_else(|| anyhow::anyhow!("invalid path"))?
