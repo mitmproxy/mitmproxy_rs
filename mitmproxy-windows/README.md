@@ -1,6 +1,6 @@
 # mitmproxy-windows
 
-This directory contains the sources for the mitmproxy-windows Python package.
+This package contains the following precompiled binaries for Windows:
  
- - `redirector`: The Rust executable that redirects traffic to mitmproxy via a Windows named pipe.
- - `mitmproxy_windows`: The static wheel contents.
+ - `windows-redirector.exe`: A Rust executable that redirects traffic to mitmproxy via a Windows named pipe.
+ - A vendored copy of [WinDivert](https://reqrypt.org/windivert.html), used by the redirector.
