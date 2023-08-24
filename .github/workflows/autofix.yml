@@ -39,6 +39,7 @@ jobs:
       - run: rustup default ${{ env.rust_clippy }}
       - uses: Swatinem/rust-cache@e207df5d269b42b69c8bc5101da26f7d31feddb4  # v2.6.2
         timeout-minutes: 2
+        continue-on-error: true
 
       - run: cargo clippy --fix --allow-dirty ${{ matrix.args }}
       - run: cargo fmt --all
