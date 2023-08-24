@@ -1,3 +1,17 @@
+## 0.3.0
+
+- Add transparent proxy functionality for macOS.
+  This will receive a proper announcement later on.
+- Prefer a system-provided `PROTOC` env var if set.
+- Split mitmproxy_rs into three Python packages: mitmproxy-rs, mitmproxy-windows, and mitmproxy-macos.
+    - `mitmproxy-rs` is a cross-platform package distributed both as sdist and wheels.
+       Building from source requires a Rust compiler only, and optionally a Protobuf compiler.
+    - `mitmproxy-windows` and `mitmproxy-macos` are distributed as precompiled wheels only on PyPI.
+       Both can be built from source using a full git checkout (see the [build-os-wheels] CI job).
+       Note that the macOS app needs to be signed and notarized using a valid Apple Developer Id for the system extension to work.
+
+[build-os-wheels]: https://github.com/mitmproxy/mitmproxy_rs/blob/main/.github/workflows/ci.yml
+
 ## 0.2.2
 
 - Fall back to system-provided `protoc` if `protoc-bin-vendored` is not available.
