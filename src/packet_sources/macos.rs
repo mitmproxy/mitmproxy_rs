@@ -58,14 +58,15 @@ impl PacketSourceConf for MacosConf {
 
         let network_extension_rx =
             pipe::OpenOptions::new().open_receiver(&network_extension_rx_path)?;
-        let redirector_process =
-            Command::new("/Applications/Mitmproxy Redirector.app/Contents/MacOS/Mitmproxy Redirector")
-                .arg(&pipe_base)
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-                .context("Failed to launch macos-redirector app.")?;
+        let redirector_process = Command::new(
+            "/Applications/Mitmproxy Redirector.app/Contents/MacOS/Mitmproxy Redirector",
+        )
+        .arg(&pipe_base)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("Failed to launch macos-redirector app.")?;
         let network_extension_tx = {
             // We cannot open the pipe for writing yet: tokio uses non-blocking I/O,
             // and that requires a reader to be present or open_sender() will fail.
