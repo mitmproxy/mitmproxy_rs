@@ -174,18 +174,14 @@ impl PacketSourceTask for MacOsTask {
                                 Signal(SignalWithMessage {code, message}) => {
                                     match Sig::from_i32(code) {
                                         Some(Sig::ExitSuccess) => {
-                                            if let Some(message) = message {
-                                                log::info!("Shutdown message: {:?}", message);
-                                            }
+                                            if let Some(message) = message { log::info!("{message}"); }
                                             break;
                                         }
                                          Some(Sig::ExitFailure) => {
-                                            if let Some(message) = message {
-                                                log::error!("Shutdown message: {:?}", message);
-                                            }
+                                            if let Some(message) = message { log::error!("{message}"); }
                                             return Err(anyhow!("Received shutdown signal."));
                                          },
-                                         None => log::warn!("Received unknown signal: {}", code),
+                                         None => log::warn!("Received unknown signal: {code}"),
                                     }
                                 },
                             }
