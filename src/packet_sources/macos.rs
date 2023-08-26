@@ -1,7 +1,7 @@
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
-use crate::packet_sources::ipc::from_redirector::Message::Packet;
-use crate::packet_sources::ipc::{from_proxy, FromRedirector, PacketWithMeta};
+use crate::packet_sources::ipc::from_redirector::Message::{Packet, Signal};
+use crate::packet_sources::ipc::{from_proxy, FromRedirector, PacketWithMeta, SignalWithMessage, Sig};
 use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
@@ -153,22 +153,42 @@ impl PacketSourceTask for MacOsTask {
                             let Ok(FromRedirector { message: Some(message)}) = FromRedirector::decode(&mut buf) else {
                                 return Err(anyhow!("Received invalid IPC message: {:?}", &buf));
                             };
-                            let Packet(PacketWithMeta { data, pid, process_name}) = message;
-                            let Ok(mut packet) = IpPacket::try_from(data) else {
-                                log::error!("Skipping invalid packet: {:?}", &buf);
-                                continue;
-                            };
-                            packet.fill_ip_checksum();
-                            let event = NetworkEvent::ReceivePacket {
-                                packet,
-                                tunnel_info: TunnelInfo::OsProxy {
-                                    pid,
-                                    process_name,
+                            match message {
+                                Packet(PacketWithMeta { data, pid, process_name}) => {
+                                    let Ok(mut packet) = IpPacket::try_from(data) else {
+                                        log::error!("Skipping invalid packet: {:?}", &buf);
+                                        continue;
+                                    };
+                                    packet.fill_ip_checksum();
+                                    let event = NetworkEvent::ReceivePacket {
+                                        packet,
+                                        tunnel_info: TunnelInfo::OsProxy {
+                                            pid,
+                                            process_name,
+                                        },
+                                    };
+                                    if self.net_tx.try_send(event).is_err() {
+                                        log::warn!("Dropping incoming packet, TCP channel is full.");
+                                    };
                                 },
-                            };
-                            if self.net_tx.try_send(event).is_err() {
-                                log::warn!("Dropping incoming packet, TCP channel is full.");
-                            };
+                                Signal(SignalWithMessage {code, message}) => {
+                                    match Sig::from_i32(code) {
+                                        Some(Sig::ExitSuccess) => {
+                                            if let Some(message) = message {
+                                                log::info!("Shutdown message: {:?}", message);
+                                            }
+                                            break;
+                                        }
+                                         Some(Sig::ExitFailure) => {
+                                            if let Some(message) = message {
+                                                log::error!("Shutdown message: {:?}", message);
+                                            }
+                                            return Err(anyhow!("Received shutdown signal."));
+                                         },
+                                         None => log::warn!("Received unknown signal: {}", code),
+                                    }
+                                },
+                            }
                         },
                         Some(Err(e)) if e.kind() == std::io::ErrorKind::WouldBlock => continue,
                         Some(Err(e)) => bail!("Error reading pipe: {}", e),

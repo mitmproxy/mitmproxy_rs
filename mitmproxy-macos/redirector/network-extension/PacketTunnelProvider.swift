@@ -1,6 +1,8 @@
 import NetworkExtension
 
 class PacketTunnelProvider: NEPacketTunnelProvider {
+    var proxy_file = FileHandle()
+    var redir_file = FileHandle()
 
     override func startTunnel(options: [String : NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         log.debug("startTunnel")
@@ -15,7 +17,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         
         let addr = self.protocolConfiguration.serverAddress!
                 
-        let proxy_file: FileHandle, redir_file: FileHandle
         do {
             proxy_file = try FileHandle(forReadingFrom: URL(fileURLWithPath: "\(addr).proxy"));
             redir_file = try FileHandle(forWritingTo: URL(fileURLWithPath: "\(addr).redir"))
@@ -28,10 +29,10 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             log.debug("tunnel settings set (err=\(err))")
             if err == nil {
                 DispatchQueue.global().async {
-                    self.redirectPackets(redir_file)
+                    self.redirectPackets()
                 }
                 DispatchQueue.global().async {
-                    self.reinjectPackets(proxy_file)
+                    self.reinjectPackets()
                 }
             }
         }
@@ -39,8 +40,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         log.debug("startTunnel done")
     }
     
-    func redirectPackets(_ wfile: FileHandle) {
-        log.debug("redirecting packets to \(wfile, privacy: .public)...")
+    func redirectPackets() {
+        log.debug("redirecting packets to \(self.redir_file, privacy: .public)...")
         self.packetFlow.readPacketObjects { packets in
             for packet in packets {
                 
@@ -50,38 +51,52 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                 message.packet.processName = packet.metadata!.sourceAppSigningIdentifier
                 
                 do {
-                    try writeIpcMessage(message: message, fh: wfile)
+                    try writeIpcMessage(message: message, fh: self.redir_file)
                 } catch {
                     log.error("redirectPackets errored: \(error)")
+                    self.sendSignal(code: .exitFailure, message: "\(error)")
                     exit(1)
                 }
-                self.redirectPackets(wfile)
+                self.redirectPackets()
             }
         }
     }
     
-    func reinjectPackets(_ rfile: FileHandle) {
-        log.debug("reading \(rfile, privacy: .public)...")
+    func reinjectPackets() {
+        log.debug("reading \(self.proxy_file, privacy: .public)...")
         do {
-            while let packet = try readIpcMessage(ofType: Mitmproxy_Ipc_Packet.self, fh: rfile) {
-                
+            while let packet = try readIpcMessage(ofType: Mitmproxy_Ipc_Packet.self, fh: self.proxy_file) {
                 log.debug("reinjecting packet...")
                 self.packetFlow.writePackets([packet.data], withProtocols: [AF_INET as NSNumber])
                 
             }
         } catch {
             log.error("redirectPackets errored: \(error)")
+            self.sendSignal(code: .exitFailure, message: "\(error)")
             exit(1)
         }
         
         log.debug("exiting...")
+        self.sendSignal(code: .exitSuccess)
         exit(0)
+    }
+    
+    func sendSignal(code: Mitmproxy_Ipc_Sig, message: String? = nil) {
+        do {
+            var signal = Mitmproxy_Ipc_FromRedirector()
+            signal.signal.code = code
+            signal.signal.message = message ?? String()
+            try writeIpcMessage(message: signal, fh: self.redir_file)
+        } catch {
+            log.error("sendSignal errored: \(error)")
+        }
     }
     
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
         log.debug("stopTunnel \(String(describing:reason))")
         completionHandler()
-        exit(0) // XXX: is that a reasonable approach to tear things down?
+        self.sendSignal(code: .exitSuccess, message: "\(String(describing:reason))")
+        exit(0)
     }
     
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {
