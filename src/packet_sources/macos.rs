@@ -1,7 +1,9 @@
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::ipc::from_redirector::Message::{Packet, Signal};
-use crate::packet_sources::ipc::{from_proxy, FromRedirector, PacketWithMeta, SignalWithMessage, Sig};
+use crate::packet_sources::ipc::{
+    from_proxy, FromRedirector, PacketWithMeta, Sig, SignalWithMessage,
+};
 use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
