@@ -58,6 +58,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "apple-security-framework"
+version = "2.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07831f002eaa83d94f7e2c1300f3268a8f949c35a41dd99faceb6575c191d871"
+dependencies = [
+ "apple-security-framework-sys",
+ "bitflags 2.4.0",
+ "core-foundation",
+ "core-foundation-sys",
+ "libc",
+]
+
+[[package]]
+name = "apple-security-framework-sys"
+version = "2.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09acfa027e87e9f590474e9ef19d0f12158bf1c72af80ac76806f17e84959a42"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+]
+
+[[package]]
 name = "arc-swap"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1214,7 +1237,7 @@ checksum = "9106e1d747ffd48e6be5bb2d97fa706ed25b144fbee4d5c02eae110cd8d6badd"
 name = "macos-certificate-truster"
 version = "0.3.0"
 dependencies = [
- "security-framework",
+ "apple-security-framework",
 ]
 
 [[package]]
