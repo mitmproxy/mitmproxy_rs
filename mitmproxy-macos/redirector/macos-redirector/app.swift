@@ -4,7 +4,7 @@ import SystemExtensions
 import SwiftUI
 import SwiftProtobuf
 
-let log = Logger(subsystem: "org.mitmproxy.macos-redirector", category: "app")
+let log = Log(category: "app")
 let networkExtensionIdentifier = "org.mitmproxy.macos-redirector.network-extension"
 /* a designated requirement that matches all apps. */
 let designatedRequirementWildcard = "identifier exists"
@@ -13,8 +13,7 @@ let designatedRequirementWildcard = "identifier exists"
 struct App {
     
     static func main() async throws {
-        log.debug("app starting with \(CommandLine.arguments, privacy: .public)")
-        
+        log.debug("app starting with \(CommandLine.arguments)")
         let pipeBase = CommandLine.arguments.last!;
         if !pipeBase.starts(with: "/tmp/") {
             let notification = NSAlert()
@@ -29,7 +28,7 @@ struct App {
         
         log.debug("reading...")
         while let spec = try readIpcMessage(ofType: Mitmproxy_Ipc_InterceptSpec.self, fh: FileHandle.standardInput) {
-            log.debug("received intercept spec: \(spec.spec, privacy: .public)")
+            log.debug("received intercept spec: \(spec.spec)")
             guard !spec.spec.starts(with: "!") else {
                 log.error("inverse specs are not implemented yet.")
                 continue

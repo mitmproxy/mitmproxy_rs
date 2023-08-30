@@ -5,7 +5,7 @@ package mitmproxy.ipc;
 message FromRedirector {
   oneof message {
     PacketWithMeta packet = 1;
-    SignalWithMessage signal = 2;
+    LogMessage log = 2;
   }
 }
 message PacketWithMeta {
@@ -13,9 +13,9 @@ message PacketWithMeta {
   uint32 pid = 2;
   optional string process_name = 3;
 }
-message SignalWithMessage {
-  Sig code = 1;
-  optional string message = 2;
+message LogMessage {
+  string message = 1;
+  LogLevel level = 2;
 }
 
 message FromProxy {
@@ -30,7 +30,10 @@ message Packet {
 message InterceptSpec {
   string spec = 1;
 }
-enum Sig {
-    ExitSuccess = 0;
-    ExitFailure = 1;
+enum LogLevel {
+    NotSet = 0;
+    Debug = 10;
+    Info = 20;
+    Warning = 30;
+    Error = 40;
 }

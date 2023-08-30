@@ -18,15 +18,16 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let addr = self.protocolConfiguration.serverAddress!
                 
         do {
-            proxy_file = try FileHandle(forReadingFrom: URL(fileURLWithPath: "\(addr).proxy"));
+            proxy_file = try FileHandle(forReadingFrom: URL(fileURLWithPath: "\(addr).proxy"))
             redir_file = try FileHandle(forWritingTo: URL(fileURLWithPath: "\(addr).redir"))
+            log.logFile = redir_file
         } catch {
             return completionHandler(error)
         }
         
         self.setTunnelNetworkSettings(tunnelNetworkSettings) { err in
             completionHandler(err)
-            log.debug("tunnel settings set (err=\(err))")
+            log.debug("tunnel settings set (err=\(String(describing: err)))")
             if err == nil {
                 DispatchQueue.global().async {
                     self.redirectPackets()
@@ -41,7 +42,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     func redirectPackets() {
-        log.debug("redirecting packets to \(self.redir_file, privacy: .public)...")
+        log.debug("redirecting packets to \(self.redir_file)...")
         self.packetFlow.readPacketObjects { packets in
             for packet in packets {
                 
@@ -54,7 +55,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                     try writeIpcMessage(message: message, fh: self.redir_file)
                 } catch {
                     log.error("redirectPackets errored: \(error)")
-                    self.sendSignal(code: .exitFailure, message: "\(error)")
                     exit(1)
                 }
                 self.redirectPackets()
@@ -63,7 +63,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     func reinjectPackets() {
-        log.debug("reading \(self.proxy_file, privacy: .public)...")
+        log.debug("reading \(self.proxy_file)...")
         do {
             while let packet = try readIpcMessage(ofType: Mitmproxy_Ipc_Packet.self, fh: self.proxy_file) {
                 log.debug("reinjecting packet...")
@@ -72,30 +72,16 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             }
         } catch {
             log.error("redirectPackets errored: \(error)")
-            self.sendSignal(code: .exitFailure, message: "\(error)")
             exit(1)
         }
         
         log.debug("exiting...")
-        self.sendSignal(code: .exitSuccess)
         exit(0)
-    }
-    
-    func sendSignal(code: Mitmproxy_Ipc_Sig, message: String? = nil) {
-        do {
-            var signal = Mitmproxy_Ipc_FromRedirector()
-            signal.signal.code = code
-            signal.signal.message = message ?? String()
-            try writeIpcMessage(message: signal, fh: self.redir_file)
-        } catch {
-            log.error("sendSignal errored: \(error)")
-        }
     }
     
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
         log.debug("stopTunnel \(String(describing:reason))")
         completionHandler()
-        self.sendSignal(code: .exitSuccess, message: "\(String(describing:reason))")
         exit(0)
     }
     

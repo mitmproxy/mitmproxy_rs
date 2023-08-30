@@ -1,7 +1,7 @@
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
-use crate::packet_sources::ipc::from_redirector::Message::{Packet, Signal};
-use crate::packet_sources::ipc::{from_proxy, FromRedirector, PacketWithMeta, SignalWithMessage, Sig};
+use crate::packet_sources::ipc::from_redirector::Message::{Packet, Log};
+use crate::packet_sources::ipc::{from_proxy, FromRedirector, PacketWithMeta, LogMessage, LogLevel};
 use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
@@ -171,17 +171,13 @@ impl PacketSourceTask for MacOsTask {
                                         log::warn!("Dropping incoming packet, TCP channel is full.");
                                     };
                                 },
-                                Signal(SignalWithMessage {code, message}) => {
-                                    match Sig::from_i32(code) {
-                                        Some(Sig::ExitSuccess) => {
-                                            if let Some(message) = message { log::info!("{message}"); }
-                                            break;
-                                        }
-                                         Some(Sig::ExitFailure) => {
-                                            if let Some(message) = message { log::error!("{message}"); }
-                                            return Err(anyhow!("Received shutdown signal."));
-                                         },
-                                         None => log::warn!("Received unknown signal: {code}"),
+                                Log( LogMessage{message, level}) => {
+                                    match LogLevel::from_i32(level) {
+                                        Some(LogLevel::Debug) => log::debug!("{message}"),
+                                        Some(LogLevel::Info) => log::info!("{message}"),
+                                        Some(LogLevel::Warning) => log::warn!("{message}"),
+                                        Some(LogLevel::Error) => bail!("{message}"),
+                                        _ => log::warn!("Received unknown log: {message}"),
                                     }
                                 },
                             }

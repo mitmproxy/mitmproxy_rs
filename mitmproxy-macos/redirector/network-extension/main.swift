@@ -1,9 +1,8 @@
 import Foundation
 import NetworkExtension
-import OSLog
 
-let log = Logger(subsystem: "org.mitmproxy.macos-redirector", category: "extension")
 let networkExtensionIdentifier = "org.mitmproxy.macos-redirector.network-extension"
+let log = Log(category: "extension")
 
 autoreleasepool {
     log.error("starting system extension")

@@ -20,28 +20,37 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
   typealias Version = _2
 }
 
-enum Mitmproxy_Ipc_Sig: SwiftProtobuf.Enum {
+enum Mitmproxy_Ipc_LogLevel: SwiftProtobuf.Enum {
   typealias RawValue = Int
-  case exitSuccess // = 0
-  case exitFailure // = 1
+  case notSet // = 0
+  case debug // = 10
+  case info // = 20
+  case warning // = 30
+  case error // = 40
   case UNRECOGNIZED(Int)
 
   init() {
-    self = .exitSuccess
+    self = .notSet
   }
 
   init?(rawValue: Int) {
     switch rawValue {
-    case 0: self = .exitSuccess
-    case 1: self = .exitFailure
+    case 0: self = .notSet
+    case 10: self = .debug
+    case 20: self = .info
+    case 30: self = .warning
+    case 40: self = .error
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
 
   var rawValue: Int {
     switch self {
-    case .exitSuccess: return 0
-    case .exitFailure: return 1
+    case .notSet: return 0
+    case .debug: return 10
+    case .info: return 20
+    case .warning: return 30
+    case .error: return 40
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -50,11 +59,14 @@ enum Mitmproxy_Ipc_Sig: SwiftProtobuf.Enum {
 
 #if swift(>=4.2)
 
-extension Mitmproxy_Ipc_Sig: CaseIterable {
+extension Mitmproxy_Ipc_LogLevel: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Mitmproxy_Ipc_Sig] = [
-    .exitSuccess,
-    .exitFailure,
+  static var allCases: [Mitmproxy_Ipc_LogLevel] = [
+    .notSet,
+    .debug,
+    .info,
+    .warning,
+    .error,
   ]
 }
 
@@ -75,19 +87,19 @@ struct Mitmproxy_Ipc_FromRedirector {
     set {message = .packet(newValue)}
   }
 
-  var signal: Mitmproxy_Ipc_SignalWithMessage {
+  var log: Mitmproxy_Ipc_LogMessage {
     get {
-      if case .signal(let v)? = message {return v}
-      return Mitmproxy_Ipc_SignalWithMessage()
+      if case .log(let v)? = message {return v}
+      return Mitmproxy_Ipc_LogMessage()
     }
-    set {message = .signal(newValue)}
+    set {message = .log(newValue)}
   }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
     case packet(Mitmproxy_Ipc_PacketWithMeta)
-    case signal(Mitmproxy_Ipc_SignalWithMessage)
+    case log(Mitmproxy_Ipc_LogMessage)
 
   #if !swift(>=4.1)
     static func ==(lhs: Mitmproxy_Ipc_FromRedirector.OneOf_Message, rhs: Mitmproxy_Ipc_FromRedirector.OneOf_Message) -> Bool {
@@ -99,8 +111,8 @@ struct Mitmproxy_Ipc_FromRedirector {
         guard case .packet(let l) = lhs, case .packet(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
-      case (.signal, .signal): return {
-        guard case .signal(let l) = lhs, case .signal(let r) = rhs else { preconditionFailure() }
+      case (.log, .log): return {
+        guard case .log(let l) = lhs, case .log(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -137,27 +149,18 @@ struct Mitmproxy_Ipc_PacketWithMeta {
   fileprivate var _processName: String? = nil
 }
 
-struct Mitmproxy_Ipc_SignalWithMessage {
+struct Mitmproxy_Ipc_LogMessage {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var code: Mitmproxy_Ipc_Sig = .exitSuccess
+  var message: String = String()
 
-  var message: String {
-    get {return _message ?? String()}
-    set {_message = newValue}
-  }
-  /// Returns true if `message` has been explicitly set.
-  var hasMessage: Bool {return self._message != nil}
-  /// Clears the value of `message`. Subsequent reads from it will return its default value.
-  mutating func clearMessage() {self._message = nil}
+  var level: Mitmproxy_Ipc_LogLevel = .notSet
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
-
-  fileprivate var _message: String? = nil
 }
 
 struct Mitmproxy_Ipc_FromProxy {
@@ -237,11 +240,11 @@ struct Mitmproxy_Ipc_InterceptSpec {
 }
 
 #if swift(>=5.5) && canImport(_Concurrency)
-extension Mitmproxy_Ipc_Sig: @unchecked Sendable {}
+extension Mitmproxy_Ipc_LogLevel: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromRedirector: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromRedirector.OneOf_Message: @unchecked Sendable {}
 extension Mitmproxy_Ipc_PacketWithMeta: @unchecked Sendable {}
-extension Mitmproxy_Ipc_SignalWithMessage: @unchecked Sendable {}
+extension Mitmproxy_Ipc_LogMessage: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromProxy: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromProxy.OneOf_Message: @unchecked Sendable {}
 extension Mitmproxy_Ipc_Packet: @unchecked Sendable {}
@@ -252,10 +255,13 @@ extension Mitmproxy_Ipc_InterceptSpec: @unchecked Sendable {}
 
 fileprivate let _protobuf_package = "mitmproxy.ipc"
 
-extension Mitmproxy_Ipc_Sig: SwiftProtobuf._ProtoNameProviding {
+extension Mitmproxy_Ipc_LogLevel: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "ExitSuccess"),
-    1: .same(proto: "ExitFailure"),
+    0: .same(proto: "NotSet"),
+    10: .same(proto: "Debug"),
+    20: .same(proto: "Info"),
+    30: .same(proto: "Warning"),
+    40: .same(proto: "Error"),
   ]
 }
 
@@ -263,7 +269,7 @@ extension Mitmproxy_Ipc_FromRedirector: SwiftProtobuf.Message, SwiftProtobuf._Me
   static let protoMessageName: String = _protobuf_package + ".FromRedirector"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "packet"),
-    2: .same(proto: "signal"),
+    2: .same(proto: "log"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -286,16 +292,16 @@ extension Mitmproxy_Ipc_FromRedirector: SwiftProtobuf.Message, SwiftProtobuf._Me
         }
       }()
       case 2: try {
-        var v: Mitmproxy_Ipc_SignalWithMessage?
+        var v: Mitmproxy_Ipc_LogMessage?
         var hadOneofValue = false
         if let current = self.message {
           hadOneofValue = true
-          if case .signal(let m) = current {v = m}
+          if case .log(let m) = current {v = m}
         }
         try decoder.decodeSingularMessageField(value: &v)
         if let v = v {
           if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.message = .signal(v)
+          self.message = .log(v)
         }
       }()
       default: break
@@ -313,8 +319,8 @@ extension Mitmproxy_Ipc_FromRedirector: SwiftProtobuf.Message, SwiftProtobuf._Me
       guard case .packet(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
     }()
-    case .signal?: try {
-      guard case .signal(let v)? = self.message else { preconditionFailure() }
+    case .log?: try {
+      guard case .log(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
     }()
     case nil: break
@@ -377,11 +383,11 @@ extension Mitmproxy_Ipc_PacketWithMeta: SwiftProtobuf.Message, SwiftProtobuf._Me
   }
 }
 
-extension Mitmproxy_Ipc_SignalWithMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".SignalWithMessage"
+extension Mitmproxy_Ipc_LogMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".LogMessage"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "code"),
-    2: .same(proto: "message"),
+    1: .same(proto: "message"),
+    2: .same(proto: "level"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -390,30 +396,26 @@ extension Mitmproxy_Ipc_SignalWithMessage: SwiftProtobuf.Message, SwiftProtobuf.
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularEnumField(value: &self.code) }()
-      case 2: try { try decoder.decodeSingularStringField(value: &self._message) }()
+      case 1: try { try decoder.decodeSingularStringField(value: &self.message) }()
+      case 2: try { try decoder.decodeSingularEnumField(value: &self.level) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
-    if self.code != .exitSuccess {
-      try visitor.visitSingularEnumField(value: self.code, fieldNumber: 1)
+    if !self.message.isEmpty {
+      try visitor.visitSingularStringField(value: self.message, fieldNumber: 1)
     }
-    try { if let v = self._message {
-      try visitor.visitSingularStringField(value: v, fieldNumber: 2)
-    } }()
+    if self.level != .notSet {
+      try visitor.visitSingularEnumField(value: self.level, fieldNumber: 2)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Mitmproxy_Ipc_SignalWithMessage, rhs: Mitmproxy_Ipc_SignalWithMessage) -> Bool {
-    if lhs.code != rhs.code {return false}
-    if lhs._message != rhs._message {return false}
+  static func ==(lhs: Mitmproxy_Ipc_LogMessage, rhs: Mitmproxy_Ipc_LogMessage) -> Bool {
+    if lhs.message != rhs.message {return false}
+    if lhs.level != rhs.level {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
