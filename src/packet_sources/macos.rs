@@ -1,8 +1,9 @@
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
-use crate::packet_sources::ipc::from_redirector::Message::{Packet, Log};
-use crate::packet_sources::ipc::{from_proxy, FromRedirector, PacketWithMeta, LogMessage, LogLevel};
-use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
+use crate::packet_sources::ipc;
+use ipc::from_proxy::{Message as FromProxyMessage, Packet};
+use ipc::from_redirector::{Message as FromRedirectorMessage, LogMessage, PacketWithMeta, log_message::LogLevel};
+use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use futures_util::SinkExt;
@@ -150,11 +151,11 @@ impl PacketSourceTask for MacOsTask {
                 rx = packet_rx.next() => {
                     match rx {
                         Some(Ok(mut buf)) => {
-                            let Ok(FromRedirector { message: Some(message)}) = FromRedirector::decode(&mut buf) else {
+                            let Ok(ipc::FromRedirector { message: Some(message)}) = ipc::FromRedirector::decode(&mut buf) else {
                                 return Err(anyhow!("Received invalid IPC message: {:?}", &buf));
                             };
                             match message {
-                                Packet(PacketWithMeta { data, pid, process_name}) => {
+                                FromRedirectorMessage::Packet( PacketWithMeta { data, pid, process_name}) => {
                                     let Ok(mut packet) = IpPacket::try_from(data) else {
                                         log::error!("Skipping invalid packet: {:?}", &buf);
                                         continue;
@@ -171,7 +172,7 @@ impl PacketSourceTask for MacOsTask {
                                         log::warn!("Dropping incoming packet, TCP channel is full.");
                                     };
                                 },
-                                Log( LogMessage{message, level}) => {
+                                FromRedirectorMessage::Log( LogMessage{message, level}) => {
                                     match LogLevel::from_i32(level) {
                                         Some(LogLevel::Debug) => log::debug!("{message}"),
                                         Some(LogLevel::Info) => log::info!("{message}"),
@@ -189,7 +190,7 @@ impl PacketSourceTask for MacOsTask {
                 },
                 // pipe through changes to the intercept list
                 Some(cmd) = self.conf_rx.recv() => {
-                    let ipc::FromProxy { message: Some(from_proxy::Message::InterceptSpec(msg)) } = cmd else {
+                    let ipc::FromProxy { message: Some(FromProxyMessage::InterceptSpec(msg)) } = cmd else {
                         unreachable!();
                     };
                     let len = msg.encoded_len();
@@ -201,7 +202,7 @@ impl PacketSourceTask for MacOsTask {
                 Some(e) = self.net_rx.recv() => {
                     match e {
                         NetworkCommand::SendPacket(packet) => {
-                            let msg = ipc::Packet { data: packet.into_inner() };
+                            let msg = Packet { data: packet.into_inner() };
                             let len = msg.encoded_len();
                             self.buf.reserve(len);
                             msg.encode(&mut self.buf)?;

@@ -65,7 +65,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     func reinjectPackets() {
         log.debug("reading \(self.proxy_file)...")
         do {
-            while let packet = try readIpcMessage(ofType: Mitmproxy_Ipc_Packet.self, fh: self.proxy_file) {
+            while let packet = try readIpcMessage(ofType: Mitmproxy_Ipc_FromProxy.Packet.self, fh: self.proxy_file) {
                 log.debug("reinjecting packet...")
                 self.packetFlow.writePackets([packet.data], withProtocols: [AF_INET as NSNumber])
                 

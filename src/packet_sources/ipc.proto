@@ -3,37 +3,39 @@ syntax = "proto3";
 package mitmproxy.ipc;
 
 message FromRedirector {
-  oneof message {
-    PacketWithMeta packet = 1;
-    LogMessage log = 2;
-  }
-}
-message PacketWithMeta {
-  bytes data = 1;
-  uint32 pid = 2;
-  optional string process_name = 3;
-}
-message LogMessage {
-  string message = 1;
-  LogLevel level = 2;
+    message LogMessage {
+        enum LogLevel {
+            NotSet = 0;
+            Debug = 10;
+            Info = 20;
+            Warning = 30;
+            Error = 40;
+        }
+
+        string message = 1;
+        LogLevel level = 2;
+    }
+    message PacketWithMeta {
+      bytes data = 1;
+      uint32 pid = 2;
+      optional string process_name = 3;
+    }
+    oneof message {
+        PacketWithMeta packet = 1;
+        LogMessage log = 2;
+    }
 }
 
 message FromProxy {
-  oneof message {
-    Packet packet = 1;
-    InterceptSpec intercept_spec = 2;
-  }
+    message Packet {
+        bytes data = 1;
+    }
+    message InterceptSpec {
+      string spec = 1;
+    }
+    oneof message {
+        Packet packet = 1;
+        InterceptSpec intercept_spec = 2;
+    }
 }
-message Packet {
-  bytes data = 1;
-}
-message InterceptSpec {
-  string spec = 1;
-}
-enum LogLevel {
-    NotSet = 0;
-    Debug = 10;
-    Info = 20;
-    Warning = 30;
-    Error = 40;
-}
+

@@ -20,58 +20,6 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
   typealias Version = _2
 }
 
-enum Mitmproxy_Ipc_LogLevel: SwiftProtobuf.Enum {
-  typealias RawValue = Int
-  case notSet // = 0
-  case debug // = 10
-  case info // = 20
-  case warning // = 30
-  case error // = 40
-  case UNRECOGNIZED(Int)
-
-  init() {
-    self = .notSet
-  }
-
-  init?(rawValue: Int) {
-    switch rawValue {
-    case 0: self = .notSet
-    case 10: self = .debug
-    case 20: self = .info
-    case 30: self = .warning
-    case 40: self = .error
-    default: self = .UNRECOGNIZED(rawValue)
-    }
-  }
-
-  var rawValue: Int {
-    switch self {
-    case .notSet: return 0
-    case .debug: return 10
-    case .info: return 20
-    case .warning: return 30
-    case .error: return 40
-    case .UNRECOGNIZED(let i): return i
-    }
-  }
-
-}
-
-#if swift(>=4.2)
-
-extension Mitmproxy_Ipc_LogLevel: CaseIterable {
-  // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Mitmproxy_Ipc_LogLevel] = [
-    .notSet,
-    .debug,
-    .info,
-    .warning,
-    .error,
-  ]
-}
-
-#endif  // swift(>=4.2)
-
 struct Mitmproxy_Ipc_FromRedirector {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -79,18 +27,18 @@ struct Mitmproxy_Ipc_FromRedirector {
 
   var message: Mitmproxy_Ipc_FromRedirector.OneOf_Message? = nil
 
-  var packet: Mitmproxy_Ipc_PacketWithMeta {
+  var packet: Mitmproxy_Ipc_FromRedirector.PacketWithMeta {
     get {
       if case .packet(let v)? = message {return v}
-      return Mitmproxy_Ipc_PacketWithMeta()
+      return Mitmproxy_Ipc_FromRedirector.PacketWithMeta()
     }
     set {message = .packet(newValue)}
   }
 
-  var log: Mitmproxy_Ipc_LogMessage {
+  var log: Mitmproxy_Ipc_FromRedirector.LogMessage {
     get {
       if case .log(let v)? = message {return v}
-      return Mitmproxy_Ipc_LogMessage()
+      return Mitmproxy_Ipc_FromRedirector.LogMessage()
     }
     set {message = .log(newValue)}
   }
@@ -98,8 +46,8 @@ struct Mitmproxy_Ipc_FromRedirector {
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
-    case packet(Mitmproxy_Ipc_PacketWithMeta)
-    case log(Mitmproxy_Ipc_LogMessage)
+    case packet(Mitmproxy_Ipc_FromRedirector.PacketWithMeta)
+    case log(Mitmproxy_Ipc_FromRedirector.LogMessage)
 
   #if !swift(>=4.1)
     static func ==(lhs: Mitmproxy_Ipc_FromRedirector.OneOf_Message, rhs: Mitmproxy_Ipc_FromRedirector.OneOf_Message) -> Bool {
@@ -121,47 +69,99 @@ struct Mitmproxy_Ipc_FromRedirector {
   #endif
   }
 
-  init() {}
-}
+  struct LogMessage {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
 
-struct Mitmproxy_Ipc_PacketWithMeta {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
+    var message: String = String()
 
-  var data: Data = Data()
+    var level: Mitmproxy_Ipc_FromRedirector.LogMessage.LogLevel = .notSet
 
-  var pid: UInt32 = 0
+    var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  var processName: String {
-    get {return _processName ?? String()}
-    set {_processName = newValue}
+    enum LogLevel: SwiftProtobuf.Enum {
+      typealias RawValue = Int
+      case notSet // = 0
+      case debug // = 10
+      case info // = 20
+      case warning // = 30
+      case error // = 40
+      case UNRECOGNIZED(Int)
+
+      init() {
+        self = .notSet
+      }
+
+      init?(rawValue: Int) {
+        switch rawValue {
+        case 0: self = .notSet
+        case 10: self = .debug
+        case 20: self = .info
+        case 30: self = .warning
+        case 40: self = .error
+        default: self = .UNRECOGNIZED(rawValue)
+        }
+      }
+
+      var rawValue: Int {
+        switch self {
+        case .notSet: return 0
+        case .debug: return 10
+        case .info: return 20
+        case .warning: return 30
+        case .error: return 40
+        case .UNRECOGNIZED(let i): return i
+        }
+      }
+
+    }
+
+    init() {}
   }
-  /// Returns true if `processName` has been explicitly set.
-  var hasProcessName: Bool {return self._processName != nil}
-  /// Clears the value of `processName`. Subsequent reads from it will return its default value.
-  mutating func clearProcessName() {self._processName = nil}
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  struct PacketWithMeta {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
+
+    var data: Data = Data()
+
+    var pid: UInt32 = 0
+
+    var processName: String {
+      get {return _processName ?? String()}
+      set {_processName = newValue}
+    }
+    /// Returns true if `processName` has been explicitly set.
+    var hasProcessName: Bool {return self._processName != nil}
+    /// Clears the value of `processName`. Subsequent reads from it will return its default value.
+    mutating func clearProcessName() {self._processName = nil}
+
+    var unknownFields = SwiftProtobuf.UnknownStorage()
+
+    init() {}
+
+    fileprivate var _processName: String? = nil
+  }
 
   init() {}
-
-  fileprivate var _processName: String? = nil
 }
 
-struct Mitmproxy_Ipc_LogMessage {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
+#if swift(>=4.2)
 
-  var message: String = String()
-
-  var level: Mitmproxy_Ipc_LogLevel = .notSet
-
-  var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  init() {}
+extension Mitmproxy_Ipc_FromRedirector.LogMessage.LogLevel: CaseIterable {
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static var allCases: [Mitmproxy_Ipc_FromRedirector.LogMessage.LogLevel] = [
+    .notSet,
+    .debug,
+    .info,
+    .warning,
+    .error,
+  ]
 }
+
+#endif  // swift(>=4.2)
 
 struct Mitmproxy_Ipc_FromProxy {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -170,18 +170,18 @@ struct Mitmproxy_Ipc_FromProxy {
 
   var message: Mitmproxy_Ipc_FromProxy.OneOf_Message? = nil
 
-  var packet: Mitmproxy_Ipc_Packet {
+  var packet: Mitmproxy_Ipc_FromProxy.Packet {
     get {
       if case .packet(let v)? = message {return v}
-      return Mitmproxy_Ipc_Packet()
+      return Mitmproxy_Ipc_FromProxy.Packet()
     }
     set {message = .packet(newValue)}
   }
 
-  var interceptSpec: Mitmproxy_Ipc_InterceptSpec {
+  var interceptSpec: Mitmproxy_Ipc_FromProxy.InterceptSpec {
     get {
       if case .interceptSpec(let v)? = message {return v}
-      return Mitmproxy_Ipc_InterceptSpec()
+      return Mitmproxy_Ipc_FromProxy.InterceptSpec()
     }
     set {message = .interceptSpec(newValue)}
   }
@@ -189,8 +189,8 @@ struct Mitmproxy_Ipc_FromProxy {
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
-    case packet(Mitmproxy_Ipc_Packet)
-    case interceptSpec(Mitmproxy_Ipc_InterceptSpec)
+    case packet(Mitmproxy_Ipc_FromProxy.Packet)
+    case interceptSpec(Mitmproxy_Ipc_FromProxy.InterceptSpec)
 
   #if !swift(>=4.1)
     static func ==(lhs: Mitmproxy_Ipc_FromProxy.OneOf_Message, rhs: Mitmproxy_Ipc_FromProxy.OneOf_Message) -> Bool {
@@ -212,58 +212,48 @@ struct Mitmproxy_Ipc_FromProxy {
   #endif
   }
 
-  init() {}
-}
+  struct Packet {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
 
-struct Mitmproxy_Ipc_Packet {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
+    var data: Data = Data()
 
-  var data: Data = Data()
+    var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+    init() {}
+  }
 
-  init() {}
-}
+  struct InterceptSpec {
+    // SwiftProtobuf.Message conformance is added in an extension below. See the
+    // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+    // methods supported on all messages.
 
-struct Mitmproxy_Ipc_InterceptSpec {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
+    var spec: String = String()
 
-  var spec: String = String()
+    var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+    init() {}
+  }
 
   init() {}
 }
 
 #if swift(>=5.5) && canImport(_Concurrency)
-extension Mitmproxy_Ipc_LogLevel: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromRedirector: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromRedirector.OneOf_Message: @unchecked Sendable {}
-extension Mitmproxy_Ipc_PacketWithMeta: @unchecked Sendable {}
-extension Mitmproxy_Ipc_LogMessage: @unchecked Sendable {}
+extension Mitmproxy_Ipc_FromRedirector.LogMessage: @unchecked Sendable {}
+extension Mitmproxy_Ipc_FromRedirector.LogMessage.LogLevel: @unchecked Sendable {}
+extension Mitmproxy_Ipc_FromRedirector.PacketWithMeta: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromProxy: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromProxy.OneOf_Message: @unchecked Sendable {}
-extension Mitmproxy_Ipc_Packet: @unchecked Sendable {}
-extension Mitmproxy_Ipc_InterceptSpec: @unchecked Sendable {}
+extension Mitmproxy_Ipc_FromProxy.Packet: @unchecked Sendable {}
+extension Mitmproxy_Ipc_FromProxy.InterceptSpec: @unchecked Sendable {}
 #endif  // swift(>=5.5) && canImport(_Concurrency)
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "mitmproxy.ipc"
-
-extension Mitmproxy_Ipc_LogLevel: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "NotSet"),
-    10: .same(proto: "Debug"),
-    20: .same(proto: "Info"),
-    30: .same(proto: "Warning"),
-    40: .same(proto: "Error"),
-  ]
-}
 
 extension Mitmproxy_Ipc_FromRedirector: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".FromRedirector"
@@ -279,7 +269,7 @@ extension Mitmproxy_Ipc_FromRedirector: SwiftProtobuf.Message, SwiftProtobuf._Me
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try {
-        var v: Mitmproxy_Ipc_PacketWithMeta?
+        var v: Mitmproxy_Ipc_FromRedirector.PacketWithMeta?
         var hadOneofValue = false
         if let current = self.message {
           hadOneofValue = true
@@ -292,7 +282,7 @@ extension Mitmproxy_Ipc_FromRedirector: SwiftProtobuf.Message, SwiftProtobuf._Me
         }
       }()
       case 2: try {
-        var v: Mitmproxy_Ipc_LogMessage?
+        var v: Mitmproxy_Ipc_FromRedirector.LogMessage?
         var hadOneofValue = false
         if let current = self.message {
           hadOneofValue = true
@@ -335,8 +325,56 @@ extension Mitmproxy_Ipc_FromRedirector: SwiftProtobuf.Message, SwiftProtobuf._Me
   }
 }
 
-extension Mitmproxy_Ipc_PacketWithMeta: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".PacketWithMeta"
+extension Mitmproxy_Ipc_FromRedirector.LogMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = Mitmproxy_Ipc_FromRedirector.protoMessageName + ".LogMessage"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "message"),
+    2: .same(proto: "level"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.message) }()
+      case 2: try { try decoder.decodeSingularEnumField(value: &self.level) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.message.isEmpty {
+      try visitor.visitSingularStringField(value: self.message, fieldNumber: 1)
+    }
+    if self.level != .notSet {
+      try visitor.visitSingularEnumField(value: self.level, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Mitmproxy_Ipc_FromRedirector.LogMessage, rhs: Mitmproxy_Ipc_FromRedirector.LogMessage) -> Bool {
+    if lhs.message != rhs.message {return false}
+    if lhs.level != rhs.level {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Mitmproxy_Ipc_FromRedirector.LogMessage.LogLevel: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    0: .same(proto: "NotSet"),
+    10: .same(proto: "Debug"),
+    20: .same(proto: "Info"),
+    30: .same(proto: "Warning"),
+    40: .same(proto: "Error"),
+  ]
+}
+
+extension Mitmproxy_Ipc_FromRedirector.PacketWithMeta: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = Mitmproxy_Ipc_FromRedirector.protoMessageName + ".PacketWithMeta"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "data"),
     2: .same(proto: "pid"),
@@ -374,48 +412,10 @@ extension Mitmproxy_Ipc_PacketWithMeta: SwiftProtobuf.Message, SwiftProtobuf._Me
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Mitmproxy_Ipc_PacketWithMeta, rhs: Mitmproxy_Ipc_PacketWithMeta) -> Bool {
+  static func ==(lhs: Mitmproxy_Ipc_FromRedirector.PacketWithMeta, rhs: Mitmproxy_Ipc_FromRedirector.PacketWithMeta) -> Bool {
     if lhs.data != rhs.data {return false}
     if lhs.pid != rhs.pid {return false}
     if lhs._processName != rhs._processName {return false}
-    if lhs.unknownFields != rhs.unknownFields {return false}
-    return true
-  }
-}
-
-extension Mitmproxy_Ipc_LogMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".LogMessage"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "message"),
-    2: .same(proto: "level"),
-  ]
-
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.message) }()
-      case 2: try { try decoder.decodeSingularEnumField(value: &self.level) }()
-      default: break
-      }
-    }
-  }
-
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.message.isEmpty {
-      try visitor.visitSingularStringField(value: self.message, fieldNumber: 1)
-    }
-    if self.level != .notSet {
-      try visitor.visitSingularEnumField(value: self.level, fieldNumber: 2)
-    }
-    try unknownFields.traverse(visitor: &visitor)
-  }
-
-  static func ==(lhs: Mitmproxy_Ipc_LogMessage, rhs: Mitmproxy_Ipc_LogMessage) -> Bool {
-    if lhs.message != rhs.message {return false}
-    if lhs.level != rhs.level {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -435,7 +435,7 @@ extension Mitmproxy_Ipc_FromProxy: SwiftProtobuf.Message, SwiftProtobuf._Message
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try {
-        var v: Mitmproxy_Ipc_Packet?
+        var v: Mitmproxy_Ipc_FromProxy.Packet?
         var hadOneofValue = false
         if let current = self.message {
           hadOneofValue = true
@@ -448,7 +448,7 @@ extension Mitmproxy_Ipc_FromProxy: SwiftProtobuf.Message, SwiftProtobuf._Message
         }
       }()
       case 2: try {
-        var v: Mitmproxy_Ipc_InterceptSpec?
+        var v: Mitmproxy_Ipc_FromProxy.InterceptSpec?
         var hadOneofValue = false
         if let current = self.message {
           hadOneofValue = true
@@ -491,8 +491,8 @@ extension Mitmproxy_Ipc_FromProxy: SwiftProtobuf.Message, SwiftProtobuf._Message
   }
 }
 
-extension Mitmproxy_Ipc_Packet: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".Packet"
+extension Mitmproxy_Ipc_FromProxy.Packet: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = Mitmproxy_Ipc_FromProxy.protoMessageName + ".Packet"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "data"),
   ]
@@ -516,15 +516,15 @@ extension Mitmproxy_Ipc_Packet: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Mitmproxy_Ipc_Packet, rhs: Mitmproxy_Ipc_Packet) -> Bool {
+  static func ==(lhs: Mitmproxy_Ipc_FromProxy.Packet, rhs: Mitmproxy_Ipc_FromProxy.Packet) -> Bool {
     if lhs.data != rhs.data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Mitmproxy_Ipc_InterceptSpec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".InterceptSpec"
+extension Mitmproxy_Ipc_FromProxy.InterceptSpec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = Mitmproxy_Ipc_FromProxy.protoMessageName + ".InterceptSpec"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "spec"),
   ]
@@ -548,7 +548,7 @@ extension Mitmproxy_Ipc_InterceptSpec: SwiftProtobuf.Message, SwiftProtobuf._Mes
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Mitmproxy_Ipc_InterceptSpec, rhs: Mitmproxy_Ipc_InterceptSpec) -> Bool {
+  static func ==(lhs: Mitmproxy_Ipc_FromProxy.InterceptSpec, rhs: Mitmproxy_Ipc_FromProxy.InterceptSpec) -> Bool {
     if lhs.spec != rhs.spec {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true

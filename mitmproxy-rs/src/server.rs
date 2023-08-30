@@ -175,7 +175,7 @@ impl OsProxy {
         self.conf_tx
             .send(ipc::FromProxy {
                 message: Some(ipc::from_proxy::Message::InterceptSpec(
-                    ipc::InterceptSpec { spec },
+                    ipc::from_proxy::InterceptSpec { spec },
                 )),
             })
             .map_err(crate::util::event_queue_unavailable)?;

@@ -61,7 +61,7 @@ class Log {
         log(level: .error, message: message, consoleOnly)
     }
     
-    private func log(level: Mitmproxy_Ipc_LogLevel, message: String, _ consoleOnly: Bool) {
+    private func log(level: Mitmproxy_Ipc_FromRedirector.LogMessage.LogLevel, message: String, _ consoleOnly: Bool) {
         let log = Logger(subsystem: "org.mitmproxy.macos-redirector", category: category)
         let osLogType: OSLogType
         switch level {

@@ -27,7 +27,7 @@ struct App {
         let manager = try await startVPN(pipeBase: pipeBase)
         
         log.debug("reading...")
-        while let spec = try readIpcMessage(ofType: Mitmproxy_Ipc_InterceptSpec.self, fh: FileHandle.standardInput) {
+        while let spec = try readIpcMessage(ofType: Mitmproxy_Ipc_FromProxy.InterceptSpec.self, fh: FileHandle.standardInput) {
             log.debug("received intercept spec: \(spec.spec)")
             guard !spec.spec.starts(with: "!") else {
                 log.error("inverse specs are not implemented yet.")
