@@ -1,15 +1,14 @@
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
-use crate::packet_sources::ipc;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
-use ipc::from_proxy::{Message as FromProxyMessage, Packet};
-use ipc::from_redirector::{
+use crate::packet_sources::ipc::{FromProxy, from_proxy::{Message as FromProxyMessage, Packet}};
+use crate::packet_sources::ipc::{FromRedirector, from_redirector::{
     log_message::LogLevel, LogMessage, Message as FromRedirectorMessage, PacketWithMeta,
-};
+}};
 
 use nix::{sys::stat::Mode, unistd::mkfifo};
 use prost::bytes::BytesMut;
@@ -33,7 +32,7 @@ pub struct MacosConf;
 #[async_trait]
 impl PacketSourceConf for MacosConf {
     type Task = MacOsTask;
-    type Data = UnboundedSender<ipc::FromProxy>;
+    type Data = UnboundedSender<FromProxy>;
 
     fn name(&self) -> &'static str {
         "macOS proxy"
@@ -118,7 +117,7 @@ pub struct MacOsTask {
     buf: BytesMut,
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
-    conf_rx: UnboundedReceiver<ipc::FromProxy>,
+    conf_rx: UnboundedReceiver<FromProxy>,
     sd_watcher: broadcast::Receiver<()>,
 }
 
@@ -153,7 +152,7 @@ impl PacketSourceTask for MacOsTask {
                 rx = packet_rx.next() => {
                     match rx {
                         Some(Ok(mut buf)) => {
-                            let Ok(ipc::FromRedirector { message: Some(message)}) = ipc::FromRedirector::decode(&mut buf) else {
+                            let Ok(FromRedirector { message: Some(message)}) = FromRedirector::decode(&mut buf) else {
                                 return Err(anyhow!("Received invalid IPC message: {:?}", &buf));
                             };
                             match message {
@@ -192,7 +191,7 @@ impl PacketSourceTask for MacOsTask {
                 },
                 // pipe through changes to the intercept list
                 Some(cmd) = self.conf_rx.recv() => {
-                    let ipc::FromProxy { message: Some(FromProxyMessage::InterceptSpec(msg)) } = cmd else {
+                    let FromProxy { message: Some(FromProxyMessage::InterceptSpec(msg)) } = cmd else {
                         unreachable!();
                     };
                     let len = msg.encoded_len();
