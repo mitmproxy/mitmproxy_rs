@@ -1,13 +1,15 @@
 use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::ipc;
-use ipc::from_proxy::{Message as FromProxyMessage, Packet};
-use ipc::from_redirector::{Message as FromRedirectorMessage, LogMessage, PacketWithMeta, log_message::LogLevel};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
+use ipc::from_proxy::{Message as FromProxyMessage, Packet};
+use ipc::from_redirector::{
+    log_message::LogLevel, LogMessage, Message as FromRedirectorMessage, PacketWithMeta,
+};
 
 use nix::{sys::stat::Mode, unistd::mkfifo};
 use prost::bytes::BytesMut;
