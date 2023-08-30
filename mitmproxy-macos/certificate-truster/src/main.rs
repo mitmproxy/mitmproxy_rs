@@ -1,5 +1,5 @@
 #[cfg(target_os = "macos")]
-use security_framework::{
+use apple_security_framework::{
     item::{ItemClass, ItemSearchOptions, Reference, SearchResult},
     trust_settings::{Domain, TrustSettings},
 };
