@@ -91,7 +91,7 @@ jobs:
         uses: install-pinned/maturin-with-zig@930de5c8284dfb26f11fd30a35a0df4c15ee4f8b
       - if: runner.os != 'Linux'
         name: Install maturin from PyPI
-        uses: install-pinned/maturin@b4468444447392daa59be098e36536de6110fa41
+        uses: install-pinned/maturin@4fd3810fa566280146c1de9a0b166cdf7748155d
 
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         run: python .github/scripts/pin-versions.py
