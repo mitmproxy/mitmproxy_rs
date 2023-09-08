@@ -15,6 +15,33 @@ struct App {
     static func main() async throws {
         log.debug("app starting with \(CommandLine.arguments, privacy: .public)")
         
+        try await SystemExtensionInstaller.run()
+        
+        let manager = NETransparentProxyManager()
+        
+        let config = NETunnelProviderProtocol()
+        config.providerBundleIdentifier = networkExtensionIdentifier
+        config.providerConfiguration = ["ports": ["80", "443"], "tunnelRemoteAddress": "127.0.0.1"]
+        config.serverAddress = "http://127.0.0.1:8080"
+
+        manager.localizedDescription = "proxy"
+        manager.protocolConfiguration = config
+
+        manager.isEnabled = true
+        
+        
+        try await manager.saveToPreferences()
+        try await manager.loadFromPreferences()
+        try manager.connection.startVPNTunnel()
+        
+        log.debug("VPN initialized.")
+        try await Task.sleep(nanoseconds: UInt64(5 * Double(NSEC_PER_SEC)))
+        return
+        
+        
+        
+        /*
+        
         let pipeBase = CommandLine.arguments.last!;
         if !pipeBase.starts(with: "/tmp/") {
             let notification = NSAlert()
@@ -45,6 +72,7 @@ struct App {
         
         log.debug("exiting...")
         try await manager.removeFromPreferences()
+         */
     }
 }
 

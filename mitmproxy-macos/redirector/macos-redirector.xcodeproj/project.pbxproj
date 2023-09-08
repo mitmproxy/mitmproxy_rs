@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		CE7A86AF2A8CFB87009E0B82 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CE7A86AE2A8CFB87009E0B82 /* Assets.xcassets */; };
 		CE7A86C02A8CFBAD009E0B82 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE7A86BF2A8CFBAD009E0B82 /* NetworkExtension.framework */; };
-		CE7A86C32A8CFBAD009E0B82 /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A86C22A8CFBAD009E0B82 /* PacketTunnelProvider.swift */; };
+		CE7A86C32A8CFBAD009E0B82 /* TransparentProxyProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A86C22A8CFBAD009E0B82 /* TransparentProxyProvider.swift */; };
 		CE7A86C52A8CFBAD009E0B82 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A86C42A8CFBAD009E0B82 /* main.swift */; };
 		CE7A86CA2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = CE7A86BD2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CE904BCE2A8E9B2600A7DF8A /* app.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC7D6762A8E2B2300E1A6E9 /* app.swift */; };
@@ -51,7 +51,7 @@
 		CE7A86B32A8CFB87009E0B82 /* macos_redirector.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = macos_redirector.entitlements; sourceTree = "<group>"; };
 		CE7A86BD2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension */ = {isa = PBXFileReference; explicitFileType = "wrapper.system-extension"; includeInIndex = 0; path = "org.mitmproxy.macos-redirector.network-extension.systemextension"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE7A86BF2A8CFBAD009E0B82 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
-		CE7A86C22A8CFBAD009E0B82 /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
+		CE7A86C22A8CFBAD009E0B82 /* TransparentProxyProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransparentProxyProvider.swift; sourceTree = "<group>"; };
 		CE7A86C42A8CFBAD009E0B82 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		CE7A86C62A8CFBAD009E0B82 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CE7A86C72A8CFBAD009E0B82 /* network_extension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = network_extension.entitlements; sourceTree = "<group>"; };
@@ -124,7 +124,7 @@
 		CE7A86C12A8CFBAD009E0B82 /* network-extension */ = {
 			isa = PBXGroup;
 			children = (
-				CE7A86C22A8CFBAD009E0B82 /* PacketTunnelProvider.swift */,
+				CE7A86C22A8CFBAD009E0B82 /* TransparentProxyProvider.swift */,
 				CE7A86C42A8CFBAD009E0B82 /* main.swift */,
 				CE7A86C62A8CFBAD009E0B82 /* Info.plist */,
 				CE7A86C72A8CFBAD009E0B82 /* network_extension.entitlements */,
@@ -261,7 +261,7 @@
 			files = (
 				CE904BCF2A8E9B3100A7DF8A /* ipc.pb.swift in Sources */,
 				CE7A86C52A8CFBAD009E0B82 /* main.swift in Sources */,
-				CE7A86C32A8CFBAD009E0B82 /* PacketTunnelProvider.swift in Sources */,
+				CE7A86C32A8CFBAD009E0B82 /* TransparentProxyProvider.swift in Sources */,
 				CE904BD92A8EA0C600A7DF8A /* utils.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
