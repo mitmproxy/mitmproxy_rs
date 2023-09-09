@@ -12,6 +12,7 @@
 		CE7A86C32A8CFBAD009E0B82 /* TransparentProxyProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A86C22A8CFBAD009E0B82 /* TransparentProxyProvider.swift */; };
 		CE7A86C52A8CFBAD009E0B82 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A86C42A8CFBAD009E0B82 /* main.swift */; };
 		CE7A86CA2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = CE7A86BD2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		CE870C102AAD2B4C00510CD1 /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CE870C0B2AAD29B000510CD1 /* libbsm.tbd */; };
 		CE904BCE2A8E9B2600A7DF8A /* app.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC7D6762A8E2B2300E1A6E9 /* app.swift */; };
 		CE904BCF2A8E9B3100A7DF8A /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */; };
 		CE904BD22A8E9B6A00A7DF8A /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = CE904BD12A8E9B6A00A7DF8A /* SwiftProtobuf */; };
@@ -55,6 +56,10 @@
 		CE7A86C42A8CFBAD009E0B82 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		CE7A86C62A8CFBAD009E0B82 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CE7A86C72A8CFBAD009E0B82 /* network_extension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = network_extension.entitlements; sourceTree = "<group>"; };
+		CE870C0B2AAD29B000510CD1 /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = usr/lib/libbsm.tbd; sourceTree = SDKROOT; };
+		CE870C0C2AAD29BD00510CD1 /* libbsm.0.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.0.tbd; path = usr/lib/libbsm.0.tbd; sourceTree = SDKROOT; };
+		CE870C0E2AAD2B3B00510CD1 /* libproc.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libproc.tbd; path = usr/lib/libproc.tbd; sourceTree = SDKROOT; };
+		CE870C122AAD2D7F00510CD1 /* libproc-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "libproc-Bridging-Header.h"; sourceTree = "<group>"; };
 		CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ipc.pb.swift; sourceTree = "<group>"; };
 		CE904BD72A8EA0C600A7DF8A /* utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = utils.swift; sourceTree = "<group>"; };
 		CEC7D6762A8E2B2300E1A6E9 /* app.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = app.swift; sourceTree = "<group>"; };
@@ -76,6 +81,7 @@
 			files = (
 				CE7A86C02A8CFBAD009E0B82 /* NetworkExtension.framework in Frameworks */,
 				CE904BD42A8E9BD500A7DF8A /* SwiftProtobuf in Frameworks */,
+				CE870C102AAD2B4C00510CD1 /* libbsm.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -116,6 +122,9 @@
 		CE7A86BE2A8CFBAD009E0B82 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CE870C0E2AAD2B3B00510CD1 /* libproc.tbd */,
+				CE870C0C2AAD29BD00510CD1 /* libbsm.0.tbd */,
+				CE870C0B2AAD29B000510CD1 /* libbsm.tbd */,
 				CE7A86BF2A8CFBAD009E0B82 /* NetworkExtension.framework */,
 			);
 			name = Frameworks;
@@ -125,6 +134,7 @@
 			isa = PBXGroup;
 			children = (
 				CE7A86C22A8CFBAD009E0B82 /* TransparentProxyProvider.swift */,
+				CE870C122AAD2D7F00510CD1 /* libproc-Bridging-Header.h */,
 				CE7A86C42A8CFBAD009E0B82 /* main.swift */,
 				CE7A86C62A8CFBAD009E0B82 /* Info.plist */,
 				CE7A86C72A8CFBAD009E0B82 /* network_extension.entitlements */,
@@ -484,6 +494,7 @@
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Mitmproxy Redirector Network Extension";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "network-extension/libproc-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -514,6 +525,7 @@
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Mitmproxy Redirector Network Extension";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "network-extension/libproc-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
