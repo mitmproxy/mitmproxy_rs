@@ -6,8 +6,6 @@ import SwiftProtobuf
 
 let log = Logger(subsystem: "org.mitmproxy.macos-redirector", category: "app")
 let networkExtensionIdentifier = "org.mitmproxy.macos-redirector.network-extension"
-/* a designated requirement that matches all apps. */
-let designatedRequirementWildcard = "identifier exists"
 
 @main
 struct App {
@@ -15,35 +13,8 @@ struct App {
     static func main() async throws {
         log.debug("app starting with \(CommandLine.arguments, privacy: .public)")
         
-        try await SystemExtensionInstaller.run()
-        
-        let manager = NETransparentProxyManager()
-        
-        let config = NETunnelProviderProtocol()
-        config.providerBundleIdentifier = networkExtensionIdentifier
-        config.providerConfiguration = ["ports": ["80", "443"], "tunnelRemoteAddress": "127.0.0.1"]
-        config.serverAddress = "http://127.0.0.1:8080"
-
-        manager.localizedDescription = "proxy"
-        manager.protocolConfiguration = config
-
-        manager.isEnabled = true
-        
-        
-        try await manager.saveToPreferences()
-        try await manager.loadFromPreferences()
-        try manager.connection.startVPNTunnel()
-        
-        log.debug("VPN initialized.")
-        try await Task.sleep(nanoseconds: UInt64(5 * Double(NSEC_PER_SEC)))
-        return
-        
-        
-        
-        /*
-        
-        let pipeBase = CommandLine.arguments.last!;
-        if !pipeBase.starts(with: "/tmp/") {
+        let unixSocketPath = CommandLine.arguments.last!;
+        if !unixSocketPath.starts(with: "/tmp/") {
             let notification = NSAlert()
             notification.messageText = "Mitmproxy Redirector"
             notification.informativeText = "This helper application is used to redirect local traffic to your mitmproxy instance. It cannot be run standalone.";
@@ -52,27 +23,7 @@ struct App {
         }
         
         try await SystemExtensionInstaller.run()
-        let manager = try await startVPN(pipeBase: pipeBase)
-        
-        log.debug("reading...")
-        while let spec = try readIpcMessage(ofType: Mitmproxy_Ipc_InterceptSpec.self, fh: FileHandle.standardInput) {
-            
-            log.debug("received intercept spec: \(spec.spec, privacy: .public)")
-            guard !spec.spec.starts(with: "!") else {
-                log.error("inverse specs are not implemented yet.")
-                continue
-            }
-            let bundleIds = spec.spec.split(separator: ",");
-            manager.appRules = bundleIds.map({
-                NEAppRule(signingIdentifier: String($0), designatedRequirement: designatedRequirementWildcard)
-            });
-            try await manager.saveToPreferences()
-            
-        }
-        
-        log.debug("exiting...")
-        try await manager.removeFromPreferences()
-         */
+        try await startVPN(unixSocketPath: unixSocketPath)
     }
 }
 
@@ -119,23 +70,19 @@ class SystemExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
 }
 
 
-func startVPN(pipeBase: String) async throws -> NETunnelProviderManager {
-    let savedManagers = try await NETunnelProviderManager.loadAllFromPreferences()
-    for m in savedManagers {
-        if (m.protocolConfiguration as? NETunnelProviderProtocol)?.providerBundleIdentifier == networkExtensionIdentifier {
-            if !m.isEnabled || m.connection.status != NEVPNStatus.connected {
-                log.info("Cleaning up old VPN.")
-                try await m.removeFromPreferences()
-            }
-        }
-    }
-    
-    let manager = NETunnelProviderManager.forPerAppVPN()
-    
+func startVPN(unixSocketPath: String) async throws {
+    let savedManagers = try await NETransparentProxyManager.loadAllFromPreferences()
+    let manager = savedManagers.first { m in
+        (m.protocolConfiguration as? NETunnelProviderProtocol)?.providerBundleIdentifier == networkExtensionIdentifier
+        && (!m.isEnabled || m.connection.status != NEVPNStatus.connected)
+    } ?? NETransparentProxyManager();
+
     let providerProtocol = NETunnelProviderProtocol()
     providerProtocol.providerBundleIdentifier = networkExtensionIdentifier
-    providerProtocol.serverAddress = pipeBase
+    providerProtocol.serverAddress = unixSocketPath
     
+    /*
+     FIXME reenable
     // XXX: it's unclear if these are actually necessary for per-app VPNs
     providerProtocol.enforceRoutes = true
     providerProtocol.includeAllNetworks = true
@@ -147,11 +94,11 @@ func startVPN(pipeBase: String) async throws -> NETunnelProviderManager {
         providerProtocol.excludeCellularServices = false
     }
     */
+     */
     
     manager.protocolConfiguration = providerProtocol
     manager.localizedDescription = "mitmproxy"
     manager.isEnabled = true
-    manager.appRules = []
     
     try await manager.saveToPreferences()
     // https://stackoverflow.com/a/47569982/934719 - we need to call load again before starting the tunnel.
@@ -159,7 +106,4 @@ func startVPN(pipeBase: String) async throws -> NETunnelProviderManager {
     try manager.connection.startVPNTunnel()
     
     log.debug("VPN initialized.")
-    return manager
 }
-
-

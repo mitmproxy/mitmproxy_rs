@@ -3,7 +3,7 @@ use crate::network::MAX_PACKET_SIZE;
 
 use crate::packet_sources::ipc::{from_proxy};
 use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
@@ -14,19 +14,46 @@ use prost::Message;
 
 
 use std::process::Stdio;
-use tokio::net::{UnixListener};
+use futures_util::future::Join;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{UnixListener, UnixStream};
 
 use tokio::process::Command;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio_util::codec::{
-    FramedRead, FramedWrite, LengthDelimitedCodec, LinesCodec, LinesCodecError,
-};
+use tokio::task::JoinSet;
+use tokio_util::codec::{Framed, FramedRead, FramedWrite, LengthDelimitedCodec, LinesCodec, LinesCodecError};
 
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 4;
 
 pub struct MacosConf;
+
+async fn start_redirector(listener_addr: String) -> Result<()> {
+    log::debug!("Starting redirector app...");
+    let mut redirector_process = Command::new(
+            "/Applications/Mitmproxy Redirector.app/Contents/MacOS/Mitmproxy Redirector",
+        )
+        .arg(listener_addr)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("Failed to launch macos-redirector app.")?;
+
+    let output = redirector_process.wait_with_output().await?;
+    if !output.stdout.is_empty() {
+        log::info!("[macos-redirector] {}", String::from_utf8_lossy(&output.stdout).trim());
+    }
+    if !output.stderr.is_empty() {
+        log::error!("[macos-redirector] {}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    if !output.status.success() {
+        bail!("macos-redirector exited with status {:?}", output.status.code());
+    }
+    log::debug!("Redirector app exited successfully.");
+    Ok(())
+}
 
 #[async_trait]
 impl PacketSourceConf for MacosConf {
@@ -47,23 +74,19 @@ impl PacketSourceConf for MacosConf {
         let listener_addr = format!("/tmp/mitmproxy-{}", std::process::id());
         let listener = UnixListener::bind(&listener_addr)?;
 
-        let redirector_process = Command::new(
-            "/Applications/Mitmproxy Redirector.app/Contents/MacOS/Mitmproxy Redirector",
-        )
-        .arg(listener_addr)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .context("Failed to launch macos-redirector app.")?;
+        start_redirector(listener_addr).await?;
+
+        log::debug!("Waiting for control channel...");
+        let control_channel = listener.accept().await?.0;
+        log::debug!("Control channel connected.");
 
         let (conf_tx, conf_rx) = unbounded_channel();
 
         Ok((
             MacOsTask {
-                buf: BytesMut::with_capacity(IPC_BUF_SIZE),
-                redirector_process,
+                control_channel,
                 listener,
+                connections: JoinSet::new(),
                 transport_events_tx,
                 transport_commands_rx,
                 conf_rx,
@@ -75,53 +98,24 @@ impl PacketSourceConf for MacosConf {
 }
 
 pub struct MacOsTask {
-    // IPC is a bit complicated on macOS. Instead of using one bidirectional message pipe,
-    // we need to use two unidirectional byte streams created with mkfifo.
-    // Additionally, the network extension cannot modify NEAppRule, only the hosting application
-    // can. So we send spec updates to redirector_process's stdin.
-    buf: BytesMut,
-    redirector_process: tokio::process::Child,
+    control_channel: UnixStream,
     listener: UnixListener,
+    connections: JoinSet<()>,
     transport_events_tx: Sender<TransportEvent>,
     transport_commands_rx: UnboundedReceiver<TransportCommand>,
     conf_rx: UnboundedReceiver<ipc::FromProxy>,
     shutdown: broadcast::Receiver<()>,
 }
 
-fn logfmt(x: Result<String, LinesCodecError>) -> String {
-    match x {
-        Ok(s) => s,
-        Err(e) => format!("{}", e),
-    }
-}
-
 #[async_trait]
 impl PacketSourceTask for MacOsTask {
     async fn run(mut self) -> Result<()> {
-        let mut app_stdin = FramedWrite::new(self.redirector_process.stdin.unwrap(), LengthDelimitedCodec::new());
-        let mut app_stdout =
-            FramedRead::new(self.redirector_process.stdout.unwrap(), LinesCodec::new());
-        let mut app_stderr =
-            FramedRead::new(self.redirector_process.stderr.unwrap(), LinesCodec::new());
-
-        let l = self.listener.accept().await;
-        match l {
-            Ok((stream, addr)) => {
-                dbg!(stream);
-                dbg!(addr);
-            }
-            Err(e) => {
-                dbg!(e);
-            }
-        }
+        let mut control_channel = Framed::new(self.control_channel, LengthDelimitedCodec::new());
 
         loop {
             tokio::select! {
                 // wait for graceful shutdown
                 _ = self.shutdown.recv() => break,
-                // Forward print statements from Swift.
-                Some(out) = app_stdout.next() => log::info!("[macos-redirector] {}", logfmt(out)),
-                Some(err) = app_stderr.next() => log::error!("[macos-redirector] {}", logfmt(err)),
                 l = self.listener.accept() => {
                     match l {
                         Ok((_stream, _addr)) => {
@@ -132,48 +126,17 @@ impl PacketSourceTask for MacOsTask {
                         }
                     }
                 }
-
                 // pipe through changes to the intercept list
                 Some(cmd) = self.conf_rx.recv() => {
                     let ipc::FromProxy { message: Some(from_proxy::Message::InterceptSpec(msg)) } = cmd else {
                         unreachable!();
                     };
                     let len = msg.encoded_len();
-                    self.buf.reserve(len);
-                    msg.encode(&mut self.buf)?;
-                    app_stdin.send(self.buf.split().freeze()).await?;
+                    let mut buf = BytesMut::with_capacity(len);
+                    msg.encode(&mut buf)?;
+                    control_channel.send(buf.freeze()).await?;
                 },
                 /*
-                // read packets from the IPC pipe into our network stack.
-                rx = packet_rx.next() => {
-                    match rx {
-                        Some(Ok(mut buf)) => {
-                            let Ok(FromRedirector { message: Some(message)}) = FromRedirector::decode(&mut buf) else {
-                                return Err(anyhow!("Received invalid IPC message: {:?}", &buf));
-                            };
-                            let Packet(PacketWithMeta { data, pid, process_name}) = message;
-                            let Ok(mut packet) = IpPacket::try_from(data) else {
-                                log::error!("Skipping invalid packet: {:?}", &buf);
-                                continue;
-                            };
-                            packet.fill_ip_checksum();
-                            let event = NetworkEvent::ReceivePacket {
-                                packet,
-                                tunnel_info: TunnelInfo::OsProxy {
-                                    pid,
-                                    process_name,
-                                },
-                            };
-                            if self.net_tx.try_send(event).is_err() {
-                                log::warn!("Dropping incoming packet, TCP channel is full.");
-                            };
-                        },
-                        Some(Err(e)) if e.kind() == std::io::ErrorKind::WouldBlock => continue,
-                        Some(Err(e)) => bail!("Error reading pipe: {}", e),
-                        None => bail!("Empty pipe read."),
-                    }
-                },
-                 *//*
                 // read packets from the IPC pipe into our network stack.
                 rx = packet_rx.next() => {
                     match rx {
