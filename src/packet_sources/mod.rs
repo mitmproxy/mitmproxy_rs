@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use tokio::sync::{broadcast, mpsc};
 
-use crate::messages::{NetworkCommand, NetworkEvent};
+use crate::messages::{TransportCommand, TransportEvent};
 
 #[cfg(target_os = "macos")]
 pub mod macos;
@@ -23,9 +23,9 @@ pub trait PacketSourceConf {
 
     async fn build(
         self,
-        net_tx: mpsc::Sender<NetworkEvent>,
-        net_rx: mpsc::Receiver<NetworkCommand>,
-        sd_watcher: broadcast::Receiver<()>,
+        transport_events_tx: mpsc::Sender<TransportEvent>,
+        transport_commands_rx: mpsc::UnboundedReceiver<TransportCommand>,
+        shutdown: broadcast::Receiver<()>,
     ) -> Result<(Self::Task, Self::Data)>;
 }
 

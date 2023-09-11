@@ -21,11 +21,8 @@ use smoltcp::{
         Ipv6Packet, Ipv6Repr, TcpPacket, UdpPacket, UdpRepr,
     },
 };
-use tokio::sync::{
-    broadcast::Receiver as BroadcastReceiver,
-    mpsc::{Permit, Receiver, Sender, UnboundedReceiver},
-    oneshot,
-};
+use tokio::sync::{broadcast, broadcast::Receiver as BroadcastReceiver, mpsc::{Permit, Receiver, Sender, UnboundedReceiver}, mpsc, oneshot};
+use tokio::task::JoinHandle;
 
 use crate::messages::{
     ConnectionId, IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent,
@@ -502,7 +499,28 @@ pub struct NetworkTask<'a> {
     io: NetworkIO<'a>,
 }
 
+pub fn add_network_layer(
+    transport_events_tx: Sender<TransportEvent>,
+    transport_commands_rx: UnboundedReceiver<TransportCommand>,
+    shutdown: broadcast::Receiver<()>,
+) -> Result<(JoinHandle<Result<()>>, Sender<NetworkEvent>, Receiver<NetworkCommand>)> {
+    // initialize channels between the WireGuard server and the virtual network device
+    let (network_events_tx, network_events_rx) = mpsc::channel(256);
+    let (network_commands_tx, network_commands_rx) = mpsc::channel(256);
+
+    let task = NetworkTask::new(
+        network_commands_tx,
+        network_events_rx,
+        transport_events_tx,
+        transport_commands_rx,
+        shutdown,
+    )?;
+    let h = tokio::spawn(async move { task.run().await });
+    Ok((h, network_events_tx, network_commands_rx))
+}
+
 impl NetworkTask<'_> {
+
     pub fn new(
         net_tx: Sender<NetworkCommand>,
         net_rx: Receiver<NetworkEvent>,

@@ -17,10 +17,11 @@ use tokio::{
         Mutex,
     },
 };
+use tokio::sync::mpsc::UnboundedReceiver;
 use x25519_dalek::{PublicKey, StaticSecret};
 
-use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
-use crate::network::MAX_PACKET_SIZE;
+use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent, TunnelInfo};
+use crate::network::{add_network_layer, MAX_PACKET_SIZE};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 
 // WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6
@@ -50,10 +51,17 @@ impl PacketSourceConf for WireGuardConf {
 
     async fn build(
         self,
-        net_tx: Sender<NetworkEvent>,
-        net_rx: Receiver<NetworkCommand>,
-        sd_watcher: broadcast::Receiver<()>,
+        transport_events_tx: Sender<TransportEvent>,
+        transport_commands_rx: UnboundedReceiver<TransportCommand>,
+        shutdown: broadcast::Receiver<()>,
     ) -> Result<(WireGuardTask, Self::Data)> {
+
+        let (network_task_handle, net_tx, net_rx) = add_network_layer(
+            transport_events_tx,
+            transport_commands_rx,
+            shutdown.resubscribe()
+        )?;
+
         // initialize WireGuard server
         let mut peers_by_idx = HashMap::new();
         let mut peers_by_key = HashMap::new();
@@ -116,7 +124,8 @@ impl PacketSourceConf for WireGuardConf {
 
                 net_tx,
                 net_rx,
-                sd_watcher,
+                network_task_handle,
+                shutdown,
             },
             local_addr,
         ))
@@ -136,7 +145,8 @@ pub struct WireGuardTask {
     net_rx: Receiver<NetworkCommand>,
 
     wg_buf: [u8; MAX_PACKET_SIZE],
-    sd_watcher: broadcast::Receiver<()>,
+    network_task_handle: tokio::task::JoinHandle<Result<()>>,
+    shutdown: broadcast::Receiver<()>,
 }
 
 #[async_trait]
@@ -151,7 +161,8 @@ impl PacketSourceTask for WireGuardTask {
         loop {
             tokio::select! {
                 // wait for graceful shutdown
-                _ = self.sd_watcher.recv() => break,
+                _ = self.shutdown.recv() => break,
+                Ok(Err(e)) = &mut self.network_task_handle => return Err(e),
                 // wait for WireGuard packets incoming on the UDP socket
                 Ok((len, src_orig)) = self.socket.recv_from(&mut udp_buf) => {
                     self.process_incoming_datagram(&udp_buf[..len], src_orig).await?;
