@@ -1,6 +1,6 @@
 mod task;
-pub use task::NetworkTask;
 pub use task::add_network_layer;
+pub use task::NetworkTask;
 
 mod virtual_device;
 

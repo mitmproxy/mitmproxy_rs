@@ -2,27 +2,39 @@ syntax = "proto3";
 
 package mitmproxy.ipc;
 
-message FromRedirector {
-  oneof message {
-    PacketWithMeta packet = 1;
-  }
-}
+// Packet with associated tunnel info (Windows pipe to mitmproxy)
 message PacketWithMeta {
   bytes data = 1;
-  uint32 pid = 2;
-  optional string process_name = 3;
+  TunnelInfo tunnel_info = 2;
+}
+message TunnelInfo {
+  uint32 pid = 1;
+  optional string process_name = 2;
 }
 
-
+// Packet or intercept spec (Windows pipe to redirector)
 message FromProxy {
   oneof message {
     Packet packet = 1;
     InterceptSpec intercept_spec = 2;
   }
 }
+// Packet (macOS UDP Stream)
 message Packet {
   bytes data = 1;
 }
+// Intercept spec (macOS Control Stream)
 message InterceptSpec {
   string spec = 1;
+}
+// New flow (macOS TCP/UDP Stream)
+message NewFlow {
+  TransportProtocol protocol = 1;
+  string hostname = 4;
+  uint32 port = 5;
+  TunnelInfo tunnel_info = 2;
+}
+enum TransportProtocol {
+  TCP = 0;
+  UDP = 1;
 }

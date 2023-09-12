@@ -1,5 +1,6 @@
 import Foundation
 import SwiftProtobuf
+import Network
 
 enum IpcError: Error {
     case incompleteRead
@@ -29,4 +30,32 @@ func writeIpcMessage(message: SwiftProtobuf.Message, fh: FileHandle) throws {
     let len = withUnsafeBytes(of: UInt32(data.count).bigEndian, Array.init)
     try fh.write(contentsOf: len)
     try fh.write(contentsOf: data)
+}
+
+extension UInt32 {
+    var data: Data {
+        var int = self
+        return Data(bytes: &int, count: MemoryLayout<UInt32>.size)
+    }
+}
+
+extension NWConnection {
+    func send(ipc message: SwiftProtobuf.Message) async throws {
+        
+        let data = try message.serializedData()
+        var to_send = Data(capacity: data.count + 4)
+        to_send.append(UInt32(data.count).bigEndian.data)
+        to_send.append(data)
+        assert(to_send.count == data.count + 4)
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) -> Void in
+            self.send(content: to_send, completion: .contentProcessed({ error in
+                if let err = error {
+                    continuation.resume(throwing: err)
+                } else {
+                    continuation.resume()
+                }
+            }))
+        }
+    }
 }

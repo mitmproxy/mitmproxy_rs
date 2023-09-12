@@ -5,6 +5,7 @@ use pyo3::{
     prelude::*,
     types::PyBytes,
 };
+
 use tokio::sync::{
     mpsc::{self},
     oneshot::{self, error::RecvError},
@@ -132,6 +133,16 @@ impl TcpStream {
                     process_name: Some(x),
                     ..
                 } => Ok(x.into_py(py)),
+                _ => Ok(py.None()),
+            },
+            ("destination_address", _) => match &self.tunnel_info {
+                TunnelInfo::OsProxy {
+                    dst_hostname: Some(host),
+                    ..
+                } => Ok((host, self.sockname.port()).into_py(py)),
+                TunnelInfo::OsProxy {
+                    dst_hostname: None, ..
+                } => Ok((self.sockname.ip().to_string(), self.sockname.port()).into_py(py)),
                 _ => Ok(py.None()),
             },
             (_, Some(default)) => Ok(default),

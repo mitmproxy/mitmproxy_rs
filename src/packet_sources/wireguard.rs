@@ -9,6 +9,7 @@ use boringtun::noise::{
 };
 use pretty_hex::pretty_hex;
 use smoltcp::wire::{Ipv4Packet, Ipv6Packet};
+use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{
     net::UdpSocket,
     sync::{
@@ -17,10 +18,11 @@ use tokio::{
         Mutex,
     },
 };
-use tokio::sync::mpsc::UnboundedReceiver;
 use x25519_dalek::{PublicKey, StaticSecret};
 
-use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent, TunnelInfo};
+use crate::messages::{
+    IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent, TunnelInfo,
+};
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 
@@ -55,11 +57,10 @@ impl PacketSourceConf for WireGuardConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
     ) -> Result<(WireGuardTask, Self::Data)> {
-
         let (network_task_handle, net_tx, net_rx) = add_network_layer(
             transport_events_tx,
             transport_commands_rx,
-            shutdown.resubscribe()
+            shutdown.resubscribe(),
         )?;
 
         // initialize WireGuard server

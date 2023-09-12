@@ -20,50 +20,74 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
   typealias Version = _2
 }
 
-struct Mitmproxy_Ipc_FromRedirector {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
+enum Mitmproxy_Ipc_TransportProtocol: SwiftProtobuf.Enum {
+  typealias RawValue = Int
+  case tcp // = 0
+  case udp // = 1
+  case UNRECOGNIZED(Int)
 
-  var message: Mitmproxy_Ipc_FromRedirector.OneOf_Message? = nil
-
-  var packet: Mitmproxy_Ipc_PacketWithMeta {
-    get {
-      if case .packet(let v)? = message {return v}
-      return Mitmproxy_Ipc_PacketWithMeta()
-    }
-    set {message = .packet(newValue)}
+  init() {
+    self = .tcp
   }
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  enum OneOf_Message: Equatable {
-    case packet(Mitmproxy_Ipc_PacketWithMeta)
-
-  #if !swift(>=4.1)
-    static func ==(lhs: Mitmproxy_Ipc_FromRedirector.OneOf_Message, rhs: Mitmproxy_Ipc_FromRedirector.OneOf_Message) -> Bool {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch (lhs, rhs) {
-      case (.packet, .packet): return {
-        guard case .packet(let l) = lhs, case .packet(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      }
+  init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .tcp
+    case 1: self = .udp
+    default: self = .UNRECOGNIZED(rawValue)
     }
-  #endif
   }
 
-  init() {}
+  var rawValue: Int {
+    switch self {
+    case .tcp: return 0
+    case .udp: return 1
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
 }
 
+#if swift(>=4.2)
+
+extension Mitmproxy_Ipc_TransportProtocol: CaseIterable {
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static var allCases: [Mitmproxy_Ipc_TransportProtocol] = [
+    .tcp,
+    .udp,
+  ]
+}
+
+#endif  // swift(>=4.2)
+
+/// Packet with associated tunnel info (Windows pipe to mitmproxy)
 struct Mitmproxy_Ipc_PacketWithMeta {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
   var data: Data = Data()
+
+  var tunnelInfo: Mitmproxy_Ipc_TunnelInfo {
+    get {return _tunnelInfo ?? Mitmproxy_Ipc_TunnelInfo()}
+    set {_tunnelInfo = newValue}
+  }
+  /// Returns true if `tunnelInfo` has been explicitly set.
+  var hasTunnelInfo: Bool {return self._tunnelInfo != nil}
+  /// Clears the value of `tunnelInfo`. Subsequent reads from it will return its default value.
+  mutating func clearTunnelInfo() {self._tunnelInfo = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _tunnelInfo: Mitmproxy_Ipc_TunnelInfo? = nil
+}
+
+struct Mitmproxy_Ipc_TunnelInfo {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
 
   var pid: UInt32 = 0
 
@@ -83,6 +107,7 @@ struct Mitmproxy_Ipc_PacketWithMeta {
   fileprivate var _processName: String? = nil
 }
 
+/// Packet or intercept spec (Windows pipe to redirector)
 struct Mitmproxy_Ipc_FromProxy {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -135,6 +160,7 @@ struct Mitmproxy_Ipc_FromProxy {
   init() {}
 }
 
+/// Packet (macOS UDP Stream)
 struct Mitmproxy_Ipc_Packet {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -147,6 +173,7 @@ struct Mitmproxy_Ipc_Packet {
   init() {}
 }
 
+/// Intercept spec (macOS Control Stream)
 struct Mitmproxy_Ipc_InterceptSpec {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -159,74 +186,61 @@ struct Mitmproxy_Ipc_InterceptSpec {
   init() {}
 }
 
+/// New flow (macOS TCP/UDP Stream)
+struct Mitmproxy_Ipc_NewFlow {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var `protocol`: Mitmproxy_Ipc_TransportProtocol = .tcp
+
+  var hostname: String = String()
+
+  var port: UInt32 = 0
+
+  var tunnelInfo: Mitmproxy_Ipc_TunnelInfo {
+    get {return _tunnelInfo ?? Mitmproxy_Ipc_TunnelInfo()}
+    set {_tunnelInfo = newValue}
+  }
+  /// Returns true if `tunnelInfo` has been explicitly set.
+  var hasTunnelInfo: Bool {return self._tunnelInfo != nil}
+  /// Clears the value of `tunnelInfo`. Subsequent reads from it will return its default value.
+  mutating func clearTunnelInfo() {self._tunnelInfo = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _tunnelInfo: Mitmproxy_Ipc_TunnelInfo? = nil
+}
+
 #if swift(>=5.5) && canImport(_Concurrency)
-extension Mitmproxy_Ipc_FromRedirector: @unchecked Sendable {}
-extension Mitmproxy_Ipc_FromRedirector.OneOf_Message: @unchecked Sendable {}
+extension Mitmproxy_Ipc_TransportProtocol: @unchecked Sendable {}
 extension Mitmproxy_Ipc_PacketWithMeta: @unchecked Sendable {}
+extension Mitmproxy_Ipc_TunnelInfo: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromProxy: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromProxy.OneOf_Message: @unchecked Sendable {}
 extension Mitmproxy_Ipc_Packet: @unchecked Sendable {}
 extension Mitmproxy_Ipc_InterceptSpec: @unchecked Sendable {}
+extension Mitmproxy_Ipc_NewFlow: @unchecked Sendable {}
 #endif  // swift(>=5.5) && canImport(_Concurrency)
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "mitmproxy.ipc"
 
-extension Mitmproxy_Ipc_FromRedirector: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".FromRedirector"
+extension Mitmproxy_Ipc_TransportProtocol: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "packet"),
+    0: .same(proto: "TCP"),
+    1: .same(proto: "UDP"),
   ]
-
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try {
-        var v: Mitmproxy_Ipc_PacketWithMeta?
-        var hadOneofValue = false
-        if let current = self.message {
-          hadOneofValue = true
-          if case .packet(let m) = current {v = m}
-        }
-        try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {
-          if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.message = .packet(v)
-        }
-      }()
-      default: break
-      }
-    }
-  }
-
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
-    try { if case .packet(let v)? = self.message {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
-    } }()
-    try unknownFields.traverse(visitor: &visitor)
-  }
-
-  static func ==(lhs: Mitmproxy_Ipc_FromRedirector, rhs: Mitmproxy_Ipc_FromRedirector) -> Bool {
-    if lhs.message != rhs.message {return false}
-    if lhs.unknownFields != rhs.unknownFields {return false}
-    return true
-  }
 }
 
 extension Mitmproxy_Ipc_PacketWithMeta: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PacketWithMeta"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "data"),
-    2: .same(proto: "pid"),
-    3: .standard(proto: "process_name"),
+    2: .standard(proto: "tunnel_info"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -236,8 +250,7 @@ extension Mitmproxy_Ipc_PacketWithMeta: SwiftProtobuf.Message, SwiftProtobuf._Me
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBytesField(value: &self.data) }()
-      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.pid) }()
-      case 3: try { try decoder.decodeSingularStringField(value: &self._processName) }()
+      case 2: try { try decoder.decodeSingularMessageField(value: &self._tunnelInfo) }()
       default: break
       }
     }
@@ -251,17 +264,55 @@ extension Mitmproxy_Ipc_PacketWithMeta: SwiftProtobuf.Message, SwiftProtobuf._Me
     if !self.data.isEmpty {
       try visitor.visitSingularBytesField(value: self.data, fieldNumber: 1)
     }
-    if self.pid != 0 {
-      try visitor.visitSingularUInt32Field(value: self.pid, fieldNumber: 2)
-    }
-    try { if let v = self._processName {
-      try visitor.visitSingularStringField(value: v, fieldNumber: 3)
+    try { if let v = self._tunnelInfo {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
     } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Mitmproxy_Ipc_PacketWithMeta, rhs: Mitmproxy_Ipc_PacketWithMeta) -> Bool {
     if lhs.data != rhs.data {return false}
+    if lhs._tunnelInfo != rhs._tunnelInfo {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Mitmproxy_Ipc_TunnelInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".TunnelInfo"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "pid"),
+    2: .standard(proto: "process_name"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.pid) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self._processName) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if self.pid != 0 {
+      try visitor.visitSingularUInt32Field(value: self.pid, fieldNumber: 1)
+    }
+    try { if let v = self._processName {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 2)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Mitmproxy_Ipc_TunnelInfo, rhs: Mitmproxy_Ipc_TunnelInfo) -> Bool {
     if lhs.pid != rhs.pid {return false}
     if lhs._processName != rhs._processName {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -398,6 +449,60 @@ extension Mitmproxy_Ipc_InterceptSpec: SwiftProtobuf.Message, SwiftProtobuf._Mes
 
   static func ==(lhs: Mitmproxy_Ipc_InterceptSpec, rhs: Mitmproxy_Ipc_InterceptSpec) -> Bool {
     if lhs.spec != rhs.spec {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Mitmproxy_Ipc_NewFlow: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".NewFlow"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "protocol"),
+    4: .same(proto: "hostname"),
+    5: .same(proto: "port"),
+    2: .standard(proto: "tunnel_info"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularEnumField(value: &self.`protocol`) }()
+      case 2: try { try decoder.decodeSingularMessageField(value: &self._tunnelInfo) }()
+      case 4: try { try decoder.decodeSingularStringField(value: &self.hostname) }()
+      case 5: try { try decoder.decodeSingularUInt32Field(value: &self.port) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if self.`protocol` != .tcp {
+      try visitor.visitSingularEnumField(value: self.`protocol`, fieldNumber: 1)
+    }
+    try { if let v = self._tunnelInfo {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    } }()
+    if !self.hostname.isEmpty {
+      try visitor.visitSingularStringField(value: self.hostname, fieldNumber: 4)
+    }
+    if self.port != 0 {
+      try visitor.visitSingularUInt32Field(value: self.port, fieldNumber: 5)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Mitmproxy_Ipc_NewFlow, rhs: Mitmproxy_Ipc_NewFlow) -> Bool {
+    if lhs.`protocol` != rhs.`protocol` {return false}
+    if lhs.hostname != rhs.hostname {return false}
+    if lhs.port != rhs.port {return false}
+    if lhs._tunnelInfo != rhs._tunnelInfo {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -74,7 +74,6 @@ impl Server {
         let typ = packet_source_conf.name();
         log::debug!("Initializing {} ...", typ);
 
-
         // initialize channels between the virtual network device and the python interop task
         // - only used to notify of incoming connections and datagrams
         let (transport_events_tx, transport_events_rx) = mpsc::channel(256);
@@ -87,7 +86,11 @@ impl Server {
         let shutdown_done = broadcast::channel(1).0;
 
         let (packet_source_task, data) = packet_source_conf
-            .build(transport_events_tx, transport_commands_rx, shutdown.subscribe())
+            .build(
+                transport_events_tx,
+                transport_commands_rx,
+                shutdown.subscribe(),
+            )
             .await?;
 
         // initialize Python interop task

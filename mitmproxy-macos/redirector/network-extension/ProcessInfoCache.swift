@@ -1,7 +1,7 @@
 import Foundation
 
 struct ProcessInfo {
-    var pid: Int
+    var pid: UInt32
     var path: String?
 }
 
@@ -42,7 +42,7 @@ class ProcessInfoCache {
             path = nil;
         }
         
-        let procInfo = ProcessInfo(pid: Int(pid), path: path)
+        let procInfo = ProcessInfo(pid: UInt32(pid), path: path)
         cache[tokenData] = procInfo
         return procInfo
     }
