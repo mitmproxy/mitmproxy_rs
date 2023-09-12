@@ -20,46 +20,6 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
   typealias Version = _2
 }
 
-enum Mitmproxy_Ipc_TransportProtocol: SwiftProtobuf.Enum {
-  typealias RawValue = Int
-  case tcp // = 0
-  case udp // = 1
-  case UNRECOGNIZED(Int)
-
-  init() {
-    self = .tcp
-  }
-
-  init?(rawValue: Int) {
-    switch rawValue {
-    case 0: self = .tcp
-    case 1: self = .udp
-    default: self = .UNRECOGNIZED(rawValue)
-    }
-  }
-
-  var rawValue: Int {
-    switch self {
-    case .tcp: return 0
-    case .udp: return 1
-    case .UNRECOGNIZED(let i): return i
-    }
-  }
-
-}
-
-#if swift(>=4.2)
-
-extension Mitmproxy_Ipc_TransportProtocol: CaseIterable {
-  // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Mitmproxy_Ipc_TransportProtocol] = [
-    .tcp,
-    .udp,
-  ]
-}
-
-#endif  // swift(>=4.2)
-
 /// Packet with associated tunnel info (Windows pipe to mitmproxy)
 struct Mitmproxy_Ipc_PacketWithMeta {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -192,11 +152,66 @@ struct Mitmproxy_Ipc_NewFlow {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var `protocol`: Mitmproxy_Ipc_TransportProtocol = .tcp
+  var message: Mitmproxy_Ipc_NewFlow.OneOf_Message? = nil
 
-  var hostname: String = String()
+  var tcp: Mitmproxy_Ipc_TcpFlow {
+    get {
+      if case .tcp(let v)? = message {return v}
+      return Mitmproxy_Ipc_TcpFlow()
+    }
+    set {message = .tcp(newValue)}
+  }
 
-  var port: UInt32 = 0
+  var udp: Mitmproxy_Ipc_UdpFlow {
+    get {
+      if case .udp(let v)? = message {return v}
+      return Mitmproxy_Ipc_UdpFlow()
+    }
+    set {message = .udp(newValue)}
+  }
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  enum OneOf_Message: Equatable {
+    case tcp(Mitmproxy_Ipc_TcpFlow)
+    case udp(Mitmproxy_Ipc_UdpFlow)
+
+  #if !swift(>=4.1)
+    static func ==(lhs: Mitmproxy_Ipc_NewFlow.OneOf_Message, rhs: Mitmproxy_Ipc_NewFlow.OneOf_Message) -> Bool {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch (lhs, rhs) {
+      case (.tcp, .tcp): return {
+        guard case .tcp(let l) = lhs, case .tcp(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.udp, .udp): return {
+        guard case .udp(let l) = lhs, case .udp(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      default: return false
+      }
+    }
+  #endif
+  }
+
+  init() {}
+}
+
+struct Mitmproxy_Ipc_TcpFlow {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var remoteAddress: Mitmproxy_Ipc_Address {
+    get {return _remoteAddress ?? Mitmproxy_Ipc_Address()}
+    set {_remoteAddress = newValue}
+  }
+  /// Returns true if `remoteAddress` has been explicitly set.
+  var hasRemoteAddress: Bool {return self._remoteAddress != nil}
+  /// Clears the value of `remoteAddress`. Subsequent reads from it will return its default value.
+  mutating func clearRemoteAddress() {self._remoteAddress = nil}
 
   var tunnelInfo: Mitmproxy_Ipc_TunnelInfo {
     get {return _tunnelInfo ?? Mitmproxy_Ipc_TunnelInfo()}
@@ -211,11 +226,79 @@ struct Mitmproxy_Ipc_NewFlow {
 
   init() {}
 
+  fileprivate var _remoteAddress: Mitmproxy_Ipc_Address? = nil
   fileprivate var _tunnelInfo: Mitmproxy_Ipc_TunnelInfo? = nil
 }
 
+struct Mitmproxy_Ipc_UdpFlow {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var localAddress: Mitmproxy_Ipc_Address {
+    get {return _localAddress ?? Mitmproxy_Ipc_Address()}
+    set {_localAddress = newValue}
+  }
+  /// Returns true if `localAddress` has been explicitly set.
+  var hasLocalAddress: Bool {return self._localAddress != nil}
+  /// Clears the value of `localAddress`. Subsequent reads from it will return its default value.
+  mutating func clearLocalAddress() {self._localAddress = nil}
+
+  var tunnelInfo: Mitmproxy_Ipc_TunnelInfo {
+    get {return _tunnelInfo ?? Mitmproxy_Ipc_TunnelInfo()}
+    set {_tunnelInfo = newValue}
+  }
+  /// Returns true if `tunnelInfo` has been explicitly set.
+  var hasTunnelInfo: Bool {return self._tunnelInfo != nil}
+  /// Clears the value of `tunnelInfo`. Subsequent reads from it will return its default value.
+  mutating func clearTunnelInfo() {self._tunnelInfo = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _localAddress: Mitmproxy_Ipc_Address? = nil
+  fileprivate var _tunnelInfo: Mitmproxy_Ipc_TunnelInfo? = nil
+}
+
+struct Mitmproxy_Ipc_UdpPacket {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var data: Data = Data()
+
+  var remoteAddress: Mitmproxy_Ipc_Address {
+    get {return _remoteAddress ?? Mitmproxy_Ipc_Address()}
+    set {_remoteAddress = newValue}
+  }
+  /// Returns true if `remoteAddress` has been explicitly set.
+  var hasRemoteAddress: Bool {return self._remoteAddress != nil}
+  /// Clears the value of `remoteAddress`. Subsequent reads from it will return its default value.
+  mutating func clearRemoteAddress() {self._remoteAddress = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _remoteAddress: Mitmproxy_Ipc_Address? = nil
+}
+
+struct Mitmproxy_Ipc_Address {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var host: String = String()
+
+  var port: UInt32 = 0
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 #if swift(>=5.5) && canImport(_Concurrency)
-extension Mitmproxy_Ipc_TransportProtocol: @unchecked Sendable {}
 extension Mitmproxy_Ipc_PacketWithMeta: @unchecked Sendable {}
 extension Mitmproxy_Ipc_TunnelInfo: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromProxy: @unchecked Sendable {}
@@ -223,18 +306,16 @@ extension Mitmproxy_Ipc_FromProxy.OneOf_Message: @unchecked Sendable {}
 extension Mitmproxy_Ipc_Packet: @unchecked Sendable {}
 extension Mitmproxy_Ipc_InterceptSpec: @unchecked Sendable {}
 extension Mitmproxy_Ipc_NewFlow: @unchecked Sendable {}
+extension Mitmproxy_Ipc_NewFlow.OneOf_Message: @unchecked Sendable {}
+extension Mitmproxy_Ipc_TcpFlow: @unchecked Sendable {}
+extension Mitmproxy_Ipc_UdpFlow: @unchecked Sendable {}
+extension Mitmproxy_Ipc_UdpPacket: @unchecked Sendable {}
+extension Mitmproxy_Ipc_Address: @unchecked Sendable {}
 #endif  // swift(>=5.5) && canImport(_Concurrency)
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "mitmproxy.ipc"
-
-extension Mitmproxy_Ipc_TransportProtocol: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "TCP"),
-    1: .same(proto: "UDP"),
-  ]
-}
 
 extension Mitmproxy_Ipc_PacketWithMeta: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PacketWithMeta"
@@ -457,10 +538,8 @@ extension Mitmproxy_Ipc_InterceptSpec: SwiftProtobuf.Message, SwiftProtobuf._Mes
 extension Mitmproxy_Ipc_NewFlow: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".NewFlow"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "protocol"),
-    4: .same(proto: "hostname"),
-    5: .same(proto: "port"),
-    2: .standard(proto: "tunnel_info"),
+    1: .same(proto: "tcp"),
+    2: .same(proto: "udp"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -469,10 +548,32 @@ extension Mitmproxy_Ipc_NewFlow: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularEnumField(value: &self.`protocol`) }()
-      case 2: try { try decoder.decodeSingularMessageField(value: &self._tunnelInfo) }()
-      case 4: try { try decoder.decodeSingularStringField(value: &self.hostname) }()
-      case 5: try { try decoder.decodeSingularUInt32Field(value: &self.port) }()
+      case 1: try {
+        var v: Mitmproxy_Ipc_TcpFlow?
+        var hadOneofValue = false
+        if let current = self.message {
+          hadOneofValue = true
+          if case .tcp(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.message = .tcp(v)
+        }
+      }()
+      case 2: try {
+        var v: Mitmproxy_Ipc_UdpFlow?
+        var hadOneofValue = false
+        if let current = self.message {
+          hadOneofValue = true
+          if case .udp(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.message = .udp(v)
+        }
+      }()
       default: break
       }
     }
@@ -483,26 +584,186 @@ extension Mitmproxy_Ipc_NewFlow: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     // allocates stack space for every if/case branch local when no optimizations
     // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
     // https://github.com/apple/swift-protobuf/issues/1182
-    if self.`protocol` != .tcp {
-      try visitor.visitSingularEnumField(value: self.`protocol`, fieldNumber: 1)
-    }
-    try { if let v = self._tunnelInfo {
+    switch self.message {
+    case .tcp?: try {
+      guard case .tcp(let v)? = self.message else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    }()
+    case .udp?: try {
+      guard case .udp(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
-    } }()
-    if !self.hostname.isEmpty {
-      try visitor.visitSingularStringField(value: self.hostname, fieldNumber: 4)
-    }
-    if self.port != 0 {
-      try visitor.visitSingularUInt32Field(value: self.port, fieldNumber: 5)
+    }()
+    case nil: break
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Mitmproxy_Ipc_NewFlow, rhs: Mitmproxy_Ipc_NewFlow) -> Bool {
-    if lhs.`protocol` != rhs.`protocol` {return false}
-    if lhs.hostname != rhs.hostname {return false}
-    if lhs.port != rhs.port {return false}
+    if lhs.message != rhs.message {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Mitmproxy_Ipc_TcpFlow: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".TcpFlow"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .standard(proto: "remote_address"),
+    2: .standard(proto: "tunnel_info"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularMessageField(value: &self._remoteAddress) }()
+      case 2: try { try decoder.decodeSingularMessageField(value: &self._tunnelInfo) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._remoteAddress {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    } }()
+    try { if let v = self._tunnelInfo {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Mitmproxy_Ipc_TcpFlow, rhs: Mitmproxy_Ipc_TcpFlow) -> Bool {
+    if lhs._remoteAddress != rhs._remoteAddress {return false}
     if lhs._tunnelInfo != rhs._tunnelInfo {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Mitmproxy_Ipc_UdpFlow: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".UdpFlow"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .standard(proto: "local_address"),
+    3: .standard(proto: "tunnel_info"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularMessageField(value: &self._localAddress) }()
+      case 3: try { try decoder.decodeSingularMessageField(value: &self._tunnelInfo) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._localAddress {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    } }()
+    try { if let v = self._tunnelInfo {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Mitmproxy_Ipc_UdpFlow, rhs: Mitmproxy_Ipc_UdpFlow) -> Bool {
+    if lhs._localAddress != rhs._localAddress {return false}
+    if lhs._tunnelInfo != rhs._tunnelInfo {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Mitmproxy_Ipc_UdpPacket: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".UdpPacket"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "data"),
+    2: .standard(proto: "remote_address"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBytesField(value: &self.data) }()
+      case 2: try { try decoder.decodeSingularMessageField(value: &self._remoteAddress) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if !self.data.isEmpty {
+      try visitor.visitSingularBytesField(value: self.data, fieldNumber: 1)
+    }
+    try { if let v = self._remoteAddress {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Mitmproxy_Ipc_UdpPacket, rhs: Mitmproxy_Ipc_UdpPacket) -> Bool {
+    if lhs.data != rhs.data {return false}
+    if lhs._remoteAddress != rhs._remoteAddress {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Mitmproxy_Ipc_Address: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".Address"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "host"),
+    2: .same(proto: "port"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.host) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.port) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.host.isEmpty {
+      try visitor.visitSingularStringField(value: self.host, fieldNumber: 1)
+    }
+    if self.port != 0 {
+      try visitor.visitSingularUInt32Field(value: self.port, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Mitmproxy_Ipc_Address, rhs: Mitmproxy_Ipc_Address) -> Bool {
+    if lhs.host != rhs.host {return false}
+    if lhs.port != rhs.port {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

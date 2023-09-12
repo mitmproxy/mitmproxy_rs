@@ -18,8 +18,6 @@
 		CE904BCF2A8E9B3100A7DF8A /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */; };
 		CE904BD22A8E9B6A00A7DF8A /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = CE904BD12A8E9B6A00A7DF8A /* SwiftProtobuf */; };
 		CE904BD42A8E9BD500A7DF8A /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = CE904BD32A8E9BD500A7DF8A /* SwiftProtobuf */; };
-		CE904BD52A8E9C5600A7DF8A /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */; };
-		CE904BD82A8EA0C600A7DF8A /* utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BD72A8EA0C600A7DF8A /* utils.swift */; };
 		CE904BD92A8EA0C600A7DF8A /* utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BD72A8EA0C600A7DF8A /* utils.swift */; };
 /* End PBXBuildFile section */
 
@@ -262,9 +260,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CE904BD82A8EA0C600A7DF8A /* utils.swift in Sources */,
 				CE904BCE2A8E9B2600A7DF8A /* app.swift in Sources */,
-				CE904BD52A8E9C5600A7DF8A /* ipc.pb.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

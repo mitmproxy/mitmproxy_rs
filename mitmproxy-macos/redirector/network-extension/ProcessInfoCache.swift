@@ -9,6 +9,7 @@ struct ProcessInfo {
 let PROC_PIDPATHINFO_MAXSIZE = UInt32(MAXPATHLEN * 4)
 
 
+/// An audit token -> (pid, process path) lookup cache.
 class ProcessInfoCache {
     private static var cache: [Data: ProcessInfo] = [:]
         
@@ -28,7 +29,6 @@ class ProcessInfoCache {
         }
         
         let pid = audit_token_to_pid(token)
-        // log.debug("pid \(pid)")
         
         // pid -> path
         let pathBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Int(PROC_PIDPATHINFO_MAXSIZE))

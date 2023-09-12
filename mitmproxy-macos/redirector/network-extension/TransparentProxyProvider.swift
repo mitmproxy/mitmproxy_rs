@@ -10,37 +10,7 @@ enum TransparentProxyError: Error {
 }
 
 extension NWConnection {
-    func monitor(
-        onUpdate: @escaping (_ spec: Mitmproxy_Ipc_InterceptSpec) -> Void
-    ) {
-        receive(minimumIncompleteLength: 4, maximumLength: 4, completion: { len_buf,_,_,_  in
-            guard
-                let len_buf = len_buf,
-                len_buf.count == 4
-            else {
-                if len_buf != nil {
-                    log.error("Protocol error on control stream: \(String(describing:len_buf), privacy: .public)")
-                }
-                return
-            }
-            let len = len_buf[...].reduce(Int(0)) { $0 << 8 + Int($1) };
-            
-            self.receive(minimumIncompleteLength: len, maximumLength: len) { data,_,_,_  in
-                guard
-                    let data = data,
-                    data.count == len,
-                    let spec = try? Mitmproxy_Ipc_InterceptSpec(contiguousBytes: data)
-                else {
-                    log.error("Protocol error on control stream: \(String(describing:data), privacy: .public)")
-                    return
-                }
-                log.debug("Received new intercept spec: \(String(describing: spec), privacy: .public)")
-                onUpdate(spec)
-                self.monitor(onUpdate: onUpdate)
-            }
-        })
-    }
-    
+    /// Async wrapper to establish a connection and wait for NWConnection.State.ready
     func establish() async throws {
         let orig_handler = self.stateUpdateHandler;
         defer {
@@ -63,6 +33,15 @@ extension NWConnection {
                 }
             };
             self.start(queue: DispatchQueue.global())
+        }
+    }
+    
+    func monitor(onUpdate: @escaping (_ spec: Mitmproxy_Ipc_InterceptSpec) -> Void) {
+        Task {
+            while let spec = try await self.receive(ipc: Mitmproxy_Ipc_InterceptSpec.self) {
+                log.debug("Received spec: \(String(describing:spec), privacy: .public)")
+                onUpdate(spec)
+            }
         }
     }
 }
@@ -104,7 +83,7 @@ class TransparentProxyProvider: NETransparentProxyProvider {
         let proxySettings = NETransparentProxyNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         proxySettings.includedNetworkRules = [
             NENetworkRule(
-                remoteNetwork: NWHostEndpoint(hostname: "0.0.0.0", port: "80"),
+                remoteNetwork: nil,
                 remotePrefix: 0,
                 localNetwork: nil,
                 localPrefix: 0,
@@ -130,43 +109,67 @@ class TransparentProxyProvider: NETransparentProxyProvider {
         if processInfo?.path == "/usr/bin/curl" {
             
             Task {
+                log.debug("remoteHostname: \(String(describing:flow.remoteHostname), privacy: .public) flow:\(String(describing: flow), privacy: .public)")
+                try await flow.open(withLocalEndpoint: nil)
+                                
+                let tunnelInfo = Mitmproxy_Ipc_TunnelInfo.with {
+                    if let pid = processInfo?.pid {
+                        $0.pid = pid;
+                    }
+                    if let path = processInfo?.path {
+                        $0.processName = path;
+                    }
+                };
+                let message: Mitmproxy_Ipc_NewFlow;
                 if let tcp_flow = flow as? NEAppProxyTCPFlow {
-                    
+                    log.debug("remoteEndpoint: \(String(describing:tcp_flow.remoteEndpoint), privacy: .public)")
                     guard let endpoint = tcp_flow.remoteEndpoint as? NWHostEndpoint else {
-                        log.debug("Unexpected endpoint: \(String(describing: tcp_flow.remoteEndpoint), privacy: .public)")
+                        log.debug("No remote endpoint for TCP flow: \(String(describing: tcp_flow), privacy: .public)")
                         return
                     }
-                    
-                    log.debug("endpoint: \(String(describing: endpoint), privacy: .public)");
-                
-                    let conn = NWConnection(
-                        to: .unix(path: self.unix_socket!),
-                        using: .tcp
-                    )
-                    try await conn.establish() // TODO error handling…
-                    try await tcp_flow.open(withLocalEndpoint: NWHostEndpoint(hostname: "127.0.0.1", port: endpoint.port))
-                    
-                    let message = Mitmproxy_Ipc_NewFlow.with {
-                        $0.protocol = Mitmproxy_Ipc_TransportProtocol.tcp;
-                        $0.hostname = endpoint.hostname;
-                        $0.port = UInt32(endpoint.port)!;
-                        $0.tunnelInfo = Mitmproxy_Ipc_TunnelInfo.with({
-                            if let pid = processInfo?.pid {
-                                $0.pid = pid;
-                            }
-                            if let path = processInfo?.path {
-                                $0.processName = path;
-                            }
-                        })
+                    message = Mitmproxy_Ipc_NewFlow.with {
+                        $0.tcp = Mitmproxy_Ipc_TcpFlow.with {
+                            $0.remoteAddress = Mitmproxy_Ipc_Address.init(endpoint: endpoint)
+                            $0.tunnelInfo = tunnelInfo
+                        };
+                    };
+                } else if let udp_flow = flow as? NEAppProxyUDPFlow {
+                    guard let endpoint = udp_flow.localEndpoint as? NWHostEndpoint else {
+                        log.debug("No local endpoint for UDP flow: \(String(describing: udp_flow), privacy: .public)")
+                        return
                     }
-                    try await conn.send(ipc: message)
-                    log.debug("message sent.")
-                    
+                    message = Mitmproxy_Ipc_NewFlow.with {
+                        $0.udp = Mitmproxy_Ipc_UdpFlow.with {
+                            $0.localAddress = Mitmproxy_Ipc_Address.init(endpoint: endpoint)
+                            $0.tunnelInfo = tunnelInfo
+                        };
+                    };
+                } else {
+                    log.debug("Unexpected flow: \(String(describing: flow), privacy: .public)")
+                    return
+                }
+                                    
+                let conn = NWConnection(
+                    to: .unix(path: self.unix_socket!),
+                    using: .tcp
+                )
+                do {
+                    try await conn.establish()
+                } catch {
+                    flow.closeReadWithError(error)
+                    flow.closeWriteWithError(error)
+                    throw error
+                }
+                
+                try await conn.send(ipc: message)
+                log.debug("message sent.")
+                
+                if let tcp_flow = flow as? NEAppProxyTCPFlow {
                     tcp_flow.outboundCopier(conn)
                     tcp_flow.inboundCopier(conn)
-                    
-                } else {
-                    log.error("Unhandled: \(String(describing: flow), privacy: .public)")
+                } else if let udp_flow = flow as? NEAppProxyUDPFlow {
+                    udp_flow.outboundCopier(conn)
+                    udp_flow.inboundCopier(conn)
                 }
             }
             return true
@@ -207,6 +210,63 @@ extension NEAppProxyTCPFlow {
                     self.closeWriteWithError(error)
                 default:
                     log.info("inboundCopier error=\(String(describing: error), privacy: .public) isComplete=\(String(describing: isComplete), privacy: .public)")
+            }
+        }
+    }
+}
+
+
+extension NEAppProxyUDPFlow {
+    
+    func readDatagrams() async throws -> ([Data], [NetworkExtension.NWEndpoint]) {
+        return try await withCheckedThrowingContinuation { continuation in
+            readDatagrams { datagrams, endpoints, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                }
+                guard let datagrams = datagrams, let endpoints = endpoints else {
+                    fatalError("No error, but also no datagrams")
+                }
+                continuation.resume(returning: (datagrams, endpoints))
+            }
+        }
+    }
+    
+    func outboundCopier(_ conn: NWConnection) {
+        Task {
+            while true {
+                let (datagrams, endpoints) = try await readDatagrams();
+                log.debug("localEndpoint in copier: \(String(describing:self.localEndpoint),privacy: .public)")
+                if datagrams.isEmpty {
+                    log.debug("outbound udp copier end")
+                    conn.send(content: nil, isComplete: true, completion: .idempotent)
+                    break
+                }
+                for (datagram, endpoint) in zip(datagrams, endpoints) {
+                    let message = Mitmproxy_Ipc_UdpPacket.with {
+                        $0.data = datagram;
+                        $0.remoteAddress = Mitmproxy_Ipc_Address.init(endpoint: endpoint as! NWHostEndpoint);
+                    };
+                    try await conn.send(ipc: message);
+                }
+            }
+        }
+    }
+    
+    func inboundCopier(_ conn: NWConnection) {
+        Task {
+            while true {
+                log.debug("UDP inbound: receiving...")
+                guard let packet = try await conn.receive(ipc: Mitmproxy_Ipc_UdpPacket.self) else {
+                    self.closeWriteWithError(nil)
+                    break
+                }
+                log.debug("UDP inbound: received: \(String(describing: packet), privacy: .public)")
+                let endpoint = NWHostEndpoint(address: packet.remoteAddress)
+                log.debug("grams = \(String(describing: [packet.data]), privacy: .public)")
+                log.debug("sentBy = \(String(describing: [endpoint]), privacy: .public)")
+                try await self.writeDatagrams([packet.data], sentBy: [endpoint])
+                log.debug("UDP inbound forward complete.")
             }
         }
     }

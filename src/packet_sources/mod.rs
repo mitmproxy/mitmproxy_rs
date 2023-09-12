@@ -11,7 +11,26 @@ pub mod windows;
 pub mod wireguard;
 
 pub mod ipc {
+    use std::net::{AddrParseError, IpAddr, SocketAddr};
+    use std::str::FromStr;
     include!(concat!(env!("OUT_DIR"), "/mitmproxy.ipc.rs"));
+
+    impl TryFrom<&Address> for SocketAddr {
+        type Error = AddrParseError;
+
+        fn try_from(address: &Address) -> Result<Self, Self::Error> {
+            let ip = IpAddr::from_str(&address.host)?;
+            Ok(SocketAddr::from((ip, address.port as u16)))
+        }
+    }
+    impl From<SocketAddr> for Address {
+        fn from(val: SocketAddr) -> Self {
+            Address {
+                host: val.ip().to_string(),
+                port: val.port() as u32,
+            }
+        }
+    }
 }
 
 #[async_trait]

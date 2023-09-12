@@ -29,12 +29,24 @@ message InterceptSpec {
 }
 // New flow (macOS TCP/UDP Stream)
 message NewFlow {
-  TransportProtocol protocol = 1;
-  string hostname = 4;
-  uint32 port = 5;
+  oneof message {
+    TcpFlow tcp = 1;
+    UdpFlow udp = 2;
+  }
+}
+message TcpFlow {
+  Address remote_address = 1;
   TunnelInfo tunnel_info = 2;
 }
-enum TransportProtocol {
-  TCP = 0;
-  UDP = 1;
+message UdpFlow {
+  optional Address local_address = 1;
+  TunnelInfo tunnel_info = 3;
+}
+message UdpPacket {
+  bytes data = 1;
+  Address remote_address = 2;
+}
+message Address {
+  string host = 1;
+  uint32 port = 2;
 }

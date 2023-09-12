@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{Ipv4Addr, SocketAddr};
 
 use crate::messages::{ConnectionId, TransportCommand, TransportEvent, TunnelInfo};
 use crate::network::MAX_PACKET_SIZE;
 
-use crate::packet_sources::ipc::from_proxy;
+use crate::packet_sources::ipc::{from_proxy, NewFlow, TcpFlow, UdpFlow};
 use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
@@ -15,7 +15,6 @@ use prost::bytes::{Buf, BytesMut};
 use prost::Message;
 
 use std::process::Stdio;
-use std::str::FromStr;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
@@ -97,6 +96,7 @@ impl PacketSourceConf for MacosConf {
                 listener,
                 connections: JoinSet::new(),
                 connection_commands: HashMap::new(),
+                connection_commands_udp: HashMap::new(),
                 transport_events_tx,
                 transport_commands_rx,
                 conf_rx,
@@ -107,14 +107,16 @@ impl PacketSourceConf for MacosConf {
     }
 }
 
+struct RegisterSocketAddr(ConnectionId, SocketAddr, oneshot::Sender<()>);
+
 struct ConnectionTask {
     id: ConnectionId,
     stream: UnixStream,
     commands: UnboundedReceiver<TransportCommand>,
     events: Sender<TransportEvent>,
-    buf: BytesMut,
     read_tx: Option<(usize, oneshot::Sender<Vec<u8>>)>,
     drain_tx: Option<oneshot::Sender<()>>,
+    register_addr: UnboundedSender<RegisterSocketAddr>,
 }
 
 impl ConnectionTask {
@@ -123,45 +125,130 @@ impl ConnectionTask {
         stream: UnixStream,
         commands: UnboundedReceiver<TransportCommand>,
         events: Sender<TransportEvent>,
+        register_addr: UnboundedSender<RegisterSocketAddr>,
     ) -> Self {
         Self {
             id,
             stream,
             commands,
             events,
-            buf: BytesMut::with_capacity(IPC_BUF_SIZE),
             read_tx: None,
             drain_tx: None,
+            register_addr,
         }
     }
     async fn run(mut self) -> Result<()> {
         let len = self.stream.read_u32().await? as usize;
 
-        self.buf.resize(len, 0);
-        self.stream.read_exact(&mut self.buf).await?;
-        let Ok(msg) = ipc::NewFlow::decode(&self.buf[..]) else {
-            bail!("Received invalid IPC message: {:?}", &self.buf[..]);
+        let mut buf = BytesMut::zeroed(len);
+        self.stream.read_exact(&mut buf).await?;
+        let Ok(new_flow) = ipc::NewFlow::decode(&buf[..]) else {
+            bail!("Received invalid IPC message: {:?}", &buf[..]);
         };
-        self.buf.clear();
 
-        let dst_ip;
-        let destination_hostname;
-        if let Ok(ip) = IpAddr::from_str(&msg.hostname) {
-            dst_ip = ip;
-            destination_hostname = None;
-        } else {
-            dst_ip = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
-            destination_hostname = Some(msg.hostname);
+        match new_flow {
+            NewFlow {
+                message: Some(ipc::new_flow::Message::Tcp(tcp_flow)),
+            } => self.handle_tcp(tcp_flow).await,
+            NewFlow {
+                message: Some(ipc::new_flow::Message::Udp(udp_flow)),
+            } => self.handle_udp(udp_flow).await,
+            _ => {
+                bail!("Received invalid IPC message: {:?}", new_flow);
+            }
         }
+    }
 
+    async fn handle_udp(mut self, flow: UdpFlow) -> Result<()> {
+        dbg!(&flow);
+        let mut write_buf = BytesMut::new();
+        let mut stream = Framed::new(self.stream, LengthDelimitedCodec::new());
+
+        let tunnel_info = {
+            let tun = flow.tunnel_info.expect("no tunnel info");
+            TunnelInfo::OsProxy {
+                pid: tun.pid,
+                process_name: tun.process_name,
+                dst_hostname: None, // FIXME: correct?
+            }
+        };
+        let src_addr = {
+            let addr = flow.local_address.as_ref().expect("no local address");
+            SocketAddr::try_from(addr)?
+        };
+
+        let (done_tx, done_rx) = oneshot::channel();
+        self.register_addr
+            .send(RegisterSocketAddr(self.id, src_addr, done_tx))?;
+        done_rx.await?;
+
+        loop {
+            tokio::select! {
+                next = stream.next() => {
+                    let Some(next) = next else {
+                        return Ok(())
+                    };
+                    let buf = next?;
+                    let Ok(packet) = ipc::UdpPacket::decode(&buf[..]) else {
+                        bail!("Received invalid IPC message: {:?}", &buf[..]);
+                    };
+                    dbg!("udp packet recvd", &packet.remote_address, &packet.data.len());
+                    if let Err(e) = self.events.try_send(TransportEvent::DatagramReceived {
+                        data: packet.data,
+                        src_addr,
+                        dst_addr: packet.remote_address.as_ref().expect("no remote addr").try_into()?,
+                        tunnel_info: tunnel_info.clone(),
+                    }) {
+                        log::debug!("Failed to send UDP packet: {}", e);
+                    }
+                },
+                command = self.commands.recv() => {
+                    let Some(command) = command else {
+                        return Ok(())
+                    };
+                    match command {
+                        TransportCommand::SendDatagram { data, src_addr, dst_addr } => {
+                            dbg!("sending to stream", data.len(), src_addr, dst_addr);
+                            let packet = ipc::UdpPacket {
+                                data,
+                                remote_address: Some(src_addr.into()),
+                            };
+                            write_buf.reserve(packet.encoded_len());
+                            packet.encode(&mut write_buf)?;
+                            let d = write_buf.split().freeze();
+                            dbg!(d.len());
+                            stream.send(d).await?;
+                            dbg!("send done");
+                        },
+                        TransportCommand::ReadData(_, _, _) |
+                        TransportCommand::WriteData(_, _) |
+                        TransportCommand::DrainWriter(_, _) |
+                        TransportCommand::CloseConnection(_, _) => {
+                            unreachable!()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    async fn handle_tcp(mut self, flow: TcpFlow) -> Result<()> {
+        let mut write_buf = BytesMut::new();
+
+        let remote_addr = flow.remote_address.expect("no remote address");
+
+        let src_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 0));
+        let dst_addr = SocketAddr::try_from(&remote_addr)
+            .unwrap_or_else(|_| SocketAddr::from((Ipv4Addr::UNSPECIFIED, remote_addr.port as u16)));
+        let destination_hostname = dst_addr.ip().is_unspecified().then_some(remote_addr.host);
         self.events
             .send(TransportEvent::ConnectionEstablished {
                 connection_id: self.id,
-                src_addr: SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
-                dst_addr: SocketAddr::from((dst_ip, msg.port as u16)),
+                src_addr,
+                dst_addr,
                 tunnel_info: TunnelInfo::OsProxy {
-                    pid: msg.tunnel_info.as_ref().map(|t| t.pid).unwrap_or(0),
-                    process_name: msg.tunnel_info.and_then(|t| t.process_name),
+                    pid: flow.tunnel_info.as_ref().map(|t| t.pid).unwrap_or(0),
+                    process_name: flow.tunnel_info.and_then(|t| t.process_name),
                     dst_hostname: destination_hostname,
                 },
             })
@@ -169,9 +256,9 @@ impl ConnectionTask {
 
         loop {
             tokio::select! {
-                Ok(()) = self.stream.writable(), if !self.buf.is_empty() => {
-                    let _written = self.stream.write_buf(&mut self.buf).await?;
-                    if self.buf.is_empty() {
+                Ok(()) = self.stream.writable(), if !write_buf.is_empty() => {
+                    let _written = self.stream.write_buf(&mut write_buf).await?;
+                    if write_buf.is_empty() {
                         if let Some(tx) = self.drain_tx.take() {
                             tx.send(()).ok();
                         }
@@ -195,11 +282,11 @@ impl ConnectionTask {
                         TransportCommand::WriteData(_, data) => {
                             let mut c = std::io::Cursor::new(data);
                             self.stream.write_buf(&mut c).await?;
-                            self.buf.extend_from_slice(c.chunk());
+                            write_buf.extend_from_slice(c.chunk());
                         },
                         TransportCommand::DrainWriter(_, tx) => {
                             assert!(self.drain_tx.is_none());
-                            if self.buf.is_empty() {
+                            if write_buf.is_empty() {
                                 tx.send(()).ok();
                             } else {
                                 self.drain_tx = Some(tx);
@@ -225,6 +312,7 @@ pub struct MacOsTask {
     listener: UnixListener,
     connections: JoinSet<Result<()>>,
     connection_commands: HashMap<ConnectionId, UnboundedSender<TransportCommand>>,
+    connection_commands_udp: HashMap<SocketAddr, UnboundedSender<TransportCommand>>,
     transport_events_tx: Sender<TransportEvent>,
     transport_commands_rx: UnboundedReceiver<TransportCommand>,
     conf_rx: UnboundedReceiver<ipc::FromProxy>,
@@ -236,6 +324,8 @@ impl PacketSourceTask for MacOsTask {
     async fn run(mut self) -> Result<()> {
         let mut control_channel = Framed::new(self.control_channel, LengthDelimitedCodec::new());
 
+        let (register_addr_tx, mut register_addr_rx) = unbounded_channel::<RegisterSocketAddr>();
+
         loop {
             tokio::select! {
                 // wait for graceful shutdown
@@ -243,12 +333,17 @@ impl PacketSourceTask for MacOsTask {
                 _ = control_channel.next() => {
                     bail!("macOS System Extension shut down.")
                 },
+                Some(RegisterSocketAddr(cid, addr, done)) = register_addr_rx.recv() => {
+                    let tx = self.connection_commands.get(&cid).unwrap().clone();
+                    self.connection_commands_udp.insert(addr, tx);
+                    done.send(()).expect("ok channel dead");
+                },
                 l = self.listener.accept() => {
                     match l {
                         Ok((stream, _)) => {
                             let (tx, rx) = unbounded_channel();
                             let connection_id = self.connections.len() as ConnectionId;
-                            let task = ConnectionTask::new(connection_id, stream, rx, self.transport_events_tx.clone());
+                            let task = ConnectionTask::new(connection_id, stream, rx, self.transport_events_tx.clone(), register_addr_tx.clone());
                             self.connections.spawn(task.run());
                             self.connection_commands.insert(
                                 connection_id,
@@ -264,17 +359,27 @@ impl PacketSourceTask for MacOsTask {
                     let Some(cmd) = cmd else {
                         bail!("Transport command channel closed.");
                     };
-                    match cmd {
+                    match &cmd {
                         TransportCommand::ReadData(connection_id, _, _)
                         | TransportCommand::WriteData(connection_id, _)
                         | TransportCommand::DrainWriter(connection_id, _)
                         | TransportCommand::CloseConnection(connection_id, _) => {
-                            let Some(conn_tx) = self.connection_commands.get(&connection_id) else {
-                                bail!("Received command for unknown connection: {:?}", cmd);
+                            let Some(conn_tx) = self.connection_commands.get(connection_id) else {
+                                bail!("Received command for unknown connection: {:?}", &cmd);
                             };
                             conn_tx.send(cmd)?;
                         },
-                        TransportCommand::SendDatagram { .. } => unimplemented!(),
+                        TransportCommand::SendDatagram {
+                            data: _,
+                            src_addr,
+                            dst_addr,
+                        } => {
+                            dbg!("SendDatagram", src_addr, dst_addr);
+                            let Some(conn_tx) = self.connection_commands_udp.get(dst_addr) else {
+                                bail!("Received command for unknown address: src={:?} dst={:?}", src_addr, dst_addr);
+                            };
+                            conn_tx.send(cmd)?;
+                        },
                     }
                 }
                 // pipe through changes to the intercept list
@@ -287,49 +392,6 @@ impl PacketSourceTask for MacOsTask {
                     msg.encode(&mut buf)?;
                     control_channel.send(buf.freeze()).await?;
                 },
-                /*
-                // read packets from the IPC pipe into our network stack.
-                rx = packet_rx.next() => {
-                    match rx {
-                        Some(Ok(mut buf)) => {
-                            let Ok(FromRedirector { message: Some(message)}) = FromRedirector::decode(&mut buf) else {
-                                return Err(anyhow!("Received invalid IPC message: {:?}", &buf));
-                            };
-                            let Packet(PacketWithMeta { data, pid, process_name}) = message;
-                            let Ok(mut packet) = IpPacket::try_from(data) else {
-                                log::error!("Skipping invalid packet: {:?}", &buf);
-                                continue;
-                            };
-                            packet.fill_ip_checksum();
-                            let event = NetworkEvent::ReceivePacket {
-                                packet,
-                                tunnel_info: TunnelInfo::OsProxy {
-                                    pid,
-                                    process_name,
-                                },
-                            };
-                            if self.net_tx.try_send(event).is_err() {
-                                log::warn!("Dropping incoming packet, TCP channel is full.");
-                            };
-                        },
-                        Some(Err(e)) if e.kind() == std::io::ErrorKind::WouldBlock => continue,
-                        Some(Err(e)) => bail!("Error reading pipe: {}", e),
-                        None => bail!("Empty pipe read."),
-                    }
-                },
-                //write packets from the network stack to the IPC pipe to be reinjected.
-                Some(e) = self.net_rx.recv() => {
-                    match e {
-                        NetworkCommand::SendPacket(packet) => {
-                            let msg = ipc::Packet { data: packet.into_inner() };
-                            let len = msg.encoded_len();
-                            self.buf.reserve(len);
-                            msg.encode(&mut self.buf)?;
-                            packet_tx.send(self.buf.split().freeze()).await?;
-                        }
-                    }
-                },
-                 */
             }
         }
 
