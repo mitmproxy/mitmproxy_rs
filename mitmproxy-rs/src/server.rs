@@ -161,11 +161,15 @@ impl OsProxy {
 
     /// Set a new intercept spec.
     pub fn set_intercept(&self, spec: String) -> PyResult<()> {
-        InterceptConf::try_from(spec.as_str())?;
+        let conf = InterceptConf::try_from(spec.as_str())?;
         self.conf_tx
             .send(ipc::FromProxy {
                 message: Some(ipc::from_proxy::Message::InterceptSpec(
-                    ipc::InterceptSpec { spec },
+                    ipc::InterceptSpec {
+                        pids: conf.pids.into_iter().collect(),
+                        process_names: conf.process_names,
+                        invert: conf.invert
+                    },
                 )),
             })
             .map_err(crate::util::event_queue_unavailable)?;

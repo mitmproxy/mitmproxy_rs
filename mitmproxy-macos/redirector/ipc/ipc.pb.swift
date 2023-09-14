@@ -139,7 +139,11 @@ struct Mitmproxy_Ipc_InterceptSpec {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var spec: String = String()
+  var pids: [UInt32] = []
+
+  var processNames: [String] = []
+
+  var invert: Bool = false
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -506,7 +510,9 @@ extension Mitmproxy_Ipc_Packet: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
 extension Mitmproxy_Ipc_InterceptSpec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".InterceptSpec"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "spec"),
+    2: .same(proto: "pids"),
+    1: .standard(proto: "process_names"),
+    3: .same(proto: "invert"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -515,21 +521,31 @@ extension Mitmproxy_Ipc_InterceptSpec: SwiftProtobuf.Message, SwiftProtobuf._Mes
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.spec) }()
+      case 1: try { try decoder.decodeRepeatedStringField(value: &self.processNames) }()
+      case 2: try { try decoder.decodeRepeatedUInt32Field(value: &self.pids) }()
+      case 3: try { try decoder.decodeSingularBoolField(value: &self.invert) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.spec.isEmpty {
-      try visitor.visitSingularStringField(value: self.spec, fieldNumber: 1)
+    if !self.processNames.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.processNames, fieldNumber: 1)
+    }
+    if !self.pids.isEmpty {
+      try visitor.visitPackedUInt32Field(value: self.pids, fieldNumber: 2)
+    }
+    if self.invert != false {
+      try visitor.visitSingularBoolField(value: self.invert, fieldNumber: 3)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Mitmproxy_Ipc_InterceptSpec, rhs: Mitmproxy_Ipc_InterceptSpec) -> Bool {
-    if lhs.spec != rhs.spec {return false}
+    if lhs.pids != rhs.pids {return false}
+    if lhs.processNames != rhs.processNames {return false}
+    if lhs.invert != rhs.invert {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

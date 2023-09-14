@@ -25,7 +25,9 @@ message Packet {
 }
 // Intercept spec (macOS Control Stream)
 message InterceptSpec {
-  string spec = 1;
+  repeated uint32 pids = 2;
+  repeated string process_names = 1;
+  bool invert = 3;
 }
 // New flow (macOS TCP/UDP Stream)
 message NewFlow {

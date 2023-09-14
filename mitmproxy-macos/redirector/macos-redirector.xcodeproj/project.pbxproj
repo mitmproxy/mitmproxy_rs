@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		CE3FDD7B2AAF1765007B7A3F /* ProcessInfoCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3FDD7A2AAF1765007B7A3F /* ProcessInfoCache.swift */; };
+		CE415DF32AB33C6A0038F901 /* InterceptSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE415DF22AB33C6A0038F901 /* InterceptSpec.swift */; };
 		CE7A86AF2A8CFB87009E0B82 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CE7A86AE2A8CFB87009E0B82 /* Assets.xcassets */; };
 		CE7A86C02A8CFBAD009E0B82 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE7A86BF2A8CFBAD009E0B82 /* NetworkExtension.framework */; };
 		CE7A86C32A8CFBAD009E0B82 /* TransparentProxyProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7A86C22A8CFBAD009E0B82 /* TransparentProxyProvider.swift */; };
@@ -47,6 +48,7 @@
 
 /* Begin PBXFileReference section */
 		CE3FDD7A2AAF1765007B7A3F /* ProcessInfoCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessInfoCache.swift; sourceTree = "<group>"; };
+		CE415DF22AB33C6A0038F901 /* InterceptSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterceptSpec.swift; sourceTree = "<group>"; };
 		CE7A86A72A8CFB86009E0B82 /* Mitmproxy Redirector.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Mitmproxy Redirector.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE7A86AE2A8CFB87009E0B82 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CE7A86B32A8CFB87009E0B82 /* macos_redirector.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = macos_redirector.entitlements; sourceTree = "<group>"; };
@@ -133,12 +135,13 @@
 		CE7A86C12A8CFBAD009E0B82 /* network-extension */ = {
 			isa = PBXGroup;
 			children = (
-				CE7A86C22A8CFBAD009E0B82 /* TransparentProxyProvider.swift */,
-				CE870C122AAD2D7F00510CD1 /* libproc-Bridging-Header.h */,
 				CE7A86C42A8CFBAD009E0B82 /* main.swift */,
+				CE7A86C22A8CFBAD009E0B82 /* TransparentProxyProvider.swift */,
+				CE3FDD7A2AAF1765007B7A3F /* ProcessInfoCache.swift */,
+				CE415DF22AB33C6A0038F901 /* InterceptSpec.swift */,
+				CE870C122AAD2D7F00510CD1 /* libproc-Bridging-Header.h */,
 				CE7A86C62A8CFBAD009E0B82 /* Info.plist */,
 				CE7A86C72A8CFBAD009E0B82 /* network_extension.entitlements */,
-				CE3FDD7A2AAF1765007B7A3F /* ProcessInfoCache.swift */,
 			);
 			path = "network-extension";
 			sourceTree = "<group>";
@@ -271,6 +274,7 @@
 				CE904BCF2A8E9B3100A7DF8A /* ipc.pb.swift in Sources */,
 				CE7A86C52A8CFBAD009E0B82 /* main.swift in Sources */,
 				CE3FDD7B2AAF1765007B7A3F /* ProcessInfoCache.swift in Sources */,
+				CE415DF32AB33C6A0038F901 /* InterceptSpec.swift in Sources */,
 				CE7A86C32A8CFBAD009E0B82 /* TransparentProxyProvider.swift in Sources */,
 				CE904BD92A8EA0C600A7DF8A /* utils.swift in Sources */,
 			);
