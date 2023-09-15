@@ -89,20 +89,14 @@ func startVPN(unixSocketPath: String) async throws {
     let providerProtocol = NETunnelProviderProtocol()
     providerProtocol.providerBundleIdentifier = networkExtensionIdentifier
     providerProtocol.serverAddress = unixSocketPath
-
+    
     /*
-     FIXME reenable
-    // XXX: it's unclear if these are actually necessary for per-app VPNs
-    providerProtocol.enforceRoutes = true
+    // NETransparentProxyManager does not support these properties and setting them causes silent failures.
     providerProtocol.includeAllNetworks = true
+    providerProtocol.enforceRoutes = true
     providerProtocol.excludeLocalNetworks = false
-    /*
-     XXX: This somehow does not compile on GHA
-    if #available(macOS 13.3, *) {
-        providerProtocol.excludeAPNs = false
-        providerProtocol.excludeCellularServices = false
-    }
-    */
+    providerProtocol.excludeAPNs = false
+    providerProtocol.excludeCellularServices = false
      */
 
     manager.protocolConfiguration = providerProtocol

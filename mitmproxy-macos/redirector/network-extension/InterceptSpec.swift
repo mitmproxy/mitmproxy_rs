@@ -1,6 +1,5 @@
 import Foundation
 
-
 class InterceptSpec {
     
     private var pids: Set<UInt32>

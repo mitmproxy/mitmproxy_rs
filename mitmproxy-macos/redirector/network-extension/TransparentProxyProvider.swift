@@ -42,16 +42,13 @@ class TransparentProxyProvider: NETransparentProxyProvider {
     var spec: InterceptSpec?
 
     override func startProxy(options: [String: Any]? = nil) async throws {
-        log.debug("startProxy")
-
-        self.unixSocket =
-            try self.protocolConfiguration.serverAddress
-            ?? {
-                throw TransparentProxyError.serverAddressMissing
-            }()
-
+        guard let unixSocket = self.protocolConfiguration.serverAddress
+        else { throw TransparentProxyError.serverAddressMissing }
+        self.unixSocket = unixSocket
+        
+        log.debug("Starting proxy. Establishing control channel via \(unixSocket, privacy: .public)...")
         let control = NWConnection(
-            to: .unix(path: self.unixSocket!),
+            to: .unix(path: unixSocket),
             using: .tcp
         )
         controlChannel = control
@@ -68,18 +65,18 @@ class TransparentProxyProvider: NETransparentProxyProvider {
                 break
             }
         }
-
         Task {
-            log.debug("what happens here?")
-            throw TransparentProxyError.connectionCancelled
-        }
-
-        Task {
-            while let spec = try await control.receive(ipc: Mitmproxy_Ipc_InterceptSpec.self) {
-                log.debug("Received spec: \(String(describing: spec), privacy: .public)")
-                self.spec = InterceptSpec(from: spec)
+            do {
+                while let spec = try await control.receive(ipc: Mitmproxy_Ipc_InterceptSpec.self) {
+                    log.debug("Received spec: \(String(describing: spec), privacy: .public)")
+                    self.spec = InterceptSpec(from: spec)
+                }
+            } catch {
+                log.error("Error on control channel: \(String(describing: error), privacy: .public)")
+                self.cancelProxyWithError(error)
             }
         }
+        log.debug("Established. Applying tunnel settings...")
 
         let proxySettings = NETransparentProxyNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         proxySettings.includedNetworkRules = [
@@ -89,12 +86,14 @@ class TransparentProxyProvider: NETransparentProxyProvider {
                 localNetwork: nil,
                 localPrefix: 0,
                 protocol: .any,
-                direction: .outbound  // FIXME: Setting .any breaks right now?
+                // https://developer.apple.com/documentation/networkextension/netransparentproxynetworksettings/3143656-includednetworkrules:
+                // The matchDirection property must be NETrafficDirection.outbound.
+                direction: .outbound
             )
         ]
 
         try await setTunnelNetworkSettings(proxySettings)
-        log.debug("startProxy completed.")
+        log.debug("Applied. Proxy start complete.")
     }
 
     override func stopProxy(with reason: NEProviderStopReason) async {
@@ -145,61 +144,61 @@ class TransparentProxyProvider: NETransparentProxyProvider {
     }
 
     override func handleNewFlow(_ flow: NEAppProxyFlow) -> Bool {
-        log.debug("handleNewFlow")
         let processInfo = ProcessInfoCache.getInfo(fromAuditToken: flow.metaData.sourceAppAuditToken)
-        
-        
-        log.debug("metadata: \(flow.metaData, privacy: .public)")
-        log.debug("si: \(flow.metaData.sourceAppSigningIdentifier, privacy: .public)")
-        log.debug("ui: \(flow.metaData.sourceAppUniqueIdentifier, privacy: .public)")
-        log.debug("desc: \(flow.description, privacy: .public)")
-
-        
         guard let processInfo = processInfo else {
             log.debug("Skipping flow without process info.")
             return false
         }
-        log.debug("processInfo: \(String(describing: processInfo), privacy: .public)")
+        log.debug("Handling new flow: \(String(describing: processInfo), privacy: .public)")
 
         guard let spec = self.spec else {
             log.debug("Skipping flow, no intercept spec provided.")
             return false
         }
         guard spec.shouldIntercept(processInfo) else {
+            log.debug("Flow not in scope, leaving it to the system.")
             return false
         }
-
-        // remoteHostname is a bit dangerous; for DNS UDP flows that's already pointing at the name that we want to look up.
+        
+        // Do not use remoteHostname property; for DNS UDP flows that's already pointing at the name that we want to look up.
         // log.debug("remoteHostname: \(String(describing: flow.remoteHostname), privacy: .public) flow:\(String(describing: flow), privacy: .public)")
         
         guard let message = self.makeIpcHandshake(flow: flow, processInfo: processInfo) else {
+            log.warning("Failed to make IPC handshake.")
             return false
         }
 
         Task {
-            try await flow.open(withLocalEndpoint: nil)
-
-            let conn = NWConnection(
-                to: .unix(path: self.unixSocket!),
-                using: .tcp
-            )
             do {
-                try await conn.establish()
+                log.debug("Intercepting...")
+                try await flow.open(withLocalEndpoint: nil)
+                
+                let conn = NWConnection(
+                    to: .unix(path: self.unixSocket!),
+                    using: .tcp
+                )
+                do {
+                    try await conn.establish()
+                } catch {
+                    flow.closeReadWithError(error)
+                    flow.closeWriteWithError(error)
+                    throw error
+                }
+                
+                try await conn.send(ipc: message)
+                log.debug("Handshake sent.")
+                
+                if let tcp_flow = flow as? NEAppProxyTCPFlow {
+                    tcp_flow.outboundCopier(conn)
+                    tcp_flow.inboundCopier(conn)
+                } else if let udp_flow = flow as? NEAppProxyUDPFlow {
+                    udp_flow.outboundCopier(conn)
+                    udp_flow.inboundCopier(conn)
+                }
             } catch {
+                log.error("Error handling flow: \(String(describing: error), privacy: .public)")
                 flow.closeReadWithError(error)
                 flow.closeWriteWithError(error)
-                throw error
-            }
-
-            try await conn.send(ipc: message)
-            log.debug("Handshake sent.")
-
-            if let tcp_flow = flow as? NEAppProxyTCPFlow {
-                tcp_flow.outboundCopier(conn)
-                tcp_flow.inboundCopier(conn)
-            } else if let udp_flow = flow as? NEAppProxyUDPFlow {
-                udp_flow.outboundCopier(conn)
-                udp_flow.inboundCopier(conn)
             }
         }
         
@@ -226,6 +225,7 @@ extension NEAppProxyTCPFlow {
                     "outbound copier end: \(String(describing: data), privacy: .public) \(String(describing: error), privacy: .public)"
                 )
                 conn.send(content: nil, isComplete: true, completion: .idempotent)
+                self.closeWriteWithError(error)
             }
         }
     }
@@ -241,10 +241,11 @@ extension NEAppProxyTCPFlow {
                     }
                 }
             case (_, true, _):
-                self.closeWriteWithError(error)
+                self.closeReadWithError(error)
             default:
+                self.closeReadWithError(error)
                 log.info(
-                    "inboundCopier error=\(String(describing: error), privacy: .public) isComplete=\(String(describing: isComplete), privacy: .public)"
+                    "inbound copier error=\(String(describing: error), privacy: .public) isComplete=\(String(describing: isComplete), privacy: .public)"
                 )
             }
         }
@@ -268,43 +269,51 @@ extension NEAppProxyUDPFlow {
 
     func outboundCopier(_ conn: NWConnection) {
         Task {
-            while true {
-                let (datagrams, endpoints) = try await readDatagrams()
-                log.debug(
-                    "localEndpoint in copier: \(String(describing: self.localEndpoint), privacy: .public)"
-                )
-                if datagrams.isEmpty {
-                    log.debug("outbound udp copier end")
-                    conn.send(content: nil, isComplete: true, completion: .idempotent)
-                    break
-                }
-                for (datagram, endpoint) in zip(datagrams, endpoints) {
-                    guard let endpoint = endpoint as? NWHostEndpoint
-                    else { continue }
-                    let message = Mitmproxy_Ipc_UdpPacket.with {
-                        $0.data = datagram
-                        $0.remoteAddress = Mitmproxy_Ipc_Address.init(endpoint: endpoint)
+            do {
+                while true {
+                    log.debug("UDP outbound: receiving...")
+                    let (datagrams, endpoints) = try await readDatagrams()
+                    if datagrams.isEmpty {
+                        log.debug("outbound udp copier end")
+                        conn.send(content: nil, isComplete: true, completion: .idempotent)
+                        break
                     }
-                    try await conn.send(ipc: message)
+                    log.debug("UDP outbound: received \(datagrams.count, privacy: .public) datagrams.")
+                    for (datagram, endpoint) in zip(datagrams, endpoints) {
+                        guard let endpoint = endpoint as? NWHostEndpoint
+                        else { continue }
+                        let message = Mitmproxy_Ipc_UdpPacket.with {
+                            $0.data = datagram
+                            $0.remoteAddress = Mitmproxy_Ipc_Address.init(endpoint: endpoint)
+                        }
+                        try await conn.send(ipc: message)
+                    }
                 }
+            } catch {
+                log.error("Error in outbound UDP copier: \(String(describing: error), privacy: .public)")
+                self.closeWriteWithError(error)
+                conn.cancel()
             }
         }
     }
 
     func inboundCopier(_ conn: NWConnection) {
         Task {
-            while true {
-                log.debug("UDP inbound: receiving...")
-                guard let packet = try await conn.receive(ipc: Mitmproxy_Ipc_UdpPacket.self) else {
-                    self.closeWriteWithError(nil)
-                    break
+            do {
+                while true {
+                    log.debug("UDP inbound: receiving...")
+                    guard let packet = try await conn.receive(ipc: Mitmproxy_Ipc_UdpPacket.self) else {
+                        self.closeReadWithError(nil)
+                        break
+                    }
+                    log.debug("UDP inbound: received packet.: \(String(describing: packet), privacy: .public)")
+                    let endpoint = NWHostEndpoint(address: packet.remoteAddress)
+                    try await self.writeDatagrams([packet.data], sentBy: [endpoint])
                 }
-                log.debug("UDP inbound: received: \(String(describing: packet), privacy: .public)")
-                let endpoint = NWHostEndpoint(address: packet.remoteAddress)
-                log.debug("grams = \(String(describing: [packet.data]), privacy: .public)")
-                log.debug("sentBy = \(String(describing: [endpoint]), privacy: .public)")
-                try await self.writeDatagrams([packet.data], sentBy: [endpoint])
-                log.debug("UDP inbound forward complete.")
+            } catch {
+                log.error("Error in inbound UDP copier: \(String(describing: error), privacy: .public)")
+                self.closeReadWithError(error)
+                conn.cancel()
             }
         }
     }
