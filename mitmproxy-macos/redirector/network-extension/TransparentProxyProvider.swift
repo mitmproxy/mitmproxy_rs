@@ -6,34 +6,9 @@ import NetworkExtension
 enum TransparentProxyError: Error {
     case serverAddressMissing
     case connectionCancelled
-}
-
-extension NWConnection {
-    /// Async wrapper to establish a connection and wait for NWConnection.State.ready
-    func establish() async throws {
-        let orig_handler = self.stateUpdateHandler
-        defer {
-            self.stateUpdateHandler = orig_handler
-        }
-        try await withCheckedThrowingContinuation { continuation in
-            self.stateUpdateHandler = { state in
-                log.info("stateUpdate: \(String(describing: state), privacy: .public)")
-                switch state {
-                case .ready:
-                    continuation.resume()
-                case .waiting(let err):
-                    continuation.resume(with: .failure(err))
-                case .failed(let err):
-                    continuation.resume(with: .failure(err))
-                case .cancelled:
-                    continuation.resume(with: .failure(TransparentProxyError.connectionCancelled))
-                default:
-                    break
-                }
-            }
-            self.start(queue: DispatchQueue.global())
-        }
-    }
+    case noRemoteEndpoint
+    case noLocalEndpoint
+    case unexpectedFlow
 }
 
 class TransparentProxyProvider: NETransparentProxyProvider {
@@ -100,50 +75,13 @@ class TransparentProxyProvider: NETransparentProxyProvider {
         log.debug("stopProxy \(String(describing: reason), privacy: .public)")
         self.controlChannel?.forceCancel()
     }
-    
-    func makeIpcHandshake(flow: NEAppProxyFlow, processInfo: ProcessInfo) -> Mitmproxy_Ipc_NewFlow? {
-        let tunnelInfo = Mitmproxy_Ipc_TunnelInfo.with {
-            $0.pid = processInfo.pid
-            if let path = processInfo.path {
-                $0.processName = path
-            }
-        }
-        let message: Mitmproxy_Ipc_NewFlow
-        if let tcp_flow = flow as? NEAppProxyTCPFlow {
-            guard let endpoint = tcp_flow.remoteEndpoint as? NWHostEndpoint else {
-                log.debug(
-                    "No remote endpoint for TCP flow: \(String(describing: tcp_flow), privacy: .public)"
-                )
-                return nil
-            }
-            log.debug("remoteEndpoint: \(String(describing: endpoint), privacy: .public)")
-            message = Mitmproxy_Ipc_NewFlow.with {
-                $0.tcp = Mitmproxy_Ipc_TcpFlow.with {
-                    $0.remoteAddress = Mitmproxy_Ipc_Address.init(endpoint: endpoint)
-                    $0.tunnelInfo = tunnelInfo
-                }
-            }
-        } else if let udp_flow = flow as? NEAppProxyUDPFlow {
-            guard let endpoint = udp_flow.localEndpoint as? NWHostEndpoint else {
-                log.debug(
-                    "No local endpoint for UDP flow: \(String(describing: udp_flow), privacy: .public)"
-                )
-                return nil
-            }
-            message = Mitmproxy_Ipc_NewFlow.with {
-                $0.udp = Mitmproxy_Ipc_UdpFlow.with {
-                    $0.localAddress = Mitmproxy_Ipc_Address.init(endpoint: endpoint)
-                    $0.tunnelInfo = tunnelInfo
-                }
-            }
-        } else {
-            log.debug("Unexpected flow: \(String(describing: flow), privacy: .public)")
-            return nil
-        }
-        return message
-    }
 
     override func handleNewFlow(_ flow: NEAppProxyFlow) -> Bool {
+        // Called for every new flow that is started.
+        // We first want to figure out if we want to intercept this one.
+        // Our intercept specs are based on process name and pid, so we first need to convert from
+        // audit token to that.
+        
         let processInfo = ProcessInfoCache.getInfo(fromAuditToken: flow.metaData.sourceAppAuditToken)
         guard let processInfo = processInfo else {
             log.debug("Skipping flow without process info.")
@@ -160,14 +98,13 @@ class TransparentProxyProvider: NETransparentProxyProvider {
             return false
         }
         
-        // Do not use remoteHostname property; for DNS UDP flows that's already pointing at the name that we want to look up.
-        // log.debug("remoteHostname: \(String(describing: flow.remoteHostname), privacy: .public) flow:\(String(describing: flow), privacy: .public)")
-        
-        guard let message = self.makeIpcHandshake(flow: flow, processInfo: processInfo) else {
-            log.warning("Failed to make IPC handshake.")
+        let message: Mitmproxy_Ipc_NewFlow
+        do {
+            message = try self.makeIpcHandshake(flow: flow, processInfo: processInfo)
+        } catch {
+            log.error("Failed to create IPC handshake: \(error, privacy: .public), flow=\(flow, privacy: .public)")
             return false
         }
-
         Task {
             do {
                 log.debug("Intercepting...")
@@ -201,11 +138,52 @@ class TransparentProxyProvider: NETransparentProxyProvider {
                 flow.closeWriteWithError(error)
             }
         }
-        
         return true
+    }
+    
+    func makeIpcHandshake(flow: NEAppProxyFlow, processInfo: ProcessInfo) throws -> Mitmproxy_Ipc_NewFlow {
+        let tunnelInfo = Mitmproxy_Ipc_TunnelInfo.with {
+            $0.pid = processInfo.pid
+            if let path = processInfo.path {
+                $0.processName = path
+            }
+        }
+        
+        // Do not use remoteHostname property; for DNS UDP flows that's already pointing at the name that we want to look up.
+        // log.debug("remoteHostname: \(String(describing: flow.remoteHostname), privacy: .public) flow:\(String(describing: flow), privacy: .public)")
+    
+        let message: Mitmproxy_Ipc_NewFlow
+        if let tcp_flow = flow as? NEAppProxyTCPFlow {
+            guard let remoteEndpoint = tcp_flow.remoteEndpoint as? NWHostEndpoint else {
+                throw TransparentProxyError.noRemoteEndpoint
+            }
+            log.debug("remoteEndpoint: \(String(describing: remoteEndpoint), privacy: .public)")
+            // It would be nice if we could also include info on the local endpoint here, but that's not exposed.
+            message = Mitmproxy_Ipc_NewFlow.with {
+                $0.tcp = Mitmproxy_Ipc_TcpFlow.with {
+                    $0.remoteAddress = Mitmproxy_Ipc_Address.init(endpoint: remoteEndpoint)
+                    $0.tunnelInfo = tunnelInfo
+                }
+            }
+        } else if let udp_flow = flow as? NEAppProxyUDPFlow {
+            guard let localEndpoint = udp_flow.localEndpoint as? NWHostEndpoint else {
+                throw TransparentProxyError.noLocalEndpoint
+            }
+            message = Mitmproxy_Ipc_NewFlow.with {
+                $0.udp = Mitmproxy_Ipc_UdpFlow.with {
+                    $0.localAddress = Mitmproxy_Ipc_Address.init(endpoint: localEndpoint)
+                    $0.tunnelInfo = tunnelInfo
+                }
+            }
+        } else {
+            throw TransparentProxyError.unexpectedFlow
+        }
+        return message
     }
 }
 
+/// Inbound and outbound copying for TCP flows, based on https://developer.apple.com/documentation/networkextension/app_proxy_provider/handling_flow_copying
+/// This could be a bit nicer with async syntax, but we stick to the callback-style from the example.
 extension NEAppProxyTCPFlow {
     func outboundCopier(_ conn: NWConnection) {
         readData { data, error in
@@ -252,6 +230,8 @@ extension NEAppProxyTCPFlow {
     }
 }
 
+/// Inbound and outbound copying for UDP flows.
+/// Async is substantially nicer here because readDatagrams returns multiple datagrams at once.
 extension NEAppProxyUDPFlow {
     func readDatagrams() async throws -> ([Data], [NetworkExtension.NWEndpoint]) {
         return try await withCheckedThrowingContinuation { continuation in

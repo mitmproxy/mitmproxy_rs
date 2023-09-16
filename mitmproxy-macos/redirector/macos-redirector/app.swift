@@ -7,9 +7,9 @@ import SystemExtensions
 let log = Logger(subsystem: "org.mitmproxy.macos-redirector", category: "app")
 let networkExtensionIdentifier = "org.mitmproxy.macos-redirector.network-extension"
 
+/// Helper app to install the system extension and setup the transaprent proxy.
 @main
 struct App {
-
     static func main() async throws {
         log.debug("app starting with \(CommandLine.arguments, privacy: .public)")
 
@@ -24,11 +24,31 @@ struct App {
         }
 
         try await SystemExtensionInstaller.run()
-        try await startVPN(unixSocketPath: unixSocketPath)
+        try await startProxy(unixSocketPath: unixSocketPath)
     }
 }
 
 class SystemExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
+    
+    static func run() async throws {
+
+        let inst = SystemExtensionInstaller()
+
+        try await withCheckedThrowingContinuation { continuation in
+
+            inst.continuation = continuation
+
+            let request = OSSystemExtensionRequest.activationRequest(
+                forExtensionWithIdentifier: networkExtensionIdentifier,
+                queue: DispatchQueue.main
+            )
+            request.delegate = inst
+            OSSystemExtensionManager.shared.submitRequest(request)
+            log.debug("system extension request submitted")
+        }
+
+    }
+    
     var continuation: CheckedContinuation<Void, Error>?
 
     func request(
@@ -48,7 +68,7 @@ class SystemExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
         log.debug("system extension install failed: \(error)")
         continuation?.resume(throwing: error)
     }
-
+    
     func request(
         _ request: OSSystemExtensionRequest,
         didFinishWithResult result: OSSystemExtensionRequest.Result
@@ -56,28 +76,9 @@ class SystemExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
         log.debug("system extension install succeeded: {} \(result.rawValue)")
         continuation?.resume()
     }
-
-    static func run() async throws {
-
-        let inst = SystemExtensionInstaller()
-
-        try await withCheckedThrowingContinuation { continuation in
-
-            inst.continuation = continuation
-
-            let request = OSSystemExtensionRequest.activationRequest(
-                forExtensionWithIdentifier: networkExtensionIdentifier,
-                queue: DispatchQueue.main
-            )
-            request.delegate = inst
-            OSSystemExtensionManager.shared.submitRequest(request)
-            log.debug("system extension request submitted")
-        }
-
-    }
 }
 
-func startVPN(unixSocketPath: String) async throws {
+func startProxy(unixSocketPath: String) async throws {
     let savedManagers = try await NETransparentProxyManager.loadAllFromPreferences()
     let manager =
         savedManagers.first { m in

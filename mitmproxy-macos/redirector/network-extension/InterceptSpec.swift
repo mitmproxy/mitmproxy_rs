@@ -1,5 +1,6 @@
 import Foundation
 
+/// The intercept spec decides whether a TCP/UDP flow should be intercepted or not.
 class InterceptSpec {
     
     private var pids: Set<UInt32>

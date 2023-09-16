@@ -15,8 +15,33 @@ enum IpcError: Error {
 }
 
 extension NWConnection {
+    /// Async wrapper to establish a connection and wait for NWConnection.State.ready
+    func establish() async throws {
+        let orig_handler = self.stateUpdateHandler
+        defer {
+            self.stateUpdateHandler = orig_handler
+        }
+        try await withCheckedThrowingContinuation { continuation in
+            self.stateUpdateHandler = { state in
+                log.info("stateUpdate: \(String(describing: state), privacy: .public)")
+                switch state {
+                case .ready:
+                    continuation.resume()
+                case .waiting(let err):
+                    continuation.resume(with: .failure(err))
+                case .failed(let err):
+                    continuation.resume(with: .failure(err))
+                case .cancelled:
+                    continuation.resume(with: .failure(TransparentProxyError.connectionCancelled))
+                default:
+                    break
+                }
+            }
+            self.start(queue: DispatchQueue.global())
+        }
+    }
+    
     func send(ipc message: SwiftProtobuf.Message) async throws {
-
         let data = try message.serializedData()
         var to_send = Data(capacity: data.count + 4)
         to_send.append(UInt32(data.count).bigEndian.data)
