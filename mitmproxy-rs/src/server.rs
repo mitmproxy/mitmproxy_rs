@@ -12,12 +12,14 @@ use mitmproxy::packet_sources::macos::MacosConf;
 #[cfg(windows)]
 use mitmproxy::packet_sources::windows::WindowsConf;
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
-use mitmproxy::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
+use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
 use pyo3::prelude::*;
 use std::net::SocketAddr;
-#[cfg(any(windows, target_os = "macos"))]
+#[cfg(any(target_os = "macos"))]
 use std::path::Path;
+#[cfg(windows)]
+use std::path::PathBuf;
 
 use tokio::{sync::broadcast, sync::mpsc};
 use x25519_dalek::PublicKey;
@@ -145,7 +147,7 @@ impl Drop for Server {
 #[derive(Debug)]
 pub struct OsProxy {
     server: Server,
-    conf_tx: mpsc::UnboundedSender<ipc::FromProxy>,
+    conf_tx: mpsc::UnboundedSender<InterceptConf>,
 }
 
 #[pymethods]
@@ -163,15 +165,7 @@ impl OsProxy {
     pub fn set_intercept(&self, spec: String) -> PyResult<()> {
         let conf = InterceptConf::try_from(spec.as_str())?;
         self.conf_tx
-            .send(ipc::FromProxy {
-                message: Some(ipc::from_proxy::Message::InterceptSpec(
-                    ipc::InterceptSpec {
-                        pids: conf.pids.into_iter().collect(),
-                        process_names: conf.process_names,
-                        invert: conf.invert,
-                    },
-                )),
-            })
+            .send(conf)
             .map_err(crate::util::event_queue_unavailable)?;
         Ok(())
     }
@@ -281,15 +275,10 @@ pub fn start_os_proxy(
 ) -> PyResult<&PyAny> {
     #[cfg(windows)]
     {
-        // 2022: Ideally we'd use importlib.resources here, but that only provides `as_file` for
-        // individual files. We'd need something like `as_dir` to ensure that redirector.exe and the
-        // WinDivert dll/lib/sys files are in a single directory. So we just use __file__for now. 🤷
-        let filename = py.import("mitmproxy_windows")?.filename()?;
-        let executable_path = Path::new(filename)
-            .parent()
-            .ok_or_else(|| anyhow::anyhow!("invalid path"))?
-            .join("windows-redirector.exe");
-
+        let executable_path: PathBuf = py
+            .import("mitmproxy_windows")?
+            .getattr("executable_path")?
+            .extract()?;
         if !executable_path.exists() {
             return Err(anyhow::anyhow!("{} does not exist", executable_path.display()).into());
         }

@@ -503,7 +503,7 @@ pub struct NetworkTask<'a> {
     py_tx: Sender<TransportEvent>,
     py_rx: UnboundedReceiver<TransportCommand>,
 
-    sd_watcher: BroadcastReceiver<()>,
+    shutdown: BroadcastReceiver<()>,
     io: NetworkIO<'a>,
 }
 
@@ -546,7 +546,7 @@ impl NetworkTask<'_> {
             net_rx,
             py_tx,
             py_rx,
-            sd_watcher,
+            shutdown: sd_watcher,
             io,
         })
     }
@@ -581,7 +581,7 @@ impl NetworkTask<'_> {
 
             tokio::select! {
                 // wait for graceful shutdown
-                _ = self.sd_watcher.recv() => break 'task,
+                _ = self.shutdown.recv() => break 'task,
                 // wait for timeouts when the device is idle
                 _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
                 // wait for incoming packets

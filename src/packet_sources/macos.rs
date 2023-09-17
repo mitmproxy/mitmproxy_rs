@@ -3,6 +3,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 use crate::messages::{ConnectionId, TransportCommand, TransportEvent, TunnelInfo};
 
+use crate::intercept_conf::InterceptConf;
 use crate::packet_sources::ipc::{from_proxy, NewFlow, TcpFlow, UdpFlow};
 use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use anyhow::{bail, Context, Result};
@@ -67,7 +68,7 @@ async fn start_redirector(listener_addr: String) -> Result<()> {
 #[async_trait]
 impl PacketSourceConf for MacosConf {
     type Task = MacOsTask;
-    type Data = UnboundedSender<ipc::FromProxy>;
+    type Data = UnboundedSender<InterceptConf>;
 
     fn name(&self) -> &'static str {
         "macOS proxy"
@@ -120,7 +121,7 @@ pub struct MacOsTask {
     next_connection_id: ConnectionId,
     transport_events_tx: Sender<TransportEvent>,
     transport_commands_rx: UnboundedReceiver<TransportCommand>,
-    conf_rx: UnboundedReceiver<ipc::FromProxy>,
+    conf_rx: UnboundedReceiver<InterceptConf>,
     shutdown: broadcast::Receiver<()>,
 }
 
@@ -177,10 +178,7 @@ impl PacketSourceTask for MacOsTask {
                         Err(e) => log::error!("Error accepting connection from macos-redirector: {}", e)
                     }
                 },
-                cmd = self.transport_commands_rx.recv() => {
-                    let Some(cmd) = cmd else {
-                        bail!("Transport command channel closed.");
-                    };
+                Some(cmd) = self.transport_commands_rx.recv() => {
                     match &cmd {
                         TransportCommand::ReadData(connection_id, _, _)
                         | TransportCommand::WriteData(connection_id, _)
@@ -206,9 +204,9 @@ impl PacketSourceTask for MacOsTask {
                     }
                 }
                 // pipe through changes to the intercept list
-                Some(cmd) = self.conf_rx.recv() => {
-                    let ipc::FromProxy { message: Some(from_proxy::Message::InterceptSpec(msg)) } = cmd else {
-                        bail!("Unexpected message: {:?}", cmd);
+                Some(conf) = self.conf_rx.recv() => {
+                    let msg = ipc::FromProxy {
+                        message: Some(from_proxy::Message::InterceptConf(conf.into())),
                     };
                     let len = msg.encoded_len();
                     let mut buf = BytesMut::with_capacity(len);

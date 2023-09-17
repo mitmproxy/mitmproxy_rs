@@ -16,10 +16,12 @@ use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::Shell::SE_ERR_ACCESSDENIED;
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
-use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TunnelInfo};
-use crate::network::MAX_PACKET_SIZE;
-use crate::packet_sources::ipc::from_redirector::Message::Packet;
-use crate::packet_sources::ipc::{FromRedirector, PacketWithMeta};
+use crate::intercept_conf::InterceptConf;
+use crate::messages::{
+    IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent, TunnelInfo,
+};
+use crate::network::{add_network_layer, MAX_PACKET_SIZE};
+use crate::packet_sources::ipc::PacketWithMeta;
 use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use prost::Message;
 
@@ -32,7 +34,7 @@ pub struct WindowsConf {
 #[async_trait]
 impl PacketSourceConf for WindowsConf {
     type Task = WindowsTask;
-    type Data = UnboundedSender<ipc::FromProxy>;
+    type Data = UnboundedSender<InterceptConf>;
 
     fn name(&self) -> &'static str {
         "Windows proxy"
@@ -40,9 +42,9 @@ impl PacketSourceConf for WindowsConf {
 
     async fn build(
         self,
-        net_tx: Sender<NetworkEvent>,
-        net_rx: Receiver<NetworkCommand>,
-        sd_watcher: broadcast::Receiver<()>,
+        transport_events_tx: Sender<TransportEvent>,
+        transport_commands_rx: UnboundedReceiver<TransportCommand>,
+        shutdown: broadcast::Receiver<()>,
     ) -> Result<(WindowsTask, Self::Data)> {
         let pipe_name = format!(
             r"\\.\pipe\mitmproxy-transparent-proxy-{}",
@@ -103,6 +105,9 @@ impl PacketSourceConf for WindowsConf {
 
         let (conf_tx, conf_rx) = unbounded_channel();
 
+        let (network_task_handle, net_tx, net_rx) =
+            add_network_layer(transport_events_tx, transport_commands_rx, shutdown)?;
+
         Ok((
             WindowsTask {
                 ipc_server,
@@ -110,7 +115,7 @@ impl PacketSourceConf for WindowsConf {
                 net_tx,
                 net_rx,
                 conf_rx,
-                sd_watcher,
+                network_task_handle,
             },
             conf_tx,
         ))
@@ -123,8 +128,8 @@ pub struct WindowsTask {
 
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
-    conf_rx: UnboundedReceiver<ipc::FromProxy>,
-    sd_watcher: broadcast::Receiver<()>,
+    conf_rx: UnboundedReceiver<InterceptConf>,
+    network_task_handle: tokio::task::JoinHandle<Result<()>>,
 }
 
 #[async_trait]
@@ -136,13 +141,14 @@ impl PacketSourceTask for WindowsTask {
 
         loop {
             tokio::select! {
-                // wait for graceful shutdown
-                _ = self.sd_watcher.recv() => break,
+                exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
                 // pipe through changes to the intercept list
-                Some(cmd) = self.conf_rx.recv() => {
-                    assert!(matches!(cmd, ipc::FromProxy { message: Some(ipc::from_proxy::Message::InterceptSpec(_)) }));
-                    cmd.encode(&mut self.buf.as_mut_slice())?;
-                    let len = cmd.encoded_len();
+                Some(conf) = self.conf_rx.recv() => {
+                    let msg = ipc::FromProxy {
+                        message: Some(ipc::from_proxy::Message::InterceptConf(conf.into())),
+                    };
+                    msg.encode(&mut self.buf.as_mut_slice())?;
+                    let len = msg.encoded_len();
 
                     self.ipc_server.write_all(&self.buf[..len]).await?;
                 },
@@ -161,12 +167,10 @@ impl PacketSourceTask for WindowsTask {
                     }
 
                     let mut cursor = Cursor::new(&self.buf[..len]);
-                    let Ok(FromRedirector { message: Some(message)}) = FromRedirector::decode(&mut cursor) else {
+                    let Ok(PacketWithMeta { data, tunnel_info: Some(ipc::TunnelInfo { pid, process_name })}) = PacketWithMeta::decode(&mut cursor) else {
                         return Err(anyhow!("Received invalid IPC message: {:?}", &self.buf[..len]));
                     };
                     assert_eq!(cursor.position(), len as u64);
-
-                    let Packet(PacketWithMeta { data, pid, process_name}) = message;
 
                     let Ok(mut packet) = IpPacket::try_from(data) else {
                         log::error!("Skipping invalid packet: {:?}", &self.buf[..len]);
@@ -181,6 +185,7 @@ impl PacketSourceTask for WindowsTask {
                         tunnel_info: TunnelInfo::OsProxy {
                             pid,
                             process_name,
+                            dst_hostname: None,
                         },
                     };
                     if self.net_tx.try_send(event).is_err() {

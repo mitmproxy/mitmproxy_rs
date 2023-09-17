@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use security_framework::{
+use apple_security_framework::{
     certificate::SecCertificate,
     item::{
         add_item, AddRef, ItemAddOptions, ItemAddValue, ItemClass, ItemSearchOptions, Reference,

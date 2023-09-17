@@ -1,3 +1,4 @@
+use crate::intercept_conf::InterceptConf;
 use anyhow::Result;
 use async_trait::async_trait;
 use tokio::sync::{broadcast, mpsc};
@@ -30,6 +31,22 @@ pub mod ipc {
                 port: val.port() as u32,
             }
         }
+    }
+}
+
+impl From<InterceptConf> for ipc::InterceptConf {
+    fn from(conf: InterceptConf) -> Self {
+        ipc::InterceptConf {
+            pids: conf.pids.into_iter().collect(),
+            process_names: conf.process_names,
+            invert: conf.invert,
+        }
+    }
+}
+
+impl From<ipc::InterceptConf> for InterceptConf {
+    fn from(conf: ipc::InterceptConf) -> Self {
+        InterceptConf::new(conf.pids, conf.process_names, conf.invert)
     }
 }
 

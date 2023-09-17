@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use boringtun::noise::{
     errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult,
@@ -57,11 +57,8 @@ impl PacketSourceConf for WireGuardConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
     ) -> Result<(WireGuardTask, Self::Data)> {
-        let (network_task_handle, net_tx, net_rx) = add_network_layer(
-            transport_events_tx,
-            transport_commands_rx,
-            shutdown.resubscribe(),
-        )?;
+        let (network_task_handle, net_tx, net_rx) =
+            add_network_layer(transport_events_tx, transport_commands_rx, shutdown)?;
 
         // initialize WireGuard server
         let mut peers_by_idx = HashMap::new();
@@ -126,7 +123,6 @@ impl PacketSourceConf for WireGuardConf {
                 net_tx,
                 net_rx,
                 network_task_handle,
-                shutdown,
             },
             local_addr,
         ))
@@ -147,7 +143,6 @@ pub struct WireGuardTask {
 
     wg_buf: [u8; MAX_PACKET_SIZE],
     network_task_handle: tokio::task::JoinHandle<Result<()>>,
-    shutdown: broadcast::Receiver<()>,
 }
 
 #[async_trait]
@@ -161,9 +156,7 @@ impl PacketSourceTask for WireGuardTask {
 
         loop {
             tokio::select! {
-                // wait for graceful shutdown
-                _ = self.shutdown.recv() => break,
-                Ok(Err(e)) = &mut self.network_task_handle => return Err(e),
+                exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
                 // wait for WireGuard packets incoming on the UDP socket
                 Ok((len, src_orig)) = self.socket.recv_from(&mut udp_buf) => {
                     self.process_incoming_datagram(&udp_buf[..len], src_orig).await?;
