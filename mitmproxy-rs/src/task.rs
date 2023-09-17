@@ -9,6 +9,7 @@ use mitmproxy::messages::{TransportCommand, TransportEvent};
 
 use crate::datagram_transport::DatagramTransport;
 use crate::tcp_stream::TcpStream;
+use crate::tcp_stream::TcpStreamState;
 use crate::util::socketaddr_to_py;
 
 pub struct PyInteropTask {
@@ -60,11 +61,11 @@ impl PyInteropTask {
                                 // initialize new TCP stream
                                 let stream = TcpStream {
                                     connection_id,
+                                    state: TcpStreamState::Open,
                                     event_tx: self.transport_commands.clone(),
                                     peername: src_addr,
                                     sockname: dst_addr,
                                     tunnel_info,
-                                    is_closing: false,
                                 };
 
                                 let mut conns = active_tcp_connections.lock().await;

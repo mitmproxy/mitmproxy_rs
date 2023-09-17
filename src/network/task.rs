@@ -201,8 +201,10 @@ impl<'a> NetworkIO<'a> {
 
             let handle = self.sockets.add(socket);
 
-            let connection_id = self.next_connection_id;
-            self.next_connection_id += 1;
+            let connection_id = {
+                self.next_connection_id += 1;
+                self.next_connection_id
+            };
 
             let data = SocketData {
                 handle,

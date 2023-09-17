@@ -168,7 +168,7 @@ impl OsProxy {
                     ipc::InterceptSpec {
                         pids: conf.pids.into_iter().collect(),
                         process_names: conf.process_names,
-                        invert: conf.invert
+                        invert: conf.invert,
                     },
                 )),
             })

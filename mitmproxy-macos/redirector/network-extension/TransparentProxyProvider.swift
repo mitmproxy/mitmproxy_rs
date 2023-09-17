@@ -186,23 +186,28 @@ class TransparentProxyProvider: NETransparentProxyProvider {
 /// This could be a bit nicer with async syntax, but we stick to the callback-style from the example.
 extension NEAppProxyTCPFlow {
     func outboundCopier(_ conn: NWConnection) {
+        // log.debug("outbound copier: reading...")
         readData { data, error in
             if error == nil, let readData = data, !readData.isEmpty {
+                // log.debug("outbound copier: forwarding \(readData.count) bytes.")
                 conn.send(
                     content: readData,
                     completion: .contentProcessed({ error in
                         if error == nil {
+                            // log.debug("outbound copier: forward complete.")
                             self.outboundCopier(conn)
                         } else {
-                            log.debug(
-                                "error copying: \(String(describing: error), privacy: .public)")
+                            // log.debug("outbound copier: error copying: \(String(describing: error), privacy: .public)")
                         }
                     }))
             } else {
                 log.debug(
                     "outbound copier end: \(String(describing: data), privacy: .public) \(String(describing: error), privacy: .public)"
                 )
-                conn.send(content: nil, isComplete: true, completion: .idempotent)
+                conn.send(content: nil, isComplete: true, completion: .contentProcessed({ error in
+                    conn.cancel()
+                    // log.debug("outbound copier: sent end.")
+                }))
                 self.closeWriteWithError(error)
             }
         }
@@ -251,14 +256,14 @@ extension NEAppProxyUDPFlow {
         Task {
             do {
                 while true {
-                    log.debug("UDP outbound: receiving...")
+                    // log.debug("UDP outbound: receiving...")
                     let (datagrams, endpoints) = try await readDatagrams()
                     if datagrams.isEmpty {
-                        log.debug("outbound udp copier end")
+                        // log.debug("outbound udp copier end")
                         conn.send(content: nil, isComplete: true, completion: .idempotent)
                         break
                     }
-                    log.debug("UDP outbound: received \(datagrams.count, privacy: .public) datagrams.")
+                    // log.debug("UDP outbound: received \(datagrams.count, privacy: .public) datagrams.")
                     for (datagram, endpoint) in zip(datagrams, endpoints) {
                         guard let endpoint = endpoint as? NWHostEndpoint
                         else { continue }
@@ -281,12 +286,12 @@ extension NEAppProxyUDPFlow {
         Task {
             do {
                 while true {
-                    log.debug("UDP inbound: receiving...")
+                    // log.debug("UDP inbound: receiving...")
                     guard let packet = try await conn.receive(ipc: Mitmproxy_Ipc_UdpPacket.self) else {
                         self.closeReadWithError(nil)
                         break
                     }
-                    log.debug("UDP inbound: received packet.: \(String(describing: packet), privacy: .public)")
+                    // log.debug("UDP inbound: received packet.: \(String(describing: packet), privacy: .public)")
                     let endpoint = NWHostEndpoint(address: packet.remoteAddress)
                     try await self.writeDatagrams([packet.data], sentBy: [endpoint])
                 }

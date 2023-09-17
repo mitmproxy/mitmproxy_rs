@@ -32,7 +32,7 @@ pub enum NetworkCommand {
     SendPacket(IpPacket),
 }
 
-pub type ConnectionId = u32;
+pub type ConnectionId = usize;
 
 /// Events that are sent by the TCP stack to Python.
 #[derive(Debug)]

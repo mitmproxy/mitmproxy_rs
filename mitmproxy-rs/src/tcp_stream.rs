@@ -15,6 +15,13 @@ use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
 
 use crate::util::{event_queue_unavailable, socketaddr_to_py};
 
+#[derive(Debug)]
+pub enum TcpStreamState {
+    Open,
+    HalfClosed,
+    Closed,
+}
+
 /// An individual TCP stream with an API that is similar to
 /// [`asyncio.StreamReader` and `asyncio.StreamWriter`](https://docs.python.org/3/library/asyncio-stream.html)
 /// from the Python standard library.
@@ -22,11 +29,11 @@ use crate::util::{event_queue_unavailable, socketaddr_to_py};
 #[derive(Debug)]
 pub struct TcpStream {
     pub connection_id: ConnectionId,
+    pub state: TcpStreamState,
     pub event_tx: mpsc::UnboundedSender<TransportCommand>,
     pub peername: SocketAddr,
     pub sockname: SocketAddr,
     pub tunnel_info: TunnelInfo,
-    pub is_closing: bool,
 }
 
 #[pymethods]
@@ -75,27 +82,37 @@ impl TcpStream {
 
     /// Close the stream after flushing the write buffer.
     fn write_eof(&mut self) -> PyResult<()> {
-        self.is_closing = true;
-        self.event_tx
-            .send(TransportCommand::CloseConnection(self.connection_id, true))
-            .map_err(event_queue_unavailable)?;
-
-        Ok(())
+        match self.state {
+            TcpStreamState::Open => {
+                self.state = TcpStreamState::HalfClosed;
+                self.event_tx
+                    .send(TransportCommand::CloseConnection(self.connection_id, true))
+                    .map_err(event_queue_unavailable)
+            }
+            TcpStreamState::HalfClosed => Ok(()),
+            TcpStreamState::Closed => Ok(()),
+        }
     }
 
     /// Close the TCP stream and the underlying socket immediately.
     fn close(&mut self) -> PyResult<()> {
-        self.is_closing = true;
-        self.event_tx
-            .send(TransportCommand::CloseConnection(self.connection_id, false))
-            .map_err(event_queue_unavailable)?;
-
-        Ok(())
+        match self.state {
+            TcpStreamState::Open | TcpStreamState::HalfClosed => {
+                self.state = TcpStreamState::Closed;
+                self.event_tx
+                    .send(TransportCommand::CloseConnection(self.connection_id, false))
+                    .map_err(event_queue_unavailable)
+            }
+            TcpStreamState::Closed => Ok(()),
+        }
     }
 
     /// Check whether this TCP stream is being closed.
-    fn is_closing(&self) -> PyResult<bool> {
-        Ok(self.is_closing)
+    fn is_closing(&self) -> bool {
+        match self.state {
+            TcpStreamState::Open => false,
+            TcpStreamState::HalfClosed | TcpStreamState::Closed => true,
+        }
     }
 
     /// Wait until the TCP stream is closed (currently a no-op).
