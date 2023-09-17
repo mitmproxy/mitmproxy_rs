@@ -16,7 +16,7 @@ use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
 use pyo3::prelude::*;
 use std::net::SocketAddr;
-#[cfg(any(target_os = "macos"))]
+#[cfg(target_os = "macos")]
 use std::path::Path;
 #[cfg(windows)]
 use std::path::PathBuf;

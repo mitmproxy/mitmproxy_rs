@@ -68,7 +68,7 @@ impl ToString for InterceptConf {
 
 impl InterceptConf {
     pub fn new(pids: Vec<PID>, process_names: Vec<String>, invert: bool) -> Self {
-        let pids = HashSet::from_iter(pids.into_iter());
+        let pids = HashSet::from_iter(pids);
         if invert {
             assert!(!pids.is_empty() || !process_names.is_empty());
         }

@@ -284,7 +284,9 @@ impl ConnectionTask {
         let mut stream = Framed::new(self.stream, LengthDelimitedCodec::new());
 
         let tunnel_info = {
-            let Some(tun) = flow.tunnel_info else { bail!("no tunnel info") };
+            let Some(tun) = flow.tunnel_info else {
+                bail!("no tunnel info")
+            };
             TunnelInfo::OsProxy {
                 pid: tun.pid,
                 process_name: tun.process_name,
@@ -292,7 +294,9 @@ impl ConnectionTask {
             }
         };
         let local_addr = {
-            let Some(addr) = &flow.local_address else { bail!("no local address") };
+            let Some(addr) = &flow.local_address else {
+                bail!("no local address")
+            };
             SocketAddr::try_from(addr)?
         };
 
