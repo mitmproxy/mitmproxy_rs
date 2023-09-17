@@ -14,7 +14,7 @@ enum TransparentProxyError: Error {
 class TransparentProxyProvider: NETransparentProxyProvider {
     var unixSocket: String?
     var controlChannel: NWConnection?
-    var spec: InterceptSpec?
+    var spec: InterceptConf?
 
     override func startProxy(options: [String: Any]? = nil) async throws {
         guard let unixSocket = self.protocolConfiguration.serverAddress
@@ -42,9 +42,9 @@ class TransparentProxyProvider: NETransparentProxyProvider {
         }
         Task {
             do {
-                while let spec = try await control.receive(ipc: Mitmproxy_Ipc_InterceptSpec.self) {
+                while let spec = try await control.receive(ipc: Mitmproxy_Ipc_InterceptConf.self) {
                     log.debug("Received spec: \(String(describing: spec), privacy: .public)")
-                    self.spec = InterceptSpec(from: spec)
+                    self.spec = InterceptConf(from: spec)
                 }
             } catch {
                 log.error("Error on control channel: \(String(describing: error), privacy: .public)")

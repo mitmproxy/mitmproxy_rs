@@ -1,7 +1,7 @@
 import Foundation
 
 /// The intercept spec decides whether a TCP/UDP flow should be intercepted or not.
-class InterceptSpec {
+class InterceptConf {
     
     private var pids: Set<UInt32>
     private var processNames: [String]
@@ -16,7 +16,7 @@ class InterceptSpec {
         }
     }
     
-    convenience init(from ipc: Mitmproxy_Ipc_InterceptSpec) {
+    convenience init(from ipc: Mitmproxy_Ipc_InterceptConf) {
         self.init(
             pids: Set(ipc.pids),
             processNames: ipc.processNames,

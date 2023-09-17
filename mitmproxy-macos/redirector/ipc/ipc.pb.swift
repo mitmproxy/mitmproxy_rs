@@ -83,19 +83,19 @@ struct Mitmproxy_Ipc_FromProxy {
     set {message = .packet(newValue)}
   }
 
-  var interceptSpec: Mitmproxy_Ipc_InterceptSpec {
+  var interceptConf: Mitmproxy_Ipc_InterceptConf {
     get {
-      if case .interceptSpec(let v)? = message {return v}
-      return Mitmproxy_Ipc_InterceptSpec()
+      if case .interceptConf(let v)? = message {return v}
+      return Mitmproxy_Ipc_InterceptConf()
     }
-    set {message = .interceptSpec(newValue)}
+    set {message = .interceptConf(newValue)}
   }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   enum OneOf_Message: Equatable {
     case packet(Mitmproxy_Ipc_Packet)
-    case interceptSpec(Mitmproxy_Ipc_InterceptSpec)
+    case interceptConf(Mitmproxy_Ipc_InterceptConf)
 
   #if !swift(>=4.1)
     static func ==(lhs: Mitmproxy_Ipc_FromProxy.OneOf_Message, rhs: Mitmproxy_Ipc_FromProxy.OneOf_Message) -> Bool {
@@ -107,8 +107,8 @@ struct Mitmproxy_Ipc_FromProxy {
         guard case .packet(let l) = lhs, case .packet(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
-      case (.interceptSpec, .interceptSpec): return {
-        guard case .interceptSpec(let l) = lhs, case .interceptSpec(let r) = rhs else { preconditionFailure() }
+      case (.interceptConf, .interceptConf): return {
+        guard case .interceptConf(let l) = lhs, case .interceptConf(let r) = rhs else { preconditionFailure() }
         return l == r
       }()
       default: return false
@@ -133,8 +133,8 @@ struct Mitmproxy_Ipc_Packet {
   init() {}
 }
 
-/// Intercept spec (macOS Control Stream)
-struct Mitmproxy_Ipc_InterceptSpec {
+/// Intercept conf (macOS Control Stream)
+struct Mitmproxy_Ipc_InterceptConf {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -308,7 +308,7 @@ extension Mitmproxy_Ipc_TunnelInfo: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromProxy: @unchecked Sendable {}
 extension Mitmproxy_Ipc_FromProxy.OneOf_Message: @unchecked Sendable {}
 extension Mitmproxy_Ipc_Packet: @unchecked Sendable {}
-extension Mitmproxy_Ipc_InterceptSpec: @unchecked Sendable {}
+extension Mitmproxy_Ipc_InterceptConf: @unchecked Sendable {}
 extension Mitmproxy_Ipc_NewFlow: @unchecked Sendable {}
 extension Mitmproxy_Ipc_NewFlow.OneOf_Message: @unchecked Sendable {}
 extension Mitmproxy_Ipc_TcpFlow: @unchecked Sendable {}
@@ -409,7 +409,7 @@ extension Mitmproxy_Ipc_FromProxy: SwiftProtobuf.Message, SwiftProtobuf._Message
   static let protoMessageName: String = _protobuf_package + ".FromProxy"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "packet"),
-    2: .standard(proto: "intercept_spec"),
+    2: .standard(proto: "intercept_conf"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -432,16 +432,16 @@ extension Mitmproxy_Ipc_FromProxy: SwiftProtobuf.Message, SwiftProtobuf._Message
         }
       }()
       case 2: try {
-        var v: Mitmproxy_Ipc_InterceptSpec?
+        var v: Mitmproxy_Ipc_InterceptConf?
         var hadOneofValue = false
         if let current = self.message {
           hadOneofValue = true
-          if case .interceptSpec(let m) = current {v = m}
+          if case .interceptConf(let m) = current {v = m}
         }
         try decoder.decodeSingularMessageField(value: &v)
         if let v = v {
           if hadOneofValue {try decoder.handleConflictingOneOf()}
-          self.message = .interceptSpec(v)
+          self.message = .interceptConf(v)
         }
       }()
       default: break
@@ -459,8 +459,8 @@ extension Mitmproxy_Ipc_FromProxy: SwiftProtobuf.Message, SwiftProtobuf._Message
       guard case .packet(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
     }()
-    case .interceptSpec?: try {
-      guard case .interceptSpec(let v)? = self.message else { preconditionFailure() }
+    case .interceptConf?: try {
+      guard case .interceptConf(let v)? = self.message else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
     }()
     case nil: break
@@ -507,8 +507,8 @@ extension Mitmproxy_Ipc_Packet: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
   }
 }
 
-extension Mitmproxy_Ipc_InterceptSpec: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".InterceptSpec"
+extension Mitmproxy_Ipc_InterceptConf: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".InterceptConf"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     2: .same(proto: "pids"),
     1: .standard(proto: "process_names"),
@@ -542,7 +542,7 @@ extension Mitmproxy_Ipc_InterceptSpec: SwiftProtobuf.Message, SwiftProtobuf._Mes
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Mitmproxy_Ipc_InterceptSpec, rhs: Mitmproxy_Ipc_InterceptSpec) -> Bool {
+  static func ==(lhs: Mitmproxy_Ipc_InterceptConf, rhs: Mitmproxy_Ipc_InterceptConf) -> Bool {
     if lhs.pids != rhs.pids {return false}
     if lhs.processNames != rhs.processNames {return false}
     if lhs.invert != rhs.invert {return false}
