@@ -22,10 +22,10 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            rust: 1.70.0  # MSRV
+            rust: 1.72.0  # MSRV
             args: --exclude macos-certificate-truster
           - os: macos-latest
-            rust: 1.70.0
+            rust: 1.72.0
             args: --exclude windows-redirector
           - os: ubuntu-latest
             rust: stable
