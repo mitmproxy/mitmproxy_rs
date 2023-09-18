@@ -81,11 +81,11 @@ class SystemExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
 func startProxy(unixSocketPath: String) async throws {
     let savedManagers = try await NETransparentProxyManager.loadAllFromPreferences()
     let manager =
-        savedManagers.first { m in
+        savedManagers.first(where: { m in
             (m.protocolConfiguration as? NETunnelProviderProtocol)?.providerBundleIdentifier
                 == networkExtensionIdentifier
                 && (!m.isEnabled || m.connection.status != NEVPNStatus.connected)
-        } ?? NETransparentProxyManager()
+        }) ?? NETransparentProxyManager()
 
     let providerProtocol = NETunnelProviderProtocol()
     providerProtocol.providerBundleIdentifier = networkExtensionIdentifier
