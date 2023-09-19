@@ -4,7 +4,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 use crate::messages::{ConnectionId, TransportCommand, TransportEvent, TunnelInfo};
 
 use crate::intercept_conf::InterceptConf;
-use crate::packet_sources::ipc::{from_proxy, NewFlow, TcpFlow, UdpFlow};
+use crate::packet_sources::ipc::{NewFlow, TcpFlow, UdpFlow};
 use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
@@ -205,7 +205,7 @@ impl PacketSourceTask for MacOsTask {
                 }
                 // pipe through changes to the intercept list
                 Some(conf) = self.conf_rx.recv() => {
-                    let msg = ipc::InterceptConf(conf.into());
+                    let msg = ipc::InterceptConf::from(conf);
                     let len = msg.encoded_len();
                     let mut buf = BytesMut::with_capacity(len);
                     msg.encode(&mut buf)?;
