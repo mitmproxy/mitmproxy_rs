@@ -24,8 +24,7 @@ pyo3-log = "0.8.3"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 tokio = { version = "1.32", features = ["macros", "net", "rt-multi-thread", "sync"] }
 x25519-dalek = "=2.0.0-rc.3"
-
-# optional dependencies for tracing support
+tar = "0.4.40"
 console-subscriber = { version = "0.1.9", optional = true }
 
 
