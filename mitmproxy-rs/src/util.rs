@@ -150,8 +150,8 @@ pub(crate) fn get_tunnel_info(
 ) -> PyResult<PyObject> {
     match tunnel {
         TunnelInfo::WireGuard { src_addr, dst_addr } => match name.as_str() {
-            "original_src" => return Ok(socketaddr_to_py(py, src_addr.clone())),
-            "original_dst" => return Ok(socketaddr_to_py(py, dst_addr.clone())),
+            "original_src" => return Ok(socketaddr_to_py(py, *src_addr)),
+            "original_dst" => return Ok(socketaddr_to_py(py, *dst_addr)),
             _ => (),
         },
         TunnelInfo::OsProxy {
