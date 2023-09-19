@@ -141,6 +141,8 @@ impl PacketSourceTask for WindowsTask {
 
         loop {
             tokio::select! {
+                // Monitor the network task for errors or planned shutdown.
+                // This way we implicitly monitor the shutdown broadcast channel.
                 exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
                 // pipe through changes to the intercept list
                 Some(conf) = self.conf_rx.recv() => {
