@@ -42,7 +42,6 @@ pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
     }
 }
 
-
 pub fn py_to_socketaddr(t: &PyTuple) -> PyResult<SocketAddr> {
     if t.len() == 2 {
         let host = t.get_item(0)?.downcast::<PyString>()?;
