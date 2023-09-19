@@ -205,9 +205,7 @@ impl PacketSourceTask for MacOsTask {
                 }
                 // pipe through changes to the intercept list
                 Some(conf) = self.conf_rx.recv() => {
-                    let msg = ipc::FromProxy {
-                        message: Some(from_proxy::Message::InterceptConf(conf.into())),
-                    };
+                    let msg = ipc::InterceptConf(conf.into());
                     let len = msg.encoded_len();
                     let mut buf = BytesMut::with_capacity(len);
                     msg.encode(&mut buf)?;
