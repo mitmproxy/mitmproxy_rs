@@ -12,6 +12,7 @@ extension UInt32 {
 
 enum IpcError: Error {
     case incompleteRead
+    case connectionCancelled
 }
 
 extension NWConnection {
@@ -32,7 +33,7 @@ extension NWConnection {
                 case .failed(let err):
                     continuation.resume(with: .failure(err))
                 case .cancelled:
-                    continuation.resume(with: .failure(TransparentProxyError.connectionCancelled))
+                    continuation.resume(with: .failure(IpcError.connectionCancelled))
                 default:
                     break
                 }

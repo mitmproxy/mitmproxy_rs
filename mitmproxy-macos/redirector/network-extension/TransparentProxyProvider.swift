@@ -5,7 +5,6 @@ import NetworkExtension
 
 enum TransparentProxyError: Error {
     case serverAddressMissing
-    case connectionCancelled
     case noRemoteEndpoint
     case noLocalEndpoint
     case unexpectedFlow
