@@ -1,3 +1,7 @@
+## 0.3.1
+
+- Improve transparent proxy functionality on macOS.
+
 ## 0.3.0
 
 - Add transparent proxy functionality for macOS.
