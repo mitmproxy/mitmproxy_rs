@@ -510,8 +510,8 @@ extension Mitmproxy_Ipc_Packet: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
 extension Mitmproxy_Ipc_InterceptConf: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".InterceptConf"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    2: .same(proto: "pids"),
-    1: .standard(proto: "process_names"),
+    1: .same(proto: "pids"),
+    2: .standard(proto: "process_names"),
     3: .same(proto: "invert"),
   ]
 
@@ -521,8 +521,8 @@ extension Mitmproxy_Ipc_InterceptConf: SwiftProtobuf.Message, SwiftProtobuf._Mes
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeRepeatedStringField(value: &self.processNames) }()
-      case 2: try { try decoder.decodeRepeatedUInt32Field(value: &self.pids) }()
+      case 1: try { try decoder.decodeRepeatedUInt32Field(value: &self.pids) }()
+      case 2: try { try decoder.decodeRepeatedStringField(value: &self.processNames) }()
       case 3: try { try decoder.decodeSingularBoolField(value: &self.invert) }()
       default: break
       }
@@ -530,11 +530,11 @@ extension Mitmproxy_Ipc_InterceptConf: SwiftProtobuf.Message, SwiftProtobuf._Mes
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.processNames.isEmpty {
-      try visitor.visitRepeatedStringField(value: self.processNames, fieldNumber: 1)
-    }
     if !self.pids.isEmpty {
-      try visitor.visitPackedUInt32Field(value: self.pids, fieldNumber: 2)
+      try visitor.visitPackedUInt32Field(value: self.pids, fieldNumber: 1)
+    }
+    if !self.processNames.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.processNames, fieldNumber: 2)
     }
     if self.invert != false {
       try visitor.visitSingularBoolField(value: self.invert, fieldNumber: 3)
