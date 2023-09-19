@@ -13,7 +13,9 @@ pub enum TunnelInfo {
     OsProxy {
         pid: u32,
         process_name: Option<String>,
-        dst_hostname: Option<String>,
+        /// macOS TCP connections may not have a valid sockname, but
+        /// an unresolved remote_endpoint instead.
+        remote_endpoint: Option<(String, u16)>,
     },
 }
 

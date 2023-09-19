@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use pyo3::{
-    exceptions::{PyKeyError, PyOSError},
+    exceptions::PyOSError,
     prelude::*,
     types::PyBytes,
 };
@@ -13,7 +13,7 @@ use tokio::sync::{
 
 use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
 
-use crate::util::{event_queue_unavailable, socketaddr_to_py};
+use crate::util::{event_queue_unavailable, socketaddr_to_py, get_tunnel_info};
 
 #[derive(Debug)]
 pub enum TcpStreamState {
@@ -35,6 +35,7 @@ pub struct TcpStream {
     pub sockname: SocketAddr,
     pub tunnel_info: TunnelInfo,
 }
+
 
 #[pymethods]
 impl TcpStream {
@@ -130,40 +131,10 @@ impl TcpStream {
         name: String,
         default: Option<PyObject>,
     ) -> PyResult<PyObject> {
-        match (name.as_str(), default) {
-            ("peername", _) => Ok(socketaddr_to_py(py, self.peername)),
-            ("sockname", _) => Ok(socketaddr_to_py(py, self.sockname)),
-            ("original_src", _) => match self.tunnel_info {
-                TunnelInfo::WireGuard { src_addr, .. } => Ok(socketaddr_to_py(py, src_addr)),
-                TunnelInfo::OsProxy { .. } => Ok(py.None()),
-            },
-            ("original_dst", _) => match self.tunnel_info {
-                TunnelInfo::WireGuard { dst_addr, .. } => Ok(socketaddr_to_py(py, dst_addr)),
-                TunnelInfo::OsProxy { .. } => Ok(py.None()),
-            },
-            ("pid", _) => match &self.tunnel_info {
-                TunnelInfo::OsProxy { pid, .. } => Ok(pid.into_py(py)),
-                TunnelInfo::WireGuard { .. } => Ok(py.None()),
-            },
-            ("process_name", _) => match &self.tunnel_info {
-                TunnelInfo::OsProxy {
-                    process_name: Some(x),
-                    ..
-                } => Ok(x.into_py(py)),
-                _ => Ok(py.None()),
-            },
-            ("destination_address", _) => match &self.tunnel_info {
-                TunnelInfo::OsProxy {
-                    dst_hostname: Some(host),
-                    ..
-                } => Ok((host, self.sockname.port()).into_py(py)),
-                TunnelInfo::OsProxy {
-                    dst_hostname: None, ..
-                } => Ok((self.sockname.ip().to_string(), self.sockname.port()).into_py(py)),
-                _ => Ok(py.None()),
-            },
-            (_, Some(default)) => Ok(default),
-            _ => Err(PyKeyError::new_err(name)),
+        match name.as_str() {
+            "peername" => Ok(socketaddr_to_py(py, self.peername)),
+            "sockname" => Ok(socketaddr_to_py(py, self.sockname)),
+            _ => get_tunnel_info(&self.tunnel_info, py, name, default)
         }
     }
 

@@ -185,7 +185,7 @@ impl PacketSourceTask for WindowsTask {
                         tunnel_info: TunnelInfo::OsProxy {
                             pid,
                             process_name,
-                            dst_hostname: None,
+                            remote_endpoint: None,
                         },
                     };
                     if self.net_tx.try_send(event).is_err() {

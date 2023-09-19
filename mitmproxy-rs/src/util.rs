@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use data_encoding::BASE64;
 #[cfg(target_os = "macos")]
 use mitmproxy::macos;
-use pyo3::exceptions::PyOSError;
+use pyo3::exceptions::{PyKeyError, PyOSError};
 use pyo3::types::{PyString, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use rand_core::OsRng;
@@ -15,6 +15,7 @@ use std::path::Path;
 use std::str::FromStr;
 use tokio::sync::mpsc;
 use x25519_dalek::{PublicKey, StaticSecret};
+use mitmproxy::messages::TunnelInfo;
 
 pub fn string_to_key<T>(data: String) -> PyResult<T>
 where
@@ -139,4 +140,33 @@ pub fn remove_cert() -> PyResult<()> {
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
         "OS proxy mode is only available on macos",
     ))
+}
+
+pub(crate) fn get_tunnel_info(
+    tunnel: &TunnelInfo,
+    py: Python,
+    name: String,
+    default: Option<PyObject>,
+) -> PyResult<PyObject> {
+    match tunnel {
+        TunnelInfo::WireGuard { src_addr, dst_addr  } => {
+            match name.as_str() {
+                "original_src" => return Ok(socketaddr_to_py(py, src_addr.clone())),
+                "original_dst" => return Ok(socketaddr_to_py(py, dst_addr.clone())),
+                _ => ()
+            }
+        },
+        TunnelInfo::OsProxy { pid, process_name, remote_endpoint  } => {
+            match name.as_str() {
+                "pid" => return Ok(pid.into_py(py)),
+                "process_name" => return Ok(process_name.clone().into_py(py)),
+                "remote_endpoint" => return Ok(remote_endpoint.clone().into_py(py)),
+                _ => ()
+            }
+        }
+    }
+    match default {
+        Some(x) => Ok(x),
+        None => Err(PyKeyError::new_err(name)),
+    }
 }

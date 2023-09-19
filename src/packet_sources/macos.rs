@@ -290,7 +290,7 @@ impl ConnectionTask {
             TunnelInfo::OsProxy {
                 pid: tun.pid,
                 process_name: tun.process_name,
-                dst_hostname: None,
+                remote_endpoint: None,
             }
         };
         let local_addr = {
@@ -362,21 +362,14 @@ impl ConnectionTask {
     async fn handle_tcp(mut self, flow: TcpFlow) -> Result<(ConnectionId, Option<SocketAddr>)> {
         let mut write_buf = BytesMut::new();
 
-        let src_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 0));
-        let dst_addr;
         let remote = flow.remote_address.expect("no remote address");
-        let destination_hostname;
-        match SocketAddr::try_from(&remote) {
-            Ok(addr) => {
-                dst_addr = addr;
-                destination_hostname = None;
-            }
-            Err(_) => {
-                // This is not perfectly clean here, but we probably want peername to be an IP?
-                dst_addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, remote.port as u16));
-                destination_hostname = Some(remote.host);
-            }
+        let src_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 0));
+        let dst_addr = match SocketAddr::try_from(&remote) {
+            Ok(addr) => addr,
+            Err(_) => SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
         };
+        let remote_endpoint = Some((remote.host, remote.port as u16));
+
         self.events
             .send(TransportEvent::ConnectionEstablished {
                 connection_id: self.id,
@@ -385,7 +378,7 @@ impl ConnectionTask {
                 tunnel_info: TunnelInfo::OsProxy {
                     pid: flow.tunnel_info.as_ref().map(|t| t.pid).unwrap_or(0),
                     process_name: flow.tunnel_info.and_then(|t| t.process_name),
-                    dst_hostname: destination_hostname,
+                    remote_endpoint,
                 },
             })
             .await?;

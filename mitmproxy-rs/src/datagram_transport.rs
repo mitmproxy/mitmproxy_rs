@@ -1,10 +1,11 @@
 use std::net::SocketAddr;
 
 use pyo3::types::PyTuple;
-use pyo3::{exceptions::PyKeyError, prelude::*};
+use pyo3::prelude::*;
 use tokio::sync::mpsc;
 
 use mitmproxy::messages::{TransportCommand, TunnelInfo};
+use crate::util::get_tunnel_info;
 
 use crate::util::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py};
 
@@ -45,30 +46,10 @@ impl DatagramTransport {
         name: String,
         default: Option<PyObject>,
     ) -> PyResult<PyObject> {
-        match (name.as_str(), default) {
-            ("peername", _) => Ok(socketaddr_to_py(py, self.peername)),
-            ("sockname", _) => Ok(socketaddr_to_py(py, self.sockname)),
-            ("original_src", _) => match self.tunnel_info {
-                TunnelInfo::WireGuard { src_addr, .. } => Ok(socketaddr_to_py(py, src_addr)),
-                TunnelInfo::OsProxy { .. } => Ok(py.None()),
-            },
-            ("original_dst", _) => match self.tunnel_info {
-                TunnelInfo::WireGuard { dst_addr, .. } => Ok(socketaddr_to_py(py, dst_addr)),
-                TunnelInfo::OsProxy { .. } => Ok(py.None()),
-            },
-            ("pid", _) => match &self.tunnel_info {
-                TunnelInfo::OsProxy { pid, .. } => Ok(pid.into_py(py)),
-                TunnelInfo::WireGuard { .. } => Ok(py.None()),
-            },
-            ("process_name", _) => match &self.tunnel_info {
-                TunnelInfo::OsProxy {
-                    process_name: Some(x),
-                    ..
-                } => Ok(x.into_py(py)),
-                _ => Ok(py.None()),
-            },
-            (_, Some(default)) => Ok(default),
-            _ => Err(PyKeyError::new_err(name)),
+        match name.as_str() {
+            "peername" => Ok(socketaddr_to_py(py, self.peername)),
+            "sockname" => Ok(socketaddr_to_py(py, self.sockname)),
+            _ => get_tunnel_info(&self.tunnel_info, py, name, default)
         }
     }
 
