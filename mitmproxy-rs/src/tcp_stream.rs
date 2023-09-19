@@ -1,10 +1,7 @@
 use std::net::SocketAddr;
 
-use pyo3::{
-    exceptions::{PyKeyError, PyOSError},
-    prelude::*,
-    types::PyBytes,
-};
+use pyo3::{exceptions::PyOSError, prelude::*, types::PyBytes};
+
 use tokio::sync::{
     mpsc::{self},
     oneshot::{self, error::RecvError},
@@ -12,7 +9,14 @@ use tokio::sync::{
 
 use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
 
-use crate::util::{event_queue_unavailable, socketaddr_to_py};
+use crate::util::{event_queue_unavailable, get_tunnel_info, socketaddr_to_py};
+
+#[derive(Debug)]
+pub enum TcpStreamState {
+    Open,
+    HalfClosed,
+    Closed,
+}
 
 /// An individual TCP stream with an API that is similar to
 /// [`asyncio.StreamReader` and `asyncio.StreamWriter`](https://docs.python.org/3/library/asyncio-stream.html)
@@ -21,11 +25,11 @@ use crate::util::{event_queue_unavailable, socketaddr_to_py};
 #[derive(Debug)]
 pub struct TcpStream {
     pub connection_id: ConnectionId,
+    pub state: TcpStreamState,
     pub event_tx: mpsc::UnboundedSender<TransportCommand>,
     pub peername: SocketAddr,
     pub sockname: SocketAddr,
     pub tunnel_info: TunnelInfo,
-    pub is_closing: bool,
 }
 
 #[pymethods]
@@ -74,27 +78,37 @@ impl TcpStream {
 
     /// Close the stream after flushing the write buffer.
     fn write_eof(&mut self) -> PyResult<()> {
-        self.is_closing = true;
-        self.event_tx
-            .send(TransportCommand::CloseConnection(self.connection_id, true))
-            .map_err(event_queue_unavailable)?;
-
-        Ok(())
+        match self.state {
+            TcpStreamState::Open => {
+                self.state = TcpStreamState::HalfClosed;
+                self.event_tx
+                    .send(TransportCommand::CloseConnection(self.connection_id, true))
+                    .map_err(event_queue_unavailable)
+            }
+            TcpStreamState::HalfClosed => Ok(()),
+            TcpStreamState::Closed => Ok(()),
+        }
     }
 
     /// Close the TCP stream and the underlying socket immediately.
     fn close(&mut self) -> PyResult<()> {
-        self.is_closing = true;
-        self.event_tx
-            .send(TransportCommand::CloseConnection(self.connection_id, false))
-            .map_err(event_queue_unavailable)?;
-
-        Ok(())
+        match self.state {
+            TcpStreamState::Open | TcpStreamState::HalfClosed => {
+                self.state = TcpStreamState::Closed;
+                self.event_tx
+                    .send(TransportCommand::CloseConnection(self.connection_id, false))
+                    .map_err(event_queue_unavailable)
+            }
+            TcpStreamState::Closed => Ok(()),
+        }
     }
 
     /// Check whether this TCP stream is being closed.
-    fn is_closing(&self) -> PyResult<bool> {
-        Ok(self.is_closing)
+    fn is_closing(&self) -> bool {
+        match self.state {
+            TcpStreamState::Open => false,
+            TcpStreamState::HalfClosed | TcpStreamState::Closed => true,
+        }
     }
 
     /// Wait until the TCP stream is closed (currently a no-op).
@@ -112,30 +126,10 @@ impl TcpStream {
         name: String,
         default: Option<PyObject>,
     ) -> PyResult<PyObject> {
-        match (name.as_str(), default) {
-            ("peername", _) => Ok(socketaddr_to_py(py, self.peername)),
-            ("sockname", _) => Ok(socketaddr_to_py(py, self.sockname)),
-            ("original_src", _) => match self.tunnel_info {
-                TunnelInfo::WireGuard { src_addr, .. } => Ok(socketaddr_to_py(py, src_addr)),
-                TunnelInfo::OsProxy { .. } => Ok(py.None()),
-            },
-            ("original_dst", _) => match self.tunnel_info {
-                TunnelInfo::WireGuard { dst_addr, .. } => Ok(socketaddr_to_py(py, dst_addr)),
-                TunnelInfo::OsProxy { .. } => Ok(py.None()),
-            },
-            ("pid", _) => match &self.tunnel_info {
-                TunnelInfo::OsProxy { pid, .. } => Ok(pid.into_py(py)),
-                TunnelInfo::WireGuard { .. } => Ok(py.None()),
-            },
-            ("process_name", _) => match &self.tunnel_info {
-                TunnelInfo::OsProxy {
-                    process_name: Some(x),
-                    ..
-                } => Ok(x.into_py(py)),
-                _ => Ok(py.None()),
-            },
-            (_, Some(default)) => Ok(default),
-            _ => Err(PyKeyError::new_err(name)),
+        match name.as_str() {
+            "peername" => Ok(socketaddr_to_py(py, self.peername)),
+            "sockname" => Ok(socketaddr_to_py(py, self.sockname)),
+            _ => get_tunnel_info(&self.tunnel_info, py, name, default),
         }
     }
 

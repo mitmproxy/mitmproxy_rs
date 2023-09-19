@@ -103,7 +103,7 @@ async fn main() -> Result<()> {
         .context("Cannot open pipe")?;
 
     let (event_tx, mut event_rx) = mpsc::unbounded_channel::<Event>();
-    let (mut ipc_tx, ipc_rx) = mpsc::unbounded_channel::<ipc::FromRedirector>();
+    let (mut ipc_tx, ipc_rx) = mpsc::unbounded_channel::<ipc::PacketWithMeta>();
 
     // We currently rely on handles being automatically closed when the program exits.
     // only needed for forward mode
@@ -123,11 +123,7 @@ async fn main() -> Result<()> {
     thread::spawn(move || relay_network_events(network_handle, tx_clone));
 
     let mut state = InterceptConf::new(vec![], vec![], false);
-    event_tx.send(Event::Ipc(ipc::from_proxy::Message::InterceptSpec(
-        ipc::InterceptSpec {
-            spec: state.to_string(),
-        }
-    )))?;
+    event_tx.send(Event::Ipc(ipc::from_proxy::Message::InterceptConf(state.clone().into())))?;
 
     tokio::spawn(async move {
         if let Err(e) = handle_ipc(ipc_client, ipc_rx, event_tx).await {
@@ -354,10 +350,9 @@ async fn main() -> Result<()> {
 
                 inject_handle.send(&packet)?;
             }
-            Event::Ipc(ipc::from_proxy::Message::InterceptSpec(ipc::InterceptSpec { spec })) => {
-                let conf = InterceptConf::try_from(spec.as_str())?;
-                info!("{}", conf.description());
-                state = conf;
+            Event::Ipc(ipc::from_proxy::Message::InterceptConf(conf)) => {
+                state = conf.into();
+                info!("{}", state.description());
 
                 // Handle preexisting connections.
                 connections.clear();
@@ -401,7 +396,7 @@ async fn main() -> Result<()> {
 
 async fn handle_ipc(
     mut ipc: NamedPipeClient,
-    mut ipc_rx: UnboundedReceiver<ipc::FromRedirector>,
+    mut ipc_rx: UnboundedReceiver<ipc::PacketWithMeta>,
     tx: UnboundedSender<Event>,
 ) -> Result<()> {
     let mut buf = [0u8; IPC_BUF_SIZE];
@@ -487,7 +482,7 @@ async fn insert_into_connections(
     event: &WinDivertEvent,
     connections: &mut LruCache<ConnectionId, ConnectionState>,
     inject_handle: &WinDivert<NetworkLayer>,
-    ipc_tx: &mut UnboundedSender<ipc::FromRedirector>,
+    ipc_tx: &mut UnboundedSender<ipc::PacketWithMeta>,
 ) -> Result<()> {
     debug!("Adding: {} with {:?} ({:?})", &connection_id, action, event);
     // no matter which action we do, the reverse direction is whitelisted.
@@ -516,7 +511,7 @@ async fn process_packet(
     mut packet: InternetPacket,
     action: &ConnectionAction,
     inject_handle: &WinDivert<NetworkLayer>,
-    ipc_tx: &mut UnboundedSender<ipc::FromRedirector>,
+    ipc_tx: &mut UnboundedSender<ipc::PacketWithMeta>,
 ) -> Result<()> {
     match action {
         ConnectionAction::None => {
@@ -553,12 +548,12 @@ async fn process_packet(
                 packet.recalculate_udp_checksum();
             }
 
-            ipc_tx.send(ipc::FromRedirector {
-                message: Some(ipc::from_redirector::Message::Packet(ipc::PacketWithMeta {
-                    data: packet.inner(),
+            ipc_tx.send(ipc::PacketWithMeta {
+                data: packet.inner(),
+                tunnel_info: Some(ipc::TunnelInfo {
                     pid: *pid,
                     process_name: process_name.clone(),
-                })),
+                }),
             })?;
         }
     }

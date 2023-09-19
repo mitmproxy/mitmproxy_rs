@@ -6,12 +6,10 @@
 	<string>Redirect traffic to mitmproxy</string>
 	<key>NetworkExtension</key>
 	<dict>
-		<key>NEMachServiceName</key>
-		<string>$(TeamIdentifierPrefix)org.mitmproxy.macos-redirector</string>
 		<key>NEProviderClasses</key>
 		<dict>
-			<key>com.apple.networkextension.packet-tunnel</key>
-			<string>$(PRODUCT_MODULE_NAME).PacketTunnelProvider</string>
+			<key>com.apple.networkextension.app-proxy</key>
+			<string>$(PRODUCT_MODULE_NAME).TransparentProxyProvider</string>
 		</dict>
 	</dict>
 </dict>

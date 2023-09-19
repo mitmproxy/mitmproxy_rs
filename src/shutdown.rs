@@ -2,30 +2,27 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use tokio::{
-    sync::{broadcast::Sender as BroadcastSender, Notify, RwLock},
+    sync::{broadcast::Sender as BroadcastSender, RwLock},
     task::JoinHandle,
 };
 
 pub struct ShutdownTask {
     py_handle: JoinHandle<Result<()>>,
     wg_handle: JoinHandle<Result<()>>,
-    nw_handle: JoinHandle<Result<()>>,
     sd_trigger: BroadcastSender<()>,
-    sd_barrier: Arc<Notify>,
+    sd_barrier: BroadcastSender<()>,
 }
 
 impl ShutdownTask {
     pub fn new(
         py_handle: JoinHandle<Result<()>>,
         wg_handle: JoinHandle<Result<()>>,
-        nw_handle: JoinHandle<Result<()>>,
         sd_trigger: BroadcastSender<()>,
-        sd_barrier: Arc<Notify>,
+        sd_barrier: BroadcastSender<()>,
     ) -> Self {
         ShutdownTask {
             py_handle,
             wg_handle,
-            nw_handle,
             sd_trigger,
             sd_barrier,
         }
@@ -67,22 +64,6 @@ impl ShutdownTask {
             }
         });
 
-        // wait for networking task to return
-        let nw_sd_trigger = self.sd_trigger.clone();
-        let nw_shutting_down = shutting_down.clone();
-        let nw_task_handle = tokio::spawn(async move {
-            match self.nw_handle.await {
-                Ok(Ok(())) => (),
-                Ok(Err(error)) => log::error!("Networking task failed: {}", error),
-                Err(error) => log::error!("Networking task panicked: {}", error),
-            }
-
-            if !*nw_shutting_down.read().await {
-                log::error!("Networking task shut down early, exiting.");
-                let _ = nw_sd_trigger.send(());
-            }
-        });
-
         // wait for shutdown trigger:
         // - either `Server.stop` was called, or
         // - one of the subtasks failed early
@@ -96,11 +77,8 @@ impl ShutdownTask {
         if let Err(error) = wg_task_handle.await {
             log::error!("Shutdown of WireGuard server task failed: {}", error);
         }
-        if let Err(error) = nw_task_handle.await {
-            log::error!("Shutdown of network task failed: {}", error);
-        }
 
         // make `Server.wait_closed` method yield
-        self.sd_barrier.notify_one();
+        self.sd_barrier.send(()).ok();
     }
 }

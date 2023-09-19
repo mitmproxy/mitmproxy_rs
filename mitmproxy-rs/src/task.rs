@@ -9,12 +9,13 @@ use mitmproxy::messages::{TransportCommand, TransportEvent};
 
 use crate::datagram_transport::DatagramTransport;
 use crate::tcp_stream::TcpStream;
+use crate::tcp_stream::TcpStreamState;
 use crate::util::socketaddr_to_py;
 
 pub struct PyInteropTask {
     py_loop: PyObject,
-    py_to_smol_tx: mpsc::UnboundedSender<TransportCommand>,
-    smol_to_py_rx: mpsc::Receiver<TransportEvent>,
+    transport_commands: mpsc::UnboundedSender<TransportCommand>,
+    transport_events: mpsc::Receiver<TransportEvent>,
     py_tcp_handler: PyObject,
     py_udp_handler: PyObject,
     sd_watcher: broadcast::Receiver<()>,
@@ -24,16 +25,16 @@ impl PyInteropTask {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         py_loop: PyObject,
-        py_to_smol_tx: mpsc::UnboundedSender<TransportCommand>,
-        smol_to_py_rx: mpsc::Receiver<TransportEvent>,
+        transport_commands: mpsc::UnboundedSender<TransportCommand>,
+        transport_events: mpsc::Receiver<TransportEvent>,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
         sd_watcher: broadcast::Receiver<()>,
     ) -> Self {
         PyInteropTask {
             py_loop,
-            py_to_smol_tx,
-            smol_to_py_rx,
+            transport_commands,
+            transport_events,
             py_tcp_handler,
             py_udp_handler,
             sd_watcher,
@@ -48,7 +49,7 @@ impl PyInteropTask {
                 // wait for graceful shutdown
                 _ = self.sd_watcher.recv() => break,
                 // wait for network events
-                event = self.smol_to_py_rx.recv() => {
+                event = self.transport_events.recv() => {
                     if let Some(event) = event {
                         match event {
                             TransportEvent::ConnectionEstablished {
@@ -60,11 +61,11 @@ impl PyInteropTask {
                                 // initialize new TCP stream
                                 let stream = TcpStream {
                                     connection_id,
-                                    event_tx: self.py_to_smol_tx.clone(),
+                                    state: TcpStreamState::Open,
+                                    event_tx: self.transport_commands.clone(),
                                     peername: src_addr,
                                     sockname: dst_addr,
                                     tunnel_info,
-                                    is_closing: false,
                                 };
 
                                 let mut conns = active_tcp_connections.lock().await;
@@ -108,7 +109,7 @@ impl PyInteropTask {
                             } => {
 
                                 let transport = DatagramTransport {
-                                    event_tx: self.py_to_smol_tx.clone(),
+                                    event_tx: self.transport_commands.clone(),
                                     peername: src_addr,
                                     sockname: dst_addr,
                                     tunnel_info,

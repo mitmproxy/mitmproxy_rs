@@ -11,10 +11,10 @@ pub struct ProcessInfo {
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct InterceptConf {
-    pids: HashSet<PID>,
-    process_names: Vec<String>,
+    pub pids: HashSet<PID>,
+    pub process_names: Vec<String>,
     /// if true, matching items are the ones which are not intercepted.
-    invert: bool,
+    pub invert: bool,
 }
 
 impl TryFrom<&str> for InterceptConf {
@@ -68,7 +68,7 @@ impl ToString for InterceptConf {
 
 impl InterceptConf {
     pub fn new(pids: Vec<PID>, process_names: Vec<String>, invert: bool) -> Self {
-        let pids = HashSet::from_iter(pids.into_iter());
+        let pids = HashSet::from_iter(pids);
         if invert {
             assert!(!pids.is_empty() || !process_names.is_empty());
         }
@@ -83,8 +83,6 @@ impl InterceptConf {
         self.invert ^ {
             if self.pids.contains(&process_info.pid) {
                 true
-            } else if self.process_names.is_empty() {
-                false // fast path to avoid conversion below.
             } else if let Some(name) = &process_info.process_name {
                 self.process_names.iter().any(|n| name.contains(n))
             } else {

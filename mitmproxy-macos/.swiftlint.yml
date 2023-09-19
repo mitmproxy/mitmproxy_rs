@@ -1,0 +1,9 @@
+excluded:
+  - redirector/ipc/ipc.pb.swift
+disabled_rules:
+  - identifier_name
+  - trailing_whitespace
+  - line_length
+  - closure_parameter_position
+opt_in_rules:
+  - unhandled_throwing_task

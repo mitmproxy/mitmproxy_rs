@@ -13,6 +13,9 @@ pub enum TunnelInfo {
     OsProxy {
         pid: u32,
         process_name: Option<String>,
+        /// macOS TCP connections may not have a valid sockname, but
+        /// an unresolved remote_endpoint instead.
+        remote_endpoint: Option<(String, u16)>,
     },
 }
 
@@ -31,7 +34,7 @@ pub enum NetworkCommand {
     SendPacket(IpPacket),
 }
 
-pub type ConnectionId = u32;
+pub type ConnectionId = usize;
 
 /// Events that are sent by the TCP stack to Python.
 #[derive(Debug)]

@@ -1,33 +1,116 @@
 import Foundation
+import Network
+import NetworkExtension
 import SwiftProtobuf
 
-enum IpcError: Error {
-    case emptyRead
-    case incompleteRead
-    case tooLarge(Int)
-}
-
-func readIpcMessage<T: SwiftProtobuf.Message>(ofType: T.Type, fh: FileHandle) throws -> T? {
-    // read u32
-    guard let len_buf = try fh.read(upToCount: 4) else { throw IpcError.emptyRead }
-    guard len_buf.count == 4 else { throw IpcError.incompleteRead }
-    let len = len_buf[...].reduce(Int(0)) { $0 << 8 + Int($1) };
-    // 4x \n (testing)
-    if len == 168430090 {
-        return nil
+extension UInt32 {
+    var data: Data {
+        var int = self
+        return Data(bytes: &int, count: MemoryLayout<UInt32>.size)
     }
-    guard len < 1024 * 1024 else { throw IpcError.tooLarge(len) }
-    // read protobuf data
-    guard let data = try fh.read(upToCount: len) else { throw IpcError.incompleteRead }
-    guard data.count == len else { throw IpcError.incompleteRead }
-    // decode protobuf
-    return try T(contiguousBytes: data)
 }
 
+enum IpcError: Error {
+    case incompleteRead
+    case connectionCancelled
+}
 
-func writeIpcMessage(message: SwiftProtobuf.Message, fh: FileHandle) throws {
-    let data = try message.serializedData()
-    let len = withUnsafeBytes(of: UInt32(data.count).bigEndian, Array.init)
-    try fh.write(contentsOf: len)
-    try fh.write(contentsOf: data)
+extension NWConnection {
+    /// Async wrapper to establish a connection and wait for NWConnection.State.ready
+    func establish() async throws {
+        let orig_handler = self.stateUpdateHandler
+        defer {
+            self.stateUpdateHandler = orig_handler
+        }
+        try await withCheckedThrowingContinuation { continuation in
+            self.stateUpdateHandler = { state in
+                log.info("stateUpdate: \(String(describing: state), privacy: .public)")
+                switch state {
+                case .ready:
+                    continuation.resume()
+                case .waiting(let err):
+                    continuation.resume(with: .failure(err))
+                case .failed(let err):
+                    continuation.resume(with: .failure(err))
+                case .cancelled:
+                    continuation.resume(with: .failure(IpcError.connectionCancelled))
+                default:
+                    break
+                }
+            }
+            self.start(queue: DispatchQueue.global())
+        }
+    }
+    
+    func send(ipc message: SwiftProtobuf.Message) async throws {
+        let data = try message.serializedData()
+        var to_send = Data(capacity: data.count + 4)
+        to_send.append(UInt32(data.count).bigEndian.data)
+        to_send.append(data)
+        assert(to_send.count == data.count + 4)
+
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Void, Error>) -> Void in
+            self.send(
+                content: to_send,
+                completion: .contentProcessed({ error in
+                    if let err = error {
+                        continuation.resume(throwing: err)
+                    } else {
+                        continuation.resume()
+                    }
+                }))
+        }
+    }
+
+    func receive<T: SwiftProtobuf.Message>(ipc: T.Type) async throws -> T? {
+        return try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<T?, _>) -> Void in
+            receive(
+                minimumIncompleteLength: 4, maximumLength: 4,
+                completion: { len_buf, _, _, _ in
+                    guard
+                        let len_buf = len_buf,
+                        len_buf.count == 4
+                    else {
+                        if len_buf == nil {
+                            return continuation.resume(returning: nil)
+                        } else {
+                            return continuation.resume(throwing: IpcError.incompleteRead)
+                        }
+                    }
+                    let len = len_buf[...].reduce(Int(0)) { $0 << 8 + Int($1) }
+
+                    self.receive(minimumIncompleteLength: len, maximumLength: len) {
+                        data, _, _, _ in
+                        guard
+                            let data = data,
+                            data.count == len
+                        else {
+                            return continuation.resume(throwing: IpcError.incompleteRead)
+                        }
+                        do {
+                            let message = try T(contiguousBytes: data)
+                            continuation.resume(returning: message)
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
+                    }
+                })
+        }
+    }
+}
+
+extension Mitmproxy_Ipc_Address {
+    init(endpoint: NWHostEndpoint) {
+        self.init()
+        self.host = endpoint.hostname
+        self.port = UInt32(endpoint.port)!
+    }
+}
+
+extension NWHostEndpoint {
+    convenience init(address: Mitmproxy_Ipc_Address) {
+        self.init(hostname: address.host, port: String(address.port))
+    }
 }

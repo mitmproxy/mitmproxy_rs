@@ -16,7 +16,7 @@ version = "0.3.0"
 publish = false
 repository = "https://github.com/mitmproxy/mitmproxy-rs"
 edition = "2021"
-rust-version = "1.65.0"
+rust-version = "1.72.0"
 
 [package]
 name = "mitmproxy"
@@ -66,7 +66,7 @@ features = [
 ]
 
 [target.'cfg(target_os = "macos")'.dependencies]
-security-framework = { git="https://github.com/emanuele-em/apple-security", rev = "eb6abf2dabe3881620436eba952750600bef267b"}
+apple-security-framework = "2.9.2"
 nix = { version = "0.27.1", default-features = false, features = ["fs"] }
 
 [dev-dependencies]

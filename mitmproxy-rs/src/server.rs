@@ -6,20 +6,22 @@ use crate::util::{socketaddr_to_py, string_to_key};
 
 use anyhow::Result;
 use mitmproxy::intercept_conf::InterceptConf;
-use mitmproxy::network::NetworkTask;
+
 #[cfg(target_os = "macos")]
 use mitmproxy::packet_sources::macos::MacosConf;
 #[cfg(windows)]
 use mitmproxy::packet_sources::windows::WindowsConf;
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
-use mitmproxy::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
+use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::ShutdownTask;
 use pyo3::prelude::*;
 use std::net::SocketAddr;
-#[cfg(any(windows, target_os = "macos"))]
+#[cfg(target_os = "macos")]
 use std::path::Path;
-use std::sync::Arc;
-use tokio::{sync::broadcast, sync::mpsc, sync::Notify};
+#[cfg(windows)]
+use std::path::PathBuf;
+
+use tokio::{sync::broadcast, sync::mpsc};
 use x25519_dalek::PublicKey;
 
 #[derive(Debug)]
@@ -27,7 +29,7 @@ pub struct Server {
     /// channel for notifying subtasks of requested server shutdown
     sd_trigger: broadcast::Sender<()>,
     /// channel for getting notified of successful server shutdown
-    sd_barrier: Arc<Notify>,
+    sd_barrier: broadcast::Sender<()>,
     /// flag to indicate whether server shutdown is in progress
     closing: bool,
 }
@@ -52,10 +54,11 @@ impl Server {
     }
 
     pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
-        let barrier = self.sd_barrier.clone();
+        let mut barrier = self.sd_barrier.subscribe();
         pyo3_asyncio::tokio::future_into_py(py, async move {
-            barrier.notified().await;
-            Ok(())
+            barrier.recv().await.map_err(|_| {
+                pyo3::exceptions::PyRuntimeError::new_err("Failed to wait for server shutdown.")
+            })
         })
     }
 }
@@ -73,33 +76,24 @@ impl Server {
         let typ = packet_source_conf.name();
         log::debug!("Initializing {} ...", typ);
 
-        // initialize channels between the WireGuard server and the virtual network device
-        let (wg_to_smol_tx, wg_to_smol_rx) = mpsc::channel(256);
-        let (smol_to_wg_tx, smol_to_wg_rx) = mpsc::channel(256);
-
         // initialize channels between the virtual network device and the python interop task
         // - only used to notify of incoming connections and datagrams
-        let (smol_to_py_tx, smol_to_py_rx) = mpsc::channel(256);
+        let (transport_events_tx, transport_events_rx) = mpsc::channel(256);
         // - used to send data and to ask for packets
         // This channel needs to be unbounded because write() is not async.
-        let (py_to_smol_tx, py_to_smol_rx) = mpsc::unbounded_channel();
+        let (transport_commands_tx, transport_commands_rx) = mpsc::unbounded_channel();
 
         // initialize barriers for handling graceful shutdown
-        let (sd_trigger, _sd_watcher) = broadcast::channel(1);
-        let sd_barrier = Arc::new(Notify::new());
+        let shutdown = broadcast::channel(1).0;
+        let shutdown_done = broadcast::channel(1).0;
 
-        let (wg_task, data) = packet_source_conf
-            .build(wg_to_smol_tx, smol_to_wg_rx, sd_trigger.subscribe())
+        let (packet_source_task, data) = packet_source_conf
+            .build(
+                transport_events_tx,
+                transport_commands_rx,
+                shutdown.subscribe(),
+            )
             .await?;
-
-        // initialize virtual network device
-        let nw_task = NetworkTask::new(
-            smol_to_wg_tx,
-            wg_to_smol_rx,
-            smol_to_py_tx,
-            py_to_smol_rx,
-            sd_trigger.subscribe(),
-        )?;
 
         // initialize Python interop task
         // Note: The current asyncio event loop needs to be determined here on the main thread.
@@ -110,25 +104,23 @@ impl Server {
 
         let py_task = PyInteropTask::new(
             py_loop,
-            py_to_smol_tx,
-            smol_to_py_rx,
+            transport_commands_tx,
+            transport_events_rx,
             py_tcp_handler,
             py_udp_handler,
-            sd_trigger.subscribe(),
+            shutdown.subscribe(),
         );
 
         // spawn tasks
-        let wg_handle = tokio::spawn(async move { wg_task.run().await });
-        let net_handle = tokio::spawn(async move { nw_task.run().await });
+        let wg_handle = tokio::spawn(async move { packet_source_task.run().await });
         let py_handle = tokio::spawn(async move { py_task.run().await });
 
         // initialize and run shutdown handler
         let sd_task = ShutdownTask::new(
             py_handle,
             wg_handle,
-            net_handle,
-            sd_trigger.clone(),
-            sd_barrier.clone(),
+            shutdown.clone(),
+            shutdown_done.clone(),
         );
         tokio::spawn(async move { sd_task.run().await });
 
@@ -136,8 +128,8 @@ impl Server {
 
         Ok((
             Server {
-                sd_trigger,
-                sd_barrier,
+                sd_trigger: shutdown,
+                sd_barrier: shutdown_done,
                 closing: false,
             },
             data,
@@ -155,7 +147,7 @@ impl Drop for Server {
 #[derive(Debug)]
 pub struct OsProxy {
     server: Server,
-    conf_tx: mpsc::UnboundedSender<ipc::FromProxy>,
+    conf_tx: mpsc::UnboundedSender<InterceptConf>,
 }
 
 #[pymethods]
@@ -171,13 +163,9 @@ impl OsProxy {
 
     /// Set a new intercept spec.
     pub fn set_intercept(&self, spec: String) -> PyResult<()> {
-        InterceptConf::try_from(spec.as_str())?;
+        let conf = InterceptConf::try_from(spec.as_str())?;
         self.conf_tx
-            .send(ipc::FromProxy {
-                message: Some(ipc::from_proxy::Message::InterceptSpec(
-                    ipc::InterceptSpec { spec },
-                )),
-            })
+            .send(conf)
             .map_err(crate::util::event_queue_unavailable)?;
         Ok(())
     }
@@ -287,15 +275,10 @@ pub fn start_os_proxy(
 ) -> PyResult<&PyAny> {
     #[cfg(windows)]
     {
-        // 2022: Ideally we'd use importlib.resources here, but that only provides `as_file` for
-        // individual files. We'd need something like `as_dir` to ensure that redirector.exe and the
-        // WinDivert dll/lib/sys files are in a single directory. So we just use __file__for now. 🤷
-        let filename = py.import("mitmproxy_windows")?.filename()?;
-        let executable_path = Path::new(filename)
-            .parent()
-            .ok_or_else(|| anyhow::anyhow!("invalid path"))?
-            .join("windows-redirector.exe");
-
+        let executable_path: PathBuf = py
+            .import("mitmproxy_windows")?
+            .getattr("executable_path")?
+            .extract()?;
         if !executable_path.exists() {
             return Err(anyhow::anyhow!("{} does not exist", executable_path.display()).into());
         }

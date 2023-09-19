@@ -22,10 +22,13 @@ use smoltcp::{
     },
 };
 use tokio::sync::{
+    broadcast,
     broadcast::Receiver as BroadcastReceiver,
+    mpsc,
     mpsc::{Permit, Receiver, Sender, UnboundedReceiver},
     oneshot,
 };
+use tokio::task::JoinHandle;
 
 use crate::messages::{
     ConnectionId, IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent,
@@ -198,8 +201,10 @@ impl<'a> NetworkIO<'a> {
 
             let handle = self.sockets.add(socket);
 
-            let connection_id = self.next_connection_id;
-            self.next_connection_id += 1;
+            let connection_id = {
+                self.next_connection_id += 1;
+                self.next_connection_id
+            };
 
             let data = SocketData {
                 handle,
@@ -498,8 +503,33 @@ pub struct NetworkTask<'a> {
     py_tx: Sender<TransportEvent>,
     py_rx: UnboundedReceiver<TransportCommand>,
 
-    sd_watcher: BroadcastReceiver<()>,
+    shutdown: BroadcastReceiver<()>,
     io: NetworkIO<'a>,
+}
+
+#[allow(clippy::type_complexity)]
+pub fn add_network_layer(
+    transport_events_tx: Sender<TransportEvent>,
+    transport_commands_rx: UnboundedReceiver<TransportCommand>,
+    shutdown: broadcast::Receiver<()>,
+) -> Result<(
+    JoinHandle<Result<()>>,
+    Sender<NetworkEvent>,
+    Receiver<NetworkCommand>,
+)> {
+    // initialize channels between the WireGuard server and the virtual network device
+    let (network_events_tx, network_events_rx) = mpsc::channel(256);
+    let (network_commands_tx, network_commands_rx) = mpsc::channel(256);
+
+    let task = NetworkTask::new(
+        network_commands_tx,
+        network_events_rx,
+        transport_events_tx,
+        transport_commands_rx,
+        shutdown,
+    )?;
+    let h = tokio::spawn(async move { task.run().await });
+    Ok((h, network_events_tx, network_commands_rx))
 }
 
 impl NetworkTask<'_> {
@@ -516,7 +546,7 @@ impl NetworkTask<'_> {
             net_rx,
             py_tx,
             py_rx,
-            sd_watcher,
+            shutdown: sd_watcher,
             io,
         })
     }
@@ -551,7 +581,7 @@ impl NetworkTask<'_> {
 
             tokio::select! {
                 // wait for graceful shutdown
-                _ = self.sd_watcher.recv() => break 'task,
+                _ = self.shutdown.recv() => break 'task,
                 // wait for timeouts when the device is idle
                 _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
                 // wait for incoming packets
