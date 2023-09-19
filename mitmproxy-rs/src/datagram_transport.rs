@@ -1,11 +1,11 @@
 use std::net::SocketAddr;
 
-use pyo3::types::PyTuple;
 use pyo3::prelude::*;
+use pyo3::types::PyTuple;
 use tokio::sync::mpsc;
 
-use mitmproxy::messages::{TransportCommand, TunnelInfo};
 use crate::util::get_tunnel_info;
+use mitmproxy::messages::{TransportCommand, TunnelInfo};
 
 use crate::util::{event_queue_unavailable, py_to_socketaddr, socketaddr_to_py};
 
@@ -49,7 +49,7 @@ impl DatagramTransport {
         match name.as_str() {
             "peername" => Ok(socketaddr_to_py(py, self.peername)),
             "sockname" => Ok(socketaddr_to_py(py, self.sockname)),
-            _ => get_tunnel_info(&self.tunnel_info, py, name, default)
+            _ => get_tunnel_info(&self.tunnel_info, py, name, default),
         }
     }
 

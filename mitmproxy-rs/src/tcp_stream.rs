@@ -1,10 +1,6 @@
 use std::net::SocketAddr;
 
-use pyo3::{
-    exceptions::PyOSError,
-    prelude::*,
-    types::PyBytes,
-};
+use pyo3::{exceptions::PyOSError, prelude::*, types::PyBytes};
 
 use tokio::sync::{
     mpsc::{self},
@@ -13,7 +9,7 @@ use tokio::sync::{
 
 use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
 
-use crate::util::{event_queue_unavailable, socketaddr_to_py, get_tunnel_info};
+use crate::util::{event_queue_unavailable, get_tunnel_info, socketaddr_to_py};
 
 #[derive(Debug)]
 pub enum TcpStreamState {
@@ -35,7 +31,6 @@ pub struct TcpStream {
     pub sockname: SocketAddr,
     pub tunnel_info: TunnelInfo,
 }
-
 
 #[pymethods]
 impl TcpStream {
@@ -134,7 +129,7 @@ impl TcpStream {
         match name.as_str() {
             "peername" => Ok(socketaddr_to_py(py, self.peername)),
             "sockname" => Ok(socketaddr_to_py(py, self.sockname)),
-            _ => get_tunnel_info(&self.tunnel_info, py, name, default)
+            _ => get_tunnel_info(&self.tunnel_info, py, name, default),
         }
     }
 
