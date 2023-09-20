@@ -28,11 +28,8 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            args: --package windows-redirector
           - os: macos-latest
-            args: --package macos-certificate-truster
           - os: ubuntu-latest
-            args: --workspace --exclude windows-redirector --exclude macos-certificate-truster
     steps:
       - uses: actions/checkout@v3
       - run: rustup toolchain install ${{ env.rust_clippy }} --profile minimal --component rustfmt --component clippy
@@ -41,7 +38,7 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
 
-      - run: cargo clippy --fix --allow-dirty ${{ matrix.args }}
+      - run: cargo clippy --fix --allow-dirty --workspace
       - run: cargo fmt --all
 
       - uses: autofix-ci/action@8caa572fd27b0019a65e4c695447089c8d3138b9

@@ -305,9 +305,9 @@ pub fn start_os_proxy(
             }
 
             // XXX: tokio here?
-            let redirector_tar = File::open(source_path)?;
+            let redirector_tar = std::fs::File::open(source_path)?;
             let mut archive = tar::Archive::new(redirector_tar);
-            fs::create_dir(destination_path)?;
+            std::fs::create_dir(destination_path)?;
             archive.unpack(destination_path)?;
         }
         let conf = MacosConf;
