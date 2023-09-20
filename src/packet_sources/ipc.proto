@@ -25,8 +25,8 @@ message Packet {
 }
 // Intercept conf (macOS Control Stream)
 message InterceptConf {
-  repeated uint32 pids = 2;
-  repeated string process_names = 1;
+  repeated uint32 pids = 1;
+  repeated string process_names = 2;
   bool invert = 3;
 }
 // New flow (macOS TCP/UDP Stream)

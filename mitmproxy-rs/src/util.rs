@@ -8,11 +8,9 @@ use pyo3::exceptions::{PyKeyError, PyOSError};
 use pyo3::types::{PyString, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use rand_core::OsRng;
-#[cfg(target_os = "macos")]
-use std::fs;
+
 use std::net::{IpAddr, SocketAddr};
-#[cfg(target_os = "macos")]
-use std::path::Path;
+
 use std::str::FromStr;
 use tokio::sync::mpsc;
 use x25519_dalek::{PublicKey, StaticSecret};
@@ -40,23 +38,6 @@ pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
             (addr.ip().to_string(), addr.port()).into_py(py)
         }
     }
-}
-
-#[cfg(target_os = "macos")]
-pub fn copy_dir(src: &Path, dst: &Path) -> PyResult<()> {
-    for entry in src.read_dir()? {
-        let entry = entry?;
-        let ty = entry.file_type()?;
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
-        if ty.is_dir() {
-            fs::create_dir_all(&dst_path).expect("Failed to create directory");
-            copy_dir(&src_path, &dst_path)?;
-        } else {
-            fs::copy(&src_path, &dst_path).expect("Failed to copy {src_path} to {dst_path}");
-        }
-    }
-    Ok(())
 }
 
 pub fn py_to_socketaddr(t: &PyTuple) -> PyResult<SocketAddr> {

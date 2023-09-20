@@ -1,7 +1,5 @@
 use crate::task::PyInteropTask;
 
-#[cfg(target_os = "macos")]
-use crate::util::copy_dir;
 use crate::util::{socketaddr_to_py, string_to_key};
 
 use anyhow::Result;
@@ -300,13 +298,17 @@ pub fn start_os_proxy(
             let source_path = Path::new(filename)
                 .parent()
                 .ok_or_else(|| anyhow::anyhow!("invalid path"))?
-                .join("Mitmproxy Redirector.app");
+                .join("Mitmproxy Redirector.app.tar");
 
             if !source_path.exists() {
                 return Err(anyhow::anyhow!("{} does not exist", source_path.display()).into());
             }
 
-            copy_dir(source_path.as_path(), destination_path)?;
+            // XXX: tokio here?
+            let redirector_tar = std::fs::File::open(source_path)?;
+            let mut archive = tar::Archive::new(redirector_tar);
+            std::fs::create_dir(destination_path)?;
+            archive.unpack(destination_path)?;
         }
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {

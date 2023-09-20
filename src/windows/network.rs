@@ -2,9 +2,8 @@ use anyhow::{anyhow, Result};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use windows::Win32::Foundation::{ERROR_INSUFFICIENT_BUFFER, NO_ERROR};
 use windows::Win32::NetworkManagement::IpHelper::{
-    GetExtendedTcpTable, GetExtendedUdpTable, MIB_TCP6ROW_OWNER_PID, MIB_TCP6TABLE_OWNER_PID,
-    MIB_TCPROW_OWNER_PID, MIB_TCPTABLE_OWNER_PID, MIB_UDP6ROW_OWNER_PID, MIB_UDP6TABLE_OWNER_PID,
-    MIB_UDPROW_OWNER_PID, MIB_UDPTABLE_OWNER_PID, TCP_TABLE_OWNER_PID_ALL, UDP_TABLE_OWNER_PID,
+    GetExtendedTcpTable, GetExtendedUdpTable, MIB_TCP6TABLE_OWNER_PID, MIB_TCPTABLE_OWNER_PID,
+    MIB_UDP6TABLE_OWNER_PID, MIB_UDPTABLE_OWNER_PID, TCP_TABLE_OWNER_PID_ALL, UDP_TABLE_OWNER_PID,
 };
 use windows::Win32::Networking::WinSock::{AF_INET, AF_INET6};
 
@@ -45,8 +44,7 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
     }
     let table = unsafe { &*(buf.as_ptr() as *const MIB_TCPTABLE_OWNER_PID) };
     for i in 0..table.dwNumEntries {
-        let row =
-            unsafe { &*((table.table.as_ptr() as *const MIB_TCPROW_OWNER_PID).add(i as usize)) };
+        let row = unsafe { &*(table.table.as_ptr().add(i as usize)) };
         let local_addr = SocketAddr::new(
             Ipv4Addr::from(row.dwLocalAddr.to_be()).into(),
             (row.dwLocalPort as u16).to_be(),
@@ -85,8 +83,7 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
     }
     let table = unsafe { &*(buf.as_ptr() as *const MIB_TCP6TABLE_OWNER_PID) };
     for i in 0..table.dwNumEntries {
-        let row =
-            unsafe { &*((table.table.as_ptr() as *const MIB_TCP6ROW_OWNER_PID).add(i as usize)) };
+        let row = unsafe { &*(table.table.as_ptr().add(i as usize)) };
         let local_addr = SocketAddr::new(
             Ipv6Addr::from(row.ucLocalAddr).into(),
             (row.dwLocalPort as u16).to_be(),
@@ -125,8 +122,7 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
     }
     let table = unsafe { &*(buf.as_ptr() as *const MIB_UDPTABLE_OWNER_PID) };
     for i in 0..table.dwNumEntries {
-        let row =
-            unsafe { &*((table.table.as_ptr() as *const MIB_UDPROW_OWNER_PID).add(i as usize)) };
+        let row = unsafe { &*(table.table.as_ptr().add(i as usize)) };
         let local_addr = SocketAddr::new(
             Ipv4Addr::from(row.dwLocalAddr.to_be()).into(),
             (row.dwLocalPort as u16).to_be(),
@@ -162,8 +158,7 @@ pub fn network_table() -> Result<Vec<NetworkTableEntry>> {
     }
     let table = unsafe { &*(buf.as_ptr() as *const MIB_UDP6TABLE_OWNER_PID) };
     for i in 0..table.dwNumEntries {
-        let row =
-            unsafe { &*((table.table.as_ptr() as *const MIB_UDP6ROW_OWNER_PID).add(i as usize)) };
+        let row = unsafe { &*(table.table.as_ptr().add(i as usize)) };
         let local_addr = SocketAddr::new(
             Ipv6Addr::from(row.ucLocalAddr).into(),
             (row.dwLocalPort as u16).to_be(),
