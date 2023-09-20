@@ -1,8 +1,4 @@
-## 0.3.2
-
-- Squash some macOS transparent proxy bugs.
-
-## 0.3.1
+## 0.3.1 - 0.3.3
 
 - Improve transparent proxy functionality on macOS.
 
