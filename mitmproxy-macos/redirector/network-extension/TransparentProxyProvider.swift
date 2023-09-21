@@ -16,11 +16,12 @@ class TransparentProxyProvider: NETransparentProxyProvider {
     var spec: InterceptConf?
 
     override func startProxy(options: [String: Any]? = nil) async throws {
+        log.debug("Starting proxy...")
+
         guard let unixSocket = self.protocolConfiguration.serverAddress
         else { throw TransparentProxyError.serverAddressMissing }
         self.unixSocket = unixSocket
-        
-        log.debug("Starting proxy. Establishing control channel via \(unixSocket, privacy: .public)...")
+        log.debug("Establishing control channel via \(unixSocket, privacy: .public)...")
         let control = NWConnection(
             to: .unix(path: unixSocket),
             using: .tcp
