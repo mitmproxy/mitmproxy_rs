@@ -307,8 +307,7 @@ pub fn start_os_proxy(
             // XXX: tokio here?
             let redirector_tar = std::fs::File::open(source_path)?;
             let mut archive = tar::Archive::new(redirector_tar);
-            std::fs::create_dir(destination_path)?;
-            archive.unpack(destination_path)?;
+            archive.unpack(destination_path.parent().unwrap())?;
         }
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
