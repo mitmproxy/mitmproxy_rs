@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - citest
     tags:
       - "*"
   pull_request:

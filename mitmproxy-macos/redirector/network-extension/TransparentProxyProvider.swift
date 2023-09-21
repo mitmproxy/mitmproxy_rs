@@ -14,7 +14,12 @@ class TransparentProxyProvider: NETransparentProxyProvider {
     var unixSocket: String?
     var controlChannel: NWConnection?
     var spec: InterceptConf?
-
+    
+    override func startProxy(options: [String : Any]? = nil, completionHandler: @escaping (Error?) -> Void) {
+        log.debug("startProxy running")
+        completionHandler(nil)
+    }
+    /*
     override func startProxy(options: [String: Any]? = nil) async throws {
         log.debug("Starting proxy...")
 
@@ -69,7 +74,7 @@ class TransparentProxyProvider: NETransparentProxyProvider {
 
         try await setTunnelNetworkSettings(proxySettings)
         log.debug("Applied. Proxy start complete.")
-    }
+    }*/
 
     override func stopProxy(with reason: NEProviderStopReason) async {
         log.debug("stopProxy \(String(describing: reason), privacy: .public)")
