@@ -1,4 +1,4 @@
-## 0.3.1 - 0.3.3
+## 0.3.1 - 0.3.4
 
 - Improve transparent proxy functionality on macOS.
 
