@@ -20,8 +20,9 @@ jobs:
       - uses: actions/checkout@v3
       - run: brew install swift-protobuf
       - run: cargo install protoc-gen-prost
-      - run: protoc --prost_out=./src/packet_sources/ --proto_path=./src/packet_sources/ ipc.proto
-      - run: protoc --swift_out=./mitmproxy-macos/redirector/ipc --proto_path=./src/packet_sources/ ipc.proto
+      - run: protoc --proto_path=./src/ipc/ mitmproxy_ipc.proto \
+          --prost_out=./src/ipc/ \
+          --swift_out=./mitmproxy-macos/redirector/ipc
       - uses: autofix-ci/action@8caa572fd27b0019a65e4c695447089c8d3138b9
 
   rustfmt:

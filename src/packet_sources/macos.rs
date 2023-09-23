@@ -4,8 +4,9 @@ use std::net::{Ipv4Addr, SocketAddr};
 use crate::messages::{ConnectionId, TransportCommand, TransportEvent, TunnelInfo};
 
 use crate::intercept_conf::InterceptConf;
-use crate::packet_sources::ipc::{NewFlow, TcpFlow, UdpFlow};
-use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
+use crate::ipc;
+use crate::ipc::{NewFlow, TcpFlow, UdpFlow};
+use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use futures_util::SinkExt;
