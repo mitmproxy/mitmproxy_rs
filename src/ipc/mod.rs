@@ -1,9 +1,9 @@
 mod mitmproxy_ipc;
 pub use mitmproxy_ipc::*;
 
+use crate::intercept_conf;
 use std::net::{AddrParseError, IpAddr, SocketAddr};
 use std::str::FromStr;
-use crate::intercept_conf;
 
 impl TryFrom<&Address> for SocketAddr {
     type Error = AddrParseError;
