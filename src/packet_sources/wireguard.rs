@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use boringtun::noise::{
     errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult,
 };
+use boringtun::x25519::{PublicKey, StaticSecret};
 use pretty_hex::pretty_hex;
 use smoltcp::wire::{Ipv4Packet, Ipv6Packet};
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -18,7 +19,6 @@ use tokio::{
         Mutex,
     },
 };
-use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::messages::{
     IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent, TunnelInfo,

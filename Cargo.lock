@@ -1364,7 +1364,6 @@ dependencies = [
  "data-encoding",
  "hex",
  "smoltcp",
- "x25519-dalek",
 ]
 
 [[package]]
@@ -1401,6 +1400,7 @@ name = "mitmproxy_rs"
 version = "0.3.5"
 dependencies = [
  "anyhow",
+ "boringtun",
  "console-subscriber",
  "data-encoding",
  "env_logger",
@@ -1413,7 +1413,6 @@ dependencies = [
  "rand_core",
  "tar",
  "tokio",
- "x25519-dalek",
 ]
 
 [[package]]
