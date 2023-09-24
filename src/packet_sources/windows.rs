@@ -17,12 +17,13 @@ use windows::Win32::UI::Shell::SE_ERR_ACCESSDENIED;
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
 use crate::intercept_conf::InterceptConf;
+use crate::ipc;
+use crate::ipc::PacketWithMeta;
 use crate::messages::{
     IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
-use crate::packet_sources::ipc::PacketWithMeta;
-use crate::packet_sources::{ipc, PacketSourceConf, PacketSourceTask};
+use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use prost::Message;
 
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 1024;

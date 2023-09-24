@@ -1,6 +1,7 @@
 pub use network::MAX_PACKET_SIZE;
 
 pub mod intercept_conf;
+pub mod ipc;
 #[cfg(target_os = "macos")]
 pub mod macos;
 pub mod messages;

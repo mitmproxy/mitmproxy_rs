@@ -1,6 +1,11 @@
 syntax = "proto3";
 
-package mitmproxy.ipc;
+package mitmproxy_ipc;
+
+// Note: The protobuf definition is shared between the Rust and Swift parts.
+// We are not using prost-build because providing protoc is a hassle on many platforms.
+// See .github/workflows/autofix.yml for how to update the respective files,
+// or file a PR and let CI handle it.
 
 // Packet with associated tunnel info (Windows pipe to mitmproxy)
 message PacketWithMeta {

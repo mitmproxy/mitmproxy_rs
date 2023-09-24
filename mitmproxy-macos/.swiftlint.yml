@@ -1,5 +1,5 @@
 excluded:
-  - redirector/ipc/ipc.pb.swift
+  - redirector/ipc/mitmproxy_ipc.pb.swift
 disabled_rules:
   - identifier_name
   - trailing_whitespace

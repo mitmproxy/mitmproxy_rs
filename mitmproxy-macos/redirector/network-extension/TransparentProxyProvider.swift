@@ -42,7 +42,7 @@ class TransparentProxyProvider: NETransparentProxyProvider {
         }
         Task {
             do {
-                while let spec = try await control.receive(ipc: Mitmproxy_Ipc_InterceptConf.self) {
+                while let spec = try await control.receive(ipc: MitmproxyIpc_InterceptConf.self) {
                     log.debug("Received spec: \(String(describing: spec), privacy: .public)")
                     self.spec = InterceptConf(from: spec)
                 }
@@ -98,7 +98,7 @@ class TransparentProxyProvider: NETransparentProxyProvider {
             return false
         }
         
-        let message: Mitmproxy_Ipc_NewFlow
+        let message: MitmproxyIpc_NewFlow
         do {
             message = try self.makeIpcHandshake(flow: flow, processInfo: processInfo)
         } catch {
@@ -141,8 +141,8 @@ class TransparentProxyProvider: NETransparentProxyProvider {
         return true
     }
     
-    func makeIpcHandshake(flow: NEAppProxyFlow, processInfo: ProcessInfo) throws -> Mitmproxy_Ipc_NewFlow {
-        let tunnelInfo = Mitmproxy_Ipc_TunnelInfo.with {
+    func makeIpcHandshake(flow: NEAppProxyFlow, processInfo: ProcessInfo) throws -> MitmproxyIpc_NewFlow {
+        let tunnelInfo = MitmproxyIpc_TunnelInfo.with {
             $0.pid = processInfo.pid
             if let path = processInfo.path {
                 $0.processName = path
@@ -152,16 +152,16 @@ class TransparentProxyProvider: NETransparentProxyProvider {
         // Do not use remoteHostname property; for DNS UDP flows that's already pointing at the name that we want to look up.
         // log.debug("remoteHostname: \(String(describing: flow.remoteHostname), privacy: .public) flow:\(String(describing: flow), privacy: .public)")
     
-        let message: Mitmproxy_Ipc_NewFlow
+        let message: MitmproxyIpc_NewFlow
         if let tcp_flow = flow as? NEAppProxyTCPFlow {
             guard let remoteEndpoint = tcp_flow.remoteEndpoint as? NWHostEndpoint else {
                 throw TransparentProxyError.noRemoteEndpoint
             }
             log.debug("remoteEndpoint: \(String(describing: remoteEndpoint), privacy: .public)")
             // It would be nice if we could also include info on the local endpoint here, but that's not exposed.
-            message = Mitmproxy_Ipc_NewFlow.with {
-                $0.tcp = Mitmproxy_Ipc_TcpFlow.with {
-                    $0.remoteAddress = Mitmproxy_Ipc_Address.init(endpoint: remoteEndpoint)
+            message = MitmproxyIpc_NewFlow.with {
+                $0.tcp = MitmproxyIpc_TcpFlow.with {
+                    $0.remoteAddress = MitmproxyIpc_Address.init(endpoint: remoteEndpoint)
                     $0.tunnelInfo = tunnelInfo
                 }
             }
@@ -169,9 +169,9 @@ class TransparentProxyProvider: NETransparentProxyProvider {
             guard let localEndpoint = udp_flow.localEndpoint as? NWHostEndpoint else {
                 throw TransparentProxyError.noLocalEndpoint
             }
-            message = Mitmproxy_Ipc_NewFlow.with {
-                $0.udp = Mitmproxy_Ipc_UdpFlow.with {
-                    $0.localAddress = Mitmproxy_Ipc_Address.init(endpoint: localEndpoint)
+            message = MitmproxyIpc_NewFlow.with {
+                $0.udp = MitmproxyIpc_UdpFlow.with {
+                    $0.localAddress = MitmproxyIpc_Address.init(endpoint: localEndpoint)
                     $0.tunnelInfo = tunnelInfo
                 }
             }

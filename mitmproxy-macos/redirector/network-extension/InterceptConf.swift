@@ -16,7 +16,7 @@ class InterceptConf {
         }
     }
     
-    convenience init(from ipc: Mitmproxy_Ipc_InterceptConf) {
+    convenience init(from ipc: MitmproxyIpc_InterceptConf) {
         self.init(
             pids: Set(ipc.pids),
             processNames: ipc.processNames,

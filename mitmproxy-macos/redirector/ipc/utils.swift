@@ -101,7 +101,7 @@ extension NWConnection {
     }
 }
 
-extension Mitmproxy_Ipc_Address {
+extension MitmproxyIpc_Address {
     init(endpoint: NWHostEndpoint) {
         self.init()
         self.host = endpoint.hostname
@@ -110,7 +110,7 @@ extension Mitmproxy_Ipc_Address {
 }
 
 extension NWHostEndpoint {
-    convenience init(address: Mitmproxy_Ipc_Address) {
+    convenience init(address: MitmproxyIpc_Address) {
         self.init(hostname: address.host, port: String(address.port))
     }
 }
