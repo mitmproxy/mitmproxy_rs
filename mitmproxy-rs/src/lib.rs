@@ -30,8 +30,9 @@ fn init_logger() -> PyResult<()> {
     }
 }
 
+#[allow(unused)]
 #[pymodule]
-pub fn mitmproxy_rs(_py: Python, m: &PyModule) -> PyResult<()> {
+pub fn mitmproxy_rs(py: Python, m: &PyModule) -> PyResult<()> {
     // set up the Rust logger to send messages to the Python logger
     init_logger()?;
 
@@ -55,6 +56,12 @@ pub fn mitmproxy_rs(_py: Python, m: &PyModule) -> PyResult<()> {
 
     m.add_class::<tcp_stream::TcpStream>()?;
     m.add_class::<datagram_transport::DatagramTransport>()?;
+
+    // Import platform-specific modules here so that missing dependencies are raising immediately.
+    #[cfg(target_os = "macos")]
+    py.import("mitmproxy_macos")?;
+    #[cfg(windows)]
+    py.import("mitmproxy_windows")?;
 
     Ok(())
 }
