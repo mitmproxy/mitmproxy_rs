@@ -275,7 +275,7 @@ pub fn start_os_proxy(
     {
         let executable_path: PathBuf = py
             .import("mitmproxy_windows")?
-            .getattr("executable_path")?
+            .call_method0("executable_path")?
             .extract()?;
         if !executable_path.exists() {
             return Err(anyhow::anyhow!("{} does not exist", executable_path.display()).into());
