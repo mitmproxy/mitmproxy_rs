@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		CE08B8BC2ABD10EB00251C1C /* FlowExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE08B8BB2ABD10EB00251C1C /* FlowExtensions.swift */; };
+		CE08B8C02ABFB51900251C1C /* mitmproxy_ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE08B8BF2ABFB51900251C1C /* mitmproxy_ipc.pb.swift */; };
 		CE3FDD7B2AAF1765007B7A3F /* ProcessInfoCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3FDD7A2AAF1765007B7A3F /* ProcessInfoCache.swift */; };
 		CE415DF32AB33C6A0038F901 /* InterceptConf.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE415DF22AB33C6A0038F901 /* InterceptConf.swift */; };
 		CE7A86AF2A8CFB87009E0B82 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CE7A86AE2A8CFB87009E0B82 /* Assets.xcassets */; };
@@ -17,7 +18,6 @@
 		CE7A86CA2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = CE7A86BD2A8CFBAD009E0B82 /* org.mitmproxy.macos-redirector.network-extension.systemextension */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CE870C102AAD2B4C00510CD1 /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CE870C0B2AAD29B000510CD1 /* libbsm.tbd */; };
 		CE904BCE2A8E9B2600A7DF8A /* app.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC7D6762A8E2B2300E1A6E9 /* app.swift */; };
-		CE904BCF2A8E9B3100A7DF8A /* ipc.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */; };
 		CE904BD22A8E9B6A00A7DF8A /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = CE904BD12A8E9B6A00A7DF8A /* SwiftProtobuf */; };
 		CE904BD42A8E9BD500A7DF8A /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = CE904BD32A8E9BD500A7DF8A /* SwiftProtobuf */; };
 		CE904BD92A8EA0C600A7DF8A /* utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE904BD72A8EA0C600A7DF8A /* utils.swift */; };
@@ -49,6 +49,7 @@
 
 /* Begin PBXFileReference section */
 		CE08B8BB2ABD10EB00251C1C /* FlowExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowExtensions.swift; sourceTree = "<group>"; };
+		CE08B8BF2ABFB51900251C1C /* mitmproxy_ipc.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = mitmproxy_ipc.pb.swift; sourceTree = "<group>"; };
 		CE3FDD7A2AAF1765007B7A3F /* ProcessInfoCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessInfoCache.swift; sourceTree = "<group>"; };
 		CE415DF22AB33C6A0038F901 /* InterceptConf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterceptConf.swift; sourceTree = "<group>"; };
 		CE7A86A72A8CFB86009E0B82 /* Mitmproxy Redirector.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Mitmproxy Redirector.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -64,7 +65,6 @@
 		CE870C0C2AAD29BD00510CD1 /* libbsm.0.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.0.tbd; path = usr/lib/libbsm.0.tbd; sourceTree = SDKROOT; };
 		CE870C0E2AAD2B3B00510CD1 /* libproc.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libproc.tbd; path = usr/lib/libproc.tbd; sourceTree = SDKROOT; };
 		CE870C122AAD2D7F00510CD1 /* libproc-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "libproc-Bridging-Header.h"; sourceTree = "<group>"; };
-		CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ipc.pb.swift; sourceTree = "<group>"; };
 		CE904BD72A8EA0C600A7DF8A /* utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = utils.swift; sourceTree = "<group>"; };
 		CEC7D6762A8E2B2300E1A6E9 /* app.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = app.swift; sourceTree = "<group>"; };
 		CEC7D6792A8E444600E1A6E9 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -152,7 +152,7 @@
 		CE904BD62A8EA0B300A7DF8A /* ipc */ = {
 			isa = PBXGroup;
 			children = (
-				CE904BBD2A8E8E6B00A7DF8A /* ipc.pb.swift */,
+				CE08B8BF2ABFB51900251C1C /* mitmproxy_ipc.pb.swift */,
 				CE904BD72A8EA0C600A7DF8A /* utils.swift */,
 			);
 			path = ipc;
@@ -274,11 +274,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CE904BCF2A8E9B3100A7DF8A /* ipc.pb.swift in Sources */,
 				CE7A86C52A8CFBAD009E0B82 /* main.swift in Sources */,
 				CE3FDD7B2AAF1765007B7A3F /* ProcessInfoCache.swift in Sources */,
 				CE415DF32AB33C6A0038F901 /* InterceptConf.swift in Sources */,
 				CE08B8BC2ABD10EB00251C1C /* FlowExtensions.swift in Sources */,
+				CE08B8C02ABFB51900251C1C /* mitmproxy_ipc.pb.swift in Sources */,
 				CE7A86C32A8CFBAD009E0B82 /* TransparentProxyProvider.swift in Sources */,
 				CE904BD92A8EA0C600A7DF8A /* utils.swift in Sources */,
 			);

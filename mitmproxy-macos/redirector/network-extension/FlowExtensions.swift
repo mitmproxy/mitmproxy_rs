@@ -87,9 +87,9 @@ extension NEAppProxyUDPFlow {
                     for (datagram, endpoint) in zip(datagrams, endpoints) {
                         guard let endpoint = endpoint as? NWHostEndpoint
                         else { continue }
-                        let message = Mitmproxy_Ipc_UdpPacket.with {
+                        let message = MitmproxyIpc_UdpPacket.with {
                             $0.data = datagram
-                            $0.remoteAddress = Mitmproxy_Ipc_Address.init(endpoint: endpoint)
+                            $0.remoteAddress = MitmproxyIpc_Address.init(endpoint: endpoint)
                         }
                         try await conn.send(ipc: message)
                     }
@@ -107,7 +107,7 @@ extension NEAppProxyUDPFlow {
             do {
                 while true {
                     // log.debug("UDP inbound: receiving...")
-                    guard let packet = try await conn.receive(ipc: Mitmproxy_Ipc_UdpPacket.self) else {
+                    guard let packet = try await conn.receive(ipc: MitmproxyIpc_UdpPacket.self) else {
                         self.closeReadWithError(nil)
                         break
                     }
