@@ -11,9 +11,9 @@ use rand_core::OsRng;
 
 use std::net::{IpAddr, SocketAddr};
 
+use boringtun::x25519::{PublicKey, StaticSecret};
 use std::str::FromStr;
 use tokio::sync::mpsc;
-use boringtun::x25519::{PublicKey, StaticSecret};
 
 pub fn string_to_key<T>(data: String) -> PyResult<T>
 where

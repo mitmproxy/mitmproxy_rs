@@ -5,9 +5,9 @@ use std::time::Duration;
 
 use anyhow::{bail, Result};
 use boringtun::noise::{Tunn, TunnResult};
+use boringtun::x25519::{PublicKey, StaticSecret};
 use data_encoding::BASE64;
 use smoltcp::wire::{Ipv4Packet, TcpPacket, TcpSeqNumber, UdpPacket};
-use boringtun::x25519::{PublicKey, StaticSecret};
 
 fn main() -> Result<()> {
     let port = env::args()

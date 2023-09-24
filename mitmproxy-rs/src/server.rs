@@ -19,9 +19,8 @@ use std::path::Path;
 #[cfg(windows)]
 use std::path::PathBuf;
 
-use tokio::{sync::broadcast, sync::mpsc};
 use boringtun::x25519::PublicKey;
-
+use tokio::{sync::broadcast, sync::mpsc};
 
 #[derive(Debug)]
 pub struct Server {
