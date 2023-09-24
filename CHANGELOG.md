@@ -1,3 +1,7 @@
+## 0.3.7
+
+- Raise an ImportError if platform-specific dependencies are missing.
+
 ## 0.3.6
 
 - Building from source does not require a protobuf compiler anymore.
