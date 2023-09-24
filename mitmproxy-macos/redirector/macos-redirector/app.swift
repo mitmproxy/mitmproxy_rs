@@ -12,19 +12,28 @@ let networkExtensionIdentifier = "org.mitmproxy.macos-redirector.network-extensi
 struct App {
     static func main() async throws {
         log.debug("app starting with \(CommandLine.arguments, privacy: .public)")
+        
+        if #unavailable(macOS 12.0) {
+            exitModal("This application only works on macOS 12 or above.")
+        }
 
         let unixSocketPath = CommandLine.arguments.last!
         if !unixSocketPath.starts(with: "/tmp/") {
-            let notification = NSAlert()
-            notification.messageText = "Mitmproxy Redirector"
-            notification.informativeText =
+            exitModal(
                 "This helper application is used to redirect local traffic to your mitmproxy instance. It cannot be run standalone."
-            notification.runModal()
-            return
+            )
         }
 
         try await SystemExtensionInstaller.run()
         try await startProxy(unixSocketPath: unixSocketPath)
+    }
+    
+    static func exitModal(_ message: String) {
+        let notification = NSAlert()
+        notification.messageText = "Mitmproxy Redirector"
+        notification.informativeText = message
+        notification.runModal()
+        exit(1)
     }
 }
 
