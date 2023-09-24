@@ -7,7 +7,7 @@ use anyhow::{bail, Result};
 use boringtun::noise::{Tunn, TunnResult};
 use data_encoding::BASE64;
 use smoltcp::wire::{Ipv4Packet, TcpPacket, TcpSeqNumber, UdpPacket};
-use x25519_dalek::{PublicKey, StaticSecret};
+use boringtun::x25519::{PublicKey, StaticSecret};
 
 fn main() -> Result<()> {
     let port = env::args()

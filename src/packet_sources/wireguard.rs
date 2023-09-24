@@ -18,7 +18,7 @@ use tokio::{
         Mutex,
     },
 };
-use x25519_dalek::{PublicKey, StaticSecret};
+use boringtun::x25519::{PublicKey, StaticSecret};
 
 use crate::messages::{
     IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent, TunnelInfo,

@@ -12,7 +12,6 @@ publish.workspace = true
 [dependencies]
 anyhow = "1.0.75"
 data-encoding = "2.4.0"
-boringtun = { version = "0.6", default-features = false }
+boringtun = "0.6"
 hex = "0.4"
 smoltcp = "0.10"
-x25519-dalek = "=2.0.0-rc.3"

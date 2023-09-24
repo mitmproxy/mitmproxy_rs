@@ -20,7 +20,8 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use tokio::{sync::broadcast, sync::mpsc};
-use x25519_dalek::PublicKey;
+use boringtun::x25519::PublicKey;
+
 
 #[derive(Debug)]
 pub struct Server {

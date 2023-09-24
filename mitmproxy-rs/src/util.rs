@@ -13,7 +13,7 @@ use std::net::{IpAddr, SocketAddr};
 
 use std::str::FromStr;
 use tokio::sync::mpsc;
-use x25519_dalek::{PublicKey, StaticSecret};
+use boringtun::x25519::{PublicKey, StaticSecret};
 
 pub fn string_to_key<T>(data: String) -> PyResult<T>
 where
