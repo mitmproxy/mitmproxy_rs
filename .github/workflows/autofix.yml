@@ -47,5 +47,6 @@ jobs:
 
       - run: cargo clippy --fix --allow-dirty --workspace
       - run: cargo fmt --all
+      - run: git checkout src/ipc/mitmproxy_ipc.rs
 
       - uses: autofix-ci/action@8caa572fd27b0019a65e4c695447089c8d3138b9
