@@ -1,3 +1,7 @@
+## 0.3.6
+
+- Building from source does not require a protobuf compiler anymore.
+
 ## 0.3.1 - 0.3.5
 
 - Improve transparent proxy functionality on macOS.
