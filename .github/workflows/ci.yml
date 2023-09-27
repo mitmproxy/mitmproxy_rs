@@ -164,6 +164,9 @@ jobs:
       - name: Install build from PyPI
         uses: install-pinned/build@11bbf2deeb1a44228c45910f3b57e346927960b4
       - run: python -m build --wheel ./mitmproxy-${{ matrix.os }} --outdir target/wheels/
+      # Build sdist for Homebrew
+      - run: python -m build --sdist ./mitmproxy-${{ matrix.os }} --outdir target/wheels/
+        if: runner.os == 'macOS'
       - uses: actions/upload-artifact@v3
         with:
           name: wheels

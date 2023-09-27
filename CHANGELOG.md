@@ -1,3 +1,10 @@
+## 0.3.8
+
+- `mitmproxy-macos` is now also distributed as a source distribution on PyPI.
+  The source distribution contains some pre-compiled binaries built by our CI.
+  This is necessary because the network system extension needs to be signed &
+  notarized with a valid Apple Developer ID before it can be installed.
+
 ## 0.3.7
 
 - Raise an ImportError if platform-specific dependencies are missing.
