@@ -1,3 +1,7 @@
+## 0.3.9
+
+- Fix version sourcing in `mitmproxy-macos` sdists.
+
 ## 0.3.8
 
 - `mitmproxy-macos` is now also distributed as a source distribution on PyPI.
