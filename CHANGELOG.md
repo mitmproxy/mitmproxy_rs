@@ -1,6 +1,6 @@
-## 0.3.9
+## 0.3.9 - 0.3.10
 
-- Fix version sourcing in `mitmproxy-macos` sdists.
+- Various improvements to the `mitmproxy-macos` source distribution.
 
 ## 0.3.8
 
