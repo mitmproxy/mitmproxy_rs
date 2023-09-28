@@ -148,7 +148,16 @@ jobs:
         continue-on-error: true
       - run: rustup toolchain install stable --profile minimal
       - run: rustup default stable
-      - run: cargo build --release ${{ matrix.build-rust }}
+      - if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin
+      - if: runner.os == 'macOS'
+        run: |
+          cargo build --release ${{ matrix.build-rust }} --target x86_64-apple-darwin
+          cargo build --release ${{ matrix.build-rust }} --target aarch64-apple-darwin
+          lipo -create -output target/release/macos-certificate-truster target/x86_64-apple-darwin/release/macos-certificate-truster target/aarch64-apple-darwin/release/macos-certificate-truster
+      - if: runner.os != 'macOS'
+        run: cargo build --release ${{ matrix.build-rust }}
+
 
       # Download macOS app
       - if: runner.os == 'macOS'
