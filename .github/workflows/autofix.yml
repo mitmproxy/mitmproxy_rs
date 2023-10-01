@@ -17,7 +17,7 @@ jobs:
   protobuf:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: brew install swift-protobuf
       - run: cargo install protoc-gen-prost
       - run: protoc --proto_path=./src/ipc/ mitmproxy_ipc.proto
@@ -34,10 +34,10 @@ jobs:
           - os: macos-latest
           - os: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: rustup toolchain install ${{ env.rust_clippy }} --profile minimal --component rustfmt --component clippy
       - run: rustup default ${{ env.rust_clippy }}
-      - uses: Swatinem/rust-cache@e207df5d269b42b69c8bc5101da26f7d31feddb4  # v2.6.2
+      - uses: Swatinem/rust-cache@a95ba195448af2da9b00fb742d14ffaaf3c21f43  # v2.7.0
         timeout-minutes: 2
         continue-on-error: true
       # PyO3 wants recent Python on Windows.

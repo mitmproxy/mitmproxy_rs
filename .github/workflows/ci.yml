@@ -31,10 +31,10 @@ jobs:
             rust: stable
             args: --exclude windows-redirector --exclude macos-certificate-truster
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Rust toolchain
         run: rustup toolchain install ${{ matrix.rust }} --profile minimal
-      - uses: Swatinem/rust-cache@e207df5d269b42b69c8bc5101da26f7d31feddb4  # v2.6.2
+      - uses: Swatinem/rust-cache@a95ba195448af2da9b00fb742d14ffaaf3c21f43  # v2.7.0
         timeout-minutes: 2
         continue-on-error: true
       # PyO3 wants recent Python on Windows.
@@ -73,13 +73,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: build mitmproxy-rs (${{ matrix.os }}, ${{ matrix.target || 'x64' }})
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: rustup toolchain install stable --profile minimal
       - run: rustup default stable
       - if: matrix.target
         run: rustup target add ${{ matrix.target }}
       - run: rustup show
-      - uses: Swatinem/rust-cache@e207df5d269b42b69c8bc5101da26f7d31feddb4  # v2.6.2
+      - uses: Swatinem/rust-cache@a95ba195448af2da9b00fb742d14ffaaf3c21f43  # v2.7.0
         timeout-minutes: 2
         continue-on-error: true
       - uses: actions/setup-python@v4
@@ -107,7 +107,7 @@ jobs:
   build-macos-app:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         id: cache-app
         with:
@@ -140,10 +140,10 @@ jobs:
     runs-on: ${{ matrix.os }}-latest
     name: build mitmproxy-${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Build Rust
-      - uses: Swatinem/rust-cache@e207df5d269b42b69c8bc5101da26f7d31feddb4  # v2.6.2
+      - uses: Swatinem/rust-cache@a95ba195448af2da9b00fb742d14ffaaf3c21f43  # v2.7.0
         timeout-minutes: 2
         continue-on-error: true
       - run: rustup toolchain install stable --profile minimal
