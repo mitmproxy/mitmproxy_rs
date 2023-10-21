@@ -6,3 +6,4 @@
 /docs/
 __pycache__/
 *.xcuserstate
+*.DS_Store
