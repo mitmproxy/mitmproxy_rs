@@ -5,7 +5,7 @@ use std::path::PathBuf;
 pub struct ProcessInfo {
     pub executable: PathBuf,
     pub display_name: String,
-    pub is_visible: bool,
+    pub activation_policy: u8,
     pub is_system: bool,
 }
 
