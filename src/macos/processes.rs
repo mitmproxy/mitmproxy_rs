@@ -13,7 +13,6 @@ pub fn active_executables() -> Result<ProcessList> {
     for proc in sys.processes() {
         let display_name = proc.1.name().to_string();
         let mut activation_policy = None;
-        let mut _icon: Option<i32> = None;
         let executable = proc.1.exe();
         let mut icon = vec![];
         let app: id = unsafe {
