@@ -46,8 +46,10 @@ tokio-util = { version = "0.7.8", features = ["codec"] }
 futures-util = { version = "0.3.28", features = ["sink"] }
 
 sysinfo = "0.29.10"
-cacao = "0.3.2"
+cocoa = "0.25"
 objc = "0.2"
+base64 = "0.21.5"
+
 # [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
 # smoltcp = { git = 'https://github.com/mhils/smoltcp', rev = 'f65351adfa92db5193f368368cb668bac721fe43' }
