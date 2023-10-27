@@ -15,23 +15,23 @@ pub fn active_executables() -> Result<ProcessList> {
         let mut activation_policy = None;
         let executable = proc.1.exe();
         let mut icon = vec![];
-        let app: id = unsafe {
-            msg_send![class!(NSRunningApplication), runningApplicationWithProcessIdentifier: proc.0.as_u32()]
-        };
-        if !app.is_null() {
-            activation_policy = Some(unsafe { msg_send![app, activationPolicy] });
-            let img: id = unsafe { msg_send![app, icon] };
-            let tif: id = unsafe { msg_send![img, TIFFRepresentation] };
-            let bitmap: id = unsafe { msg_send![class!(NSBitmapImageRep), imageRepWithData: tif] };
-            let png: id = unsafe { msg_send![bitmap, representationUsingType: 4 properties: 0] };
-            let length: usize = unsafe { msg_send![png, length] };
-            if let Some(len) = base64::encoded_len(length, true) {
-                let bytes: *const u8 = unsafe { msg_send![png, bytes] };
-                let s = unsafe { std::slice::from_raw_parts(bytes, length) }.to_vec();
-                icon.resize(len, 0);
-                match general_purpose::STANDARD.encode_slice(s, &mut icon) {
-                    Ok(len) => icon.truncate(len),
-                    Err(e) => bail!(e),
+        unsafe {
+            let app: id = msg_send![class!(NSRunningApplication), runningApplicationWithProcessIdentifier: proc.0.as_u32()];
+            if !app.is_null() {
+                activation_policy = Some(msg_send![app, activationPolicy]);
+                let img: id = msg_send![app, icon];
+                let tif: id = msg_send![img, TIFFRepresentation];
+                let bitmap: id = msg_send![class!(NSBitmapImageRep), imageRepWithData: tif];
+                let png: id = msg_send![bitmap, representationUsingType: 4 properties: 0];
+                let length: usize = msg_send![png, length];
+                if let Some(len) = base64::encoded_len(length, true) {
+                    let bytes: *const u8 = msg_send![png, bytes];
+                    let s = std::slice::from_raw_parts(bytes, length).to_vec();
+                    icon.resize(len, 0);
+                    match general_purpose::STANDARD.encode_slice(s, &mut icon) {
+                        Ok(len) => icon.truncate(len),
+                        Err(e) => bail!(e),
+                    }
                 }
             }
         }
@@ -56,7 +56,7 @@ mod tests {
         assert!(!lst.is_empty());
 
         for proc in &lst {
-             dbg!(proc);
+             dbg!(&proc.display_name);
         }
         dbg!(lst.len());
     }
