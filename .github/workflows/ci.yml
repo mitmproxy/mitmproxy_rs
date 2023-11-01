@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain
         run: rustup toolchain install ${{ matrix.rust }} --profile minimal
-      - uses: Swatinem/rust-cache@a95ba195448af2da9b00fb742d14ffaaf3c21f43  # v2.7.0
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8  # v2.7.1
         timeout-minutes: 2
         continue-on-error: true
       # PyO3 wants recent Python on Windows.
@@ -79,7 +79,7 @@ jobs:
       - if: matrix.target
         run: rustup target add ${{ matrix.target }}
       - run: rustup show
-      - uses: Swatinem/rust-cache@a95ba195448af2da9b00fb742d14ffaaf3c21f43  # v2.7.0
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8  # v2.7.1
         timeout-minutes: 2
         continue-on-error: true
       - uses: actions/setup-python@v4
@@ -88,10 +88,10 @@ jobs:
 
       - if: runner.os == 'Linux'
         name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@930de5c8284dfb26f11fd30a35a0df4c15ee4f8b
+        uses: install-pinned/maturin-with-zig@3dc710cb9a94df049eeafac5f23cafb9f29c8afe
       - if: runner.os != 'Linux'
         name: Install maturin from PyPI
-        uses: install-pinned/maturin@4fd3810fa566280146c1de9a0b166cdf7748155d
+        uses: install-pinned/maturin@09aa0b0195763bcba00172065cbf95c8454cf64d
 
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         run: python .github/scripts/pin-versions.py
@@ -143,7 +143,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # Build Rust
-      - uses: Swatinem/rust-cache@a95ba195448af2da9b00fb742d14ffaaf3c21f43  # v2.7.0
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8  # v2.7.1
         timeout-minutes: 2
         continue-on-error: true
       - run: rustup toolchain install stable --profile minimal
