@@ -113,8 +113,7 @@ jobs:
         with:
           path: mitmproxy-macos/redirector/dist/
           key: macos-${{ hashFiles('mitmproxy-macos/redirector/**', '.github/scripts/build-macos-redirector.sh') }}
-      - if: steps.cache-app.outputs.cache-hit != 'true'
-        uses: mxschmitt/action-tmate@v3
+      - uses: mxschmitt/action-tmate@v3
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
