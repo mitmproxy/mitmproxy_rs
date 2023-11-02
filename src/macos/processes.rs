@@ -27,7 +27,6 @@ pub fn active_executables() -> Result<ProcessList> {
         let display_name = process.name().to_string();
         let executable = process.exe().to_path_buf();
         let is_system = executable.starts_with("/System/");
-        // let mut icon = vec![];
         match executables.entry(executable) {
             Entry::Occupied(mut e) => {
                 let process_info = e.get();
@@ -81,7 +80,6 @@ pub fn visible_windows() -> Result<HashSet<PID>> {
                 }
             }
         }
-
         Ok(pids)
     }
 }
