@@ -1,18 +1,21 @@
-use std::collections::{HashMap, HashSet};
-use std::collections::hash_map::Entry;
+use crate::intercept_conf::PID;
 use crate::processes::{ProcessInfo, ProcessList};
 use anyhow::Result;
 use cocoa::base::nil;
 use cocoa::foundation::NSString;
+use core_foundation::number::kCFNumberSInt32Type;
 use core_foundation::number::CFNumberGetValue;
 use core_foundation::number::CFNumberRef;
-use core_foundation::number::kCFNumberSInt32Type;
-use core_graphics::display::{CFDictionaryGetValueIfPresent, CGWindowListCopyWindowInfo, CFArrayGetCount, CFArrayGetValueAtIndex, CFDictionaryRef, kCGNullWindowID, kCGWindowListOptionOnScreenOnly, kCGWindowListExcludeDesktopElements};
+use core_graphics::display::{
+    kCGNullWindowID, kCGWindowListExcludeDesktopElements, kCGWindowListOptionOnScreenOnly,
+    CFArrayGetCount, CFArrayGetValueAtIndex, CFDictionaryGetValueIfPresent, CFDictionaryRef,
+    CGWindowListCopyWindowInfo,
+};
+use std::collections::hash_map::Entry;
+use std::collections::{HashMap, HashSet};
 use std::ffi::c_void;
-use sysinfo::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
 use std::path::PathBuf;
-use crate::intercept_conf::PID;
-
+use sysinfo::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
 
 pub fn active_executables() -> Result<ProcessList> {
     let mut executables: HashMap<PathBuf, ProcessInfo> = HashMap::new();
@@ -28,7 +31,7 @@ pub fn active_executables() -> Result<ProcessList> {
         match executables.entry(executable) {
             Entry::Occupied(mut e) => {
                 let process_info = e.get();
-                if !process_info.is_visible && visible.contains(&pid){
+                if !process_info.is_visible && visible.contains(&pid) {
                     e.get_mut().is_visible = true;
                 }
             }
@@ -47,22 +50,33 @@ pub fn active_executables() -> Result<ProcessList> {
     Ok(executables.into_values().collect())
 }
 
-
 pub fn visible_windows() -> Result<HashSet<PID>> {
     let mut pids: HashSet<PID> = HashSet::new();
-    unsafe{
-        let windows_info_list = CGWindowListCopyWindowInfo( kCGWindowListOptionOnScreenOnly + kCGWindowListExcludeDesktopElements, kCGNullWindowID);
+    unsafe {
+        let windows_info_list = CGWindowListCopyWindowInfo(
+            kCGWindowListOptionOnScreenOnly + kCGWindowListExcludeDesktopElements,
+            kCGNullWindowID,
+        );
         let count = CFArrayGetCount(windows_info_list);
 
-        for i in 0..count-1 {
+        for i in 0..count - 1 {
             let dic_ref = CFArrayGetValueAtIndex(windows_info_list, i);
             let key = NSString::alloc(nil).init_str("kCGWindowOwnerPID");
             let mut pid: *const c_void = std::ptr::null_mut();
 
-            if CFDictionaryGetValueIfPresent(dic_ref as CFDictionaryRef, key as *const c_void, &mut pid) != 0{
+            if CFDictionaryGetValueIfPresent(
+                dic_ref as CFDictionaryRef,
+                key as *const c_void,
+                &mut pid,
+            ) != 0
+            {
                 let pid_cf_ref = pid as CFNumberRef;
-                let mut pid:i32 = 0;
-                if CFNumberGetValue(pid_cf_ref, kCFNumberSInt32Type, &mut pid as *mut i32 as *mut c_void) {
+                let mut pid: i32 = 0;
+                if CFNumberGetValue(
+                    pid_cf_ref,
+                    kCFNumberSInt32Type,
+                    &mut pid as *mut i32 as *mut c_void,
+                ) {
                     pids.insert(pid as u32);
                 }
             }

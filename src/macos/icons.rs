@@ -1,14 +1,14 @@
-use once_cell::sync::Lazy;
-use std::{sync::Mutex, collections::hash_map::Entry};
-use cocoa::base::id;
-use sysinfo::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
-use objc::{class, msg_send, sel, sel_impl};
-use std::path::PathBuf;
-use std::path::Path; use std::collections::HashMap;
-use std::collections::hash_map::DefaultHasher;
 use anyhow::{bail, Result};
-use std::hash::{Hasher, Hash};
-
+use cocoa::base::id;
+use objc::{class, msg_send, sel, sel_impl};
+use once_cell::sync::Lazy;
+use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+use std::path::Path;
+use std::path::PathBuf;
+use std::{collections::hash_map::Entry, sync::Mutex};
+use sysinfo::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
 
 pub static ICON_CACHE: Lazy<Mutex<IconCache>> = Lazy::new(|| Mutex::new(IconCache::default()));
 
@@ -45,8 +45,11 @@ unsafe fn png_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
     sys.refresh_processes_specifics(ProcessRefreshKind::new());
     for (pid, process) in sys.processes() {
         let pid = pid.as_u32();
-        if executable == process.exe().to_path_buf(){
-            let app: id = msg_send![class!(NSRunningApplication), runningApplicationWithProcessIdentifier: pid];
+        if executable == process.exe().to_path_buf() {
+            let app: id = msg_send![
+                class!(NSRunningApplication),
+                runningApplicationWithProcessIdentifier: pid
+            ];
             if !app.is_null() {
                 let img: id = msg_send![app, icon];
                 let tif: id = msg_send![img, TIFFRepresentation];
@@ -55,7 +58,7 @@ unsafe fn png_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
                 let length: usize = msg_send![png, length];
                 let bytes: *const u8 = msg_send![png, bytes];
                 let data = std::slice::from_raw_parts(bytes, length).to_vec();
-                return Ok(data)
+                return Ok(data);
             }
         }
     }

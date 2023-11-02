@@ -3,12 +3,12 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use pyo3::prelude::*;
 
+#[cfg(target_os = "macos")]
+use mitmproxy::macos::{icons, processes};
 #[allow(unused_imports)]
 use mitmproxy::processes::image;
 #[cfg(windows)]
 use mitmproxy::windows::{icons, processes};
-#[cfg(target_os = "macos")]
-use mitmproxy::macos::{processes, icons};
 
 #[pyclass(module = "mitmproxy_rs", frozen)]
 pub struct Process(mitmproxy::processes::ProcessInfo);
