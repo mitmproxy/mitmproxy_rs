@@ -1,4 +1,17 @@
+use once_cell::sync::Lazy;
+use std::{sync::Mutex, collections::hash_map::Entry};
+use cocoa::base::id;
+use sysinfo::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
+use objc::{class, msg_send, sel, sel_impl};
+use std::path::PathBuf;
+use std::path::Path; use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
+use anyhow::{bail, Result};
+use std::hash::{Hasher, Hash};
+
+
 pub static ICON_CACHE: Lazy<Mutex<IconCache>> = Lazy::new(|| Mutex::new(IconCache::default()));
+
 #[derive(Default)]
 pub struct IconCache {
     /// executable name -> icon hash
@@ -15,23 +28,49 @@ impl IconCache {
                 Ok(self.icons.get(e.get()).unwrap())
             }
             Entry::Vacant(e) => {
-                let pixels = unsafe {
-                    let hinst = GetModuleHandleW(None)?;
-                    icon_for_executable(e.key(), hinst)?
-                };
-                let pixel_hash = pixels.hash();
-                e.insert(pixel_hash);
-                let icon = self.icons.entry(pixel_hash).or_insert_with(|| {
-                    let mut c = Cursor::new(Vec::new());
-                    pixels
-                        .to_image()
-                        .write_to(&mut c, image::ImageOutputFormat::Png)
-                        .unwrap();
-                    c.into_inner()
-                });
+                let icon = unsafe { png_data_for_executable(e.key())? };
+                let mut hasher = DefaultHasher::new();
+                icon.hash(&mut hasher);
+                let icon_hash = hasher.finish();
+                e.insert(icon_hash);
+                let icon = self.icons.entry(icon_hash).or_insert(icon);
                 Ok(icon)
             }
         }
     }
 }
 
+unsafe fn png_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(ProcessRefreshKind::new());
+    for (pid, process) in sys.processes() {
+        let pid = pid.as_u32();
+        if executable == process.exe().to_path_buf(){
+            let app: id = msg_send![class!(NSRunningApplication), runningApplicationWithProcessIdentifier: pid];
+            if !app.is_null() {
+                let img: id = msg_send![app, icon];
+                let tif: id = msg_send![img, TIFFRepresentation];
+                let bitmap: id = msg_send![class!(NSBitmapImageRep), imageRepWithData: tif];
+                let png: id = msg_send![bitmap, representationUsingType: 4 properties: 0];
+                let length: usize = msg_send![png, length];
+                let bytes: *const u8 = msg_send![png, bytes];
+                let data = std::slice::from_raw_parts(bytes, length).to_vec();
+                return Ok(data)
+            }
+        }
+    }
+    bail!("unable to extract icon");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn png() {
+        let path = PathBuf::from("/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder");
+        let mut icon_cache = IconCache::default();
+        let vec = icon_cache.get_png(path).unwrap();
+        dbg!(vec.len());
+    }
+}

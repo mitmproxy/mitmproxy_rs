@@ -1447,6 +1447,8 @@ dependencies = [
  "boringtun",
  "cocoa",
  "console-subscriber",
+ "core-foundation",
+ "core-graphics",
  "criterion",
  "env_logger",
  "futures-util",
