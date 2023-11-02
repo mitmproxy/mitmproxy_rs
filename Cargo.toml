@@ -46,11 +46,7 @@ tokio-util = { version = "0.7.8", features = ["codec"] }
 futures-util = { version = "0.3.28", features = ["sink"] }
 
 sysinfo = "0.29.10"
-cocoa = "0.25"
-objc = "0.2"
 base64 = "0.21.5"
-core-graphics = "0.23"
-core-foundation = "0.9"
 
 # [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
@@ -75,6 +71,10 @@ features = [
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-security-framework = "2.9.2"
 nix = { version = "0.27.1", default-features = false, features = ["fs"] }
+core-graphics = "0.23"
+core-foundation = "0.9"
+cocoa = "0.25"
+objc = "0.2"
 
 [dev-dependencies]
 env_logger = "0.10"
