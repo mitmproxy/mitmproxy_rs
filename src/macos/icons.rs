@@ -88,9 +88,9 @@ mod tests {
         let path = PathBuf::from("/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder");
         let mut icon_cache = IconCache::default();
         let vec = icon_cache.get_png(path).unwrap();
-        assert!(vec.len() > 0);
+        assert!(!vec.is_empty());
         dbg!(vec.len());
-        let base64_png = general_purpose::STANDARD.encode(&vec);
+        let base64_png = general_purpose::STANDARD.encode(vec);
         dbg!(base64_png);
     }
 }
