@@ -9,6 +9,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::{collections::hash_map::Entry, sync::Mutex};
 use sysinfo::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
+use image::ImageEncoder;
 
 pub static ICON_CACHE: Lazy<Mutex<IconCache>> = Lazy::new(|| Mutex::new(IconCache::default()));
 
@@ -21,6 +22,7 @@ pub struct IconCache {
 }
 
 impl IconCache {
+
     pub fn get_png(&mut self, executable: PathBuf) -> Result<&Vec<u8>> {
         match self.executables.entry(executable) {
             Entry::Occupied(e) => {
@@ -28,7 +30,8 @@ impl IconCache {
                 Ok(self.icons.get(e.get()).unwrap())
             }
             Entry::Vacant(e) => {
-                let icon = unsafe { png_data_for_executable(e.key())? };
+                let tif = unsafe { tif_data_for_executable(e.key())? };
+                let icon = tif_to_png(&tif)?;
                 let mut hasher = DefaultHasher::new();
                 icon.hash(&mut hasher);
                 let icon_hash = hasher.finish();
@@ -38,9 +41,23 @@ impl IconCache {
             }
         }
     }
+
 }
 
-unsafe fn png_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
+pub fn tif_to_png(tif: &[u8]) -> Result<Vec<u8>> {
+    let tif_image = image::load_from_memory(tif)?;
+    let mut png_image: Vec<u8> = Vec::new();
+    let encoder = image::codecs::png::PngEncoder::new(&mut png_image);
+    encoder.write_image(
+        tif_image.as_rgba8().unwrap(),
+        tif_image.width(),
+        tif_image.height(),
+        image::ColorType::Rgba8,
+    )?;
+    Ok(png_image)
+}
+
+unsafe fn tif_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
     let mut sys = System::new();
     sys.refresh_processes_specifics(ProcessRefreshKind::new());
     for (pid, process) in sys.processes() {
@@ -53,10 +70,8 @@ unsafe fn png_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
             if !app.is_null() {
                 let img: id = msg_send![app, icon];
                 let tif: id = msg_send![img, TIFFRepresentation];
-                let bitmap: id = msg_send![class!(NSBitmapImageRep), imageRepWithData: tif];
-                let png: id = msg_send![bitmap, representationUsingType: 4 properties: 0];
-                let length: usize = msg_send![png, length];
-                let bytes: *const u8 = msg_send![png, bytes];
+                let length: usize = msg_send![tif, length];
+                let bytes: *const u8 = msg_send![tif, bytes];
                 let data = std::slice::from_raw_parts(bytes, length).to_vec();
                 return Ok(data);
             }
@@ -68,12 +83,16 @@ unsafe fn png_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::{engine::general_purpose, Engine as _};
 
     #[test]
     fn png() {
         let path = PathBuf::from("/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder");
         let mut icon_cache = IconCache::default();
         let vec = icon_cache.get_png(path).unwrap();
+        assert!(vec.len() > 0);
         dbg!(vec.len());
+        let base64_png = general_purpose::STANDARD.encode(&vec);
+        dbg!(base64_png);
     }
 }

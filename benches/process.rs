@@ -1,6 +1,8 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 #[cfg(windows)]
 use mitmproxy::windows::{icons, processes};
+#[cfg(target_os = "macos")]
+use mitmproxy::macos::icons;
 
 #[cfg(windows)]
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -44,6 +46,30 @@ fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function("active_executables", |b| {
             b.iter(processes::active_executables)
         });
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let test_app = std::path::PathBuf::from("/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder");
+
+        c.bench_function("get png with system", |b| {
+            b.iter(|| {
+                icons::IconCache::default()
+                    .get_png(test_app.clone())
+                    .unwrap();
+            })
+        });
+
+
+        let mut cache = icons::IconCache::default();
+        c.bench_function("get_png with system", |b| {
+            b.iter(|| {
+                cache
+                    .get_png(test_app.clone())
+                    .unwrap();
+            })
+        });
+
+
     }
 }
 
