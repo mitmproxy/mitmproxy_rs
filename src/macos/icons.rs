@@ -1,5 +1,6 @@
 use anyhow::{bail, Result};
 use cocoa::base::id;
+use image::ImageEncoder;
 use objc::{class, msg_send, sel, sel_impl};
 use once_cell::sync::Lazy;
 use std::collections::hash_map::DefaultHasher;
@@ -9,7 +10,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::{collections::hash_map::Entry, sync::Mutex};
 use sysinfo::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
-use image::ImageEncoder;
 
 pub static ICON_CACHE: Lazy<Mutex<IconCache>> = Lazy::new(|| Mutex::new(IconCache::default()));
 
@@ -22,7 +22,6 @@ pub struct IconCache {
 }
 
 impl IconCache {
-
     pub fn get_png(&mut self, executable: PathBuf) -> Result<&Vec<u8>> {
         match self.executables.entry(executable) {
             Entry::Occupied(e) => {
@@ -41,7 +40,6 @@ impl IconCache {
             }
         }
     }
-
 }
 
 pub fn tif_to_png(tif: &[u8]) -> Result<Vec<u8>> {
