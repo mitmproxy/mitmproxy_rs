@@ -1,3 +1,7 @@
+## 0.4.0
+
+- Renamed `OsProxy` to `LocalRedirector`.
+
 ## 0.3.9 - 0.3.11
 
 - Various improvements to the `mitmproxy-macos` source distribution.
