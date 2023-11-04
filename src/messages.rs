@@ -10,7 +10,7 @@ pub enum TunnelInfo {
         src_addr: SocketAddr,
         dst_addr: SocketAddr,
     },
-    OsProxy {
+    LocalRedirector {
         pid: u32,
         process_name: Option<String>,
         /// macOS TCP connections may not have a valid sockname, but

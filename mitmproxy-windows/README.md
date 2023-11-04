@@ -9,5 +9,5 @@ This package contains the following precompiled binaries for Windows:
 ## Redirector Development Setup
 
 1. Run `pip install -e .` to install `mitmproxy_windows` as editable.
-2. Run something along the lines of `mitmdump --mode osproxy:curl`.  
+2. Run something along the lines of `mitmdump --mode local:curl`.  
    You should see a `Development mode: Compiling windows-redirector.exe...` message.

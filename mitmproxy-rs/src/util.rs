@@ -135,7 +135,7 @@ pub(crate) fn get_tunnel_info(
             "original_dst" => return Ok(socketaddr_to_py(py, *dst_addr)),
             _ => (),
         },
-        TunnelInfo::OsProxy {
+        TunnelInfo::LocalRedirector {
             pid,
             process_name,
             remote_endpoint,

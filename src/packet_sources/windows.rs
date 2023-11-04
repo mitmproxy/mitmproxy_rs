@@ -185,7 +185,7 @@ impl PacketSourceTask for WindowsTask {
 
                     let event = NetworkEvent::ReceivePacket {
                         packet,
-                        tunnel_info: TunnelInfo::OsProxy {
+                        tunnel_info: TunnelInfo::LocalRedirector {
                             pid,
                             process_name,
                             remote_endpoint: None,

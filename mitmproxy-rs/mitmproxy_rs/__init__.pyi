@@ -28,13 +28,13 @@ def pubkey(private_key: str) -> str: ...
 
 # Windows
 
-async def start_os_proxy(
+async def start_local_redirector(
     handle_connection: Callable[[TcpStream], Awaitable[None]],
     receive_datagram: Callable[[DatagramTransport, bytes, tuple[str, int], tuple[str, int]], None],
-) -> OsProxy: ...
+) -> LocalRedirector: ...
 
 @final
-class OsProxy:
+class LocalRedirector:
     @staticmethod
     def describe_spec(spec: str) -> None: ...
     def set_intercept(self, spec: str) -> None: ...
