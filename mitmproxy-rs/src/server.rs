@@ -143,13 +143,13 @@ impl Drop for Server {
 
 #[pyclass(module = "mitmproxy_rs")]
 #[derive(Debug)]
-pub struct OsProxy {
+pub struct LocalRedirector {
     server: Server,
     conf_tx: mpsc::UnboundedSender<InterceptConf>,
 }
 
 #[pymethods]
-impl OsProxy {
+impl LocalRedirector {
     /// Return a textual description of the given spec,
     /// or raise a ValueError if the spec is invalid.
     #[staticmethod]
@@ -266,7 +266,7 @@ pub fn start_wireguard_server(
 /// *Availability: Windows*
 #[pyfunction]
 #[allow(unused_variables)]
-pub fn start_os_proxy(
+pub fn start_local_redirector(
     py: Python<'_>,
     handle_connection: PyObject,
     receive_datagram: PyObject,
@@ -284,7 +284,7 @@ pub fn start_os_proxy(
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
 
-            Ok(OsProxy { server, conf_tx })
+            Ok(LocalRedirector { server, conf_tx })
         })
     }
     #[cfg(target_os = "macos")]
@@ -312,7 +312,7 @@ pub fn start_os_proxy(
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
             let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
-            Ok(OsProxy { server, conf_tx })
+            Ok(LocalRedirector { server, conf_tx })
         })
     }
     #[cfg(not(any(windows, target_os = "macos")))]

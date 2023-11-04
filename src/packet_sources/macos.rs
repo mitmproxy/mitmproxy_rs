@@ -286,7 +286,7 @@ impl ConnectionTask {
             let Some(tun) = flow.tunnel_info else {
                 bail!("no tunnel info")
             };
-            TunnelInfo::OsProxy {
+            TunnelInfo::LocalRedirector {
                 pid: tun.pid,
                 process_name: tun.process_name,
                 remote_endpoint: None,
@@ -374,7 +374,7 @@ impl ConnectionTask {
                 connection_id: self.id,
                 src_addr,
                 dst_addr,
-                tunnel_info: TunnelInfo::OsProxy {
+                tunnel_info: TunnelInfo::LocalRedirector {
                     pid: flow.tunnel_info.as_ref().map(|t| t.pid).unwrap_or(0),
                     process_name: flow.tunnel_info.and_then(|t| t.process_name),
                     remote_endpoint,

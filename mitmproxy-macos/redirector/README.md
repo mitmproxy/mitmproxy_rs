@@ -9,7 +9,7 @@
 
 When starting transparent interception on macOS, the following things happen:
 
-1. mitmproxy-rs' `start_os_proxy` copies the redirector application into `/Applications`,
+1. mitmproxy-rs' `start_local_redirector` copies the redirector application into `/Applications`,
    which is a prerequisite for installing system extensions.
 2. mitmproxy-rs opens a unix socket listener.
 2. mitmproxy-rs starts the `macos-redirector` app, passing the unix socket as an argument.
