@@ -99,6 +99,11 @@ jobs:
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./mitmproxy-rs
 
+      # ensure that sdist is building.
+      # We do this here instead of a separate job because we don't want to wait for the entire matrix.
+      - if: contains(matrix.args, 'sdist')
+        run: pip install target/wheels/*.tar.gz
+
       - uses: actions/upload-artifact@v3
         with:
           name: wheels
