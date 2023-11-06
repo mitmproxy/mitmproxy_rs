@@ -33,9 +33,10 @@ impl IconCache {
                 let mut hasher = DefaultHasher::new();
                 tiff.hash(&mut hasher);
                 let tiff_hash = hasher.finish();
-                let icon = self.icons.entry(tiff_hash).or_insert_with(||
-                    tiff_to_png(&tiff)
-                );
+                let icon = self
+                    .icons
+                    .entry(tiff_hash)
+                    .or_insert_with(|| tiff_to_png(&tiff));
                 Ok(icon)
             }
         }
@@ -46,12 +47,14 @@ pub fn tiff_to_png(tiff: &[u8]) -> Vec<u8> {
     let tiff_image = image::load_from_memory(tiff).unwrap();
     let mut png_image: Vec<u8> = Vec::new();
     let encoder = image::codecs::png::PngEncoder::new(&mut png_image);
-    encoder.write_image(
-        tiff_image.as_rgba8().unwrap(),
-        tiff_image.width(),
-        tiff_image.height(),
-        image::ColorType::Rgba8,
-    ).unwrap();
+    encoder
+        .write_image(
+            tiff_image.as_rgba8().unwrap(),
+            tiff_image.width(),
+            tiff_image.height(),
+            image::ColorType::Rgba8,
+        )
+        .unwrap();
     png_image
 }
 
@@ -102,5 +105,4 @@ mod tests {
             _ = unsafe { &tiff_data_for_executable(&path) };
         }
     }
-
 }
