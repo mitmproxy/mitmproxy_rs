@@ -24,7 +24,7 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@930de5c8284dfb26f11fd30a35a0df4c15ee4f8b
+        uses: install-pinned/maturin-with-zig@3dc710cb9a94df049eeafac5f23cafb9f29c8afe
       - name: Install mypy from PyPI
         uses: install-pinned/mypy@020b6c0814d9de4c275f3b4f858c2c40b02554fa
       - name: Install pdoc from PyPI
