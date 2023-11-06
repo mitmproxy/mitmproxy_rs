@@ -53,7 +53,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder",
         );
 
-        c.bench_function("get png with system", |b| {
+        c.bench_function("get_png", |b| {
             b.iter(|| {
                 icons::IconCache::default()
                     .get_png(test_app.clone())
@@ -62,7 +62,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
 
         let mut cache = icons::IconCache::default();
-        c.bench_function("get_png with system", |b| {
+        c.bench_function("get_png (cached)", |b| {
             b.iter(|| {
                 cache.get_png(test_app.clone()).unwrap();
             })
