@@ -1,3 +1,7 @@
+## 0.4.1
+
+- Fix source distributions for mitmproxy-rs.
+
 ## 0.4.0
 
 - Renamed `OsProxy` to `LocalRedirector`.
