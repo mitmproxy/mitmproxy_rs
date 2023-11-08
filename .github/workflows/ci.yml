@@ -87,8 +87,8 @@ jobs:
           python-version-file: .github/python-version.txt
 
       - if: runner.os == 'Linux'
-        name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@3dc710cb9a94df049eeafac5f23cafb9f29c8afe
+        name: Install maturin[zig] from main
+        run: pip install https://github.com/PyO3/maturin/archive/refs/heads/main.zip
       - if: runner.os != 'Linux'
         name: Install maturin from PyPI
         uses: install-pinned/maturin@09aa0b0195763bcba00172065cbf95c8454cf64d
