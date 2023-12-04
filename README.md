@@ -10,16 +10,29 @@
 This repository contains mitmproxy's Rust bits, most notably:
 
  - WireGuard Mode: The ability to proxy any device that can be configured as a WireGuard client.
- - Windows OS Proxy Mode: The ability to proxy arbitrary Windows applications by name or pid.
+ - Local Redirect Mode: The ability to proxy arbitrary macOS or Windows applications by name or pid.
 
 
 ## Contributing
 
-[![dev documentation](https://shields.mitmproxy.org/badge/docs-python%20api-blue.svg)](https://mitmproxy.github.io/mitmproxy_rs/)
-
 [![Dev Guide](https://shields.mitmproxy.org/badge/docs-CONTRIBUTING.md-blue)](https://github.com/mitmproxy/mitmproxy_rs/blob/main/CONTRIBUTING.md)
+[![dev documentation](https://shields.mitmproxy.org/badge/docs-Python%20API-blue.svg)](https://mitmproxy.github.io/mitmproxy_rs/)
 
+### Structure
 
-## Architecture
+- [`src/`](./src): The `mitmproxy` crate containing most of the "meat".
+- [`mitmproxy-rs/`](./mitmproxy-rs): The `mitmproxy-rs` Python package,
+  which provides PyO3 bindings for the Rust crate.  
+  Source and binary distributions are available [on PyPI](https://pypi.org/project/mitmproxy-rs/).
+- [`mitmproxy-macos/`](./mitmproxy-macos): The `mitmproxy-macos` Python package, which
+  contains a macOS Network Extension to transparently intercept macOS traffic.  
+  Only a binary distribution is available [on PyPI](https://pypi.org/project/mitmproxy-macos/)
+  due to code signing and notarization requirements.
+- [`mitmproxy-windows/`](./mitmproxy-windows): The `mitmproxy-windows` Python package, which
+  contains the Windows traffic redirector based on WinDivert.  
+  Only a binary distribution is available [on PyPI](https://pypi.org/project/mitmproxy-windows/)
+  due to build complexity.
+
+### Architecture
 
 ![library architecture](architecture.png)
