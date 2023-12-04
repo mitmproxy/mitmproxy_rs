@@ -45,6 +45,9 @@ prost = "0.12.3"
 tokio-util = { version = "0.7.10", features = ["codec"] }
 futures-util = { version = "0.3.29", features = ["sink"] }
 
+sysinfo = "0.29.10"
+data-encoding = "2.4.0"
+
 # [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
 # smoltcp = { git = 'https://github.com/mhils/smoltcp', rev = 'f65351adfa92db5193f368368cb668bac721fe43' }
@@ -68,6 +71,10 @@ features = [
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-security-framework = "2.9.2"
 nix = { version = "0.27.1", default-features = false, features = ["fs"] }
+core-graphics = "0.23"
+core-foundation = "0.9"
+cocoa = "0.25"
+objc = "0.2"
 
 [dev-dependencies]
 env_logger = "0.10"

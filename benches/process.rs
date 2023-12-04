@@ -1,4 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
+#[cfg(target_os = "macos")]
+use mitmproxy::macos::icons;
 #[cfg(windows)]
 use mitmproxy::windows::{icons, processes};
 
@@ -43,6 +45,27 @@ fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function("visible_windows", |b| b.iter(processes::visible_windows));
         c.bench_function("active_executables", |b| {
             b.iter(processes::active_executables)
+        });
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let test_app = std::path::PathBuf::from(
+            "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder",
+        );
+
+        c.bench_function("get_png", |b| {
+            b.iter(|| {
+                icons::IconCache::default()
+                    .get_png(test_app.clone())
+                    .unwrap();
+            })
+        });
+
+        let mut cache = icons::IconCache::default();
+        c.bench_function("get_png (cached)", |b| {
+            b.iter(|| {
+                cache.get_png(test_app.clone()).unwrap();
+            })
         });
     }
 }
