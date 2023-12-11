@@ -4,6 +4,8 @@ pub use task::NetworkTask;
 
 mod virtual_device;
 
+mod icmp;
+mod io;
 #[cfg(test)]
 mod tests;
 
