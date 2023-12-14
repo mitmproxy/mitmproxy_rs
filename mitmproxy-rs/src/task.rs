@@ -2,15 +2,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
-use pyo3::{prelude::*, types::PyBytes};
+use pyo3::prelude::*;
 use tokio::sync::{broadcast, mpsc, Mutex};
 
 use mitmproxy::messages::{TransportCommand, TransportEvent};
 
-use crate::datagram_transport::DatagramTransport;
 use crate::tcp_stream::TcpStream;
 use crate::tcp_stream::TcpStreamState;
-use crate::util::socketaddr_to_py;
 
 pub struct PyInteropTask {
     py_loop: PyObject,
@@ -58,7 +56,7 @@ impl PyInteropTask {
                                 dst_addr,
                                 tunnel_info,
                             } => {
-                                // initialize new TCP stream
+                                // initialize new TCP/UDP stream
                                 let stream = TcpStream {
                                     connection_id,
                                     state: TcpStreamState::Open,
@@ -70,12 +68,16 @@ impl PyInteropTask {
 
                                 let mut conns = active_tcp_connections.lock().await;
 
-                                // spawn TCP connection handler coroutine
+                                // spawn TCP/UDP connection handler coroutine
                                 if let Err(err) = Python::with_gil(|py| -> Result<(), PyErr> {
                                     let stream = stream.into_py(py);
 
                                     // calling Python coroutine object yields an awaitable object
-                                    let coro = self.py_tcp_handler.call1(py, (stream, ))?;
+                                    let coro = if connection_id & 1 == 1 {
+                                        self.py_udp_handler.call1(py, (stream, ))?
+                                    } else {
+                                        self.py_tcp_handler.call1(py, (stream, ))?
+                                    };
 
                                     // convert Python awaitable into Rust Future
                                     let locals = pyo3_asyncio::TaskLocals::new(self.py_loop.as_ref(py))
@@ -100,39 +102,6 @@ impl PyInteropTask {
                                 }) {
                                     log::error!("Failed to spawn TCP connection handler coroutine:\n{}", err);
                                 };
-                            },
-                            TransportEvent::DatagramReceived {
-                                data,
-                                src_addr,
-                                dst_addr,
-                                tunnel_info,
-                            } => {
-
-                                let transport = DatagramTransport {
-                                    event_tx: self.transport_commands.clone(),
-                                    peername: src_addr,
-                                    sockname: dst_addr,
-                                    tunnel_info,
-                                };
-
-                                Python::with_gil(|py| {
-                                    let transport = transport.into_py(py);
-                                    let bytes: Py<PyBytes> = PyBytes::new(py, &data).into_py(py);
-
-                                    if let Err(err) = self.py_loop.call_method1(
-                                        py,
-                                        "call_soon_threadsafe",
-                                        (
-                                            self.py_udp_handler.as_ref(py),
-                                            transport,
-                                            bytes,
-                                            socketaddr_to_py(py, src_addr),
-                                            socketaddr_to_py(py, dst_addr),
-                                        ),
-                                    ) {
-                                        err.print(py);
-                                    }
-                                });
                             },
                         }
                     } else {

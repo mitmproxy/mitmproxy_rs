@@ -46,12 +46,6 @@ pub enum TransportEvent {
         dst_addr: SocketAddr,
         tunnel_info: TunnelInfo,
     },
-    DatagramReceived {
-        data: Vec<u8>,
-        src_addr: SocketAddr,
-        dst_addr: SocketAddr,
-        tunnel_info: TunnelInfo,
-    },
 }
 
 /// Commands that are sent by the Python side to the TCP stack.
@@ -61,12 +55,6 @@ pub enum TransportCommand {
     WriteData(ConnectionId, Vec<u8>),
     DrainWriter(ConnectionId, oneshot::Sender<()>),
     CloseConnection(ConnectionId, bool),
-    // FIXME: Remove
-    SendDatagram {
-        data: Vec<u8>,
-        src_addr: SocketAddr,
-        dst_addr: SocketAddr,
-    },
 }
 
 /// Generic IPv4/IPv6 packet type that wraps smoltcp's IPv4 and IPv6 packet buffers

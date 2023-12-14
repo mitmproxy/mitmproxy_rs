@@ -5,7 +5,6 @@ use std::sync::RwLock;
 use once_cell::sync::Lazy;
 use pyo3::{exceptions::PyException, prelude::*};
 
-mod datagram_transport;
 mod process_info;
 mod server;
 mod task;
@@ -55,7 +54,6 @@ pub fn mitmproxy_rs(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(process_info::executable_icon, m)?)?;
 
     m.add_class::<tcp_stream::TcpStream>()?;
-    m.add_class::<datagram_transport::DatagramTransport>()?;
 
     // Import platform-specific modules here so that missing dependencies are raising immediately.
     #[cfg(target_os = "macos")]

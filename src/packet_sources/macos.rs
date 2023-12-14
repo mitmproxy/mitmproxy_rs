@@ -320,6 +320,7 @@ impl ConnectionTask {
                         SocketAddr::try_from(dst_addr).context("invalid socket address")?
                     };
 
+                    todo!();
                     if let Err(e) = self.events.try_send(TransportEvent::DatagramReceived {
                         data: packet.data,
                         src_addr: local_addr,
@@ -334,6 +335,7 @@ impl ConnectionTask {
                         break;
                     };
                     match command {
+                        todo!();
                         TransportCommand::SendDatagram { data, src_addr, dst_addr } => {
                             assert_eq!(dst_addr, local_addr);
                             let packet = ipc::UdpPacket {
@@ -426,9 +428,6 @@ impl ConnectionTask {
                             if !half_close {
                                 break;
                             }
-                        },
-                        TransportCommand::SendDatagram { .. } => {
-                            bail!("TCP connection received UDP event: {command:?}");
                         }
                     }
                 }

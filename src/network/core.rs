@@ -99,14 +99,6 @@ impl<'a> NetworkStack<'a> {
             TransportCommand::CloseConnection(id, half_close) => match id & 1 == 1 {
                 true => self.udp.close_connection(id),
                 false => self.tcp.close_connection(id, half_close),
-            },
-            TransportCommand::SendDatagram {
-                data: _,
-                src_addr: _,
-                dst_addr: _,
-            } => {
-                // TODO remove
-                log::error!("Error: SendDatagram is deprecated.");
             }
         };
     }
