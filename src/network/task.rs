@@ -1,8 +1,8 @@
 use std::fmt;
 
 use anyhow::Result;
-use smoltcp::time::Duration;
 
+use std::time::Duration;
 use tokio::sync::{
     broadcast,
     broadcast::Receiver as BroadcastReceiver,
@@ -12,7 +12,7 @@ use tokio::sync::{
 use tokio::task::JoinHandle;
 
 use crate::messages::{NetworkCommand, NetworkEvent, TransportCommand, TransportEvent};
-use crate::network::io::NetworkIO;
+use crate::network::core::NetworkStack;
 
 pub struct NetworkTask<'a> {
     net_tx: Sender<NetworkCommand>,
@@ -21,7 +21,7 @@ pub struct NetworkTask<'a> {
     py_rx: UnboundedReceiver<TransportCommand>,
 
     shutdown: BroadcastReceiver<()>,
-    io: NetworkIO<'a>,
+    io: NetworkStack<'a>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -57,7 +57,7 @@ impl NetworkTask<'_> {
         py_rx: UnboundedReceiver<TransportCommand>,
         sd_watcher: BroadcastReceiver<()>,
     ) -> Result<Self> {
-        let io = NetworkIO::new(net_tx.clone());
+        let io = NetworkStack::new(net_tx.clone());
         Ok(Self {
             net_tx,
             net_rx,
@@ -80,7 +80,7 @@ impl NetworkTask<'_> {
 
             #[cfg(debug_assertions)]
             if let Some(d) = delay {
-                log::debug!("Waiting for device timeout: {} ...", d);
+                log::debug!("Waiting for device timeout: {:?} ...", d);
             }
 
             #[cfg(debug_assertions)]
@@ -93,7 +93,7 @@ impl NetworkTask<'_> {
                 // wait for graceful shutdown
                 _ = self.shutdown.recv() => break 'task,
                 // wait for timeouts when the device is idle
-                _ = async { tokio::time::sleep(delay.unwrap().into()).await }, if delay.is_some() => {},
+                _ = async { tokio::time::sleep(delay.unwrap()).await }, if delay.is_some() => {},
                 // wait for py_tx channel capacity...
                 Ok(permit) = self.py_tx.reserve(), if !py_tx_available => {
                     py_tx_permit = Some(permit);

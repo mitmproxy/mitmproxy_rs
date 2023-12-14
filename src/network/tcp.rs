@@ -6,27 +6,19 @@ use anyhow::Result;
 use pretty_hex::pretty_hex;
 use smoltcp::iface::{Config, SocketSet};
 use smoltcp::socket::{tcp, Socket};
-
 use smoltcp::wire::HardwareAddress;
 use smoltcp::{
     iface::{Interface, SocketHandle},
-    phy::ChecksumCapabilities,
-    time::{Duration, Instant},
-    wire::{
-        IpAddress, IpCidr, IpProtocol, IpRepr, Ipv4Address, Ipv4Packet, Ipv4Repr, Ipv6Address,
-        Ipv6Packet, Ipv6Repr, TcpPacket, UdpPacket, UdpRepr,
-    },
+    time::Instant,
+    wire::{IpAddress, IpCidr, Ipv4Address, TcpPacket},
 };
+use std::time::Duration;
 use tokio::sync::{
     mpsc::{Permit, Sender},
     oneshot,
 };
 
-use crate::messages::{
-    ConnectionId, IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent,
-    TunnelInfo,
-};
-use crate::network::icmp::{handle_icmpv4_echo_request, handle_icmpv6_echo_request};
+use crate::messages::{ConnectionId, IpPacket, NetworkCommand, TransportEvent, TunnelInfo};
 
 use super::virtual_device::VirtualDevice;
 
@@ -46,22 +38,19 @@ struct SocketData {
     addr_tuple: (SocketAddr, SocketAddr),
 }
 
-pub struct NetworkIO<'a> {
+pub struct TcpHandler<'a> {
+    next_connection_id: ConnectionId,
     iface: Interface,
     device: VirtualDevice,
     sockets: SocketSet<'a>,
-
-    net_tx: Sender<NetworkCommand>,
-
     socket_data: HashMap<ConnectionId, SocketData>,
-    active_connections: HashSet<(SocketAddr, SocketAddr)>,
-    next_connection_id: ConnectionId,
     remove_conns: Vec<ConnectionId>,
+    active_connections: HashSet<(SocketAddr, SocketAddr)>,
 }
 
-impl<'a> NetworkIO<'a> {
+impl<'a> TcpHandler<'a> {
     pub fn new(net_tx: Sender<NetworkCommand>) -> Self {
-        let mut device = VirtualDevice::new(net_tx.clone());
+        let mut device = VirtualDevice::new(net_tx);
 
         let config = Config::new(HardwareAddress::Ip);
         let mut iface = Interface::new(config, &mut device, Instant::now());
@@ -79,11 +68,10 @@ impl<'a> NetworkIO<'a> {
             .add_default_ipv4_route(Ipv4Address::new(0, 0, 0, 1))
             .unwrap();
 
-        NetworkIO {
+        TcpHandler {
             iface,
             device,
             sockets: SocketSet::new(Vec::new()),
-            net_tx,
             socket_data: HashMap::new(),
             active_connections: HashSet::new(),
             next_connection_id: 0,
@@ -91,65 +79,7 @@ impl<'a> NetworkIO<'a> {
         }
     }
 
-    fn receive_packet(
-        &mut self,
-        packet: IpPacket,
-        tunnel_info: TunnelInfo,
-        permit: Permit<'_, TransportEvent>,
-    ) -> Result<()> {
-        if let IpPacket::V4(p) = &packet {
-            if !p.verify_checksum() {
-                log::warn!("Received invalid IP packet (checksum error).");
-                return Ok(());
-            }
-        }
-
-        match packet.transport_protocol() {
-            IpProtocol::Tcp => self.receive_packet_tcp(packet, tunnel_info, permit),
-            IpProtocol::Udp => self.receive_packet_udp(packet, tunnel_info, permit),
-            IpProtocol::Icmp => self.receive_packet_icmp(packet),
-            _ => {
-                log::debug!(
-                    "Received IP packet for unknown protocol: {}",
-                    packet.transport_protocol()
-                );
-                Ok(())
-            }
-        }
-    }
-
-    fn receive_packet_udp(
-        &mut self,
-        mut packet: IpPacket,
-        tunnel_info: TunnelInfo,
-        permit: Permit<'_, TransportEvent>,
-    ) -> Result<()> {
-        let src_ip = packet.src_ip();
-        let dst_ip = packet.dst_ip();
-
-        let mut udp_packet = match UdpPacket::new_checked(packet.payload_mut()) {
-            Ok(p) => p,
-            Err(e) => {
-                log::debug!("Received invalid UDP packet: {}", e);
-                return Ok(());
-            }
-        };
-
-        let src_addr = SocketAddr::new(src_ip, udp_packet.src_port());
-        let dst_addr = SocketAddr::new(dst_ip, udp_packet.dst_port());
-
-        let event = TransportEvent::DatagramReceived {
-            data: udp_packet.payload_mut().to_vec(),
-            src_addr,
-            dst_addr,
-            tunnel_info,
-        };
-
-        permit.send(event);
-        Ok(())
-    }
-
-    fn receive_packet_tcp(
+    pub fn receive_packet(
         &mut self,
         mut packet: IpPacket,
         tunnel_info: TunnelInfo,
@@ -191,13 +121,13 @@ impl<'a> NetworkIO<'a> {
             );
 
             socket.listen(dst_addr)?;
-            socket.set_timeout(Some(Duration::from_secs(60)));
-            socket.set_keep_alive(Some(Duration::from_secs(28)));
+            socket.set_timeout(Some(smoltcp::time::Duration::from_secs(60)));
+            socket.set_keep_alive(Some(smoltcp::time::Duration::from_secs(28)));
 
             let handle = self.sockets.add(socket);
 
             let connection_id = {
-                self.next_connection_id += 1;
+                self.next_connection_id += 2; // only even ids.
                 self.next_connection_id
             };
 
@@ -225,27 +155,13 @@ impl<'a> NetworkIO<'a> {
         Ok(())
     }
 
-    fn receive_packet_icmp(&mut self, packet: IpPacket) -> Result<()> {
-        // Some apps check network connectivity by sending ICMP pings. ICMP traffic is currently
-        // swallowed by mitmproxy_rs, which makes them believe that there is no network connectivity.
-        // Generating fake ICMP replies as a simple workaround.
-
-        if let Ok(permit) = self.net_tx.try_reserve() {
-            // Generating and sending fake replies for ICMP echo requests. Ignoring all other ICMP types.
-            let response_packet = match packet {
-                IpPacket::V4(packet) => handle_icmpv4_echo_request(packet),
-                IpPacket::V6(packet) => handle_icmpv6_echo_request(packet),
-            };
-            if let Some(response_packet) = response_packet {
-                permit.send(NetworkCommand::SendPacket(response_packet));
-            }
-        } else {
-            log::debug!("Channel full, discarding ICMP packet.");
-        }
-        Ok(())
+    pub fn poll_delay(&mut self) -> Option<Duration> {
+        self.iface
+            .poll_delay(Instant::now(), &self.sockets)
+            .map(Duration::from)
     }
 
-    fn read_data(&mut self, id: ConnectionId, n: u32, tx: oneshot::Sender<Vec<u8>>) {
+    pub fn read_data(&mut self, id: ConnectionId, n: u32, tx: oneshot::Sender<Vec<u8>>) {
         if let Some(data) = self.socket_data.get_mut(&id) {
             assert!(data.recv_waiter.is_none());
             data.recv_waiter = Some((n, tx));
@@ -255,7 +171,7 @@ impl<'a> NetworkIO<'a> {
         }
     }
 
-    fn write_data(&mut self, id: ConnectionId, buf: Vec<u8>) {
+    pub fn write_data(&mut self, id: ConnectionId, buf: Vec<u8>) {
         if let Some(data) = self.socket_data.get_mut(&id) {
             data.send_buffer.extend(buf);
         } else {
@@ -264,7 +180,7 @@ impl<'a> NetworkIO<'a> {
         }
     }
 
-    fn drain_writer(&mut self, id: ConnectionId, tx: oneshot::Sender<()>) {
+    pub fn drain_writer(&mut self, id: ConnectionId, tx: oneshot::Sender<()>) {
         if let Some(data) = self.socket_data.get_mut(&id) {
             data.drain_waiter.push(tx);
         } else {
@@ -273,7 +189,7 @@ impl<'a> NetworkIO<'a> {
         }
     }
 
-    fn close_connection(&mut self, id: ConnectionId, _half_close: bool) {
+    pub fn close_connection(&mut self, id: ConnectionId, _half_close: bool) {
         if let Some(data) = self.socket_data.get_mut(&id) {
             // smoltcp does not have a good way to do "SHUT_RDWR". We can't call .abort()
             // here because that sends a RST instead of a FIN (and breaks
@@ -287,115 +203,6 @@ impl<'a> NetworkIO<'a> {
         } else {
             // connection is already dead.
         }
-    }
-
-    fn send_datagram(&mut self, data: Vec<u8>, src_addr: SocketAddr, dst_addr: SocketAddr) {
-        let permit = match self.net_tx.try_reserve() {
-            Ok(p) => p,
-            Err(_) => {
-                log::debug!("Channel full, discarding UDP packet.");
-                return;
-            }
-        };
-
-        // We now know that there's space for us to send,
-        // let's painstakingly reassemble the IP packet...
-
-        let udp_repr = UdpRepr {
-            src_port: src_addr.port(),
-            dst_port: dst_addr.port(),
-        };
-
-        let ip_repr: IpRepr = match (src_addr, dst_addr) {
-            (SocketAddr::V4(src_addr), SocketAddr::V4(dst_addr)) => IpRepr::Ipv4(Ipv4Repr {
-                src_addr: Ipv4Address::from(*src_addr.ip()),
-                dst_addr: Ipv4Address::from(*dst_addr.ip()),
-                next_header: IpProtocol::Udp,
-                payload_len: udp_repr.header_len() + data.len(),
-                hop_limit: 255,
-            }),
-            (SocketAddr::V6(src_addr), SocketAddr::V6(dst_addr)) => IpRepr::Ipv6(Ipv6Repr {
-                src_addr: Ipv6Address::from(*src_addr.ip()),
-                dst_addr: Ipv6Address::from(*dst_addr.ip()),
-                next_header: IpProtocol::Udp,
-                payload_len: udp_repr.header_len() + data.len(),
-                hop_limit: 255,
-            }),
-            _ => {
-                log::error!("Failed to assemble UDP datagram: mismatched IP address versions");
-                return;
-            }
-        };
-
-        let buf = vec![0u8; ip_repr.buffer_len()];
-
-        let mut ip_packet = match ip_repr {
-            IpRepr::Ipv4(repr) => {
-                let mut packet = Ipv4Packet::new_unchecked(buf);
-                repr.emit(&mut packet, &ChecksumCapabilities::default());
-                IpPacket::from(packet)
-            }
-            IpRepr::Ipv6(repr) => {
-                let mut packet = Ipv6Packet::new_unchecked(buf);
-                repr.emit(&mut packet);
-                IpPacket::from(packet)
-            }
-        };
-
-        udp_repr.emit(
-            &mut UdpPacket::new_unchecked(ip_packet.payload_mut()),
-            &ip_repr.src_addr(),
-            &ip_repr.dst_addr(),
-            data.len(),
-            |buf| buf.copy_from_slice(data.as_slice()),
-            &ChecksumCapabilities::default(),
-        );
-
-        permit.send(NetworkCommand::SendPacket(ip_packet));
-    }
-
-    pub fn handle_network_event(
-        &mut self,
-        event: NetworkEvent,
-        permit: Permit<'_, TransportEvent>,
-    ) -> Result<()> {
-        match event {
-            NetworkEvent::ReceivePacket {
-                packet,
-                tunnel_info,
-            } => {
-                self.receive_packet(packet, tunnel_info, permit)?;
-            }
-        }
-        Ok(())
-    }
-
-    pub fn handle_transport_command(&mut self, command: TransportCommand) {
-        match command {
-            TransportCommand::ReadData(id, n, tx) => {
-                self.read_data(id, n, tx);
-            }
-            TransportCommand::WriteData(id, buf) => {
-                self.write_data(id, buf);
-            }
-            TransportCommand::DrainWriter(id, tx) => {
-                self.drain_writer(id, tx);
-            }
-            TransportCommand::CloseConnection(id, half_close) => {
-                self.close_connection(id, half_close);
-            }
-            TransportCommand::SendDatagram {
-                data,
-                src_addr,
-                dst_addr,
-            } => {
-                self.send_datagram(data, src_addr, dst_addr);
-            }
-        }
-    }
-
-    pub fn poll_delay(&mut self) -> Option<Duration> {
-        self.iface.poll_delay(Instant::now(), &self.sockets)
     }
 
     pub fn poll(&mut self) -> Result<()> {
@@ -500,7 +307,7 @@ impl<'a> NetworkIO<'a> {
     }
 }
 
-impl fmt::Debug for NetworkIO<'_> {
+impl fmt::Debug for TcpHandler<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let sockets: Vec<String> = self
             .sockets

@@ -1,6 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use anyhow::{anyhow, Result};
+use internet_packet::InternetPacket;
 use smoltcp::wire::{IpProtocol, Ipv4Packet, Ipv6Packet};
 use tokio::sync::oneshot;
 
@@ -60,6 +61,7 @@ pub enum TransportCommand {
     WriteData(ConnectionId, Vec<u8>),
     DrainWriter(ConnectionId, oneshot::Sender<()>),
     CloseConnection(ConnectionId, bool),
+    // FIXME: Remove
     SendDatagram {
         data: Vec<u8>,
         src_addr: SocketAddr,
@@ -83,6 +85,17 @@ impl From<Ipv4Packet<Vec<u8>>> for IpPacket {
 impl From<Ipv6Packet<Vec<u8>>> for IpPacket {
     fn from(packet: Ipv6Packet<Vec<u8>>) -> Self {
         IpPacket::V6(packet)
+    }
+}
+
+impl TryInto<InternetPacket> for IpPacket {
+    type Error = internet_packet::ParseError;
+
+    fn try_into(self) -> std::result::Result<InternetPacket, Self::Error> {
+        match self {
+            IpPacket::V4(packet) => InternetPacket::try_from(packet),
+            IpPacket::V6(packet) => InternetPacket::try_from(packet),
+        }
     }
 }
 

@@ -19,7 +19,7 @@ lru_time_cache = "0.11.11"
 log = "0.4.18"
 env_logger = "0.10.1"
 prost = "0.12.3"
-internet-packet = { git = "https://github.com/mhils/internet-packet.git", features = ["checksums"] }
+internet-packet = { version = "0.2.0", features = ["checksums"] }
 
 [target.'cfg(windows)'.dev-dependencies]
 hex = "0.4.3"
