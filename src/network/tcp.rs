@@ -18,7 +18,9 @@ use tokio::sync::{
     oneshot,
 };
 
-use crate::messages::{ConnectionId, IpPacket, NetworkCommand, TransportEvent, TunnelInfo};
+use crate::messages::{
+    ConnectionId, ConnectionIdGenerator, NetworkCommand, SmolPacket, TransportEvent, TunnelInfo,
+};
 
 use super::virtual_device::VirtualDevice;
 
@@ -39,7 +41,7 @@ struct SocketData {
 }
 
 pub struct TcpHandler<'a> {
-    next_connection_id: ConnectionId,
+    connection_id_generator: ConnectionIdGenerator,
     iface: Interface,
     device: VirtualDevice,
     sockets: SocketSet<'a>,
@@ -74,14 +76,14 @@ impl<'a> TcpHandler<'a> {
             sockets: SocketSet::new(Vec::new()),
             socket_data: HashMap::new(),
             active_connections: HashSet::new(),
-            next_connection_id: 0,
+            connection_id_generator: ConnectionIdGenerator::tcp(),
             remove_conns: Vec::new(),
         }
     }
 
     pub fn receive_packet(
         &mut self,
-        mut packet: IpPacket,
+        mut packet: SmolPacket,
         tunnel_info: TunnelInfo,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
@@ -126,10 +128,7 @@ impl<'a> TcpHandler<'a> {
 
             let handle = self.sockets.add(socket);
 
-            let connection_id = {
-                self.next_connection_id += 2; // only even ids.
-                self.next_connection_id
-            };
+            let connection_id = self.connection_id_generator.next_id();
 
             let data = SocketData {
                 handle,
@@ -191,8 +190,8 @@ impl<'a> TcpHandler<'a> {
 
     pub fn close_connection(&mut self, id: ConnectionId, _half_close: bool) {
         if let Some(data) = self.socket_data.get_mut(&id) {
-            // smoltcp does not have a good way to do "SHUT_RDWR". We can't call .abort()
-            // here because that sends a RST instead of a FIN (and breaks
+            // smoltcp does not have a good way to do a full close ("SHUT_RDWR"). We can't call
+            // .abort() here because that sends a RST instead of a FIN (and breaks
             // retransmissions of the connection close packet). Alternatively, we could manually
             // set a timer on .close() and then forcibly .abort() once the timer expires (see
             // tcp-abort branch). This incurs a bit of unnecessary complexity, so we try something

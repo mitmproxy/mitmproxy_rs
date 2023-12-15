@@ -8,7 +8,7 @@ use anyhow::Result;
 use smoltcp::wire::IpProtocol;
 use tokio::sync::mpsc::{Permit, Sender};
 
-use crate::messages::{IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent};
+use crate::messages::{NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent};
 use crate::network::icmp::{handle_icmpv4_echo_request, handle_icmpv6_echo_request};
 
 use crate::network::tcp::TcpHandler;
@@ -41,7 +41,7 @@ impl<'a> NetworkStack<'a> {
             } => (packet, tunnel_info),
         };
 
-        if let IpPacket::V4(p) = &packet {
+        if let SmolPacket::V4(p) = &packet {
             if !p.verify_checksum() {
                 log::warn!("Received invalid IP packet (checksum error).");
                 return Ok(());
@@ -62,7 +62,7 @@ impl<'a> NetworkStack<'a> {
         }
     }
 
-    fn receive_packet_icmp(&mut self, packet: IpPacket) -> Result<()> {
+    fn receive_packet_icmp(&mut self, packet: SmolPacket) -> Result<()> {
         // Some apps check network connectivity by sending ICMP pings. ICMP traffic is currently
         // swallowed by mitmproxy_rs, which makes them believe that there is no network connectivity.
         // Generating fake ICMP replies as a simple workaround.
@@ -70,8 +70,8 @@ impl<'a> NetworkStack<'a> {
         if let Ok(permit) = self.net_tx.try_reserve() {
             // Generating and sending fake replies for ICMP echo requests. Ignoring all other ICMP types.
             let response_packet = match packet {
-                IpPacket::V4(packet) => handle_icmpv4_echo_request(packet),
-                IpPacket::V6(packet) => handle_icmpv6_echo_request(packet),
+                SmolPacket::V4(packet) => handle_icmpv4_echo_request(packet),
+                SmolPacket::V6(packet) => handle_icmpv6_echo_request(packet),
             };
             if let Some(response_packet) = response_packet {
                 permit.send(NetworkCommand::SendPacket(response_packet));
@@ -84,22 +84,22 @@ impl<'a> NetworkStack<'a> {
 
     pub fn handle_transport_command(&mut self, command: TransportCommand) {
         match command {
-            TransportCommand::ReadData(id, n, tx) => match id & 1 == 1 {
-                true => self.udp.read_data(id, tx),
-                false => self.tcp.read_data(id, n, tx),
+            TransportCommand::ReadData(id, n, tx) => match id.is_tcp() {
+                true => self.tcp.read_data(id, n, tx),
+                false => self.udp.read_data(id, tx),
             },
-            TransportCommand::WriteData(id, buf) => match id & 1 == 1 {
-                true => self.udp.write_data(id, buf),
-                false => self.tcp.write_data(id, buf),
+            TransportCommand::WriteData(id, buf) => match id.is_tcp() {
+                true => self.tcp.write_data(id, buf),
+                false => self.udp.write_data(id, buf),
             },
-            TransportCommand::DrainWriter(id, tx) => match id & 1 == 1 {
-                true => self.udp.drain_writer(id, tx),
-                false => self.tcp.drain_writer(id, tx),
+            TransportCommand::DrainWriter(id, tx) => match id.is_tcp() {
+                true => self.tcp.drain_writer(id, tx),
+                false => self.udp.drain_writer(id, tx),
             },
-            TransportCommand::CloseConnection(id, half_close) => match id & 1 == 1 {
-                true => self.udp.close_connection(id),
-                false => self.tcp.close_connection(id, half_close),
-            }
+            TransportCommand::CloseConnection(id, half_close) => match id.is_tcp() {
+                true => self.tcp.close_connection(id, half_close),
+                false => self.udp.close_connection(id),
+            },
         };
     }
 

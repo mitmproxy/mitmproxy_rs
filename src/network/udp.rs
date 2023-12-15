@@ -6,7 +6,9 @@ use lru_time_cache::LruCache;
 use tokio::sync::mpsc::{Permit, Sender};
 use tokio::sync::oneshot;
 
-use crate::messages::{ConnectionId, IpPacket, NetworkCommand, TransportEvent, TunnelInfo};
+use crate::messages::{
+    ConnectionId, ConnectionIdGenerator, NetworkCommand, SmolPacket, TransportEvent, TunnelInfo,
+};
 use anyhow::Result;
 use internet_packet::InternetPacket;
 use smoltcp::phy::ChecksumCapabilities;
@@ -65,7 +67,7 @@ impl ConnectionState {
 }
 
 pub struct UdpHandler {
-    next_connection_id: ConnectionId,
+    connection_id_generator: ConnectionIdGenerator,
     id_lookup: LruCache<(SocketAddr, SocketAddr), ConnectionId>,
     connections: LruCache<ConnectionId, ConnectionState>,
     net_tx: Sender<NetworkCommand>,
@@ -83,7 +85,7 @@ impl UdpHandler {
             connections,
             id_lookup,
             net_tx,
-            next_connection_id: 1,
+            connection_id_generator: ConnectionIdGenerator::udp(),
         }
     }
 
@@ -144,12 +146,12 @@ impl UdpHandler {
             IpRepr::Ipv4(repr) => {
                 let mut packet = Ipv4Packet::new_unchecked(buf);
                 repr.emit(&mut packet, &ChecksumCapabilities::default());
-                IpPacket::from(packet)
+                SmolPacket::from(packet)
             }
             IpRepr::Ipv6(repr) => {
                 let mut packet = Ipv6Packet::new_unchecked(buf);
                 repr.emit(&mut packet);
-                IpPacket::from(packet)
+                SmolPacket::from(packet)
             }
         };
 
@@ -177,7 +179,7 @@ impl UdpHandler {
 
     pub fn receive_packet(
         &mut self,
-        packet: IpPacket,
+        packet: SmolPacket,
         tunnel_info: TunnelInfo,
         permit: Permit<'_, TransportEvent>,
     ) -> Result<()> {
@@ -195,7 +197,7 @@ impl UdpHandler {
             .id_lookup
             .get(&(src_addr, dst_addr))
             .cloned()
-            .unwrap_or(0); // guaranteed to not exist.
+            .unwrap_or(ConnectionId::unassigned());
 
         let payload = packet.payload().to_vec();
 
@@ -206,10 +208,7 @@ impl UdpHandler {
             None => {
                 let mut state = ConnectionState::new(src_addr, dst_addr);
                 state.receive_packet_payload(payload);
-                let connection_id = {
-                    self.next_connection_id += 2; // only odd ids.
-                    self.next_connection_id
-                };
+                let connection_id = self.connection_id_generator.next_id();
                 self.id_lookup.insert((src_addr, dst_addr), connection_id);
                 self.connections.insert(connection_id, state);
                 permit.send(TransportEvent::ConnectionEstablished {

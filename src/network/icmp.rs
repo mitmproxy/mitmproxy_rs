@@ -1,4 +1,4 @@
-use crate::messages::IpPacket;
+use crate::messages::SmolPacket;
 use smoltcp::phy::ChecksumCapabilities;
 use smoltcp::wire::{
     Icmpv4Message, Icmpv4Packet, Icmpv4Repr, Icmpv6Message, Icmpv6Packet, Icmpv6Repr, IpAddress,
@@ -7,7 +7,7 @@ use smoltcp::wire::{
 
 pub(super) fn handle_icmpv4_echo_request(
     mut input_packet: Ipv4Packet<Vec<u8>>,
-) -> Option<IpPacket> {
+) -> Option<SmolPacket> {
     let src_addr = input_packet.src_addr();
     let dst_addr = input_packet.dst_addr();
 
@@ -46,7 +46,7 @@ pub(super) fn handle_icmpv4_echo_request(
     let buf = vec![0u8; ip_repr.buffer_len() + icmp_repr.buffer_len()];
     let mut output_ipv4_packet = Ipv4Packet::new_unchecked(buf);
     ip_repr.emit(&mut output_ipv4_packet, &ChecksumCapabilities::default());
-    let mut output_ip_packet = IpPacket::from(output_ipv4_packet);
+    let mut output_ip_packet = SmolPacket::from(output_ipv4_packet);
     icmp_repr.emit(
         &mut Icmpv4Packet::new_unchecked(output_ip_packet.payload_mut()),
         &ChecksumCapabilities::default(),
@@ -56,7 +56,7 @@ pub(super) fn handle_icmpv4_echo_request(
 
 pub(super) fn handle_icmpv6_echo_request(
     mut input_packet: Ipv6Packet<Vec<u8>>,
-) -> Option<IpPacket> {
+) -> Option<SmolPacket> {
     let src_addr = input_packet.src_addr();
     let dst_addr = input_packet.dst_addr();
 
@@ -95,7 +95,7 @@ pub(super) fn handle_icmpv6_echo_request(
     let buf = vec![0u8; ip_repr.buffer_len() + icmp_repr.buffer_len()];
     let mut output_ipv6_packet = Ipv6Packet::new_unchecked(buf);
     ip_repr.emit(&mut output_ipv6_packet);
-    let mut output_ip_packet = IpPacket::from(output_ipv6_packet);
+    let mut output_ip_packet = SmolPacket::from(output_ipv6_packet);
     icmp_repr.emit(
         // Directing fake reply back to the original source address.
         &IpAddress::from(dst_addr),

@@ -21,7 +21,7 @@ use tokio::{
 };
 
 use crate::messages::{
-    IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent, TunnelInfo,
+    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
@@ -287,7 +287,7 @@ impl WireGuardTask {
                         self.peers_by_ip
                             .insert(Ipv4Addr::from(packet.src_addr()).into(), peer);
                         let event = NetworkEvent::ReceivePacket {
-                            packet: IpPacket::from(packet),
+                            packet: SmolPacket::from(packet),
                             tunnel_info: TunnelInfo::WireGuard {
                                 src_addr: sender_addr,
                                 dst_addr: self.socket.local_addr()?,
@@ -319,7 +319,7 @@ impl WireGuardTask {
                         self.peers_by_ip
                             .insert(Ipv6Addr::from(packet.src_addr()).into(), peer);
                         let event = NetworkEvent::ReceivePacket {
-                            packet: IpPacket::from(packet),
+                            packet: SmolPacket::from(packet),
                             tunnel_info: TunnelInfo::WireGuard {
                                 src_addr: sender_addr,
                                 dst_addr: self.socket.local_addr()?,
@@ -341,7 +341,7 @@ impl WireGuardTask {
     }
 
     /// process packets and send the encrypted WireGuard datagrams to the peer.
-    async fn process_outgoing_packet(&mut self, packet: IpPacket) -> Result<()> {
+    async fn process_outgoing_packet(&mut self, packet: SmolPacket) -> Result<()> {
         let peer = self
             .peers_by_ip
             .get(&packet.dst_ip())

@@ -12,7 +12,7 @@ async def start_wireguard_server(
     port: int,
     private_key: str,
     peer_public_keys: list[str],
-    handle_connection: Callable[[TcpStream], Awaitable[None]],
+    handle_connection: Callable[[Stream], Awaitable[None]],
     receive_datagram: Callable[[DatagramTransport, bytes, tuple[str, int], tuple[str, int]], None],
 ) -> WireGuardServer: ...
 
@@ -29,7 +29,7 @@ def pubkey(private_key: str) -> str: ...
 # Windows
 
 async def start_local_redirector(
-    handle_connection: Callable[[TcpStream], Awaitable[None]],
+    handle_connection: Callable[[Stream], Awaitable[None]],
     receive_datagram: Callable[[DatagramTransport, bytes, tuple[str, int], tuple[str, int]], None],
 ) -> LocalRedirector: ...
 
@@ -48,7 +48,7 @@ def remove_cert() -> None: ...
 # TCP / UDP
 
 @final
-class TcpStream:
+class Stream:
     async def read(self, n: int) -> bytes: ...
     def write(self, data: bytes): ...
     async def drain(self) -> None: ...
