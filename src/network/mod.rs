@@ -9,6 +9,6 @@ mod icmp;
 mod tcp;
 #[cfg(test)]
 mod tests;
-mod udp;
+pub(crate) mod udp;
 
 pub const MAX_PACKET_SIZE: usize = 65535;

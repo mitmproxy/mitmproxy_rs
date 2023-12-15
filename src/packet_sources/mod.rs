@@ -6,6 +6,7 @@ use crate::messages::{TransportCommand, TransportEvent};
 
 #[cfg(target_os = "macos")]
 pub mod macos;
+pub mod udp;
 #[cfg(windows)]
 pub mod windows;
 pub mod wireguard;

@@ -46,7 +46,7 @@ impl PacketSourceConf for WindowsConf {
         transport_events_tx: Sender<TransportEvent>,
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
-    ) -> Result<(WindowsTask, Self::Data)> {
+    ) -> Result<(Self::Task, Self::Data)> {
         let pipe_name = format!(
             r"\\.\pipe\mitmproxy-transparent-proxy-{}",
             std::process::id()

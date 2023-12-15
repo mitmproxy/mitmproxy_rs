@@ -19,6 +19,7 @@ pub enum TunnelInfo {
         /// an unresolved remote_endpoint instead.
         remote_endpoint: Option<(String, u16)>,
     },
+    Udp {},
 }
 
 /// Events that are sent by WireGuard to the TCP stack.
@@ -94,6 +95,18 @@ pub enum TransportCommand {
     WriteData(ConnectionId, Vec<u8>),
     DrainWriter(ConnectionId, oneshot::Sender<()>),
     CloseConnection(ConnectionId, bool),
+}
+
+impl TransportCommand {
+    pub fn is_tcp(&self) -> bool {
+        match self {
+            TransportCommand::ReadData(id, _, _) => id,
+            TransportCommand::WriteData(id, _) => id,
+            TransportCommand::DrainWriter(id, _) => id,
+            TransportCommand::CloseConnection(id, _) => id,
+        }
+        .is_tcp()
+    }
 }
 
 /// Generic IPv4/IPv6 packet type that wraps smoltcp's IPv4 and IPv6 packet buffers

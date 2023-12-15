@@ -80,7 +80,7 @@ impl PacketSourceConf for MacosConf {
         transport_events_tx: Sender<TransportEvent>,
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
-    ) -> Result<(MacOsTask, Self::Data)> {
+    ) -> Result<(Self::Task, Self::Data)> {
         let listener_addr = format!("/tmp/mitmproxy-{}", std::process::id());
         let listener = UnixListener::bind(&listener_addr)?;
 

@@ -3,19 +3,18 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use lru_time_cache::LruCache;
-use tokio::sync::mpsc::{Permit, Sender};
+use tokio::sync::mpsc::Permit;
 use tokio::sync::oneshot;
 
 use crate::messages::{
-    ConnectionId, ConnectionIdGenerator, NetworkCommand, SmolPacket, TransportEvent, TunnelInfo,
+    ConnectionId, ConnectionIdGenerator, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
-use anyhow::Result;
 use internet_packet::InternetPacket;
 use smoltcp::phy::ChecksumCapabilities;
 
 use smoltcp::wire::{
     IpProtocol, IpRepr, Ipv4Address, Ipv4Packet, Ipv4Repr, Ipv6Address, Ipv6Packet, Ipv6Repr,
-    UdpPacket, UdpRepr,
+    UdpRepr,
 };
 
 struct ConnectionState {
@@ -70,11 +69,10 @@ pub struct UdpHandler {
     connection_id_generator: ConnectionIdGenerator,
     id_lookup: LruCache<(SocketAddr, SocketAddr), ConnectionId>,
     connections: LruCache<ConnectionId, ConnectionState>,
-    net_tx: Sender<NetworkCommand>,
 }
 
 impl UdpHandler {
-    pub fn new(net_tx: Sender<NetworkCommand>) -> Self {
+    pub fn new() -> Self {
         let connections = LruCache::<ConnectionId, ConnectionState>::with_expiry_duration(
             Duration::from_secs(60),
         );
@@ -84,8 +82,28 @@ impl UdpHandler {
         Self {
             connections,
             id_lookup,
-            net_tx,
             connection_id_generator: ConnectionIdGenerator::udp(),
+        }
+    }
+
+    pub(crate) fn handle_transport_command(
+        &mut self,
+        command: TransportCommand,
+    ) -> Option<UdpPacket> {
+        match command {
+            TransportCommand::ReadData(id, _, tx) => {
+                self.read_data(id, tx);
+                None
+            }
+            TransportCommand::WriteData(id, data) => self.write_data(id, data),
+            TransportCommand::DrainWriter(id, tx) => {
+                self.drain_writer(id, tx);
+                None
+            }
+            TransportCommand::CloseConnection(id, _) => {
+                self.close_connection(id);
+                None
+            }
         }
     }
 
@@ -95,76 +113,23 @@ impl UdpHandler {
         }
     }
 
-    pub fn write_data(&mut self, id: ConnectionId, data: Vec<u8>) {
+    pub(crate) fn write_data(&mut self, id: ConnectionId, data: Vec<u8>) -> Option<UdpPacket> {
         let Some(state) = self.connections.get(&id) else {
-            return;
+            return None;
         };
         // Refresh id lookup.
         self.id_lookup
             .insert((state.local_addr, state.remote_addr), id);
 
-        let permit = match self.net_tx.try_reserve() {
-            Ok(p) => p,
-            Err(_) => {
-                log::debug!("Channel full, discarding UDP packet.");
-                return;
-            }
-        };
+        if state.closed {
+            return None;
+        }
 
-        // We now know that there's space for us to send,
-        // let's painstakingly reassemble the IP packet...
-
-        let udp_repr = UdpRepr {
-            src_port: state.local_addr.port(),
-            dst_port: state.remote_addr.port(),
-        };
-
-        let ip_repr: IpRepr = match (state.local_addr, state.remote_addr) {
-            (SocketAddr::V4(src_addr), SocketAddr::V4(dst_addr)) => IpRepr::Ipv4(Ipv4Repr {
-                src_addr: Ipv4Address::from(*src_addr.ip()),
-                dst_addr: Ipv4Address::from(*dst_addr.ip()),
-                next_header: IpProtocol::Udp,
-                payload_len: udp_repr.header_len() + data.len(),
-                hop_limit: 255,
-            }),
-            (SocketAddr::V6(src_addr), SocketAddr::V6(dst_addr)) => IpRepr::Ipv6(Ipv6Repr {
-                src_addr: Ipv6Address::from(*src_addr.ip()),
-                dst_addr: Ipv6Address::from(*dst_addr.ip()),
-                next_header: IpProtocol::Udp,
-                payload_len: udp_repr.header_len() + data.len(),
-                hop_limit: 255,
-            }),
-            _ => {
-                log::error!("Failed to assemble UDP datagram: mismatched IP address versions");
-                return;
-            }
-        };
-
-        let buf = vec![0u8; ip_repr.buffer_len()];
-
-        let mut ip_packet = match ip_repr {
-            IpRepr::Ipv4(repr) => {
-                let mut packet = Ipv4Packet::new_unchecked(buf);
-                repr.emit(&mut packet, &ChecksumCapabilities::default());
-                SmolPacket::from(packet)
-            }
-            IpRepr::Ipv6(repr) => {
-                let mut packet = Ipv6Packet::new_unchecked(buf);
-                repr.emit(&mut packet);
-                SmolPacket::from(packet)
-            }
-        };
-
-        udp_repr.emit(
-            &mut UdpPacket::new_unchecked(ip_packet.payload_mut()),
-            &ip_repr.src_addr(),
-            &ip_repr.dst_addr(),
-            data.len(),
-            |buf| buf.copy_from_slice(data.as_slice()),
-            &ChecksumCapabilities::default(),
-        );
-
-        permit.send(NetworkCommand::SendPacket(ip_packet));
+        Some(UdpPacket {
+            src_addr: state.local_addr,
+            dst_addr: state.remote_addr,
+            payload: data,
+        })
     }
 
     pub fn drain_writer(&mut self, _id: ConnectionId, tx: oneshot::Sender<()>) {
@@ -177,50 +142,39 @@ impl UdpHandler {
         }
     }
 
-    pub fn receive_packet(
+    pub(crate) fn receive_data(
         &mut self,
-        packet: SmolPacket,
+        packet: UdpPacket,
         tunnel_info: TunnelInfo,
         permit: Permit<'_, TransportEvent>,
-    ) -> Result<()> {
-        let packet: InternetPacket = match packet.try_into() {
-            Ok(p) => p,
-            Err(e) => {
-                log::debug!("Received invalid IP packet: {}", e);
-                return Ok(());
-            }
-        };
-        let src_addr = packet.src();
-        let dst_addr = packet.dst();
-
+    ) {
         let potential_cid = self
             .id_lookup
-            .get(&(src_addr, dst_addr))
+            .get(&(packet.src_addr, packet.dst_addr))
             .cloned()
             .unwrap_or(ConnectionId::unassigned());
 
-        let payload = packet.payload().to_vec();
+        let payload = packet.payload;
 
         match self.connections.get_mut(&potential_cid) {
             Some(state) => {
                 state.receive_packet_payload(payload);
             }
             None => {
-                let mut state = ConnectionState::new(src_addr, dst_addr);
+                let mut state = ConnectionState::new(packet.src_addr, packet.dst_addr);
                 state.receive_packet_payload(payload);
                 let connection_id = self.connection_id_generator.next_id();
-                self.id_lookup.insert((src_addr, dst_addr), connection_id);
+                self.id_lookup
+                    .insert((packet.src_addr, packet.dst_addr), connection_id);
                 self.connections.insert(connection_id, state);
                 permit.send(TransportEvent::ConnectionEstablished {
                     connection_id,
-                    src_addr,
-                    dst_addr,
+                    src_addr: packet.src_addr,
+                    dst_addr: packet.dst_addr,
                     tunnel_info,
                 });
             }
         };
-
-        Ok(())
     }
 
     pub fn poll_delay(&mut self) -> Option<Duration> {
@@ -235,6 +189,82 @@ impl UdpHandler {
         // Creating an iterator removes expired entries.
         self.connections.iter();
         self.id_lookup.iter();
+    }
+}
+
+pub(crate) struct UdpPacket {
+    pub src_addr: SocketAddr,
+    pub dst_addr: SocketAddr,
+    pub payload: Vec<u8>,
+}
+impl TryFrom<SmolPacket> for UdpPacket {
+    type Error = internet_packet::ParseError;
+
+    fn try_from(value: SmolPacket) -> Result<Self, Self::Error> {
+        let packet: InternetPacket = value.try_into()?;
+        Ok(UdpPacket {
+            src_addr: packet.src(),
+            dst_addr: packet.dst(),
+            payload: packet.payload().to_vec(),
+        })
+    }
+}
+
+impl From<UdpPacket> for SmolPacket {
+    fn from(value: UdpPacket) -> Self {
+        let UdpPacket {
+            src_addr,
+            dst_addr,
+            payload,
+        } = value;
+
+        let udp_repr = UdpRepr {
+            src_port: src_addr.port(),
+            dst_port: dst_addr.port(),
+        };
+
+        let ip_repr: IpRepr = match (src_addr, dst_addr) {
+            (SocketAddr::V4(src_addr), SocketAddr::V4(dst_addr)) => IpRepr::Ipv4(Ipv4Repr {
+                src_addr: Ipv4Address::from(*src_addr.ip()),
+                dst_addr: Ipv4Address::from(*dst_addr.ip()),
+                next_header: IpProtocol::Udp,
+                payload_len: udp_repr.header_len() + payload.len(),
+                hop_limit: 255,
+            }),
+            (SocketAddr::V6(src_addr), SocketAddr::V6(dst_addr)) => IpRepr::Ipv6(Ipv6Repr {
+                src_addr: Ipv6Address::from(*src_addr.ip()),
+                dst_addr: Ipv6Address::from(*dst_addr.ip()),
+                next_header: IpProtocol::Udp,
+                payload_len: udp_repr.header_len() + payload.len(),
+                hop_limit: 255,
+            }),
+            _ => unreachable!("Mismatched IP address versions"),
+        };
+
+        let buf = vec![0u8; ip_repr.buffer_len()];
+
+        let mut smol_packet = match ip_repr {
+            IpRepr::Ipv4(repr) => {
+                let mut packet = Ipv4Packet::new_unchecked(buf);
+                repr.emit(&mut packet, &ChecksumCapabilities::default());
+                SmolPacket::from(packet)
+            }
+            IpRepr::Ipv6(repr) => {
+                let mut packet = Ipv6Packet::new_unchecked(buf);
+                repr.emit(&mut packet);
+                SmolPacket::from(packet)
+            }
+        };
+
+        udp_repr.emit(
+            &mut smoltcp::wire::UdpPacket::new_unchecked(smol_packet.payload_mut()),
+            &ip_repr.src_addr(),
+            &ip_repr.dst_addr(),
+            payload.len(),
+            |buf| buf.copy_from_slice(payload.as_slice()),
+            &ChecksumCapabilities::default(),
+        );
+        smol_packet
     }
 }
 

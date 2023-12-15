@@ -105,7 +105,7 @@ impl PyInteropTask {
 
                                 Ok(())
                             }) {
-                                log::error!("Failed to spawn TCP connection handler coroutine:\n{}", err);
+                                log::error!("Failed to spawn connection handler:\n{}", err);
                             };
                         },
                     }

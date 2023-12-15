@@ -55,7 +55,7 @@ impl NetworkTask<'_> {
         net_rx: Receiver<NetworkEvent>,
         py_tx: Sender<TransportEvent>,
         py_rx: UnboundedReceiver<TransportCommand>,
-        sd_watcher: BroadcastReceiver<()>,
+        shutdown: BroadcastReceiver<()>,
     ) -> Result<Self> {
         let io = NetworkStack::new(net_tx.clone());
         Ok(Self {
@@ -63,7 +63,7 @@ impl NetworkTask<'_> {
             net_rx,
             py_tx,
             py_rx,
-            shutdown: sd_watcher,
+            shutdown,
             io,
         })
     }

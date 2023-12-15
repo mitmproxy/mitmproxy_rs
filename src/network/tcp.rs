@@ -19,7 +19,8 @@ use tokio::sync::{
 };
 
 use crate::messages::{
-    ConnectionId, ConnectionIdGenerator, NetworkCommand, SmolPacket, TransportEvent, TunnelInfo,
+    ConnectionId, ConnectionIdGenerator, NetworkCommand, SmolPacket, TransportCommand,
+    TransportEvent, TunnelInfo,
 };
 
 use super::virtual_device::VirtualDevice;
@@ -158,6 +159,17 @@ impl<'a> TcpHandler<'a> {
         self.iface
             .poll_delay(Instant::now(), &self.sockets)
             .map(Duration::from)
+    }
+
+    pub fn handle_transport_command(&mut self, command: TransportCommand) {
+        match command {
+            TransportCommand::ReadData(id, n, tx) => self.read_data(id, n, tx),
+            TransportCommand::WriteData(id, buf) => self.write_data(id, buf),
+            TransportCommand::DrainWriter(id, tx) => self.drain_writer(id, tx),
+            TransportCommand::CloseConnection(id, half_close) => {
+                self.close_connection(id, half_close)
+            }
+        };
     }
 
     pub fn read_data(&mut self, id: ConnectionId, n: u32, tx: oneshot::Sender<Vec<u8>>) {

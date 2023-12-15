@@ -49,6 +49,9 @@ pub fn mitmproxy_rs(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(server::start_local_redirector, m)?)?;
     m.add_class::<server::LocalRedirector>()?;
 
+    m.add_function(wrap_pyfunction!(server::start_udp_server, m)?)?;
+    m.add_class::<server::UdpServer>()?;
+
     m.add_function(wrap_pyfunction!(process_info::active_executables, m)?)?;
     m.add_class::<process_info::Process>()?;
     m.add_function(wrap_pyfunction!(process_info::executable_icon, m)?)?;

@@ -12,7 +12,7 @@ use crate::messages::{NetworkCommand, NetworkEvent, SmolPacket, TransportCommand
 use crate::network::icmp::{handle_icmpv4_echo_request, handle_icmpv6_echo_request};
 
 use crate::network::tcp::TcpHandler;
-use crate::network::udp::UdpHandler;
+use crate::network::udp::{UdpHandler, UdpPacket};
 
 pub struct NetworkStack<'a> {
     tcp: TcpHandler<'a>,
@@ -24,7 +24,7 @@ impl<'a> NetworkStack<'a> {
     pub fn new(net_tx: Sender<NetworkCommand>) -> Self {
         Self {
             tcp: TcpHandler::new(net_tx.clone()),
-            udp: UdpHandler::new(net_tx.clone()),
+            udp: UdpHandler::new(),
             net_tx,
         }
     }
@@ -50,7 +50,13 @@ impl<'a> NetworkStack<'a> {
 
         match packet.transport_protocol() {
             IpProtocol::Tcp => self.tcp.receive_packet(packet, tunnel_info, permit),
-            IpProtocol::Udp => self.udp.receive_packet(packet, tunnel_info, permit),
+            IpProtocol::Udp => {
+                match UdpPacket::try_from(packet) {
+                    Ok(packet) => self.udp.receive_data(packet, tunnel_info, permit),
+                    Err(e) => log::debug!("Received invalid UDP packet: {}", e),
+                };
+                Ok(())
+            }
             IpProtocol::Icmp => self.receive_packet_icmp(packet),
             _ => {
                 log::debug!(
@@ -83,24 +89,17 @@ impl<'a> NetworkStack<'a> {
     }
 
     pub fn handle_transport_command(&mut self, command: TransportCommand) {
-        match command {
-            TransportCommand::ReadData(id, n, tx) => match id.is_tcp() {
-                true => self.tcp.read_data(id, n, tx),
-                false => self.udp.read_data(id, tx),
-            },
-            TransportCommand::WriteData(id, buf) => match id.is_tcp() {
-                true => self.tcp.write_data(id, buf),
-                false => self.udp.write_data(id, buf),
-            },
-            TransportCommand::DrainWriter(id, tx) => match id.is_tcp() {
-                true => self.tcp.drain_writer(id, tx),
-                false => self.udp.drain_writer(id, tx),
-            },
-            TransportCommand::CloseConnection(id, half_close) => match id.is_tcp() {
-                true => self.tcp.close_connection(id, half_close),
-                false => self.udp.close_connection(id),
-            },
-        };
+        if command.is_tcp() {
+            self.tcp.handle_transport_command(command);
+        } else if let Some(packet) = self.udp.handle_transport_command(command) {
+            if self
+                .net_tx
+                .try_send(NetworkCommand::SendPacket(SmolPacket::from(packet)))
+                .is_err()
+            {
+                log::debug!("Channel unavailable, discarding UDP packet.");
+            }
+        }
     }
 
     pub fn poll_delay(&mut self) -> Option<Duration> {

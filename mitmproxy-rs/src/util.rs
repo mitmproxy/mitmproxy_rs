@@ -28,16 +28,7 @@ where
 }
 
 pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
-    match s {
-        SocketAddr::V4(addr) => (addr.ip().to_string(), addr.port()).into_py(py),
-        SocketAddr::V6(addr) => {
-            log::debug!(
-                "Converting IPv6 address/port to Python equivalent (not sure if this is correct): {:?}",
-                (addr.ip().to_string(), addr.port())
-            );
-            (addr.ip().to_string(), addr.port()).into_py(py)
-        }
-    }
+    (s.ip().to_string(), s.port()).into_py(py)
 }
 
 #[allow(dead_code)]
@@ -146,6 +137,7 @@ pub(crate) fn get_tunnel_info(
             "remote_endpoint" => return Ok(remote_endpoint.clone().into_py(py)),
             _ => (),
         },
+        TunnelInfo::Udp {} => (),
     }
     match default {
         Some(x) => Ok(x),

@@ -56,7 +56,7 @@ impl PacketSourceConf for WireGuardConf {
         transport_events_tx: Sender<TransportEvent>,
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
-    ) -> Result<(WireGuardTask, Self::Data)> {
+    ) -> Result<(Self::Task, Self::Data)> {
         let (network_task_handle, net_tx, net_rx) =
             add_network_layer(transport_events_tx, transport_commands_rx, shutdown)?;
 
