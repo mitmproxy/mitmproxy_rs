@@ -279,7 +279,8 @@ pub fn start_local_redirector(
         }
         let conf = WindowsConf { executable_path };
         pyo3_asyncio::tokio::future_into_py(py, async move {
-            let (server, conf_tx) = Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
+            let (server, conf_tx) =
+                Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
 
             Ok(LocalRedirector { server, conf_tx })
         })
