@@ -226,14 +226,8 @@ impl WireGuardServer {
 /// - `port`: The listen port for the WireGuard server. The default port for WireGuard is `51820`.
 /// - `private_key`: The private X25519 key for the WireGuard server as a base64-encoded string.
 /// - `peer_public_keys`: List of public X25519 keys for WireGuard peers as base64-encoded strings.
-/// - `handle_connection`: A coroutine that will be called for each new `TcpStream`.
-/// - `receive_datagram`: A function that will be called for each received UDP datagram.
-///
-/// The `receive_datagram` function will be called with the following arguments:
-///
-/// - payload of the UDP datagram as `bytes`
-/// - source address as `(host: str, port: int)` tuple
-/// - destination address as `(host: str, port: int)` tuple
+/// - `handle_tcp_stream`: An async function that will be called for each new TCP `Stream`.
+/// - `handle_udp_stream`: An async function that will be called for each new UDP `Stream`.
 #[pyfunction]
 pub fn start_wireguard_server(
     py: Python<'_>,
@@ -241,8 +235,8 @@ pub fn start_wireguard_server(
     port: u16,
     private_key: String,
     peer_public_keys: Vec<String>,
-    handle_connection: PyObject,
-    receive_datagram: PyObject,
+    handle_tcp_stream: PyObject,
+    handle_udp_stream: PyObject,
 ) -> PyResult<&PyAny> {
     let private_key = string_to_key(private_key)?;
     let peer_public_keys = peer_public_keys
@@ -256,20 +250,23 @@ pub fn start_wireguard_server(
         peer_public_keys,
     };
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        let (server, local_addr) = Server::init(conf, handle_connection, receive_datagram).await?;
+        let (server, local_addr) = Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
         Ok(WireGuardServer { server, local_addr })
     })
 }
 
 /// Start an OS-level proxy to intercept traffic from the current machine.
 ///
-/// *Availability: Windows*
+/// - `handle_tcp_stream`: An async function that will be called for each new TCP `Stream`.
+/// - `handle_udp_stream`: An async function that will be called for each new UDP `Stream`.
+///
+/// *Availability: Windows and macOS*
 #[pyfunction]
 #[allow(unused_variables)]
 pub fn start_local_redirector(
     py: Python<'_>,
-    handle_connection: PyObject,
-    receive_datagram: PyObject,
+    handle_tcp_stream: PyObject,
+    handle_udp_stream: PyObject,
 ) -> PyResult<&PyAny> {
     #[cfg(windows)]
     {
@@ -282,7 +279,7 @@ pub fn start_local_redirector(
         }
         let conf = WindowsConf { executable_path };
         pyo3_asyncio::tokio::future_into_py(py, async move {
-            let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
+            let (server, conf_tx) = Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
 
             Ok(LocalRedirector { server, conf_tx })
         })
