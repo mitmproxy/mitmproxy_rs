@@ -118,7 +118,7 @@ jobs:
         with:
           path: mitmproxy-macos/redirector/dist/
           key: macos-${{ hashFiles('mitmproxy-macos/redirector/**', '.github/scripts/build-macos-redirector.sh') }}
-      - if: steps.cache-app.outputs.cache-hit != 'true'
+      - if: steps.cache-app.outputs.cache-hit != 'true' || hashFiles('mitmproxy-macos/redirector/dist/') == ''
         run: $GITHUB_WORKSPACE/.github/scripts/build-macos-redirector.sh
         working-directory: mitmproxy-macos/redirector
         env:
