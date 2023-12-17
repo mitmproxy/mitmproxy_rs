@@ -155,7 +155,7 @@ impl UdpHandler {
             .id_lookup
             .get(&(packet.src_addr, packet.dst_addr))
             .cloned()
-            .unwrap_or(ConnectionId::unassigned());
+            .unwrap_or(ConnectionId::unassigned_udp());
 
         match self.connections.get_mut(&potential_cid) {
             Some(state) => {

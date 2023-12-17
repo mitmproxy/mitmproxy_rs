@@ -43,7 +43,7 @@ pub fn open_udp_connection(
         });
 
         let stream = Stream {
-            connection_id: ConnectionId::unassigned(),
+            connection_id: ConnectionId::unassigned_udp(),
             state: StreamState::Open,
             command_tx,
             peername,

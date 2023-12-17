@@ -43,7 +43,7 @@ impl ConnectionIdGenerator {
         Self(2)
     }
     pub const fn udp() -> Self {
-        Self(1)
+        Self(3)
     }
     pub fn next_id(&mut self) -> ConnectionId {
         let ret = ConnectionId(self.0);
@@ -56,10 +56,10 @@ impl ConnectionIdGenerator {
 pub struct ConnectionId(usize);
 impl ConnectionId {
     pub fn is_tcp(&self) -> bool {
-        self.0 > 0 && self.0 & 1 == 0
+        self.0 & 1 == 0
     }
-    pub fn unassigned() -> Self {
-        ConnectionId(0)
+    pub const fn unassigned_udp() -> Self {
+        ConnectionId(1)
     }
 }
 impl fmt::Display for ConnectionId {
@@ -69,9 +69,7 @@ impl fmt::Display for ConnectionId {
 }
 impl fmt::Debug for ConnectionId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.0 == 0 {
-            write!(f, "0")
-        } else if self.is_tcp() {
+        if self.is_tcp() {
             write!(f, "{}#TCP", self.0)
         } else {
             write!(f, "{}#UDP", self.0)
