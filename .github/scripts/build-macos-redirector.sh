@@ -54,5 +54,5 @@ else
   echo "Signing keys not available, building unsigned binary..."
   xcodebuild -scheme macos-redirector CODE_SIGNING_ALLOWED="NO" build
   mkdir -p dist
-  touch dist/dev-build
+  touch "dist/Mitmproxy Redirector.app.tar"
 fi

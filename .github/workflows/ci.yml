@@ -203,7 +203,6 @@ jobs:
     uses: mhils/workflows/.github/workflows/alls-green.yml@main
     with:
       jobs: ${{ toJSON(needs) }}
-      allowed-skips: ${{ github.event_name != 'push' && 'build-macos-wheel' }}
 
   deploy:
     uses: mhils/workflows/.github/workflows/python-deploy.yml@main
