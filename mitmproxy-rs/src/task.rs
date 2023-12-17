@@ -63,12 +63,14 @@ impl PyInteropTask {
                             src_addr,
                             dst_addr,
                             tunnel_info,
+                            command_tx,
                         } => {
+                            let command_tx = command_tx.unwrap_or_else(|| self.transport_commands.clone());
                             // initialize new stream
                             let stream = Stream {
                                 connection_id,
                                 state: StreamState::Open,
-                                command_tx: self.transport_commands.clone(),
+                                command_tx,
                                 peername: src_addr,
                                 sockname: dst_addr,
                                 tunnel_info,

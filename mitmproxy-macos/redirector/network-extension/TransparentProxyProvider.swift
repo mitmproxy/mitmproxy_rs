@@ -157,7 +157,7 @@ class TransparentProxyProvider: NETransparentProxyProvider {
             guard let remoteEndpoint = tcp_flow.remoteEndpoint as? NWHostEndpoint else {
                 throw TransparentProxyError.noRemoteEndpoint
             }
-            log.debug("remoteEndpoint: \(String(describing: remoteEndpoint), privacy: .public)")
+            // log.debug("remoteEndpoint: \(String(describing: remoteEndpoint), privacy: .public)")
             // It would be nice if we could also include info on the local endpoint here, but that's not exposed.
             message = MitmproxyIpc_NewFlow.with {
                 $0.tcp = MitmproxyIpc_TcpFlow.with {

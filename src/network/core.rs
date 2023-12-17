@@ -89,7 +89,7 @@ impl<'a> NetworkStack<'a> {
     }
 
     pub fn handle_transport_command(&mut self, command: TransportCommand) {
-        if command.is_tcp() {
+        if command.connection_id().is_tcp() {
             self.tcp.handle_transport_command(command);
         } else if let Some(packet) = self.udp.handle_transport_command(command) {
             if self

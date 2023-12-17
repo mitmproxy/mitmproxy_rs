@@ -4,7 +4,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use anyhow::{anyhow, Result};
 use internet_packet::InternetPacket;
 use smoltcp::wire::{IpProtocol, Ipv4Packet, Ipv6Packet};
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 
 #[derive(Debug, Clone)]
 pub enum TunnelInfo {
@@ -39,10 +39,10 @@ pub enum NetworkCommand {
 
 pub struct ConnectionIdGenerator(usize);
 impl ConnectionIdGenerator {
-    pub fn tcp() -> Self {
+    pub const fn tcp() -> Self {
         Self(2)
     }
-    pub fn udp() -> Self {
+    pub const fn udp() -> Self {
         Self(1)
     }
     pub fn next_id(&mut self) -> ConnectionId {
@@ -85,6 +85,7 @@ pub enum TransportEvent {
         src_addr: SocketAddr,
         dst_addr: SocketAddr,
         tunnel_info: TunnelInfo,
+        command_tx: Option<mpsc::UnboundedSender<TransportCommand>>,
     },
 }
 
@@ -98,14 +99,13 @@ pub enum TransportCommand {
 }
 
 impl TransportCommand {
-    pub fn is_tcp(&self) -> bool {
+    pub fn connection_id(&self) -> &ConnectionId {
         match self {
             TransportCommand::ReadData(id, _, _) => id,
             TransportCommand::WriteData(id, _) => id,
             TransportCommand::DrainWriter(id, _) => id,
             TransportCommand::CloseConnection(id, _) => id,
         }
-        .is_tcp()
     }
 }
 

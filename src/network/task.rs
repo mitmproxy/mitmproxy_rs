@@ -93,7 +93,7 @@ impl NetworkTask<'_> {
                 // wait for graceful shutdown
                 _ = self.shutdown.recv() => break 'task,
                 // wait for timeouts when the device is idle
-                _ = async { tokio::time::sleep(delay.unwrap()).await }, if delay.is_some() => {},
+                _ = tokio::time::sleep(delay.unwrap()), if delay.is_some() => {},
                 // wait for py_tx channel capacity...
                 Ok(permit) = self.py_tx.reserve(), if !py_tx_available => {
                     py_tx_permit = Some(permit);

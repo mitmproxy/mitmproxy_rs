@@ -356,7 +356,7 @@ async fn udp_read_write(
         connection_id,
         src_addr: recv_src_addr,
         dst_addr: recv_dst_addr,
-        tunnel_info: _,
+        ..
     } = event;
 
     assert_eq!(src_addr, recv_src_addr);
@@ -494,7 +494,7 @@ async fn tcp_ipv4_connection() -> Result<()> {
         connection_id: tcp_conn_id,
         src_addr: tcp_src_sock,
         dst_addr: tcp_dst_sock,
-        tunnel_info: _,
+        ..
     } = event;
     assert_eq!(IpAddress::Ipv4(src_addr), tcp_src_sock.ip().into());
     assert_eq!(IpAddress::Ipv4(dst_addr), tcp_dst_sock.ip().into());
@@ -671,7 +671,7 @@ async fn tcp_ipv6_connection() -> Result<()> {
         connection_id: tcp_conn_id,
         src_addr: tcp_src_sock,
         dst_addr: tcp_dst_sock,
-        tunnel_info: _,
+        ..
     } = event;
     assert_eq!(IpAddress::Ipv6(src_addr), tcp_src_sock.ip().into());
     assert_eq!(IpAddress::Ipv6(dst_addr), tcp_dst_sock.ip().into());

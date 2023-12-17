@@ -65,6 +65,8 @@ impl ConnectionState {
     }
 }
 
+pub const UDP_TIMEOUT: Duration = Duration::from_secs(60);
+
 pub struct UdpHandler {
     connection_id_generator: ConnectionIdGenerator,
     id_lookup: LruCache<(SocketAddr, SocketAddr), ConnectionId>,
@@ -73,12 +75,10 @@ pub struct UdpHandler {
 
 impl UdpHandler {
     pub fn new() -> Self {
-        let connections = LruCache::<ConnectionId, ConnectionState>::with_expiry_duration(
-            Duration::from_secs(60),
-        );
-        let id_lookup = LruCache::<(SocketAddr, SocketAddr), ConnectionId>::with_expiry_duration(
-            Duration::from_secs(60),
-        );
+        let connections =
+            LruCache::<ConnectionId, ConnectionState>::with_expiry_duration(UDP_TIMEOUT);
+        let id_lookup =
+            LruCache::<(SocketAddr, SocketAddr), ConnectionId>::with_expiry_duration(UDP_TIMEOUT);
         Self {
             connections,
             id_lookup,
@@ -172,6 +172,7 @@ impl UdpHandler {
                     src_addr: packet.src_addr,
                     dst_addr: packet.dst_addr,
                     tunnel_info,
+                    command_tx: None,
                 });
             }
         };

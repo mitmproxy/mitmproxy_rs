@@ -2,14 +2,9 @@ use std::net::SocketAddr;
 
 use crate::util::{socketaddr_to_py, string_to_key};
 
-#[cfg(target_os = "macos")]
-use mitmproxy::packet_sources::macos::MacosConf;
-
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
 
 use pyo3::prelude::*;
-#[cfg(target_os = "macos")]
-use std::path::Path;
 
 use boringtun::x25519::PublicKey;
 

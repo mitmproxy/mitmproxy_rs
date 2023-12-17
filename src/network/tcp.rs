@@ -147,6 +147,7 @@ impl<'a> TcpHandler<'a> {
                 src_addr,
                 dst_addr,
                 tunnel_info,
+                command_tx: None,
             };
             permit.send(event);
         }

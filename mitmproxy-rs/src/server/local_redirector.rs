@@ -22,6 +22,16 @@ pub struct LocalRedirector {
     spec: String,
 }
 
+impl LocalRedirector {
+    pub fn new(server: Server, conf_tx: mpsc::UnboundedSender<InterceptConf>) -> Self {
+        Self {
+            server,
+            conf_tx,
+            spec: "inactive".to_string(),
+        }
+    }
+}
+
 #[pymethods]
 impl LocalRedirector {
     /// Return a textual description of the given spec,
@@ -84,11 +94,7 @@ pub fn start_local_redirector(
             let (server, conf_tx) =
                 Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
 
-            Ok(LocalRedirector {
-                server,
-                conf_tx,
-                spec: "inactive".to_string(),
-            })
+            Ok(LocalRedirector::new(server, conf_tx))
         })
     }
     #[cfg(target_os = "macos")]
@@ -115,8 +121,9 @@ pub fn start_local_redirector(
         }
         let conf = MacosConf;
         pyo3_asyncio::tokio::future_into_py(py, async move {
-            let (server, conf_tx) = Server::init(conf, handle_connection, receive_datagram).await?;
-            Ok(LocalRedirector { server, conf_tx })
+            let (server, conf_tx) =
+                Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
+            Ok(LocalRedirector::new(server, conf_tx))
         })
     }
     #[cfg(not(any(windows, target_os = "macos")))]

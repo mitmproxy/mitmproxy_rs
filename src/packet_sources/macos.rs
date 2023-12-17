@@ -1,7 +1,6 @@
-use std::collections::HashMap;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use crate::messages::{ConnectionId, TransportCommand, TransportEvent, TunnelInfo};
+use crate::messages::{ConnectionIdGenerator, TransportCommand, TransportEvent, TunnelInfo};
 
 use crate::intercept_conf::InterceptConf;
 use crate::ipc;
@@ -12,7 +11,7 @@ use async_trait::async_trait;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 
-use prost::bytes::{Buf, BytesMut};
+use prost::bytes::BytesMut;
 use prost::Message;
 
 use std::process::Stdio;
@@ -78,7 +77,7 @@ impl PacketSourceConf for MacosConf {
     async fn build(
         self,
         transport_events_tx: Sender<TransportEvent>,
-        transport_commands_rx: UnboundedReceiver<TransportCommand>,
+        _transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
     ) -> Result<(Self::Task, Self::Data)> {
         let listener_addr = format!("/tmp/mitmproxy-{}", std::process::id());
@@ -100,11 +99,7 @@ impl PacketSourceConf for MacosConf {
                 control_channel,
                 listener,
                 connections: JoinSet::new(),
-                connection_by_id: HashMap::new(),
-                connection_by_addr: HashMap::new(),
-                next_connection_id: 0,
                 transport_events_tx,
-                transport_commands_rx,
                 conf_rx,
                 shutdown,
             },
@@ -116,12 +111,8 @@ impl PacketSourceConf for MacosConf {
 pub struct MacOsTask {
     control_channel: UnixStream,
     listener: UnixListener,
-    connections: JoinSet<Result<(ConnectionId, Option<SocketAddr>)>>,
-    connection_by_id: HashMap<ConnectionId, UnboundedSender<TransportCommand>>,
-    connection_by_addr: HashMap<SocketAddr, UnboundedSender<TransportCommand>>,
-    next_connection_id: ConnectionId,
+    connections: JoinSet<Result<()>>,
     transport_events_tx: Sender<TransportEvent>,
-    transport_commands_rx: UnboundedReceiver<TransportCommand>,
     conf_rx: UnboundedReceiver<InterceptConf>,
     shutdown: broadcast::Receiver<()>,
 }
@@ -130,9 +121,6 @@ pub struct MacOsTask {
 impl PacketSourceTask for MacOsTask {
     async fn run(mut self) -> Result<()> {
         let mut control_channel = Framed::new(self.control_channel, LengthDelimitedCodec::new());
-
-        let (register_addr_tx, mut register_addr_rx) =
-            unbounded_channel::<RegisterConnectionSocketAddr>();
 
         loop {
             tokio::select! {
@@ -144,66 +132,24 @@ impl PacketSourceTask for MacOsTask {
                 },
                 Some(task) = self.connections.join_next() => {
                     match task {
-                        Ok(Ok((cid, src_addr))) => {
-                            self.connection_by_id.remove(&cid);
-                            if let Some(src_addr) = src_addr {
-                                self.connection_by_addr.remove(&src_addr);
-                            }
-                        },
+                        Ok(Ok(())) => (),
                         Ok(Err(e)) => log::error!("Connection task failure: {e:?}"),
                         Err(e) => log::error!("Connection task panic: {e:?}"),
                     }
                 },
-                Some(RegisterConnectionSocketAddr(cid, addr, done)) = register_addr_rx.recv() => {
-                    let tx = self.connection_by_id.get(&cid).unwrap().clone();
-                    self.connection_by_addr.insert(addr, tx);
-                    done.send(()).expect("ok channel dead");
-                },
                 l = self.listener.accept() => {
                     match l {
                         Ok((stream, _)) => {
-                            let (conn_tx, conn_rx) = unbounded_channel();
-                            let connection_id = {
-                                self.next_connection_id += 1;
-                                self.next_connection_id
-                            };
-                            self.connections.spawn(
-                                ConnectionTask::new(connection_id, stream, conn_rx, self.transport_events_tx.clone(), register_addr_tx.clone())
-                                .run()
+                            let task = ConnectionTask::new(
+                                stream,
+                                self.transport_events_tx.clone(),
+                                self.shutdown.resubscribe(),
                             );
-                            self.connection_by_id.insert(
-                                connection_id,
-                                conn_tx
-                            );
+                            self.connections.spawn(task.run());
                         },
                         Err(e) => log::error!("Error accepting connection from macos-redirector: {}", e)
                     }
                 },
-                Some(cmd) = self.transport_commands_rx.recv() => {
-                    match &cmd {
-                        TransportCommand::ReadData(connection_id, _, _)
-                        | TransportCommand::WriteData(connection_id, _)
-                        | TransportCommand::DrainWriter(connection_id, _)
-                        | TransportCommand::CloseConnection(connection_id, _) => {
-                            let Some(conn_tx) = self.connection_by_id.get(connection_id) else {
-                                log::error!("Received command for unknown connection: {:?}", &cmd);
-                                continue;
-                            };
-                            conn_tx.send(cmd).ok();
-                        },
-                        TransportCommand::SendDatagram {
-                            data: _,
-                            src_addr,
-                            dst_addr,
-                        } => {
-                            let Some(conn_tx) = self.connection_by_addr.get(dst_addr) else {
-                                log::error!("Received command for unknown address: src={:?} dst={:?}", src_addr, dst_addr);
-                                continue;
-                            };
-                            conn_tx.send(cmd).ok();
-                        },
-                    }
-                }
                 // pipe through changes to the intercept list
                 Some(conf) = self.conf_rx.recv() => {
                     let msg = ipc::InterceptConf::from(conf);
@@ -220,37 +166,25 @@ impl PacketSourceTask for MacOsTask {
     }
 }
 
-struct RegisterConnectionSocketAddr(ConnectionId, SocketAddr, oneshot::Sender<()>);
-
 struct ConnectionTask {
-    id: ConnectionId,
     stream: UnixStream,
-    commands: UnboundedReceiver<TransportCommand>,
     events: Sender<TransportEvent>,
-    read_tx: Option<(usize, oneshot::Sender<Vec<u8>>)>,
-    drain_tx: Option<oneshot::Sender<()>>,
-    register_addr: UnboundedSender<RegisterConnectionSocketAddr>,
+    shutdown: broadcast::Receiver<()>,
 }
 
 impl ConnectionTask {
     pub fn new(
-        id: ConnectionId,
         stream: UnixStream,
-        commands: UnboundedReceiver<TransportCommand>,
         events: Sender<TransportEvent>,
-        register_addr: UnboundedSender<RegisterConnectionSocketAddr>,
+        shutdown: broadcast::Receiver<()>,
     ) -> Self {
         Self {
-            id,
             stream,
-            commands,
             events,
-            read_tx: None,
-            drain_tx: None,
-            register_addr,
+            shutdown,
         }
     }
-    async fn run(mut self) -> Result<(ConnectionId, Option<SocketAddr>)> {
+    async fn run(mut self) -> Result<()> {
         let new_flow = {
             let len = self
                 .stream
@@ -276,7 +210,7 @@ impl ConnectionTask {
         }
     }
 
-    async fn handle_udp(mut self, flow: UdpFlow) -> Result<(ConnectionId, Option<SocketAddr>)> {
+    async fn handle_udp(mut self, flow: UdpFlow) -> Result<()> {
         // For UDP connections, we pass length-delimited protobuf messages over the unix socket
         // in both directions.
         let mut write_buf = BytesMut::new();
@@ -292,134 +226,150 @@ impl ConnectionTask {
                 remote_endpoint: None,
             }
         };
-        let local_addr = {
+        let local_address = {
             let Some(addr) = &flow.local_address else {
                 bail!("no local address")
             };
             SocketAddr::try_from(addr)?
         };
+        let mut remote_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+        let (command_tx, mut command_rx) = unbounded_channel();
 
-        // Send our socket address to the main macos task and wait until it has been processed.
-        let (done_tx, done_rx) = oneshot::channel();
-        self.register_addr
-            .send(RegisterConnectionSocketAddr(self.id, local_addr, done_tx))?;
-        done_rx.await?;
+        let mut first_packet = Some((tunnel_info, local_address, command_tx));
+
+        let mut read_data: Option<Vec<u8>> = None;
+        let mut read_tx: Option<oneshot::Sender<Vec<u8>>> = None;
 
         loop {
             tokio::select! {
-                packet = stream.next() => {
-                    let Some(packet) = packet else {
-                        break;
-                    };
+                _ = self.shutdown.recv() => break,
+                Some(packet) = stream.next(), if read_data.is_none() => {
                     let packet = ipc::UdpPacket::decode(
                         packet.context("IPC read error")?
                     ).context("invalid IPC message")?;
-
                     let dst_addr = {
                         let Some(dst_addr) = &packet.remote_address else { bail!("no remote addr") };
                         SocketAddr::try_from(dst_addr).context("invalid socket address")?
                     };
 
-                    todo!();
-                    if let Err(e) = self.events.try_send(TransportEvent::DatagramReceived {
-                        data: packet.data,
-                        src_addr: local_addr,
-                        dst_addr,
-                        tunnel_info: tunnel_info.clone(),
-                    }) {
-                        log::debug!("Failed to send UDP packet: {}", e);
+                    // We can only send ConnectionEstablished once we know the destination address.
+                    if let Some((tunnel_info, local_address, command_tx)) = first_packet.take() {
+                        remote_address = dst_addr;
+                        self.events.send(TransportEvent::ConnectionEstablished {
+                            connection_id: ConnectionIdGenerator::udp().next_id(),
+                            src_addr: local_address,
+                            dst_addr,
+                            tunnel_info,
+                            command_tx: Some(command_tx),
+                        }).await?;
+                    } else if remote_address != dst_addr {
+                        bail!("UDP packet destinations do not match: {remote_address} -> {dst_addr}")
+                    }
+                    if let Some(tx) = read_tx.take() {
+                        tx.send(packet.data).ok();
+                    } else {
+                        read_data = Some(packet.data);
                     }
                 },
-                command = self.commands.recv() => {
-                    let Some(command) = command else {
-                        break;
-                    };
+                Some(command) = command_rx.recv() => {
                     match command {
-                        todo!();
-                        TransportCommand::SendDatagram { data, src_addr, dst_addr } => {
-                            assert_eq!(dst_addr, local_addr);
+                        TransportCommand::ReadData(_, _, tx) => {
+                            if let Some(data) = read_data.take() {
+                                tx.send(data).ok();
+                            } else {
+                                if read_tx.is_some() {
+                                    bail!("Concurrent readers are not supported.");
+                                }
+                                read_tx = Some(tx);
+                            }
+                        },
+                        TransportCommand::WriteData(_, data) => {
+                            assert!(first_packet.is_none());
                             let packet = ipc::UdpPacket {
                                 data,
-                                remote_address: Some(src_addr.into()),
+                                remote_address: Some(remote_address.into()),
                             };
                             write_buf.reserve(packet.encoded_len());
                             packet.encode(&mut write_buf)?;
-                            stream.send(write_buf.split().freeze()).await?;
+                            // Awaiting here isn't ideal because it blocks reading, but what to do.
+                            stream.send(write_buf.split().freeze()).await.ok();
                         },
-                        TransportCommand::ReadData(_, _, _) |
-                        TransportCommand::WriteData(_, _) |
-                        TransportCommand::DrainWriter(_, _) |
-                        TransportCommand::CloseConnection(_, _) => {
-                            bail!("UDP connection received TCP event: {command:?}");
+                        TransportCommand::DrainWriter(_, tx) => {
+                            tx.send(()).ok();
+                        },
+                        TransportCommand::CloseConnection(_, half_close) => {
+                            if !half_close {
+                                break;
+                            }
                         }
                     }
                 }
+                else => break,
             }
         }
 
-        Ok((self.id, Some(local_addr)))
+        Ok(())
     }
 
-    async fn handle_tcp(mut self, flow: TcpFlow) -> Result<(ConnectionId, Option<SocketAddr>)> {
+    async fn handle_tcp(mut self, flow: TcpFlow) -> Result<()> {
         let mut write_buf = BytesMut::new();
+        let mut drain_tx: Option<oneshot::Sender<()>> = None;
+        let mut read_tx: Option<(usize, oneshot::Sender<Vec<u8>>)> = None;
+
+        let (command_tx, mut command_rx) = unbounded_channel();
 
         let remote = flow.remote_address.expect("no remote address");
         let src_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 0));
-        let dst_addr = match SocketAddr::try_from(&remote) {
-            Ok(addr) => addr,
-            Err(_) => SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+        let dst_addr = SocketAddr::try_from(&remote)
+            .unwrap_or_else(|_| SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)));
+        let tunnel_info = TunnelInfo::LocalRedirector {
+            pid: flow.tunnel_info.as_ref().map(|t| t.pid).unwrap_or(0),
+            process_name: flow.tunnel_info.and_then(|t| t.process_name),
+            remote_endpoint: Some((remote.host, remote.port as u16)),
         };
-        let remote_endpoint = Some((remote.host, remote.port as u16));
 
         self.events
             .send(TransportEvent::ConnectionEstablished {
-                connection_id: self.id,
+                connection_id: ConnectionIdGenerator::tcp().next_id(),
                 src_addr,
                 dst_addr,
-                tunnel_info: TunnelInfo::LocalRedirector {
-                    pid: flow.tunnel_info.as_ref().map(|t| t.pid).unwrap_or(0),
-                    process_name: flow.tunnel_info.and_then(|t| t.process_name),
-                    remote_endpoint,
-                },
+                tunnel_info,
+                command_tx: Some(command_tx),
             })
             .await?;
 
         loop {
             tokio::select! {
+                _ = self.shutdown.recv() => break,
                 Ok(()) = self.stream.writable(), if !write_buf.is_empty() => {
                     self.stream.write_buf(&mut write_buf).await.context("failed to write to socket from buf")?;
                     if write_buf.is_empty() {
-                        if let Some(tx) = self.drain_tx.take() {
+                        if let Some(tx) = drain_tx.take() {
                             tx.send(()).ok();
                         }
                     }
                 },
-                Ok(()) = self.stream.readable(), if self.read_tx.is_some() => {
-                    let (n, tx) = self.read_tx.take().unwrap();
+                Ok(()) = self.stream.readable(), if read_tx.is_some() => {
+                    let (n, tx) = read_tx.take().unwrap();
                     let mut data = Vec::with_capacity(n);
                     self.stream.read_buf(&mut data).await.context("failed to read from socket")?;
                     tx.send(data).ok();
                 },
-                command = self.commands.recv() => {
-                    let Some(command) = command else {
-                        break;
-                    };
+                Some(command) = command_rx.recv() => {
                     match command {
                         TransportCommand::ReadData(_, n, tx) => {
-                            assert!(self.read_tx.is_none());
-                            self.read_tx = Some((n as usize, tx));
+                            assert!(read_tx.is_none());
+                            read_tx = Some((n as usize, tx));
                         },
                         TransportCommand::WriteData(_, data) => {
-                            let mut c = std::io::Cursor::new(data);
-                            self.stream.write_buf(&mut c).await.context("failed to write to socket")?;
-                            write_buf.extend_from_slice(c.chunk());
+                            write_buf.extend_from_slice(data.as_slice());
                         },
                         TransportCommand::DrainWriter(_, tx) => {
-                            assert!(self.drain_tx.is_none());
+                            assert!(drain_tx.is_none());
                             if write_buf.is_empty() {
                                 tx.send(()).ok();
                             } else {
-                                self.drain_tx = Some(tx);
+                                drain_tx = Some(tx);
                             }
                         },
                         TransportCommand::CloseConnection(_, half_close) => {
@@ -430,9 +380,10 @@ impl ConnectionTask {
                             }
                         }
                     }
-                }
+                },
+                else => break,
             }
         }
-        Ok((self.id, None))
+        Ok(())
     }
 }
