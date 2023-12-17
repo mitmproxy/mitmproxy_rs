@@ -23,6 +23,7 @@ jobs:
       - run: protoc --proto_path=./src/ipc/ mitmproxy_ipc.proto
           --prost_out=./src/ipc/
           --swift_out=./mitmproxy-macos/redirector/ipc
+      - run: cargo fmt --all
       - uses: autofix-ci/action@d3e591514b99d0fca6779455ff8338516663f7cc
 
   rustfmt:
