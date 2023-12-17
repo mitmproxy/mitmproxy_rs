@@ -133,40 +133,25 @@ jobs:
           name: macos-app
           path: mitmproxy-macos/redirector/dist/
 
-  build-os-wheels:
+  build-macos-wheel:
     needs: build-macos-app
-    strategy:
-      matrix:
-        include:
-          - os: windows
-            build-rust: --package windows-redirector
-          - os: macos
-            build-rust: --package macos-certificate-truster
-    runs-on: ${{ matrix.os }}-latest
-    name: build mitmproxy-${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
+    runs-on: macos-latest
 
-      # Build Rust
+    steps:
+      # Setup
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8  # v2.7.1
         timeout-minutes: 2
         continue-on-error: true
       - run: rustup toolchain install stable --profile minimal
       - run: rustup default stable
-      - if: runner.os == 'macOS'
-        run: rustup target add aarch64-apple-darwin
-      - if: runner.os == 'macOS'
-        run: |
+
+      - run: rustup target add aarch64-apple-darwin
+      - run: |
           cargo build --release ${{ matrix.build-rust }} --target x86_64-apple-darwin
           cargo build --release ${{ matrix.build-rust }} --target aarch64-apple-darwin
           lipo -create -output target/release/macos-certificate-truster target/x86_64-apple-darwin/release/macos-certificate-truster target/aarch64-apple-darwin/release/macos-certificate-truster
-      - if: runner.os != 'macOS'
-        run: cargo build --release ${{ matrix.build-rust }}
-
-
-      # Download macOS app
-      - if: runner.os == 'macOS'
-        uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v3
         with:
           name: macos-app
           path: mitmproxy-macos/redirector/dist/
@@ -177,7 +162,32 @@ jobs:
           python-version-file: .github/python-version.txt
       - name: Install build from PyPI
         uses: install-pinned/build@8abfe6b59c77f639a26f11c0ce295f9940f7865f
-      - run: python -m build --wheel ./mitmproxy-${{ matrix.os }} --outdir target/wheels/
+      - run: python -m build --wheel ./mitmproxy-macos --outdir target/wheels/
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: target/wheels
+
+  build-windows-wheel:
+    runs-on: windows-latest
+    steps:
+      # Setup
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8  # v2.7.1
+        timeout-minutes: 2
+        continue-on-error: true
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup default stable
+
+      - run: cargo build --release ${{ matrix.build-rust }}
+
+      # Build & upload wheel
+      - uses: actions/setup-python@v4
+        with:
+          python-version-file: .github/python-version.txt
+      - name: Install build from PyPI
+        uses: install-pinned/build@8abfe6b59c77f639a26f11c0ce295f9940f7865f
+      - run: python -m build --wheel ./mitmproxy-macos --outdir target/wheels/
       - uses: actions/upload-artifact@v3
         with:
           name: wheels
@@ -188,10 +198,12 @@ jobs:
     needs:
     - test
     - build
-    - build-os-wheels
+    - build-macos-wheel
+    - build-windows-wheel
     uses: mhils/workflows/.github/workflows/alls-green.yml@main
     with:
       jobs: ${{ toJSON(needs) }}
+      allowed-skips: ${{ github.event_name != 'push' && 'build-macos-wheel' }}
 
   deploy:
     uses: mhils/workflows/.github/workflows/python-deploy.yml@main
