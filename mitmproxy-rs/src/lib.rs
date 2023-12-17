@@ -9,6 +9,7 @@ mod process_info;
 mod server;
 mod stream;
 mod task;
+mod udp_client;
 mod util;
 
 static LOGGER_INITIALIZED: Lazy<RwLock<bool>> = Lazy::new(|| RwLock::new(false));
@@ -51,6 +52,8 @@ pub fn mitmproxy_rs(py: Python, m: &PyModule) -> PyResult<()> {
 
     m.add_function(wrap_pyfunction!(server::start_udp_server, m)?)?;
     m.add_class::<server::UdpServer>()?;
+
+    m.add_function(wrap_pyfunction!(udp_client::open_udp_connection, m)?)?;
 
     m.add_function(wrap_pyfunction!(process_info::active_executables, m)?)?;
     m.add_class::<process_info::Process>()?;

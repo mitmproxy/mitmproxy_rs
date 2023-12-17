@@ -68,7 +68,7 @@ impl PyInteropTask {
                             let stream = Stream {
                                 connection_id,
                                 state: StreamState::Open,
-                                event_tx: self.transport_commands.clone(),
+                                command_tx: self.transport_commands.clone(),
                                 peername: src_addr,
                                 sockname: dst_addr,
                                 tunnel_info,

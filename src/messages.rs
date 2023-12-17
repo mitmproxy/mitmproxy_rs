@@ -19,7 +19,7 @@ pub enum TunnelInfo {
         /// an unresolved remote_endpoint instead.
         remote_endpoint: Option<(String, u16)>,
     },
-    Udp {},
+    Udp,
 }
 
 /// Events that are sent by WireGuard to the TCP stack.

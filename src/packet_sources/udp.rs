@@ -1,6 +1,6 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{Ipv4Addr, SocketAddr};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 
 use tokio::sync::mpsc::{Permit, UnboundedReceiver};
@@ -34,32 +34,13 @@ impl PacketSourceConf for UdpConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
     ) -> Result<(Self::Task, Self::Data)> {
-        // bind to UDP socket(s)
-
-        let socket_addrs = if self.host.is_empty() {
-            vec![
-                // Windows quirks: We need to bind to 127.0.0.1 explicitly for IPv4.
-                #[cfg(windows)]
-                SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), self.port),
-                #[cfg(not(windows))]
-                SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), self.port),
-                SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), self.port),
-            ]
-        } else {
-            vec![SocketAddr::new(self.host.parse()?, self.port)]
-        };
-
-        let socket = UdpSocket::bind(socket_addrs.as_slice()).await?;
+        // bind to UDP socket. Note that UdpSocket::bind accepts ToSocketAddrs, but will only ever bind to one address!
+        let socket = UdpSocket::bind((self.host.as_str(), self.port))
+            .await
+            .with_context(|| format!("Failed to bind UDP socket to {}:{}", self.host, self.port))?;
         let local_addr = socket.local_addr()?;
 
-        log::debug!(
-            "UDP server listening on {} ...",
-            socket_addrs
-                .iter()
-                .map(|addr| addr.to_string())
-                .collect::<Vec<String>>()
-                .join(" and ")
-        );
+        log::debug!("UDP server listening on {} ...", local_addr);
 
         Ok((
             UdpTask {

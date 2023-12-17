@@ -1,10 +1,11 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::SocketAddr;
 
 use mitmproxy::packet_sources::udp::UdpConf;
 
 use pyo3::prelude::*;
 
 use crate::server::base::Server;
+
 use crate::util::socketaddr_to_py;
 
 /// A running UDP server.
@@ -62,17 +63,10 @@ pub fn start_udp_server(
     port: u16,
     handle_udp_stream: PyObject,
 ) -> PyResult<&PyAny> {
-    let is_unspecified = host.is_empty();
     let conf = UdpConf { host, port };
     let handle_tcp_stream = py.None();
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        let (server, mut local_addr) =
-            Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
-        // Work around Windows limitation, see packet_sources/udp.rs
-        if is_unspecified && local_addr == SocketAddr::from((Ipv4Addr::LOCALHOST, port)) {
-            local_addr.set_ip(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
-        }
-
+        let (server, local_addr) = Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
         Ok(UdpServer { server, local_addr })
     })
 }

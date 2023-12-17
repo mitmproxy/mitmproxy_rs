@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Awaitable, Callable, Any, Literal
-from typing import final, overload
+from typing import final, overload, TypeVar
 
+
+T = TypeVar("T")
 
 # WireGuard
 
@@ -43,7 +45,7 @@ class LocalRedirector:
     async def wait_closed(self) -> None: ...
 
 
-# UDP Server
+# UDP
 
 async def start_udp_server(
     host: str,
@@ -58,6 +60,12 @@ class UdpServer:
     async def wait_closed(self) -> None: ...
     def __repr__(self) -> str: ...
 
+async def open_udp_connection(
+    host: str,
+    port: int,
+    *,
+    local_addr: tuple[str, int] | None = None,
+) -> Stream: ...
 
 # TCP / UDP
 
@@ -73,9 +81,24 @@ class Stream:
     async def wait_closed(self) -> None: ...
 
     @overload
-    def get_extra_info(self, name: Literal["transport_protocol"], default: Any = None) -> Literal["tcp", "udp"]: ...
+    def get_extra_info(self, name: Literal["transport_protocol"], default: None = None) -> Literal["tcp", "udp"]: ...
+    @overload
+    def get_extra_info(self, name: Literal["transport_protocol"], default: T) -> Literal["tcp", "udp"] | T: ...
+    @overload
+    def get_extra_info(self, name: Literal["peername", "sockname", "original_src", "original_dst", "remote_endpoint"], default: None = None) -> tuple[str, int]: ...
+    @overload
+    def get_extra_info(self, name: Literal["peername", "sockname", "original_src", "original_dst", "remote_endpoint"], default: T) -> tuple[str, int] | T: ...
+    @overload
+    def get_extra_info(self, name: Literal["pid"], default: None = None) -> int: ...
+    @overload
+    def get_extra_info(self, name: Literal["pid"], default: T) -> int | T: ...
+    @overload
+    def get_extra_info(self, name: Literal["process_name"], default: None = None) -> str: ...
+    @overload
+    def get_extra_info(self, name: Literal["process_name"], default: T) -> str | T: ...
+    @overload
+    def get_extra_info(self, name: str, default: T) -> T: ...
 
-    def get_extra_info(self, name: str, default: Any = None) -> Any: ...
     def __repr__(self) -> str: ...
 
 

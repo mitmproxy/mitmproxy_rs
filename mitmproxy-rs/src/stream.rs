@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 
 use once_cell::sync::Lazy;
 
+use pyo3::exceptions::PyKeyError;
 use pyo3::{exceptions::PyOSError, intern, prelude::*, types::PyBytes};
 
 use tokio::sync::{
@@ -11,7 +12,7 @@ use tokio::sync::{
 
 use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
 
-use crate::util::{event_queue_unavailable, get_tunnel_info, socketaddr_to_py};
+use crate::util::{event_queue_unavailable, socketaddr_to_py};
 
 #[derive(Debug)]
 pub enum StreamState {
@@ -28,7 +29,7 @@ pub enum StreamState {
 pub struct Stream {
     pub connection_id: ConnectionId,
     pub state: StreamState,
-    pub event_tx: mpsc::UnboundedSender<TransportCommand>,
+    pub command_tx: mpsc::UnboundedSender<TransportCommand>,
     pub peername: SocketAddr,
     pub sockname: SocketAddr,
     pub tunnel_info: TunnelInfo,
@@ -49,7 +50,7 @@ impl Stream {
             StreamState::Open | StreamState::HalfClosed => {
                 let (tx, rx) = oneshot::channel();
 
-                self.event_tx
+                self.command_tx
                     .send(TransportCommand::ReadData(self.connection_id, n, tx))
                     .ok(); // if this fails tx is dropped and rx.await will error.
 
@@ -77,7 +78,7 @@ impl Stream {
     fn write(&self, data: Vec<u8>) -> PyResult<()> {
         match self.state {
             StreamState::Open => self
-                .event_tx
+                .command_tx
                 .send(TransportCommand::WriteData(self.connection_id, data))
                 .map_err(event_queue_unavailable),
             StreamState::HalfClosed => Err(PyOSError::new_err("connection closed")),
@@ -92,7 +93,7 @@ impl Stream {
     fn drain<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
         let (tx, rx) = oneshot::channel();
 
-        self.event_tx
+        self.command_tx
             .send(TransportCommand::DrainWriter(self.connection_id, tx))
             .map_err(event_queue_unavailable)?;
 
@@ -111,7 +112,7 @@ impl Stream {
         match self.state {
             StreamState::Open => {
                 self.state = StreamState::HalfClosed;
-                self.event_tx
+                self.command_tx
                     .send(TransportCommand::CloseConnection(self.connection_id, true))
                     .map_err(event_queue_unavailable)
             }
@@ -128,7 +129,7 @@ impl Stream {
         match self.state {
             StreamState::Open | StreamState::HalfClosed => {
                 self.state = StreamState::Closed;
-                self.event_tx
+                self.command_tx
                     .send(TransportCommand::CloseConnection(self.connection_id, false))
                     .map_err(event_queue_unavailable)
             }
@@ -155,7 +156,6 @@ impl Stream {
     ///   - Always available: `transport_protocol`, `peername`, `sockname`
     ///   - WireGuard mode: `original_dst`, `original_src`
     ///   - Local redirector mode: `pid`, `process_name`, `remote_endpoint`
-    #[pyo3(text_signature = "(self, name, default=None)")]
     fn get_extra_info(
         &self,
         py: Python,
@@ -163,14 +163,38 @@ impl Stream {
         default: Option<PyObject>,
     ) -> PyResult<PyObject> {
         match name.as_str() {
-            "transport_protocol" => Ok(PyObject::from(if self.connection_id.is_tcp() {
-                intern!(py, "tcp")
-            } else {
-                intern!(py, "udp")
-            })),
-            "peername" => Ok(socketaddr_to_py(py, self.peername)),
-            "sockname" => Ok(socketaddr_to_py(py, self.sockname)),
-            _ => get_tunnel_info(&self.tunnel_info, py, name, default),
+            "transport_protocol" => {
+                if self.connection_id.is_tcp() {
+                    return Ok(PyObject::from(intern!(py, "tcp")));
+                } else {
+                    return Ok(PyObject::from(intern!(py, "udp")));
+                }
+            }
+            "peername" => return Ok(socketaddr_to_py(py, self.peername)),
+            "sockname" => return Ok(socketaddr_to_py(py, self.sockname)),
+            _ => (),
+        }
+        match &self.tunnel_info {
+            TunnelInfo::WireGuard { src_addr, dst_addr } => match name.as_str() {
+                "original_src" => return Ok(socketaddr_to_py(py, *src_addr)),
+                "original_dst" => return Ok(socketaddr_to_py(py, *dst_addr)),
+                _ => (),
+            },
+            TunnelInfo::LocalRedirector {
+                pid,
+                process_name,
+                remote_endpoint,
+            } => match name.as_str() {
+                "pid" => return Ok(pid.into_py(py)),
+                "process_name" => return Ok(process_name.clone().into_py(py)),
+                "remote_endpoint" => return Ok(remote_endpoint.clone().into_py(py)),
+                _ => (),
+            },
+            TunnelInfo::Udp {} => (),
+        }
+        match default {
+            Some(x) => Ok(x),
+            None => Err(PyKeyError::new_err(name)),
         }
     }
 
