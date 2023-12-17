@@ -88,14 +88,21 @@ impl PacketSourceTask for UdpTask {
                 // wait for transport_events_tx channel capacity...
                 Ok(p) = transport_events_tx.reserve(), if !py_tx_available => {
                     permit = Some(p);
-                    continue;
                 },
                 // ... or process incoming packets
                 Ok((len, src_addr)) = self.socket.recv_from(&mut udp_buf), if py_tx_available => {
-                    self.process_incoming_datagram(&udp_buf[..len], src_addr, permit.take().unwrap()).await?;
+                    self.handler.receive_data(
+                        UdpPacket {
+                            src_addr,
+                            dst_addr: self.local_addr,
+                            payload: udp_buf[..len].to_vec(),
+                        },
+                        TunnelInfo::Udp {},
+                        permit.take().unwrap()
+                    );
                 },
                 // send_to is cancel safe, so we can use that for backpressure.
-                _ = self.socket.send_to(&packet_payload, packet_dst), if packet_needs_sending => {
+                Ok(_) = self.socket.send_to(&packet_payload, packet_dst), if packet_needs_sending => {
                     packet_needs_sending = false;
                 },
                 Some(command) = self.transport_commands_rx.recv(), if !packet_needs_sending => {
@@ -108,27 +115,6 @@ impl PacketSourceTask for UdpTask {
             }
         }
         log::debug!("UDP server task shutting down.");
-        Ok(())
-    }
-}
-
-impl UdpTask {
-    async fn process_incoming_datagram(
-        &mut self,
-        data: &[u8],
-        sender_addr: SocketAddr,
-        permit: Permit<'_, TransportEvent>,
-    ) -> Result<()> {
-        let packet = UdpPacket {
-            src_addr: sender_addr,
-            dst_addr: self.local_addr,
-            payload: data.to_vec(),
-        };
-        let tunnel_info = TunnelInfo::WireGuard {
-            src_addr: sender_addr,
-            dst_addr: self.socket.local_addr()?,
-        };
-        self.handler.receive_data(packet, tunnel_info, permit);
         Ok(())
     }
 }

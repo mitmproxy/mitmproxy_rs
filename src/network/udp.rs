@@ -35,15 +35,16 @@ impl ConnectionState {
             read_tx: None,
         }
     }
-    fn receive_packet_payload(&mut self, data: Vec<u8>) {
+    fn add_packet(&mut self, data: Vec<u8>) {
         if self.closed {
+            drop(data);
         } else if let Some(tx) = self.read_tx.take() {
             tx.send(data).ok();
         } else {
             self.packets.push_back(data);
         }
     }
-    fn read_packet_payload(&mut self, tx: oneshot::Sender<Vec<u8>>) {
+    fn add_reader(&mut self, tx: oneshot::Sender<Vec<u8>>) {
         assert!(self.read_tx.is_none());
         if self.closed {
             drop(tx);
@@ -55,13 +56,13 @@ impl ConnectionState {
     }
     fn close(&mut self) {
         if self.closed {
+            // already closed.
         } else if let Some(tx) = self.read_tx.take() {
             drop(tx);
-            self.closed = true;
         } else {
             self.packets.clear();
-            self.closed = true;
         }
+        self.closed = true;
     }
 }
 
@@ -75,6 +76,8 @@ pub struct UdpHandler {
 
 impl UdpHandler {
     pub fn new() -> Self {
+        // This implementation is largely based on the fact that LruCache eventually
+        // drops the state, which closes the respective channels.
         let connections =
             LruCache::<ConnectionId, ConnectionState>::with_expiry_duration(UDP_TIMEOUT);
         let id_lookup =
@@ -109,7 +112,7 @@ impl UdpHandler {
 
     pub fn read_data(&mut self, id: ConnectionId, tx: oneshot::Sender<Vec<u8>>) {
         if let Some(state) = self.connections.get_mut(&id) {
-            state.read_packet_payload(tx);
+            state.add_reader(tx);
         }
     }
 
@@ -154,15 +157,13 @@ impl UdpHandler {
             .cloned()
             .unwrap_or(ConnectionId::unassigned());
 
-        let payload = packet.payload;
-
         match self.connections.get_mut(&potential_cid) {
             Some(state) => {
-                state.receive_packet_payload(payload);
+                state.add_packet(packet.payload);
             }
             None => {
                 let mut state = ConnectionState::new(packet.src_addr, packet.dst_addr);
-                state.receive_packet_payload(payload);
+                state.add_packet(packet.payload);
                 let connection_id = self.connection_id_generator.next_id();
                 self.id_lookup
                     .insert((packet.src_addr, packet.dst_addr), connection_id);
@@ -280,13 +281,13 @@ mod tests {
     #[test]
     fn test_connection_state_recv_recv_read_read() {
         let mut state = ConnectionState::new(SRC, DST);
-        state.receive_packet_payload(vec![1, 2, 3]);
-        state.receive_packet_payload(vec![4, 5, 6]);
+        state.add_packet(vec![1, 2, 3]);
+        state.add_packet(vec![4, 5, 6]);
         let (tx, rx) = oneshot::channel();
-        state.read_packet_payload(tx);
+        state.add_reader(tx);
         assert_eq!(vec![1, 2, 3], rx.blocking_recv().unwrap());
         let (tx, rx) = oneshot::channel();
-        state.read_packet_payload(tx);
+        state.add_reader(tx);
         assert_eq!(vec![4, 5, 6], rx.blocking_recv().unwrap());
     }
 
@@ -294,9 +295,9 @@ mod tests {
     fn test_connection_state_read_recv_recv() {
         let mut state = ConnectionState::new(SRC, DST);
         let (tx, rx) = oneshot::channel();
-        state.read_packet_payload(tx);
-        state.receive_packet_payload(vec![1, 2, 3]);
-        state.receive_packet_payload(vec![4, 5, 6]);
+        state.add_reader(tx);
+        state.add_packet(vec![1, 2, 3]);
+        state.add_packet(vec![4, 5, 6]);
         assert_eq!(vec![1, 2, 3], rx.blocking_recv().unwrap());
     }
 
@@ -305,8 +306,8 @@ mod tests {
         let mut state = ConnectionState::new(SRC, DST);
         let (tx, rx) = oneshot::channel();
         state.close();
-        state.receive_packet_payload(vec![1, 2, 3]);
-        state.read_packet_payload(tx);
+        state.add_packet(vec![1, 2, 3]);
+        state.add_reader(tx);
         assert!(rx.blocking_recv().is_err());
     }
 
@@ -314,9 +315,9 @@ mod tests {
     fn test_connection_state_read_close_recv() {
         let mut state = ConnectionState::new(SRC, DST);
         let (tx, rx) = oneshot::channel();
-        state.read_packet_payload(tx);
+        state.add_reader(tx);
         state.close();
-        state.receive_packet_payload(vec![1, 2, 3]);
+        state.add_packet(vec![1, 2, 3]);
         assert!(rx.blocking_recv().is_err());
     }
 }

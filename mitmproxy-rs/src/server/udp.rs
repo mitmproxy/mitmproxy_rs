@@ -24,7 +24,7 @@ pub struct UdpServer {
 
 #[pymethods]
 impl UdpServer {
-    /// Request the WireGuard server to gracefully shut down.
+    /// Request the server to gracefully shut down.
     ///
     /// The server will stop accepting new connections on its UDP socket, but will flush pending
     /// outgoing data before shutting down.
@@ -32,7 +32,7 @@ impl UdpServer {
         self.server.close()
     }
 
-    /// Wait until the WireGuard server has shut down.
+    /// Wait until the server has shut down.
     ///
     /// This coroutine will yield once pending data has been flushed and all server tasks have
     /// successfully terminated after calling the `Server.close` method.
@@ -54,7 +54,6 @@ impl UdpServer {
 ///
 /// - `host`: The host address.
 /// - `port`: The listen port.
-/// - `handle_tcp_stream`: An async function that will be called for each new TCP `Stream`.
 /// - `handle_udp_stream`: An async function that will be called for each new UDP `Stream`.
 #[pyfunction]
 pub fn start_udp_server(

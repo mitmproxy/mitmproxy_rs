@@ -56,7 +56,7 @@ impl ConnectionIdGenerator {
 pub struct ConnectionId(usize);
 impl ConnectionId {
     pub fn is_tcp(&self) -> bool {
-        self.0 & 1 == 0
+        self.0 > 0 && self.0 & 1 == 0
     }
     pub fn unassigned() -> Self {
         ConnectionId(0)
@@ -69,7 +69,9 @@ impl fmt::Display for ConnectionId {
 }
 impl fmt::Debug for ConnectionId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.is_tcp() {
+        if self.0 == 0 {
+            write!(f, "0")
+        } else if self.is_tcp() {
             write!(f, "{}#TCP", self.0)
         } else {
             write!(f, "{}#UDP", self.0)
@@ -85,6 +87,8 @@ pub enum TransportEvent {
         src_addr: SocketAddr,
         dst_addr: SocketAddr,
         tunnel_info: TunnelInfo,
+        // Channel over which the stream should emit commands.
+        // If command_tx is None, the main channel is used.
         command_tx: Option<mpsc::UnboundedSender<TransportCommand>>,
     },
 }

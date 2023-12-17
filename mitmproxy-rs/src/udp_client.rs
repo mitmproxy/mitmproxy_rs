@@ -32,13 +32,15 @@ pub fn open_udp_connection(
 
         let (command_tx, command_rx) = unbounded_channel();
 
-        tokio::spawn(
-            UdpClientTask {
+        tokio::spawn(async {
+            let task = UdpClientTask {
                 socket,
                 transport_commands_rx: command_rx,
+            };
+            if let Err(e) = task.run().await {
+                log::error!("UDP client errored: {e}");
             }
-            .run(),
-        );
+        });
 
         let stream = Stream {
             connection_id: ConnectionId::unassigned(),
@@ -100,7 +102,7 @@ pub struct UdpClientTask {
 }
 
 impl UdpClientTask {
-    pub async fn run(mut self) {
+    pub async fn run(mut self) -> Result<()> {
         let mut udp_buf = [0; MAX_PACKET_SIZE];
 
         // this here isn't perfect because we block the entire transport_commands_rx channel if we
@@ -113,7 +115,8 @@ impl UdpClientTask {
         loop {
             tokio::select! {
                 // wait for transport_events_tx channel capacity...
-                Ok(len) = self.socket.recv(&mut udp_buf), if packet_tx.is_some() => {
+                len = self.socket.recv(&mut udp_buf), if packet_tx.is_some() => {
+                    let len = len.context("UDP recv() failed")?;
                     packet_tx
                         .take()
                         .unwrap()
@@ -121,10 +124,14 @@ impl UdpClientTask {
                         .ok();
                 },
                 // send_to is cancel safe, so we can use that for backpressure.
-                _ = self.socket.send(&packet_payload), if packet_needs_sending => {
+                e = self.socket.send(&packet_payload), if packet_needs_sending => {
+                    e.context("UDP send() failed")?;
                     packet_needs_sending = false;
                 },
-                Some(command) = self.transport_commands_rx.recv(), if !packet_needs_sending => {
+                command = self.transport_commands_rx.recv(), if !packet_needs_sending => {
+                    let Some(command) = command else {
+                        break;
+                    };
                     match command {
                         TransportCommand::ReadData(_,_,tx) => {
                             packet_tx = Some(tx);
@@ -143,9 +150,9 @@ impl UdpClientTask {
                         },
                     }
                 }
-                else => break,
             }
         }
         log::debug!("UDP client task shutting down.");
+        Ok(())
     }
 }
