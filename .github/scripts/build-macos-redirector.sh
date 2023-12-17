@@ -48,11 +48,11 @@ if [ -n "${APPLE_ID-}" ]; then
     --wait
   xcrun stapler staple "./build/Mitmproxy Redirector.app"
 
-  mkdir dist
+  mkdir -p dist
   tar --create --file "./dist/Mitmproxy Redirector.app.tar" --cd "./build" "Mitmproxy Redirector.app"
 else
   echo "Signing keys not available, building unsigned binary..."
   xcodebuild -scheme macos-redirector CODE_SIGNING_ALLOWED="NO" build
-  mkdir dist
+  mkdir -p dist
   touch dist/dev-build
 fi
