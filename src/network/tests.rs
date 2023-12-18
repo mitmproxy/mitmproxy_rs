@@ -15,6 +15,7 @@ use tokio::{
 use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
+use crate::packet_sources::PacketSourceConf;
 
 use super::task::NetworkTask;
 
@@ -390,7 +391,7 @@ async fn udp_read_write(
 }
 
 #[tokio::test]
-async fn ivp4_udp() -> Result<()> {
+async fn ipv4_udp() -> Result<()> {
     init_logger();
     let src_addr = Ipv4Address([10, 0, 0, 1]);
     let dst_addr = Ipv4Address([10, 0, 0, 42]);

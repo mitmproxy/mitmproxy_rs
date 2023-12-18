@@ -34,6 +34,7 @@ impl ConnectionState {
             self.packets.push_back(data);
         }
     }
+    #[allow(dead_code)]
     pub fn packet_queue_len(&self) -> usize {
         self.packets.len()
     }
@@ -119,8 +120,8 @@ impl UdpHandler {
         }
 
         Some(UdpPacket {
-            src_addr: addrs.0,
-            dst_addr: addrs.1,
+            src_addr: addrs.1,
+            dst_addr: addrs.0,
             payload: data,
         })
     }
@@ -264,12 +265,17 @@ impl From<UdpPacket> for SmolPacket {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::packet_sources::udp::UdpConf;
+    use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+    use std::net::{IpAddr, Ipv4Addr};
+    use tokio::net::UdpSocket;
 
     #[test]
     fn test_connection_state_recv_recv_read_read() {
         let mut state = ConnectionState::default();
         state.add_packet(vec![1, 2, 3]);
         state.add_packet(vec![4, 5, 6]);
+        assert_eq!(state.packet_queue_len(), 2);
         let (tx, rx) = oneshot::channel();
         state.add_reader(tx);
         assert_eq!(vec![1, 2, 3], rx.blocking_recv().unwrap());
@@ -306,5 +312,56 @@ mod tests {
         state.close();
         state.add_packet(vec![1, 2, 3]);
         assert!(rx.blocking_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn test_udp_server_echo() -> anyhow::Result<()> {
+        let (commands_tx, commands_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (events_tx, mut events_rx) = tokio::sync::mpsc::channel(1);
+        let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(10);
+        let (task, addr) = UdpConf {
+            host: "127.0.0.1".to_string(),
+            port: 0,
+        }
+        .build(events_tx, commands_rx, shutdown_rx)
+        .await?;
+
+        let handle = tokio::spawn(task.run());
+
+        let client = UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)).await?;
+        client.connect(addr).await?;
+        client.send(b"Hello World!").await?;
+
+        let TransportEvent::ConnectionEstablished {
+            connection_id,
+            command_tx: None,
+            ..
+        } = events_rx.recv().await.unwrap()
+        else {
+            panic!("unexpected command tx needs test adjustment");
+        };
+
+        let (data_tx, data_rx) = oneshot::channel();
+        commands_tx.send(TransportCommand::ReadData(connection_id, 0, data_tx))?;
+        assert_eq!(data_rx.await.unwrap(), b"Hello World!");
+
+        commands_tx.send(TransportCommand::WriteData(
+            connection_id,
+            b"Hello back!".to_vec(),
+        ))?;
+
+        let mut recv_buf = [0u8; 20];
+        let n = client.recv(&mut recv_buf).await?;
+        assert_eq!(&recv_buf[..n], b"Hello back!");
+
+        commands_tx.send(TransportCommand::CloseConnection(connection_id, false))?;
+        let (data_tx, data_rx) = oneshot::channel();
+        commands_tx.send(TransportCommand::ReadData(connection_id, 0, data_tx))?;
+        assert!(data_rx.await.is_err());
+
+        shutdown_tx.send(())?;
+        handle.await??;
+
+        Ok(())
     }
 }

@@ -153,3 +153,43 @@ impl UdpClientTask {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_udp_client_echo() -> Result<()> {
+        let server = UdpSocket::bind("127.0.0.1:0").await?;
+        let addr = server.local_addr()?;
+
+        let socket = udp_connect(addr.ip().to_string(), addr.port(), None).await?;
+
+        let (command_tx, command_rx) = unbounded_channel();
+
+        let handle = tokio::spawn(
+            UdpClientTask {
+                socket,
+                transport_commands_rx: command_rx,
+            }
+            .run(),
+        );
+        let cid = ConnectionId::unassigned_udp();
+
+        command_tx.send(TransportCommand::WriteData(cid, b"Hello World".to_vec()))?;
+
+        let mut recv_buf = [0u8; 20];
+        let (n, src) = server.recv_from(&mut recv_buf).await?;
+        assert_eq!(&recv_buf[..n], b"Hello World");
+
+        server.send_to(b"Hello back", src).await?;
+
+        let (tx, rx) = oneshot::channel();
+        command_tx.send(TransportCommand::ReadData(cid, 0, tx))?;
+        assert_eq!(rx.await?, b"Hello back");
+
+        command_tx.send(TransportCommand::CloseConnection(cid, false))?;
+        handle.await??;
+        Ok(())
+    }
+}
