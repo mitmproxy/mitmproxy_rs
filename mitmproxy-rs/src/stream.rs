@@ -187,7 +187,11 @@ impl Stream {
             } => match name.as_str() {
                 "pid" => return Ok(pid.into_py(py)),
                 "process_name" => return Ok(process_name.clone().into_py(py)),
-                "remote_endpoint" => return Ok(remote_endpoint.clone().into_py(py)),
+                "remote_endpoint" => {
+                    if let Some(endpoint) = remote_endpoint {
+                        return Ok(endpoint.clone().into_py(py));
+                    }
+                }
                 _ => (),
             },
             TunnelInfo::Udp {} => (),

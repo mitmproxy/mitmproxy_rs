@@ -64,35 +64,32 @@ async fn udp_connect(
 ) -> Result<UdpSocket> {
     let addrs: Vec<SocketAddr> = lookup_host((host.as_str(), port))
         .await
-        .with_context(|| format!("unable to resolve hostname: {}", host))?
+        .with_context(|| format!("unable to resolve hostname: {host}"))?
         .collect();
 
-    if let Some((host, port)) = local_addr {
-        let socket = UdpSocket::bind((host.as_str(), port))
+    let socket = if let Some((host, port)) = local_addr {
+        UdpSocket::bind((host.as_str(), port))
             .await
-            .with_context(|| format!("unable to bind to ({}, {})", host, port))?;
-        socket
-            .connect(addrs.as_slice())
+            .with_context(|| format!("unable to bind to ({}, {})", host, port))?
+    } else if addrs.iter().any(|x| x.is_ipv4()) {
+        // we initially tried to bind to IPv6 by default if that doesn't fail,
+        // but binding mysteriously works if there are only IPv4 addresses in addrs,
+        // and then we get a weird "invalid argument" error when calling socket.recv().
+        // So we just do the lazy thing and do IPv4 by default.
+        UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0))
             .await
-            .context("unable to connect to remote address")?;
-        Ok(socket)
+            .context("unable to bind to 127.0.0.1:0")?
     } else {
-        if let Ok(socket) =
-            UdpSocket::bind(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0)).await
-        {
-            if socket.connect(addrs.as_slice()).await.is_ok() {
-                return Ok(socket);
-            }
-        }
-        let socket = UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0))
+        UdpSocket::bind(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0))
             .await
-            .context("unable to bind to 127.0.0.1:0")?;
-        socket
-            .connect(addrs.as_slice())
-            .await
-            .context("unable to connect to remote address")?;
-        Ok(socket)
-    }
+            .context("unable to bind to [::]:0")?
+    };
+
+    socket
+        .connect(addrs.as_slice())
+        .await
+        .with_context(|| format!("unable to connect to {host}"))?;
+    Ok(socket)
 }
 
 #[derive(Debug)]
