@@ -17,25 +17,15 @@ use smoltcp::wire::{
     UdpRepr,
 };
 
-struct ConnectionState {
-    remote_addr: SocketAddr,
-    local_addr: SocketAddr,
+#[derive(Default)]
+pub struct ConnectionState {
     closed: bool,
     packets: VecDeque<Vec<u8>>,
     read_tx: Option<oneshot::Sender<Vec<u8>>>,
 }
 
 impl ConnectionState {
-    fn new(remote_addr: SocketAddr, local_addr: SocketAddr) -> Self {
-        Self {
-            remote_addr,
-            local_addr,
-            closed: false,
-            packets: VecDeque::new(),
-            read_tx: None,
-        }
-    }
-    fn add_packet(&mut self, data: Vec<u8>) {
+    pub fn add_packet(&mut self, data: Vec<u8>) {
         if self.closed {
             drop(data);
         } else if let Some(tx) = self.read_tx.take() {
@@ -44,7 +34,10 @@ impl ConnectionState {
             self.packets.push_back(data);
         }
     }
-    fn add_reader(&mut self, tx: oneshot::Sender<Vec<u8>>) {
+    pub fn packet_queue_len(&self) -> usize {
+        self.packets.len()
+    }
+    pub fn add_reader(&mut self, tx: oneshot::Sender<Vec<u8>>) {
         assert!(self.read_tx.is_none());
         if self.closed {
             drop(tx);
@@ -54,7 +47,7 @@ impl ConnectionState {
             self.read_tx = Some(tx);
         }
     }
-    fn close(&mut self) {
+    pub fn close(&mut self) {
         if self.closed {
             // already closed.
         } else if let Some(tx) = self.read_tx.take() {
@@ -68,23 +61,21 @@ impl ConnectionState {
 
 pub const UDP_TIMEOUT: Duration = Duration::from_secs(60);
 
+type FourTuple = (SocketAddr, SocketAddr);
+
 pub struct UdpHandler {
     connection_id_generator: ConnectionIdGenerator,
-    id_lookup: LruCache<(SocketAddr, SocketAddr), ConnectionId>,
-    connections: LruCache<ConnectionId, ConnectionState>,
+    id_lookup: LruCache<FourTuple, ConnectionId>,
+    connections: LruCache<ConnectionId, (ConnectionState, FourTuple)>,
 }
 
 impl UdpHandler {
     pub fn new() -> Self {
         // This implementation is largely based on the fact that LruCache eventually
         // drops the state, which closes the respective channels.
-        let connections =
-            LruCache::<ConnectionId, ConnectionState>::with_expiry_duration(UDP_TIMEOUT);
-        let id_lookup =
-            LruCache::<(SocketAddr, SocketAddr), ConnectionId>::with_expiry_duration(UDP_TIMEOUT);
         Self {
-            connections,
-            id_lookup,
+            connections: LruCache::with_expiry_duration(UDP_TIMEOUT),
+            id_lookup: LruCache::with_expiry_duration(UDP_TIMEOUT),
             connection_id_generator: ConnectionIdGenerator::udp(),
         }
     }
@@ -111,26 +102,25 @@ impl UdpHandler {
     }
 
     pub fn read_data(&mut self, id: ConnectionId, tx: oneshot::Sender<Vec<u8>>) {
-        if let Some(state) = self.connections.get_mut(&id) {
+        if let Some((state, _)) = self.connections.get_mut(&id) {
             state.add_reader(tx);
         }
     }
 
     pub(crate) fn write_data(&mut self, id: ConnectionId, data: Vec<u8>) -> Option<UdpPacket> {
-        let Some(state) = self.connections.get(&id) else {
+        let Some((state, addrs)) = self.connections.get(&id) else {
             return None;
         };
         // Refresh id lookup.
-        self.id_lookup
-            .insert((state.local_addr, state.remote_addr), id);
+        self.id_lookup.insert(*addrs, id);
 
         if state.closed {
             return None;
         }
 
         Some(UdpPacket {
-            src_addr: state.local_addr,
-            dst_addr: state.remote_addr,
+            src_addr: addrs.0,
+            dst_addr: addrs.1,
             payload: data,
         })
     }
@@ -140,7 +130,7 @@ impl UdpHandler {
     }
 
     pub fn close_connection(&mut self, id: ConnectionId) {
-        if let Some(state) = self.connections.get_mut(&id) {
+        if let Some((state, _)) = self.connections.get_mut(&id) {
             state.close();
         }
     }
@@ -158,16 +148,17 @@ impl UdpHandler {
             .unwrap_or(ConnectionId::unassigned_udp());
 
         match self.connections.get_mut(&potential_cid) {
-            Some(state) => {
+            Some((state, _)) => {
                 state.add_packet(packet.payload);
             }
             None => {
-                let mut state = ConnectionState::new(packet.src_addr, packet.dst_addr);
+                let mut state = ConnectionState::default();
                 state.add_packet(packet.payload);
                 let connection_id = self.connection_id_generator.next_id();
                 self.id_lookup
                     .insert((packet.src_addr, packet.dst_addr), connection_id);
-                self.connections.insert(connection_id, state);
+                self.connections
+                    .insert(connection_id, (state, (packet.src_addr, packet.dst_addr)));
                 permit.send(TransportEvent::ConnectionEstablished {
                     connection_id,
                     src_addr: packet.src_addr,
@@ -273,14 +264,10 @@ impl From<UdpPacket> for SmolPacket {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::{IpAddr, Ipv4Addr};
-
-    const SRC: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 54321);
-    const DST: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 80);
 
     #[test]
     fn test_connection_state_recv_recv_read_read() {
-        let mut state = ConnectionState::new(SRC, DST);
+        let mut state = ConnectionState::default();
         state.add_packet(vec![1, 2, 3]);
         state.add_packet(vec![4, 5, 6]);
         let (tx, rx) = oneshot::channel();
@@ -293,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_connection_state_read_recv_recv() {
-        let mut state = ConnectionState::new(SRC, DST);
+        let mut state = ConnectionState::default();
         let (tx, rx) = oneshot::channel();
         state.add_reader(tx);
         state.add_packet(vec![1, 2, 3]);
@@ -303,7 +290,7 @@ mod tests {
 
     #[test]
     fn test_connection_state_close_recv_read() {
-        let mut state = ConnectionState::new(SRC, DST);
+        let mut state = ConnectionState::default();
         let (tx, rx) = oneshot::channel();
         state.close();
         state.add_packet(vec![1, 2, 3]);
@@ -313,7 +300,7 @@ mod tests {
 
     #[test]
     fn test_connection_state_read_close_recv() {
-        let mut state = ConnectionState::new(SRC, DST);
+        let mut state = ConnectionState::default();
         let (tx, rx) = oneshot::channel();
         state.add_reader(tx);
         state.close();

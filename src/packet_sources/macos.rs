@@ -21,6 +21,7 @@ use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
 
+use crate::network::udp::ConnectionState;
 use tokio::process::Command;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -237,13 +238,12 @@ impl ConnectionTask {
 
         let mut first_packet = Some((tunnel_info, local_address, command_tx));
 
-        let mut read_data: Option<Vec<u8>> = None;
-        let mut read_tx: Option<oneshot::Sender<Vec<u8>>> = None;
+        let mut state = ConnectionState::default();
 
         loop {
             tokio::select! {
                 _ = self.shutdown.recv() => break,
-                packet = stream.next(), if read_data.is_none() => {
+                packet = stream.next(), if state.packet_queue_len() < 10 => {
                     let Some(packet) = packet else {
                         break
                     };
@@ -268,11 +268,7 @@ impl ConnectionTask {
                     } else if remote_address != dst_addr {
                         bail!("UDP packet destinations do not match: {remote_address} -> {dst_addr}")
                     }
-                    if let Some(tx) = read_tx.take() {
-                        tx.send(packet.data).ok();
-                    } else {
-                        read_data = Some(packet.data);
-                    }
+                    state.add_packet(packet.data);
                 },
                 command = command_rx.recv() => {
                     let Some(command) = command else {
@@ -280,14 +276,7 @@ impl ConnectionTask {
                     };
                     match command {
                         TransportCommand::ReadData(_, _, tx) => {
-                            if let Some(data) = read_data.take() {
-                                tx.send(data).ok();
-                            } else {
-                                if read_tx.is_some() {
-                                    bail!("Concurrent readers are not supported.");
-                                }
-                                read_tx = Some(tx);
-                            }
+                            state.add_reader(tx);
                         },
                         TransportCommand::WriteData(_, data) => {
                             assert!(first_packet.is_none());
@@ -305,6 +294,7 @@ impl ConnectionTask {
                         },
                         TransportCommand::CloseConnection(_, half_close) => {
                             if !half_close {
+                                state.close();
                                 break;
                             }
                         }
