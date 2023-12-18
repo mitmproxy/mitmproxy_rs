@@ -6,7 +6,7 @@ use smoltcp::{
 };
 use tokio::sync::mpsc::{Permit, Sender};
 
-use crate::messages::{IpPacket, NetworkCommand};
+use crate::messages::{NetworkCommand, SmolPacket};
 
 /// A virtual smoltcp device into which we manually feed packets using
 /// [VirtualDevice::receive_packet] and which send outgoing packets to a channel.
@@ -23,7 +23,7 @@ impl VirtualDevice {
         }
     }
 
-    pub fn receive_packet(&mut self, packet: IpPacket) {
+    pub fn receive_packet(&mut self, packet: SmolPacket) {
         self.rx_buffer.push_back(packet.into_inner());
     }
 }
@@ -75,7 +75,7 @@ impl<'a> TxToken for VirtualTxToken<'a> {
         let mut buffer = vec![0; len];
         let result = f(&mut buffer);
 
-        match IpPacket::try_from(buffer) {
+        match SmolPacket::try_from(buffer) {
             Ok(packet) => {
                 self.permit.send(NetworkCommand::SendPacket(packet));
             }

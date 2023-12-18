@@ -5,11 +5,11 @@ use std::sync::RwLock;
 use once_cell::sync::Lazy;
 use pyo3::{exceptions::PyException, prelude::*};
 
-mod datagram_transport;
 mod process_info;
 mod server;
+mod stream;
 mod task;
-mod tcp_stream;
+mod udp_client;
 mod util;
 
 static LOGGER_INITIALIZED: Lazy<RwLock<bool>> = Lazy::new(|| RwLock::new(false));
@@ -50,12 +50,16 @@ pub fn mitmproxy_rs(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(server::start_local_redirector, m)?)?;
     m.add_class::<server::LocalRedirector>()?;
 
+    m.add_function(wrap_pyfunction!(server::start_udp_server, m)?)?;
+    m.add_class::<server::UdpServer>()?;
+
+    m.add_function(wrap_pyfunction!(udp_client::open_udp_connection, m)?)?;
+
     m.add_function(wrap_pyfunction!(process_info::active_executables, m)?)?;
     m.add_class::<process_info::Process>()?;
     m.add_function(wrap_pyfunction!(process_info::executable_icon, m)?)?;
 
-    m.add_class::<tcp_stream::TcpStream>()?;
-    m.add_class::<datagram_transport::DatagramTransport>()?;
+    m.add_class::<stream::Stream>()?;
 
     // Import platform-specific modules here so that missing dependencies are raising immediately.
     #[cfg(target_os = "macos")]

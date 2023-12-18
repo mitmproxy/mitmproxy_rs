@@ -3,8 +3,8 @@ use anyhow::{anyhow, Result};
 use data_encoding::BASE64;
 #[cfg(target_os = "macos")]
 use mitmproxy::macos;
-use mitmproxy::messages::TunnelInfo;
-use pyo3::exceptions::{PyKeyError, PyOSError};
+
+use pyo3::exceptions::PyOSError;
 use pyo3::types::{PyString, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use rand_core::OsRng;
@@ -28,18 +28,10 @@ where
 }
 
 pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
-    match s {
-        SocketAddr::V4(addr) => (addr.ip().to_string(), addr.port()).into_py(py),
-        SocketAddr::V6(addr) => {
-            log::debug!(
-                "Converting IPv6 address/port to Python equivalent (not sure if this is correct): {:?}",
-                (addr.ip().to_string(), addr.port())
-            );
-            (addr.ip().to_string(), addr.port()).into_py(py)
-        }
-    }
+    (s.ip().to_string(), s.port()).into_py(py)
 }
 
+#[allow(dead_code)]
 pub fn py_to_socketaddr(t: &PyTuple) -> PyResult<SocketAddr> {
     if t.len() == 2 {
         let host = t.get_item(0)?.downcast::<PyString>()?;
@@ -121,33 +113,4 @@ pub fn remove_cert() -> PyResult<()> {
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
         "OS proxy mode is only available on macos",
     ))
-}
-
-pub(crate) fn get_tunnel_info(
-    tunnel: &TunnelInfo,
-    py: Python,
-    name: String,
-    default: Option<PyObject>,
-) -> PyResult<PyObject> {
-    match tunnel {
-        TunnelInfo::WireGuard { src_addr, dst_addr } => match name.as_str() {
-            "original_src" => return Ok(socketaddr_to_py(py, *src_addr)),
-            "original_dst" => return Ok(socketaddr_to_py(py, *dst_addr)),
-            _ => (),
-        },
-        TunnelInfo::LocalRedirector {
-            pid,
-            process_name,
-            remote_endpoint,
-        } => match name.as_str() {
-            "pid" => return Ok(pid.into_py(py)),
-            "process_name" => return Ok(process_name.clone().into_py(py)),
-            "remote_endpoint" => return Ok(remote_endpoint.clone().into_py(py)),
-            _ => (),
-        },
-    }
-    match default {
-        Some(x) => Ok(x),
-        None => Err(PyKeyError::new_err(name)),
-    }
 }

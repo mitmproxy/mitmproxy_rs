@@ -2,3 +2,4 @@ mitmproxy_rs.mitmproxy_rs
 mitmproxy_rs._pyinstaller.hook-mitmproxy_rs
 mitmproxy_rs._pyinstaller.hook-mitmproxy_windows
 mitmproxy_rs._pyinstaller.hook-mitmproxy_macos
+mitmproxy_rs.T

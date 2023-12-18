@@ -12,7 +12,7 @@ authors = [
     "Fabio Valentini <decathorpe@gmail.com>",
     "Maximilian Hils <cargo@maximilianhils.com>",
 ]
-version = "0.4.0"
+version = "0.5.0"
 publish = false
 repository = "https://github.com/mitmproxy/mitmproxy-rs"
 edition = "2021"
@@ -44,6 +44,8 @@ image = "0.24.6"
 prost = "0.12.3"
 tokio-util = { version = "0.7.10", features = ["codec"] }
 futures-util = { version = "0.3.29", features = ["sink"] }
+lru_time_cache = "0.11.11"
+internet-packet = { version = "0.2.0", features = ["smoltcp"] }
 
 # [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }

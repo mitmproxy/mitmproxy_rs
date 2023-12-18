@@ -421,7 +421,6 @@ async fn handle_ipc(
                 }
             },
             Some(packet) = ipc_rx.recv() => {
-
                 packet.encode(&mut buf.as_mut_slice())?;
                 let len = packet.encoded_len();
 

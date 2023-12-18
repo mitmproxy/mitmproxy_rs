@@ -21,7 +21,7 @@ use tokio::{
 };
 
 use crate::messages::{
-    IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent, TunnelInfo,
+    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
@@ -56,7 +56,7 @@ impl PacketSourceConf for WireGuardConf {
         transport_events_tx: Sender<TransportEvent>,
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
-    ) -> Result<(WireGuardTask, Self::Data)> {
+    ) -> Result<(Self::Task, Self::Data)> {
         let (network_task_handle, net_tx, net_rx) =
             add_network_layer(transport_events_tx, transport_commands_rx, shutdown)?;
 
@@ -158,7 +158,8 @@ impl PacketSourceTask for WireGuardTask {
             tokio::select! {
                 exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
                 // wait for WireGuard packets incoming on the UDP socket
-                Ok((len, src_orig)) = self.socket.recv_from(&mut udp_buf) => {
+                r = self.socket.recv_from(&mut udp_buf) => {
+                    let (len, src_orig) = r.context("UDP recv() failed")?;
                     self.process_incoming_datagram(&udp_buf[..len], src_orig).await?;
                 },
                 // wait for outgoing IP packets
@@ -287,7 +288,7 @@ impl WireGuardTask {
                         self.peers_by_ip
                             .insert(Ipv4Addr::from(packet.src_addr()).into(), peer);
                         let event = NetworkEvent::ReceivePacket {
-                            packet: IpPacket::from(packet),
+                            packet: SmolPacket::from(packet),
                             tunnel_info: TunnelInfo::WireGuard {
                                 src_addr: sender_addr,
                                 dst_addr: self.socket.local_addr()?,
@@ -319,7 +320,7 @@ impl WireGuardTask {
                         self.peers_by_ip
                             .insert(Ipv6Addr::from(packet.src_addr()).into(), peer);
                         let event = NetworkEvent::ReceivePacket {
-                            packet: IpPacket::from(packet),
+                            packet: SmolPacket::from(packet),
                             tunnel_info: TunnelInfo::WireGuard {
                                 src_addr: sender_addr,
                                 dst_addr: self.socket.local_addr()?,
@@ -341,7 +342,7 @@ impl WireGuardTask {
     }
 
     /// process packets and send the encrypted WireGuard datagrams to the peer.
-    async fn process_outgoing_packet(&mut self, packet: IpPacket) -> Result<()> {
+    async fn process_outgoing_packet(&mut self, packet: SmolPacket) -> Result<()> {
         let peer = self
             .peers_by_ip
             .get(&packet.dst_ip())

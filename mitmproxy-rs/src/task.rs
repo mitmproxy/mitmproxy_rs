@@ -2,15 +2,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
-use pyo3::{prelude::*, types::PyBytes};
+use pyo3::prelude::*;
+use pyo3_asyncio::TaskLocals;
 use tokio::sync::{broadcast, mpsc, Mutex};
 
 use mitmproxy::messages::{TransportCommand, TransportEvent};
 
-use crate::datagram_transport::DatagramTransport;
-use crate::tcp_stream::TcpStream;
-use crate::tcp_stream::TcpStreamState;
-use crate::util::socketaddr_to_py;
+use crate::stream::Stream;
+use crate::stream::StreamState;
 
 pub struct PyInteropTask {
     py_loop: PyObject,
@@ -18,7 +17,7 @@ pub struct PyInteropTask {
     transport_events: mpsc::Receiver<TransportEvent>,
     py_tcp_handler: PyObject,
     py_udp_handler: PyObject,
-    sd_watcher: broadcast::Receiver<()>,
+    shutdown: broadcast::Receiver<()>,
 }
 
 impl PyInteropTask {
@@ -37,115 +36,88 @@ impl PyInteropTask {
             transport_events,
             py_tcp_handler,
             py_udp_handler,
-            sd_watcher,
+            shutdown: sd_watcher,
         }
     }
 
     pub async fn run(mut self) -> Result<()> {
-        let active_tcp_connections = Arc::new(Mutex::new(HashMap::new()));
+        let active_streams = Arc::new(Mutex::new(HashMap::new()));
+
+        let locals = Python::with_gil(|py| {
+            TaskLocals::new(self.py_loop.as_ref(py)).copy_context(self.py_loop.as_ref(py).py())
+        })?;
 
         loop {
-            tokio::select!(
+            tokio::select! {
                 // wait for graceful shutdown
-                _ = self.sd_watcher.recv() => break,
+                _ = self.shutdown.recv() => break,
                 // wait for network events
                 event = self.transport_events.recv() => {
-                    if let Some(event) = event {
-                        match event {
-                            TransportEvent::ConnectionEstablished {
-                                connection_id,
-                                src_addr,
-                                dst_addr,
-                                tunnel_info,
-                            } => {
-                                // initialize new TCP stream
-                                let stream = TcpStream {
-                                    connection_id,
-                                    state: TcpStreamState::Open,
-                                    event_tx: self.transport_commands.clone(),
-                                    peername: src_addr,
-                                    sockname: dst_addr,
-                                    tunnel_info,
-                                };
-
-                                let mut conns = active_tcp_connections.lock().await;
-
-                                // spawn TCP connection handler coroutine
-                                if let Err(err) = Python::with_gil(|py| -> Result<(), PyErr> {
-                                    let stream = stream.into_py(py);
-
-                                    // calling Python coroutine object yields an awaitable object
-                                    let coro = self.py_tcp_handler.call1(py, (stream, ))?;
-
-                                    // convert Python awaitable into Rust Future
-                                    let locals = pyo3_asyncio::TaskLocals::new(self.py_loop.as_ref(py))
-                                        .copy_context(self.py_loop.as_ref(py).py())?;
-                                    let future = pyo3_asyncio::into_future_with_locals(&locals, coro.as_ref(py))?;
-
-                                    // run Future on a new Tokio task
-
-                                    let handle = {
-                                        let active_tcp_connections = active_tcp_connections.clone();
-                                        tokio::spawn(async move {
-                                            if let Err(err) = future.await {
-                                                log::error!("TCP connection handler coroutine raised an exception:\n{}", err)
-                                            }
-                                            active_tcp_connections.lock().await.remove(&connection_id);
-                                        })
-                                    };
-
-                                    conns.insert(connection_id, handle);
-
-                                    Ok(())
-                                }) {
-                                    log::error!("Failed to spawn TCP connection handler coroutine:\n{}", err);
-                                };
-                            },
-                            TransportEvent::DatagramReceived {
-                                data,
-                                src_addr,
-                                dst_addr,
-                                tunnel_info,
-                            } => {
-
-                                let transport = DatagramTransport {
-                                    event_tx: self.transport_commands.clone(),
-                                    peername: src_addr,
-                                    sockname: dst_addr,
-                                    tunnel_info,
-                                };
-
-                                Python::with_gil(|py| {
-                                    let transport = transport.into_py(py);
-                                    let bytes: Py<PyBytes> = PyBytes::new(py, &data).into_py(py);
-
-                                    if let Err(err) = self.py_loop.call_method1(
-                                        py,
-                                        "call_soon_threadsafe",
-                                        (
-                                            self.py_udp_handler.as_ref(py),
-                                            transport,
-                                            bytes,
-                                            socketaddr_to_py(py, src_addr),
-                                            socketaddr_to_py(py, dst_addr),
-                                        ),
-                                    ) {
-                                        err.print(py);
-                                    }
-                                });
-                            },
-                        }
-                    } else {
+                    let Some(event) = event else {
                         // channel was closed
                         break;
+                    };
+                    match event {
+                        TransportEvent::ConnectionEstablished {
+                            connection_id,
+                            src_addr,
+                            dst_addr,
+                            tunnel_info,
+                            command_tx,
+                        } => {
+                            let command_tx = command_tx.unwrap_or_else(|| self.transport_commands.clone());
+                            // initialize new stream
+                            let stream = Stream {
+                                connection_id,
+                                state: StreamState::Open,
+                                command_tx,
+                                peername: src_addr,
+                                sockname: dst_addr,
+                                tunnel_info,
+                            };
+
+                            let mut conns = active_streams.lock().await;
+
+                            // spawn connection handler coroutine
+                            if let Err(err) = Python::with_gil(|py| -> Result<(), PyErr> {
+                                let stream = stream.into_py(py);
+
+                                // calling Python coroutine object yields an awaitable object
+                                let coro = if connection_id.is_tcp() {
+                                    self.py_tcp_handler.call1(py, (stream, ))?
+                                } else {
+                                    self.py_udp_handler.call1(py, (stream, ))?
+                                };
+
+                                // convert Python awaitable into Rust Future
+                                let future = pyo3_asyncio::into_future_with_locals(&locals, coro.as_ref(py))?;
+
+                                // run Future on a new Tokio task
+                                let handle = {
+                                    let active_streams = active_streams.clone();
+                                    tokio::spawn(async move {
+                                        if let Err(err) = future.await {
+                                            log::error!("TCP connection handler coroutine raised an exception:\n{}", err)
+                                        }
+                                        active_streams.lock().await.remove(&connection_id);
+                                    })
+                                };
+
+                                conns.insert(connection_id, handle);
+
+                                Ok(())
+                            }) {
+                                log::error!("Failed to spawn connection handler:\n{}", err);
+                            };
+                        },
                     }
-                },
-            );
+                }
+            };
         }
 
         log::debug!("Python interoperability task shutting down.");
 
-        while let Some((_, handle)) = active_tcp_connections.lock().await.drain().next() {
+        while let Some((_, handle)) = active_streams.lock().await.drain().next() {
             if handle.is_finished() {
                 // Future is already finished: just await;
                 // Python exceptions are already logged by the wrapper coroutine

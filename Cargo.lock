@@ -1126,10 +1126,12 @@ checksum = "fc6d6206008e25125b1f97fbe5d309eb7b85141cf9199d52dbd3729a1584dd16"
 
 [[package]]
 name = "internet-packet"
-version = "0.1.0"
-source = "git+https://github.com/mhils/internet-packet.git#41a0b6711147269ba5be0eae595bfac810b4b195"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95d8d20ad61a92e71edf571fa568e14aeba0c5f00548acd491fbf694ce9a5ad8"
 dependencies = [
  "internet-checksum",
+ "smoltcp",
 ]
 
 [[package]]
@@ -1255,7 +1257,7 @@ checksum = "9106e1d747ffd48e6be5bb2d97fa706ed25b144fbee4d5c02eae110cd8d6badd"
 
 [[package]]
 name = "macos-certificate-truster"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "apple-security-framework",
 ]
@@ -1331,7 +1333,7 @@ dependencies = [
 
 [[package]]
 name = "mitm-wg-test-client"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "boringtun",
@@ -1342,7 +1344,7 @@ dependencies = [
 
 [[package]]
 name = "mitmproxy"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "apple-security-framework",
@@ -1353,7 +1355,9 @@ dependencies = [
  "env_logger",
  "futures-util",
  "image",
+ "internet-packet",
  "log",
+ "lru_time_cache",
  "nix 0.27.1",
  "once_cell",
  "pretty-hex",
@@ -1369,7 +1373,7 @@ dependencies = [
 
 [[package]]
 name = "mitmproxy_rs"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "boringtun",
@@ -2621,7 +2625,7 @@ dependencies = [
 
 [[package]]
 name = "windows-redirector"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "env_logger",

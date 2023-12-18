@@ -20,7 +20,7 @@ use crate::intercept_conf::InterceptConf;
 use crate::ipc;
 use crate::ipc::PacketWithMeta;
 use crate::messages::{
-    IpPacket, NetworkCommand, NetworkEvent, TransportCommand, TransportEvent, TunnelInfo,
+    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
@@ -46,7 +46,7 @@ impl PacketSourceConf for WindowsConf {
         transport_events_tx: Sender<TransportEvent>,
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
-    ) -> Result<(WindowsTask, Self::Data)> {
+    ) -> Result<(Self::Task, Self::Data)> {
         let pipe_name = format!(
             r"\\.\pipe\mitmproxy-transparent-proxy-{}",
             std::process::id()
@@ -175,7 +175,7 @@ impl PacketSourceTask for WindowsTask {
                     };
                     assert_eq!(cursor.position(), len as u64);
 
-                    let Ok(mut packet) = IpPacket::try_from(data) else {
+                    let Ok(mut packet) = SmolPacket::try_from(data) else {
                         log::error!("Skipping invalid packet: {:?}", &self.buf[..len]);
                         continue;
                     };
