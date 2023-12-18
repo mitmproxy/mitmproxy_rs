@@ -15,7 +15,6 @@ use tokio::{
 use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
-use crate::packet_sources::PacketSourceConf;
 
 use super::task::NetworkTask;
 

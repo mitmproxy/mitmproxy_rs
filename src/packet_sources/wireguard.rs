@@ -158,7 +158,8 @@ impl PacketSourceTask for WireGuardTask {
             tokio::select! {
                 exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
                 // wait for WireGuard packets incoming on the UDP socket
-                Ok((len, src_orig)) = self.socket.recv_from(&mut udp_buf) => {
+                r = self.socket.recv_from(&mut udp_buf) => {
+                    let (len, src_orig) = r.context("UDP recv() failed")?;
                     self.process_incoming_datagram(&udp_buf[..len], src_orig).await?;
                 },
                 // wait for outgoing IP packets

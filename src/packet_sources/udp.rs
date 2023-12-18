@@ -90,7 +90,8 @@ impl PacketSourceTask for UdpTask {
                     permit = Some(p);
                 },
                 // ... or process incoming packets
-                Ok((len, src_addr)) = self.socket.recv_from(&mut udp_buf), if py_tx_available => {
+                r = self.socket.recv_from(&mut udp_buf), if py_tx_available => {
+                    let (len, src_addr) = r.context("UDP recv() failed")?;
                     self.handler.receive_data(
                         UdpPacket {
                             src_addr,
@@ -102,7 +103,8 @@ impl PacketSourceTask for UdpTask {
                     );
                 },
                 // send_to is cancel safe, so we can use that for backpressure.
-                Ok(_) = self.socket.send_to(&packet_payload, packet_dst), if packet_needs_sending => {
+                r = self.socket.send_to(&packet_payload, packet_dst), if packet_needs_sending => {
+                    r.context("UDP send_to() failed")?;
                     packet_needs_sending = false;
                 },
                 Some(command) = self.transport_commands_rx.recv(), if !packet_needs_sending => {

@@ -243,10 +243,7 @@ impl ConnectionTask {
         loop {
             tokio::select! {
                 _ = self.shutdown.recv() => break,
-                packet = stream.next(), if state.packet_queue_len() < 10 => {
-                    let Some(packet) = packet else {
-                        break
-                    };
+                Some(packet) = stream.next(), if state.packet_queue_len() < 10 => {
                     let packet = ipc::UdpPacket::decode(
                         packet.context("IPC read error")?
                     ).context("invalid IPC message")?;
@@ -270,10 +267,7 @@ impl ConnectionTask {
                     }
                     state.add_packet(packet.data);
                 },
-                command = command_rx.recv() => {
-                    let Some(command) = command else {
-                        break;
-                    };
+                Some(command) = command_rx.recv() => {
                     match command {
                         TransportCommand::ReadData(_, _, tx) => {
                             state.add_reader(tx);
@@ -350,10 +344,7 @@ impl ConnectionTask {
                     self.stream.read_buf(&mut data).await.context("failed to read from socket")?;
                     tx.send(data).ok();
                 },
-                command = command_rx.recv() => {
-                    let Some(command) = command else {
-                        break;
-                    };
+                Some(command) = command_rx.recv() => {
                     match command {
                         TransportCommand::ReadData(_, n, tx) => {
                             assert!(read_tx.is_none());

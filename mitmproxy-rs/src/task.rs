@@ -17,7 +17,7 @@ pub struct PyInteropTask {
     transport_events: mpsc::Receiver<TransportEvent>,
     py_tcp_handler: PyObject,
     py_udp_handler: PyObject,
-    sd_watcher: broadcast::Receiver<()>,
+    shutdown: broadcast::Receiver<()>,
 }
 
 impl PyInteropTask {
@@ -36,7 +36,7 @@ impl PyInteropTask {
             transport_events,
             py_tcp_handler,
             py_udp_handler,
-            sd_watcher,
+            shutdown: sd_watcher,
         }
     }
 
@@ -48,9 +48,9 @@ impl PyInteropTask {
         })?;
 
         loop {
-            tokio::select!(
+            tokio::select! {
                 // wait for graceful shutdown
-                _ = self.sd_watcher.recv() => break,
+                _ = self.shutdown.recv() => break,
                 // wait for network events
                 event = self.transport_events.recv() => {
                     let Some(event) = event else {
@@ -111,8 +111,8 @@ impl PyInteropTask {
                             };
                         },
                     }
-                },
-            );
+                }
+            };
         }
 
         log::debug!("Python interoperability task shutting down.");
