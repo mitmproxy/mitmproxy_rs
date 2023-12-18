@@ -1,3 +1,7 @@
+## 0.5.0
+
+- UDP connections are now modeled as streams.
+
 ## 0.4.0
 
 - Renamed `OsProxy` to `LocalRedirector`.
