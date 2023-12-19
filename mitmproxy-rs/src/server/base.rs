@@ -3,48 +3,31 @@ use crate::task::PyInteropTask;
 use anyhow::Result;
 
 use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
-use mitmproxy::shutdown::ShutdownTask;
+use mitmproxy::shutdown::shutdown_task;
 use pyo3::prelude::*;
-#[cfg(target_os = "macos")]
-use std::path::Path;
 
+use tokio::task::JoinSet;
 use tokio::{sync::broadcast, sync::mpsc};
 
 #[derive(Debug)]
 pub struct Server {
-    /// channel for notifying subtasks of requested server shutdown
-    sd_trigger: broadcast::Sender<()>,
-    /// channel for getting notified of successful server shutdown
-    sd_barrier: broadcast::Sender<()>,
-    /// flag to indicate whether server shutdown is in progress
-    closing: bool,
+    shutdown_done: broadcast::Receiver<()>,
+    start_shutdown: Option<broadcast::Sender<()>>,
 }
 
 impl Server {
     pub fn close(&mut self) {
-        if !self.closing {
-            self.closing = true;
-            // XXX: Does not really belong here.
-            #[cfg(target_os = "macos")]
-            {
-                if Path::new("/Applications/MitmproxyAppleTunnel.app").exists() {
-                    std::fs::remove_dir_all("/Applications/MitmproxyAppleTunnel.app").expect(
-                        "Failed to remove MitmproxyAppleTunnel.app from Applications folder",
-                    );
-                }
-            }
+        if let Some(trigger) = self.start_shutdown.take() {
             log::info!("Shutting down.");
-            // notify tasks to shut down
-            let _ = self.sd_trigger.send(());
+            trigger.send(()).ok();
         }
     }
 
     pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
-        let mut barrier = self.sd_barrier.subscribe();
+        let mut receiver = self.shutdown_done.resubscribe();
         pyo3_asyncio::tokio::future_into_py(py, async move {
-            barrier.recv().await.map_err(|_| {
-                pyo3::exceptions::PyRuntimeError::new_err("Failed to wait for server shutdown.")
-            })
+            receiver.recv().await.ok();
+            Ok(())
         })
     }
 }
@@ -62,61 +45,45 @@ impl Server {
         let typ = packet_source_conf.name();
         log::debug!("Initializing {} ...", typ);
 
-        // initialize channels between the virtual network device and the python interop task
-        // - only used to notify of incoming connections and datagrams
+        // Channel used to notify Python land of incoming connections.
         let (transport_events_tx, transport_events_rx) = mpsc::channel(256);
-        // - used to send data and to ask for packets
-        // This channel needs to be unbounded because write() is not async.
+        // Channel used to send data and ask for packets.
+        // This needs to be unbounded because write() is not async.
         let (transport_commands_tx, transport_commands_rx) = mpsc::unbounded_channel();
-
-        // initialize barriers for handling graceful shutdown
-        let shutdown = broadcast::channel(1).0;
-        let shutdown_done = broadcast::channel(1).0;
+        // Channel used to trigger graceful shutdown
+        let (shutdown_start_tx, shutdown_start_rx) = broadcast::channel(1);
 
         let (packet_source_task, data) = packet_source_conf
             .build(
                 transport_events_tx,
                 transport_commands_rx,
-                shutdown.subscribe(),
+                shutdown_start_rx.resubscribe(),
             )
             .await?;
 
         // initialize Python interop task
-        // Note: The current asyncio event loop needs to be determined here on the main thread.
-        let py_loop: PyObject = Python::with_gil(|py| {
-            let py_loop = pyo3_asyncio::tokio::get_current_loop(py)?.into_py(py);
-            Ok::<PyObject, PyErr>(py_loop)
-        })?;
-
         let py_task = PyInteropTask::new(
-            py_loop,
             transport_commands_tx,
             transport_events_rx,
             py_tcp_handler,
             py_udp_handler,
-            shutdown.subscribe(),
-        );
+            shutdown_start_rx,
+        )?;
 
         // spawn tasks
-        let wg_handle = tokio::spawn(async move { packet_source_task.run().await });
-        let py_handle = tokio::spawn(async move { py_task.run().await });
+        let mut tasks = JoinSet::new();
+        tasks.spawn(async move { packet_source_task.run().await });
+        tasks.spawn(async move { py_task.run().await });
 
-        // initialize and run shutdown handler
-        let sd_task = ShutdownTask::new(
-            py_handle,
-            wg_handle,
-            shutdown.clone(),
-            shutdown_done.clone(),
-        );
-        tokio::spawn(async move { sd_task.run().await });
+        let (shutdown_done_tx, shutdown_done_rx) = broadcast::channel(1);
+        tokio::spawn(shutdown_task(tasks, shutdown_done_tx));
 
         log::debug!("{} successfully initialized.", typ);
 
         Ok((
             Server {
-                sd_trigger: shutdown,
-                sd_barrier: shutdown_done,
-                closing: false,
+                shutdown_done: shutdown_done_rx,
+                start_shutdown: Some(shutdown_start_tx),
             },
             data,
         ))

@@ -1,3 +1,7 @@
+## 0.5.1
+
+- Make server shutdown more robust.
+
 ## 0.5.0
 
 - UDP connections are now modeled as streams.
