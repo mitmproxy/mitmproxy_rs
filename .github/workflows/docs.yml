@@ -24,11 +24,11 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@1c81abaaee669d7c37cd893e1037216ecf5df7e0
+        uses: install-pinned/maturin-with-zig@7dc6082180bb4d3acd615d58c00156b7d444c772
       - name: Install mypy from PyPI
-        uses: install-pinned/mypy@5257e4e0636763f6fb849c6354a2ff13d645d3a9
+        uses: install-pinned/mypy@c2223951641cbb406fa8526d08f0690899f130e4
       - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@1e3e54521769cb06a10c2c4479c682551d4c9dce
+        uses: install-pinned/pdoc@ab8a5be0e3510626455121b5daa646819e08f0d5
 
       - run: maturin build
         working-directory: ./mitmproxy-rs
@@ -38,7 +38,7 @@ jobs:
 
       - run: pdoc -o docs/ mitmproxy_rs
 
-      - uses: actions/upload-pages-artifact@v2
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: docs/
 
@@ -56,4 +56,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4

@@ -38,7 +38,7 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
       # PyO3 wants recent Python on Windows.
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version-file: .github/python-version.txt
 
@@ -82,16 +82,16 @@ jobs:
       - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8  # v2.7.1
         timeout-minutes: 2
         continue-on-error: true
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version-file: .github/python-version.txt
 
       - if: runner.os == 'Linux'
         name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@1c81abaaee669d7c37cd893e1037216ecf5df7e0
+        uses: install-pinned/maturin-with-zig@7dc6082180bb4d3acd615d58c00156b7d444c772
       - if: runner.os != 'Linux'
         name: Install maturin from PyPI
-        uses: install-pinned/maturin@63688f9ac50926e464a1968e2383270d2d18c07c
+        uses: install-pinned/maturin@dfebcaa782a69944b584ec164e97fbbd09885352
 
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         run: python .github/scripts/pin-versions.py
@@ -104,7 +104,7 @@ jobs:
       - if: contains(matrix.args, 'sdist')
         run: pip install target/wheels/*.tar.gz
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: target/wheels
@@ -128,7 +128,7 @@ jobs:
           APPLE_PROVISIONING_PROFILE_EXT: ${{ secrets.APPLE_PROVISIONING_PROFILE_EXT }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: macos-app
           path: mitmproxy-macos/redirector/dist/
@@ -166,19 +166,19 @@ jobs:
 
       # Download macOS app
       - if: runner.os == 'macOS'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: macos-app
           path: mitmproxy-macos/redirector/dist/
 
       # Build & upload wheel
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version-file: .github/python-version.txt
       - name: Install build from PyPI
-        uses: install-pinned/build@8abfe6b59c77f639a26f11c0ce295f9940f7865f
+        uses: install-pinned/build@6921a57b43fbb0fd3bcc42465ec9b4f3630e0032
       - run: python -m build --wheel ./mitmproxy-${{ matrix.os }} --outdir target/wheels/
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: target/wheels
