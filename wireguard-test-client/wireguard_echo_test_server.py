@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import asyncio
 import logging
 import signal
@@ -34,18 +35,13 @@ logger.setLevel(logging.DEBUG)
 
 
 async def main():
-    def receive_datagram(data, src_addr, dst_addr):
-        logger.debug(f"Received datagram: {data=} {src_addr=} {dst_addr=}")
-        server.send_datagram(data.upper(), dst_addr, src_addr)
-        logger.debug("Echoed datagram.")
-
     server = await mitmproxy_rs.start_wireguard_server(
         "0.0.0.0",
         51820,
         server_keypair[0],
         [client_keypair[1]],
-        handle_connection,
-        receive_datagram,
+        handle_stream,
+        handle_stream,
     )
 
     print(
@@ -78,7 +74,7 @@ async def main():
     await server.wait_closed()
 
 
-async def handle_connection(rw: mitmproxy_rs.TcpStream):
+async def handle_stream(rw: mitmproxy_rs.Stream):
     logger.debug(f"connection task {rw=}")
     logger.debug(f"{rw.get_extra_info('peername')=}")
 

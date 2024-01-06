@@ -149,6 +149,9 @@ impl UdpClientTask {
                 }
             }
         }
+
+        assert!(!packet_needs_sending);
+
         log::debug!("UDP client task shutting down.");
         Ok(())
     }

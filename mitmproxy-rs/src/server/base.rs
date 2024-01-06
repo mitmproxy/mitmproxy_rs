@@ -18,7 +18,7 @@ pub struct Server {
 impl Server {
     pub fn close(&mut self) {
         if let Some(trigger) = self.start_shutdown.take() {
-            log::info!("Shutting down.");
+            log::debug!("Shutting down.");
             trigger.send(()).ok();
         }
     }
