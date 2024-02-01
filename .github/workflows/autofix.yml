@@ -38,11 +38,11 @@ jobs:
       - uses: actions/checkout@v4
       - run: rustup toolchain install ${{ env.rust_clippy }} --profile minimal --component rustfmt --component clippy
       - run: rustup default ${{ env.rust_clippy }}
-      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8  # v2.7.1
+      - uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84  # v2.7.3
         timeout-minutes: 2
         continue-on-error: true
       # PyO3 wants recent Python on Windows.
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version-file: .github/python-version.txt
 
