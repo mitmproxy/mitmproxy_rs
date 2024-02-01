@@ -946,6 +946,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47d60b12902ba28e2730cd37e95b8c9223af2808df9e902d4df49588d1470606"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -971,9 +980,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db04bc24a18b9ea980628ecf00e6c0264f3c1426dac36c00cb49b6fbad8b0743"
 dependencies = [
  "atomic-polyfill",
- "hash32",
+ "hash32 0.2.1",
  "rustc_version",
  "spin 0.9.8",
+ "stable_deref_trait",
+]
+
+[[package]]
+name = "heapless"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
+dependencies = [
+ "hash32 0.3.1",
  "stable_deref_trait",
 ]
 
@@ -1130,7 +1149,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95d8d20ad61a92e71edf571fa568e14aeba0c5f00548acd491fbf694ce9a5ad8"
 dependencies = [
  "internet-checksum",
- "smoltcp",
+ "smoltcp 0.10.0",
 ]
 
 [[package]]
@@ -1338,7 +1357,7 @@ dependencies = [
  "boringtun",
  "data-encoding",
  "hex",
- "smoltcp",
+ "smoltcp 0.11.0",
 ]
 
 [[package]]
@@ -1363,7 +1382,7 @@ dependencies = [
  "prost",
  "rand",
  "rand_core",
- "smoltcp",
+ "smoltcp 0.11.0",
  "tokio",
  "tokio-util",
  "windows 0.52.0",
@@ -2027,7 +2046,23 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "defmt",
- "heapless",
+ "heapless 0.7.16",
+ "libc",
+ "log",
+ "managed",
+]
+
+[[package]]
+name = "smoltcp"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a1a996951e50b5971a2c8c0fa05a381480d70a933064245c4a223ddc87ccc97"
+dependencies = [
+ "bitflags 1.3.2",
+ "byteorder",
+ "cfg-if",
+ "defmt",
+ "heapless 0.8.0",
  "libc",
  "log",
  "managed",
