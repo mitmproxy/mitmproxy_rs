@@ -12,11 +12,11 @@ publish.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 mitmproxy = { path = "../../" }
-tokio = { version = "1.35", features = ["macros", "net", "rt-multi-thread", "sync", "io-util"] }
-anyhow = { version = "1.0.79", features = ["backtrace"] }
+tokio = { version = "1.37", features = ["macros", "net", "rt-multi-thread", "sync", "io-util"] }
+anyhow = { version = "1.0.81", features = ["backtrace"] }
 windivert = "0.6.0"
 lru_time_cache = "0.11.11"
-log = "0.4.18"
+log = "0.4.21"
 env_logger = "0.10.2"
 prost = "0.12.3"
 internet-packet = { version = "0.2.0", features = ["checksums"] }
