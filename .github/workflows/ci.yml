@@ -104,9 +104,9 @@ jobs:
       - if: contains(matrix.args, 'sdist')
         run: pip install target/wheels/*.tar.gz
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-${{ runner.os }}-${{ matrix.target || 'x64' }}
           path: target/wheels
 
   build-macos-app:
@@ -128,7 +128,7 @@ jobs:
           APPLE_PROVISIONING_PROFILE_EXT: ${{ secrets.APPLE_PROVISIONING_PROFILE_EXT }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: macos-app
           path: mitmproxy-macos/redirector/dist/
@@ -166,7 +166,7 @@ jobs:
 
       # Download macOS app
       - if: runner.os == 'macOS'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: macos-app
           path: mitmproxy-macos/redirector/dist/
@@ -178,9 +178,9 @@ jobs:
       - name: Install build from PyPI
         uses: install-pinned/build@6921a57b43fbb0fd3bcc42465ec9b4f3630e0032
       - run: python -m build --wheel ./mitmproxy-${{ matrix.os }} --outdir target/wheels/
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-os-${{ runner.os }}
           path: target/wheels
 
   check:
@@ -194,11 +194,12 @@ jobs:
       jobs: ${{ toJSON(needs) }}
 
   deploy:
-    uses: mhils/workflows/.github/workflows/python-deploy.yml@main
+    uses: mhils/workflows/.github/workflows/python-deploy.yml@v5
     needs: check
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     with:
-      artifact: wheels
+      artifact-pattern: wheels-*
+      artifact-merge-multiple: true
       # repository: testpypi
       # environment: deploy-testpypi
     secrets:
