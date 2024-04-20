@@ -1,5 +1,9 @@
 ## 0.5.1
 
+- Dependency updates.
+
+## 0.5.1
+
 - Make server shutdown more robust.
 
 ## 0.5.0
