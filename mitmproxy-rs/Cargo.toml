@@ -29,7 +29,7 @@ console-subscriber = { version = "0.2.0", optional = true }
 
 
 [dev-dependencies]
-env_logger = "0.10"
+env_logger = "0.11"
 
 [features]
 tracing = ["console-subscriber"]
