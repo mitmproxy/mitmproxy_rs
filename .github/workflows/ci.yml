@@ -88,10 +88,10 @@ jobs:
 
       - if: runner.os == 'Linux'
         name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@7dc6082180bb4d3acd615d58c00156b7d444c772
+        uses: install-pinned/maturin-with-zig@99ca9e7f6388283533da289b033822f9997d583c
       - if: runner.os != 'Linux'
         name: Install maturin from PyPI
-        uses: install-pinned/maturin@dfebcaa782a69944b584ec164e97fbbd09885352
+        uses: install-pinned/maturin@9ef429e73235cb3ab68a9f8677ca10a189592a5e
 
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         run: python .github/scripts/pin-versions.py
@@ -176,7 +176,7 @@ jobs:
         with:
           python-version-file: .github/python-version.txt
       - name: Install build from PyPI
-        uses: install-pinned/build@6921a57b43fbb0fd3bcc42465ec9b4f3630e0032
+        uses: install-pinned/build@567700fee69e19868f2fb97f273638b2e9edd730
       - run: python -m build --wheel ./mitmproxy-${{ matrix.os }} --outdir target/wheels/
       - uses: actions/upload-artifact@v4
         with:
