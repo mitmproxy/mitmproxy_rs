@@ -65,7 +65,7 @@ impl<'a> TcpHandler<'a> {
                 .push(IpCidr::new(IpAddress::v4(0, 0, 0, 1), 0))
                 .unwrap();
             ip_address
-                .push(IpCidr::new(IpAddress::v6(0, 0, 0, 0,0,0,0,1), 0))
+                .push(IpCidr::new(IpAddress::v6(0, 0, 0, 0, 0, 0, 0, 1), 0))
                 .unwrap();
         });
         iface
@@ -74,7 +74,7 @@ impl<'a> TcpHandler<'a> {
             .unwrap();
         iface
             .routes_mut()
-            .add_default_ipv6_route(Ipv6Address::new(0, 0, 0, 0,0,0,0,1))
+            .add_default_ipv6_route(Ipv6Address::new(0, 0, 0, 0, 0, 0, 0, 1))
             .unwrap();
 
         TcpHandler {

@@ -1,6 +1,9 @@
 use crate::messages::SmolPacket;
 use smoltcp::phy::ChecksumCapabilities;
-use smoltcp::wire::{Icmpv4Message, Icmpv4Packet, Icmpv4Repr, Icmpv6Message, Icmpv6Packet, Icmpv6Repr, IpProtocol, Ipv4Packet, Ipv4Repr, Ipv6Packet, Ipv6Repr};
+use smoltcp::wire::{
+    Icmpv4Message, Icmpv4Packet, Icmpv4Repr, Icmpv6Message, Icmpv6Packet, Icmpv6Repr, IpProtocol,
+    Ipv4Packet, Ipv4Repr, Ipv6Packet, Ipv6Repr,
+};
 
 pub(super) fn handle_icmpv4_echo_request(
     mut input_packet: Ipv4Packet<Vec<u8>>,
