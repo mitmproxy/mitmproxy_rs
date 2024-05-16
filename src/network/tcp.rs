@@ -6,7 +6,7 @@ use anyhow::Result;
 use pretty_hex::pretty_hex;
 use smoltcp::iface::{Config, SocketSet};
 use smoltcp::socket::{tcp, Socket};
-use smoltcp::wire::HardwareAddress;
+use smoltcp::wire::{HardwareAddress, Ipv6Address};
 use smoltcp::{
     iface::{Interface, SocketHandle},
     time::Instant,
@@ -64,11 +64,17 @@ impl<'a> TcpHandler<'a> {
             ip_address
                 .push(IpCidr::new(IpAddress::v4(0, 0, 0, 1), 0))
                 .unwrap();
+            ip_address
+                .push(IpCidr::new(IpAddress::v6(0, 0, 0, 0, 0, 0, 0, 1), 0))
+                .unwrap();
         });
-        // TODO: IPv6
         iface
             .routes_mut()
             .add_default_ipv4_route(Ipv4Address::new(0, 0, 0, 1))
+            .unwrap();
+        iface
+            .routes_mut()
+            .add_default_ipv6_route(Ipv6Address::new(0, 0, 0, 0, 0, 0, 0, 1))
             .unwrap();
 
         TcpHandler {

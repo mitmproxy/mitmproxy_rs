@@ -109,9 +109,7 @@ impl UdpHandler {
     }
 
     pub(crate) fn write_data(&mut self, id: ConnectionId, data: Vec<u8>) -> Option<UdpPacket> {
-        let Some((state, addrs)) = self.connections.get(&id) else {
-            return None;
-        };
+        let (state, addrs) = self.connections.get(&id)?;
         // Refresh id lookup.
         self.id_lookup.insert(*addrs, id);
 

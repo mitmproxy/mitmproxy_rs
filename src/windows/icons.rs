@@ -50,7 +50,7 @@ impl IconCache {
                     let mut c = Cursor::new(Vec::new());
                     pixels
                         .to_image()
-                        .write_to(&mut c, image::ImageOutputFormat::Png)
+                        .write_to(&mut c, image::ImageFormat::Png)
                         .unwrap();
                     c.into_inner()
                 });

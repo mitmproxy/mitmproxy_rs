@@ -319,8 +319,8 @@ fn build_icmp6_echo_packet(
     let mut output_ipv6_packet = Ipv6Packet::new_unchecked(buf);
     ip_repr.emit(&mut output_ipv6_packet);
     icmp_repr.emit(
-        &IpAddress::from(src_addr),
-        &IpAddress::from(dst_addr),
+        &src_addr,
+        &dst_addr,
         &mut Icmpv6Packet::new_unchecked(output_ipv6_packet.payload_mut()),
         &ChecksumCapabilities::default(),
     );
