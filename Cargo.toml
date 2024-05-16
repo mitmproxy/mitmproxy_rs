@@ -47,9 +47,9 @@ futures-util = { version = "0.3.30", features = ["sink"] }
 lru_time_cache = "0.11.11"
 internet-packet = { version = "0.2.0", features = ["smoltcp"] }
 
-# [patch.crates-io]
+[patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
-# smoltcp = { git = 'https://github.com/mhils/smoltcp', rev = 'f65351adfa92db5193f368368cb668bac721fe43' }
+smoltcp = { git = 'https://github.com/smoltcp-rs/smoltcp', rev = 'ef67e7b46cabf49783053cbf68d8671ed97ff8d4' }
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.56.0"

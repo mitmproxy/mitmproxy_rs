@@ -1,9 +1,6 @@
 use crate::messages::SmolPacket;
 use smoltcp::phy::ChecksumCapabilities;
-use smoltcp::wire::{
-    Icmpv4Message, Icmpv4Packet, Icmpv4Repr, Icmpv6Message, Icmpv6Packet, Icmpv6Repr, IpAddress,
-    IpProtocol, Ipv4Packet, Ipv4Repr, Ipv6Packet, Ipv6Repr,
-};
+use smoltcp::wire::{Icmpv4Message, Icmpv4Packet, Icmpv4Repr, Icmpv6Message, Icmpv6Packet, Icmpv6Repr, IpProtocol, Ipv4Packet, Ipv4Repr, Ipv6Packet, Ipv6Repr};
 
 pub(super) fn handle_icmpv4_echo_request(
     mut input_packet: Ipv4Packet<Vec<u8>>,
@@ -98,8 +95,8 @@ pub(super) fn handle_icmpv6_echo_request(
     let mut output_ip_packet = SmolPacket::from(output_ipv6_packet);
     icmp_repr.emit(
         // Directing fake reply back to the original source address.
-        &IpAddress::from(dst_addr),
-        &IpAddress::from(src_addr),
+        &dst_addr,
+        &src_addr,
         &mut Icmpv6Packet::new_unchecked(output_ip_packet.payload_mut()),
         &ChecksumCapabilities::default(),
     );
