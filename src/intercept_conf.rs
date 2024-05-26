@@ -1,5 +1,6 @@
 use anyhow::bail;
 use std::collections::HashSet;
+use std::process;
 
 pub type PID = u32;
 
@@ -80,6 +81,9 @@ impl InterceptConf {
     }
 
     pub fn should_intercept(&self, process_info: &ProcessInfo) -> bool {
+        if process::id() == process_info.pid {
+            return false;
+        }
         self.invert ^ {
             if self.pids.contains(&process_info.pid) {
                 true
@@ -125,6 +129,10 @@ mod tests {
             pid: 2242,
             process_name: Some("mitmproxy".into()),
         };
+        let c = ProcessInfo {
+          pid: process::id(),
+          process_name: Some("mitmproxy".into()),
+        };
 
         let conf = InterceptConf::try_from("1,2,3").unwrap();
         assert_eq!(conf.pids, vec![1, 2, 3].into_iter().collect());
@@ -132,6 +140,7 @@ mod tests {
         assert!(!conf.invert);
         assert!(conf.should_intercept(&a));
         assert!(!conf.should_intercept(&b));
+        assert!(!conf.should_intercept(&c));
 
         let conf = InterceptConf::try_from("").unwrap();
         assert!(conf.pids.is_empty());
@@ -139,6 +148,7 @@ mod tests {
         assert!(!conf.invert);
         assert!(!conf.should_intercept(&a));
         assert!(!conf.should_intercept(&b));
+        assert!(!conf.should_intercept(&c));
 
         let conf = InterceptConf::try_from("!2242").unwrap();
         assert_eq!(conf.pids, vec![2242].into_iter().collect());
@@ -146,6 +156,11 @@ mod tests {
         assert!(conf.invert);
         assert!(conf.should_intercept(&a));
         assert!(!conf.should_intercept(&b));
+        assert!(!conf.should_intercept(&c));
+
+        let conf = InterceptConf::try_from("a,mitmproxy").unwrap();
+        assert!(conf.should_intercept(&a));
+        assert!(!conf.should_intercept(&c));
 
         assert!(InterceptConf::try_from(",,").is_err());
     }
