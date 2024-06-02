@@ -180,7 +180,7 @@ jobs:
         with:
           python-version-file: .github/python-version.txt
       - name: Install build from PyPI
-        uses: install-pinned/build@567700fee69e19868f2fb97f273638b2e9edd730
+        uses: install-pinned/build@0308e579e8aad0c0efc2da421dd2a682abdaf3db
       - run: python -m build --wheel ./mitmproxy-${{ matrix.os }} --outdir target/wheels/
       - uses: actions/upload-artifact@v4
         with:

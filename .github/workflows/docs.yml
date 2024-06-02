@@ -26,9 +26,9 @@ jobs:
       - name: Install maturin[zig] from PyPI
         uses: install-pinned/maturin-with-zig@99ca9e7f6388283533da289b033822f9997d583c
       - name: Install mypy from PyPI
-        uses: install-pinned/mypy@421cd57ee7b88af310624e2c56ed6902f70e1429
+        uses: install-pinned/mypy@2eabe14b1638b48be440607da1cfb5c3e9be3d4d
       - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@b0e4b4058504c059dc438a675780451a6ab23e76
+        uses: install-pinned/pdoc@f2fbf58d572a8f3db623e6abd97d3ec3054aeb1a
 
       - run: maturin build
         working-directory: ./mitmproxy-rs
