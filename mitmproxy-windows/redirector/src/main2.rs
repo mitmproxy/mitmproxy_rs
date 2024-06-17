@@ -109,12 +109,14 @@ async fn main() -> Result<()> {
     // only needed for forward mode
     // let _icmp_handle = WinDivert::new("icmp", WinDivertLayer::Network, 1042, WinDivertFlags::new().set_drop()).context("Error opening WinDivert handle")?;
 
+    // WinDivert's syntax supports IP ranges (https://github.com/basil00/Divert/issues/250#issuecomment-723515347)
+    let wd_filter = "((remoteAddr < 224.0.0.0 || remoteAddr > 239.255.255.255) && remoteAddr != 255.255.255.255) && (tcp || udp)";
     let socket_handle = WinDivert::socket(
-        "tcp || udp",
+        wd_filter,
         1041,
         WinDivertFlags::new().set_recv_only().set_sniff(),
     )?;
-    let network_handle = WinDivert::network("tcp || udp", 1040, WinDivertFlags::new())?;
+    let network_handle = WinDivert::network(wd_filter, 1040, WinDivertFlags::new())?;
     let inject_handle = WinDivert::network("false", 1039, WinDivertFlags::new().set_send_only())?;
 
     let tx_clone = event_tx.clone();
