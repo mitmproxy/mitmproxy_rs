@@ -110,7 +110,7 @@ async fn main() -> Result<()> {
     // let _icmp_handle = WinDivert::new("icmp", WinDivertLayer::Network, 1042, WinDivertFlags::new().set_drop()).context("Error opening WinDivert handle")?;
 
     // WinDivert's syntax supports IP ranges (https://github.com/basil00/Divert/issues/250#issuecomment-723515347)
-    let wd_filter = "((remoteAddr < 224.0.0.0 || remoteAddr > 239.255.255.255) && remoteAddr != 255.255.255.255) && (tcp || udp)";
+    let wd_filter = "((remoteAddr < 224.0.0.0 || remoteAddr > 239.255.255.255) && remoteAddr != 255.255.255.255 && !loopback) && (tcp || udp)";
     let socket_handle = WinDivert::socket(
         wd_filter,
         1041,
