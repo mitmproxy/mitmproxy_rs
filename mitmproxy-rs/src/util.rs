@@ -73,8 +73,8 @@ pub fn add_cert(py: Python<'_>, pem: String) -> PyResult<()> {
             .take_while(|&line| line != "-----END CERTIFICATE-----")
             .collect::<String>();
 
-        let filename = py.import("mitmproxy_rs")?.filename()?;
-        let executable_path = std::path::Path::new(filename)
+        let filename = py.import_bound("mitmproxy_rs")?.filename()?;
+        let executable_path = std::path::Path::new(filename.to_str()?)
             .parent()
             .ok_or_else(|| anyhow!("invalid path"))?
             .join("macos-certificate-truster.app");

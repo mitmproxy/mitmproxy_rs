@@ -37,7 +37,7 @@ pub struct Stream {
 
 /// Do *not* hold the GIL while accessing.
 static EMPTY_BYTES: Lazy<Py<PyBytes>> =
-    Lazy::new(|| Python::with_gil(|py| PyBytes::new(py, &[]).into_py(py)));
+    Lazy::new(|| Python::with_gil(|py| PyBytes::new_bound(py, &[]).unbind()));
 
 #[pymethods]
 impl Stream {
@@ -56,7 +56,7 @@ impl Stream {
 
                 pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
                     if let Ok(data) = rx.await {
-                        Python::with_gil(|py| Ok(PyBytes::new(py, &data).into_py(py)))
+                        Python::with_gil(|py| Ok(PyBytes::new_bound(py, &data).unbind()))
                     } else {
                         Ok(EMPTY_BYTES.clone())
                     }

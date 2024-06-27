@@ -32,7 +32,7 @@ fn init_logger() -> PyResult<()> {
 
 #[allow(unused)]
 #[pymodule]
-pub fn mitmproxy_rs(py: Python, m: &PyModule) -> PyResult<()> {
+pub fn mitmproxy_rs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // set up the Rust logger to send messages to the Python logger
     init_logger()?;
 
