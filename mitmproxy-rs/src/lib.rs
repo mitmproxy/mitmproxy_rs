@@ -63,9 +63,9 @@ pub fn mitmproxy_rs(py: Python, m: &PyModule) -> PyResult<()> {
 
     // Import platform-specific modules here so that missing dependencies are raising immediately.
     #[cfg(target_os = "macos")]
-    py.import("mitmproxy_macos")?;
+    py.import_bound("mitmproxy_macos")?;
     #[cfg(windows)]
-    py.import("mitmproxy_windows")?;
+    py.import_bound("mitmproxy_windows")?;
 
     Ok(())
 }

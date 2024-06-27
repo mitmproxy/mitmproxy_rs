@@ -23,8 +23,8 @@ pub fn open_udp_connection(
     host: String,
     port: u16,
     local_addr: Option<(String, u16)>,
-) -> PyResult<&PyAny> {
-    pyo3_asyncio::tokio::future_into_py(py, async move {
+) -> PyResult<Bound<PyAny>> {
+    pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
         let socket = udp_connect(host, port, local_addr).await?;
 
         let peername = socket.peer_addr()?;
