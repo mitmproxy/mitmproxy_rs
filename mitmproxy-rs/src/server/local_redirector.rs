@@ -83,7 +83,7 @@ pub fn start_local_redirector(
     #[cfg(windows)]
     {
         let executable_path: PathBuf = py
-            .import("mitmproxy_windows")?
+            .import_bound("mitmproxy_windows")?
             .call_method0("executable_path")?
             .extract()?;
         if !executable_path.exists() {
