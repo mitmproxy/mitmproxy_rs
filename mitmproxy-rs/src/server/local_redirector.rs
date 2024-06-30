@@ -99,6 +99,7 @@ pub fn start_local_redirector(
     }
     #[cfg(target_os = "macos")]
     {
+        let mut copy_task = None;
         let destination_path = Path::new("/Applications/Mitmproxy Redirector.app");
         if destination_path.exists() {
             log::info!("Using existing mitmproxy redirector app.");
@@ -114,13 +115,19 @@ pub fn start_local_redirector(
                 return Err(anyhow::anyhow!("{} does not exist", source_path.display()).into());
             }
 
-            // XXX: tokio here?
-            let redirector_tar = std::fs::File::open(source_path)?;
-            let mut archive = tar::Archive::new(redirector_tar);
-            archive.unpack(destination_path.parent().unwrap())?;
+            copy_task = Some(tokio::task::spawn_blocking(move || {
+                let redirector_tar = std::fs::File::open(source_path)?;
+                let mut archive = tar::Archive::new(redirector_tar);
+                archive.unpack(destination_path.parent().unwrap())
+            }));
         }
         let conf = MacosConf;
         pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
+            if let Some(copy_task) = copy_task {
+                copy_task
+                    .await
+                    .map_err(|e| anyhow::anyhow!("failed to copy: {}", e))??;
+            }
             let (server, conf_tx) =
                 Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
             Ok(LocalRedirector::new(server, conf_tx))
