@@ -36,7 +36,7 @@ impl UdpServer {
     ///
     /// This coroutine will yield once pending data has been flushed and all server tasks have
     /// successfully terminated after calling the `Server.close` method.
-    pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+    pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<Bound<'p, PyAny>> {
         self.server.wait_closed(py)
     }
 
@@ -61,10 +61,10 @@ pub fn start_udp_server(
     host: String,
     port: u16,
     handle_udp_stream: PyObject,
-) -> PyResult<&PyAny> {
+) -> PyResult<Bound<PyAny>> {
     let conf = UdpConf { host, port };
     let handle_tcp_stream = py.None();
-    pyo3_asyncio::tokio::future_into_py(py, async move {
+    pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
         let (server, local_addr) = Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
         Ok(UdpServer { server, local_addr })
     })

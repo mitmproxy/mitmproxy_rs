@@ -23,9 +23,9 @@ impl Server {
         }
     }
 
-    pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+    pub fn wait_closed<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let mut receiver = self.shutdown_done.resubscribe();
-        pyo3_asyncio::tokio::future_into_py(py, async move {
+        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
             receiver.recv().await.ok();
             Ok(())
         })

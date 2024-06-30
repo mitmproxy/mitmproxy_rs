@@ -37,7 +37,7 @@ pub struct Stream {
 
 /// Do *not* hold the GIL while accessing.
 static EMPTY_BYTES: Lazy<Py<PyBytes>> =
-    Lazy::new(|| Python::with_gil(|py| PyBytes::new(py, &[]).into_py(py)));
+    Lazy::new(|| Python::with_gil(|py| PyBytes::new_bound(py, &[]).unbind()));
 
 #[pymethods]
 impl Stream {
@@ -45,7 +45,7 @@ impl Stream {
     ///
     /// Return an empty `bytes` object if the connection was closed
     /// or the server has been shut down.
-    fn read<'p>(&self, py: Python<'p>, n: u32) -> PyResult<&'p PyAny> {
+    fn read<'py>(&self, py: Python<'py>, n: u32) -> PyResult<Bound<'py, PyAny>> {
         match self.state {
             StreamState::Open | StreamState::HalfClosed => {
                 let (tx, rx) = oneshot::channel();
@@ -54,16 +54,16 @@ impl Stream {
                     .send(TransportCommand::ReadData(self.connection_id, n, tx))
                     .ok(); // if this fails tx is dropped and rx.await will error.
 
-                pyo3_asyncio::tokio::future_into_py(py, async move {
+                pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
                     if let Ok(data) = rx.await {
-                        Python::with_gil(|py| Ok(PyBytes::new(py, &data).into_py(py)))
+                        Python::with_gil(|py| Ok(PyBytes::new_bound(py, &data).unbind()))
                     } else {
                         Ok(EMPTY_BYTES.clone())
                     }
                 })
             }
             StreamState::Closed => {
-                pyo3_asyncio::tokio::future_into_py(py, async move { Ok(EMPTY_BYTES.clone()) })
+                pyo3_asyncio_0_21::tokio::future_into_py(py, async move { Ok(EMPTY_BYTES.clone()) })
             }
         }
     }
@@ -90,14 +90,14 @@ impl Stream {
     ///
     /// Raises:
     ///     OSError if the stream is closed or the server has been shut down.
-    fn drain<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+    fn drain<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let (tx, rx) = oneshot::channel();
 
         self.command_tx
             .send(TransportCommand::DrainWriter(self.connection_id, tx))
             .map_err(event_queue_unavailable)?;
 
-        pyo3_asyncio::tokio::future_into_py(py, async move {
+        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
             rx.await
                 .map_err(|_| PyOSError::new_err("connection closed"))
         })
@@ -146,8 +146,8 @@ impl Stream {
     }
 
     /// Wait until the stream is closed (currently a no-op).
-    fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
-        pyo3_asyncio::tokio::future_into_py(py, std::future::ready(Ok(())))
+    fn wait_closed<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        pyo3_asyncio_0_21::tokio::future_into_py(py, std::future::ready(Ok(())))
     }
 
     /// Query the stream for details of the underlying network connection.
@@ -165,9 +165,9 @@ impl Stream {
         match name.as_str() {
             "transport_protocol" => {
                 if self.connection_id.is_tcp() {
-                    return Ok(PyObject::from(intern!(py, "tcp")));
+                    return Ok(intern!(py, "tcp").to_object(py));
                 } else {
-                    return Ok(PyObject::from(intern!(py, "udp")));
+                    return Ok(intern!(py, "udp").to_object(py));
                 }
             }
             "peername" => return Ok(socketaddr_to_py(py, self.peername)),

@@ -58,7 +58,7 @@ impl LocalRedirector {
         self.server.close()
     }
 
-    pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+    pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<Bound<'p, PyAny>> {
         self.server.wait_closed(py)
     }
 
@@ -79,18 +79,18 @@ pub fn start_local_redirector(
     py: Python<'_>,
     handle_tcp_stream: PyObject,
     handle_udp_stream: PyObject,
-) -> PyResult<&PyAny> {
+) -> PyResult<Bound<PyAny>> {
     #[cfg(windows)]
     {
         let executable_path: PathBuf = py
-            .import("mitmproxy_windows")?
+            .import_bound("mitmproxy_windows")?
             .call_method0("executable_path")?
             .extract()?;
         if !executable_path.exists() {
             return Err(anyhow::anyhow!("{} does not exist", executable_path.display()).into());
         }
         let conf = WindowsConf { executable_path };
-        pyo3_asyncio::tokio::future_into_py(py, async move {
+        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
             let (server, conf_tx) =
                 Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
 
@@ -103,9 +103,9 @@ pub fn start_local_redirector(
         if destination_path.exists() {
             log::info!("Using existing mitmproxy redirector app.");
         } else {
-            let filename = py.import("mitmproxy_macos")?.filename()?;
+            let filename = py.import_bound("mitmproxy_macos")?.filename()?;
 
-            let source_path = Path::new(filename)
+            let source_path = Path::new(filename.to_str()?)
                 .parent()
                 .ok_or_else(|| anyhow::anyhow!("invalid path"))?
                 .join("Mitmproxy Redirector.app.tar");
@@ -120,7 +120,7 @@ pub fn start_local_redirector(
             archive.unpack(destination_path.parent().unwrap())?;
         }
         let conf = MacosConf;
-        pyo3_asyncio::tokio::future_into_py(py, async move {
+        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
             let (server, conf_tx) =
                 Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
             Ok(LocalRedirector::new(server, conf_tx))
