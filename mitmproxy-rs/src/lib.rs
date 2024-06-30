@@ -5,6 +5,7 @@ use std::sync::RwLock;
 use once_cell::sync::Lazy;
 use pyo3::{exceptions::PyException, prelude::*};
 
+mod dns_resolver;
 mod process_info;
 mod server;
 mod stream;
@@ -58,6 +59,8 @@ pub fn mitmproxy_rs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(process_info::active_executables, m)?)?;
     m.add_class::<process_info::Process>()?;
     m.add_function(wrap_pyfunction!(process_info::executable_icon, m)?)?;
+
+    m.add_function(wrap_pyfunction!(dns_resolver::getaddrinfo, m)?)?;
 
     m.add_class::<stream::Stream>()?;
 
