@@ -124,3 +124,7 @@ class Process:
     @property
     def is_system(self) -> bool: ...
 
+# DNS resolver
+
+async def getaddrinfo(host: str, family: int = 0, use_hosts_file: bool = True): list[str]
+def get_system_dns_server(): set[str]
