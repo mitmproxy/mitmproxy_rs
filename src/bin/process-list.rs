@@ -1,12 +1,17 @@
 use anyhow::Result;
-use mitmproxy::processes::active_executables;
-use mitmproxy::processes::ICON_CACHE;
+use mitmproxy::processes;
 
+#[cfg(not(any(windows, target_os = "macos")))]
+fn main() {
+    unimplemented!();
+}
+
+#[cfg(any(windows, target_os = "macos"))]
 fn main() -> Result<()> {
-    let mut processes = active_executables()?;
+    let mut processes = processes::active_executables()?;
     processes.sort_by_cached_key(|p| (p.is_system, !p.is_visible));
 
-    let mut icon_cache = ICON_CACHE.lock().unwrap();
+    let mut icon_cache = processes::ICON_CACHE.lock().unwrap();
 
     println!(
         r#"<!doctype html><html><body><table>
