@@ -1,13 +1,13 @@
-use anyhow::Result;
-use mitmproxy::processes;
-
 #[cfg(not(any(windows, target_os = "macos")))]
 fn main() {
     unimplemented!();
 }
 
 #[cfg(any(windows, target_os = "macos"))]
-fn main() -> Result<()> {
+use mitmproxy::processes;
+
+#[cfg(any(windows, target_os = "macos"))]
+fn main() -> anyhow::Result<()> {
     let mut processes = processes::active_executables()?;
     processes.sort_by_cached_key(|p| (p.is_system, !p.is_visible));
 
