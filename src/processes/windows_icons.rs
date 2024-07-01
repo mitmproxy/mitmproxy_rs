@@ -22,8 +22,6 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Shell::ExtractAssociatedIconW;
 use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, GetIconInfo, HICON};
 
-pub static ICON_CACHE: Lazy<Mutex<IconCache>> = Lazy::new(|| Mutex::new(IconCache::default()));
-
 #[derive(Default)]
 pub struct IconCache {
     /// executable name -> icon hash

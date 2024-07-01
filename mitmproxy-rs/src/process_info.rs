@@ -3,12 +3,9 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use pyo3::prelude::*;
 
-#[cfg(target_os = "macos")]
-use mitmproxy::macos::{icons, processes};
-#[allow(unused_imports)]
-use mitmproxy::processes::image;
-#[cfg(windows)]
-use mitmproxy::windows::{icons, processes};
+
+#[cfg(any(windows, target_os = "macos"))]
+use mitmproxy::processes::{ICON_CACHE, active_executables};
 
 #[pyclass(module = "mitmproxy_rs", frozen)]
 pub struct Process(mitmproxy::processes::ProcessInfo);
@@ -50,7 +47,7 @@ impl Process {
 pub fn active_executables() -> PyResult<Vec<Process>> {
     #[cfg(any(windows, target_os = "macos"))]
     {
-        processes::active_executables()
+        active_executables()
             .map(|p| p.into_iter().map(Process).collect())
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{}", e)))
     }
@@ -65,7 +62,7 @@ pub fn active_executables() -> PyResult<Vec<Process>> {
 pub fn executable_icon(path: PathBuf) -> Result<PyObject> {
     #[cfg(any(windows, target_os = "macos"))]
     {
-        let mut icon_cache = icons::ICON_CACHE.lock().unwrap();
+        let mut icon_cache = ICON_CACHE.lock().unwrap();
         let png_bytes = icon_cache.get_png(path)?;
         Ok(Python::with_gil(|py| {
             pyo3::types::PyBytes::new_bound(py, png_bytes).to_object(py)

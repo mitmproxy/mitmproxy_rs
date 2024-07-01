@@ -1,17 +1,14 @@
 use anyhow::{bail, Result};
 use cocoa::base::id;
-use image::ImageEncoder;
 use objc::{class, msg_send, sel, sel_impl};
-use once_cell::sync::Lazy;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::path::Path;
+use std::io::Cursor;
 use std::path::PathBuf;
-use std::{collections::hash_map::Entry, sync::Mutex};
+use std::{collections::hash_map::Entry};
 use sysinfo::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
-
-pub static ICON_CACHE: Lazy<Mutex<IconCache>> = Lazy::new(|| Mutex::new(IconCache::default()));
 
 #[derive(Default)]
 pub struct IconCache {
@@ -44,18 +41,12 @@ impl IconCache {
 }
 
 pub fn tiff_to_png(tiff: &[u8]) -> Vec<u8> {
-    let tiff_image = image::load_from_memory(tiff).unwrap();
-    let mut png_image: Vec<u8> = Vec::new();
-    let encoder = image::codecs::png::PngEncoder::new(&mut png_image);
-    encoder
-        .write_image(
-            tiff_image.as_rgba8().unwrap(),
-            tiff_image.width(),
-            tiff_image.height(),
-            image::ColorType::Rgba8,
-        )
-        .unwrap();
-    png_image
+    let mut c = Cursor::new(Vec::new());
+    let tiff_image = image::load_from_memory_with_format(tiff, image::ImageFormat::Tiff)
+        .unwrap()
+        .resize(32, 32, image::imageops::FilterType::Triangle);
+    tiff_image.write_to(&mut c, image::ImageFormat::Png).unwrap();
+    c.into_inner()
 }
 
 unsafe fn tiff_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
