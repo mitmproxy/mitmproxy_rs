@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  rust_clippy: "1.74"  # MSRV
+  rust_clippy: "1.79"  # MSRV
 
 jobs:
   protobuf:

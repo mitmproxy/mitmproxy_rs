@@ -16,7 +16,7 @@ version = "0.5.2"
 publish = false
 repository = "https://github.com/mitmproxy/mitmproxy-rs"
 edition = "2021"
-rust-version = "1.74"  # MSRV
+rust-version = "1.79"  # MSRV
 
 [package]
 name = "mitmproxy"
