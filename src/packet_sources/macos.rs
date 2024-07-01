@@ -7,7 +7,6 @@ use crate::ipc;
 use crate::ipc::{NewFlow, TcpFlow, UdpFlow};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use anyhow::{bail, Context, Result};
-use async_trait::async_trait;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 
@@ -66,7 +65,6 @@ async fn start_redirector(listener_addr: String) -> Result<()> {
     Ok(())
 }
 
-#[async_trait]
 impl PacketSourceConf for MacosConf {
     type Task = MacOsTask;
     type Data = UnboundedSender<InterceptConf>;
@@ -118,7 +116,6 @@ pub struct MacOsTask {
     shutdown: broadcast::Receiver<()>,
 }
 
-#[async_trait]
 impl PacketSourceTask for MacOsTask {
     async fn run(mut self) -> Result<()> {
         let mut control_channel = Framed::new(self.control_channel, LengthDelimitedCodec::new());

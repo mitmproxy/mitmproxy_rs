@@ -1332,7 +1332,6 @@ version = "0.5.2"
 dependencies = [
  "anyhow",
  "apple-security-framework",
- "async-trait",
  "boringtun",
  "console-subscriber",
  "criterion",

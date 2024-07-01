@@ -1,7 +1,6 @@
 use std::net::{Ipv4Addr, SocketAddr};
 
 use anyhow::{Context, Result};
-use async_trait::async_trait;
 
 use tokio::sync::mpsc::{Permit, UnboundedReceiver};
 use tokio::{
@@ -19,7 +18,6 @@ pub struct UdpConf {
     pub port: u16,
 }
 
-#[async_trait]
 impl PacketSourceConf for UdpConf {
     type Task = UdpTask;
     type Data = SocketAddr;
@@ -67,7 +65,6 @@ pub struct UdpTask {
     shutdown: broadcast::Receiver<()>,
 }
 
-#[async_trait]
 impl PacketSourceTask for UdpTask {
     async fn run(mut self) -> Result<()> {
         let transport_events_tx = self.transport_events_tx.clone();
