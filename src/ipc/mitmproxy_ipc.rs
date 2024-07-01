@@ -51,12 +51,8 @@ pub struct Packet {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InterceptConf {
-    #[prost(uint32, repeated, tag = "1")]
-    pub pids: ::prost::alloc::vec::Vec<u32>,
-    #[prost(string, repeated, tag = "2")]
-    pub process_names: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    #[prost(bool, tag = "3")]
-    pub invert: bool,
+    #[prost(string, repeated, tag = "1")]
+    pub actions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// New flow (macOS TCP/UDP Stream)
 #[allow(clippy::derive_partial_eq_without_eq)]

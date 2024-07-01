@@ -1,40 +1,79 @@
 import Foundation
 
-/// The intercept spec decides whether a TCP/UDP flow should be intercepted or not.
-class InterceptConf {
-    
-    private var pids: Set<UInt32>
-    private var processNames: [String]
-    var invert: Bool = false
-    
-    init(pids: Set<UInt32>, processNames: [String], invert: Bool) {
-        self.pids = pids
-        self.processNames = processNames
-        self.invert = invert
-        if self.invert {
-            assert(!(self.processNames.isEmpty && self.pids.isEmpty))
+enum Action {
+    case includeAll
+    case include(Pattern)
+    case exclude(Pattern)
+
+    init(from string: String) throws {
+        if string == "*" {
+            self = .includeAll
+        } else if string.hasPrefix("!") {
+        self = .exclude(Pattern(from: String(string.dropFirst())))
+
+        } else {
+            self = .include(Pattern(from: string))
         }
     }
+}
+
+enum Pattern {
+    case pid(UInt32)
+    case process(String)
+
+    init(from string: String) {
+        if let pid = UInt32(string) {
+            self = .pid(pid)
+        } else {
+            self = .process(string)
+        }
+    }
+
+    func matches(_ processInfo: ProcessInfo) -> Bool {
+        switch self {
+        case .pid(let pid):
+            return processInfo.pid == pid
+        case .process(let name):
+            if let processName = processInfo.path {
+                return processName.contains(name)
+            } else {
+                return false 
+            }
+        }
+    }
+}
+
+
+/// The intercept spec decides whether a TCP/UDP flow should be intercepted or not.
+class InterceptConf {
+
+    private var actions: [Action]
     
-    convenience init(from ipc: MitmproxyIpc_InterceptConf) {
-        self.init(
-            pids: Set(ipc.pids),
-            processNames: ipc.processNames,
-            invert: ipc.invert
-        )
+    init(actions: [Action]) {
+        self.actions = actions
+    }
+    
+    convenience init(from ipc: MitmproxyIpc_InterceptConf) throws {
+        let actions = try ipc.actions.map { try Action(from: $0) }
+        self.init(actions: actions)
     }
     
     /// Mirrored after the Rust implementation
     func shouldIntercept(_ processInfo: ProcessInfo) -> Bool {
-        let intercept: Bool
-        if self.pids.contains(processInfo.pid) {
-            intercept = true
-        } else if let path = processInfo.path {
-            intercept = self.processNames.contains(where: {path.contains($0)})
-        } else {
-            intercept = false
+        var intercept = false
+        
+        for action in actions {
+            switch action {
+            case .includeAll:
+                intercept = true
+            case .include(let pattern):
+                intercept = intercept || pattern.matches(processInfo)
+            case .exclude(let pattern):
+                intercept = intercept && !pattern.matches(processInfo)
+            }
         }
-        return self.invert != intercept
+        
+        return intercept
     }
 
 }

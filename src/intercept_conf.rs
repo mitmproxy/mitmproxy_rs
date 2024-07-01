@@ -1,5 +1,4 @@
-use anyhow::bail;
-use std::collections::HashSet;
+use anyhow::{anyhow, ensure};
 
 pub type PID = u32;
 
@@ -11,103 +10,161 @@ pub struct ProcessInfo {
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct InterceptConf {
-    pub pids: HashSet<PID>,
-    pub process_names: Vec<String>,
-    /// if true, matching items are the ones which are not intercepted.
-    pub invert: bool,
+    actions: Vec<Action>,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+enum Action {
+    IncludeAll,
+    Include(Pattern),
+    Exclude(Pattern),
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+enum Pattern {
+    Pid(PID),
+    Process(String),
+}
+
+impl Pattern {
+    #[inline(always)]
+    fn matches(&self, process_info: &ProcessInfo) -> bool {
+        match self {
+            Pattern::Pid(pid) => process_info.pid == *pid,
+            Pattern::Process(name) => process_info
+                .process_name
+                .as_ref()
+                .map(|n| n.contains(name))
+                .unwrap_or(false),
+        }
+    }
 }
 
 impl TryFrom<&str> for InterceptConf {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let mut val = value.trim();
+        let val = value.trim();
         if val.is_empty() {
-            return Ok(InterceptConf::new(vec![], vec![], false));
+            return Ok(InterceptConf::new(vec![]));
         }
-        let invert = if val.starts_with('!') {
-            val = &val[1..];
-            true
-        } else {
-            false
-        };
-
-        let mut pids = vec![];
-        let mut procs = vec![];
-        for part in val.split(',') {
-            let part = part.trim();
-            if part.is_empty() {
-                bail!("invalid intercept spec: {}", value);
-            }
-            match part.parse::<PID>() {
-                Ok(pid) => pids.push(pid),
-                Err(_) => procs.push(part.to_string()),
-            }
-        }
-        Ok(InterceptConf::new(pids, procs, invert))
+        let actions: Vec<&str> = val.split(',').collect();
+        InterceptConf::try_from(actions).map_err(|_| anyhow!("invalid intercept spec: {}", value))
     }
 }
 
-impl ToString for InterceptConf {
-    fn to_string(&self) -> String {
-        let spec = self
-            .pids
-            .iter()
-            .map(|x| x.to_string())
-            .chain(self.process_names.clone())
-            .collect::<Vec<String>>()
-            .join(",");
+impl<T: AsRef<str>> TryFrom<Vec<T>> for InterceptConf {
+    type Error = anyhow::Error;
 
-        if self.invert {
-            format!("!{}", spec)
+    fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
+        let actions = value
+            .into_iter()
+            .map(|a| Action::try_from(a.as_ref()))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(InterceptConf::new(actions))
+    }
+}
+
+impl TryFrom<&str> for Action {
+    type Error = anyhow::Error;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let value = value.trim();
+        if value == "*" {
+            Ok(Action::IncludeAll)
+        } else if let Some(value) = value.strip_prefix('!') {
+            Ok(Action::Exclude(Pattern::try_from(value)?))
         } else {
-            spec
+            Ok(Action::Include(Pattern::try_from(value)?))
+        }
+    }
+}
+
+impl TryFrom<&str> for Pattern {
+    type Error = anyhow::Error;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let value = value.trim();
+        ensure!(!value.is_empty(), "pattern must not be empty");
+        Ok(match value.parse::<PID>() {
+            Ok(pid) => Pattern::Pid(pid),
+            Err(_) => Pattern::Process(value.to_string()),
+        })
+    }
+}
+
+impl ToString for Action {
+    fn to_string(&self) -> String {
+        match self {
+            Action::IncludeAll => "*".to_string(),
+            Action::Include(pat) => pat.to_string(),
+            Action::Exclude(pat) => format!("!{}", pat.to_string()),
+        }
+    }
+}
+
+impl ToString for Pattern {
+    fn to_string(&self) -> String {
+        match self {
+            Pattern::Pid(pid) => pid.to_string(),
+            Pattern::Process(name) => name.clone(),
         }
     }
 }
 
 impl InterceptConf {
-    pub fn new(pids: Vec<PID>, process_names: Vec<String>, invert: bool) -> Self {
-        let pids = HashSet::from_iter(pids);
-        if invert {
-            assert!(!pids.is_empty() || !process_names.is_empty());
+    pub fn disabled() -> Self {
+        Self { actions: vec![] }
+    }
+
+    fn new(mut actions: Vec<Action>) -> Self {
+        // Backwards compat: If the first action is an exclude action, include everything first.
+        if matches!(actions.first(), Some(Action::Exclude(_))) {
+            actions.insert(0, Action::IncludeAll);
         }
-        Self {
-            pids,
-            process_names,
-            invert,
-        }
+        Self { actions }
+    }
+
+    pub fn actions(&self) -> Vec<String> {
+        self.actions.iter().map(|a| a.to_string()).collect()
     }
 
     pub fn should_intercept(&self, process_info: &ProcessInfo) -> bool {
-        self.invert ^ {
-            if self.pids.contains(&process_info.pid) {
-                true
-            } else if let Some(name) = &process_info.process_name {
-                self.process_names.iter().any(|n| name.contains(n))
-            } else {
-                false
+        let mut intercept = false;
+        for action in &self.actions {
+            match action {
+                Action::IncludeAll => {
+                    intercept = true;
+                }
+                Action::Include(pattern) => {
+                    intercept = intercept || pattern.matches(process_info);
+                }
+                Action::Exclude(pattern) => {
+                    intercept = intercept && !pattern.matches(process_info);
+                }
             }
         }
+        intercept
     }
 
     pub fn description(&self) -> String {
-        if self.pids.is_empty() && self.process_names.is_empty() {
+        if self.actions.is_empty() {
             return "Intercept nothing.".to_string();
         }
-        let mut parts = vec![];
-        if !self.pids.is_empty() {
-            parts.push(format!("pids: {:?}", self.pids));
-        }
-        if !self.process_names.is_empty() {
-            parts.push(format!("process names: {:?}", self.process_names));
-        }
-        let start = if self.invert {
-            "Intercepting all packets but those from "
-        } else {
-            "Intercepting packets from "
-        };
-        format!("{}{}", start, parts.join(" or "))
+        let parts: Vec<String> = self
+            .actions
+            .iter()
+            .map(|a| match a {
+                Action::IncludeAll => "Intercept everything.".to_string(),
+                Action::Include(Pattern::Pid(pid)) => format!("Include PID {}.", pid),
+                Action::Include(Pattern::Process(name)) => {
+                    format!("Include processes matching \"{}\".", name)
+                }
+                Action::Exclude(Pattern::Pid(pid)) => format!("Exclude PID {}.", pid),
+                Action::Exclude(Pattern::Process(name)) => {
+                    format!("Exclude processes matching \"{}\".", name)
+                }
+            })
+            .collect();
+        parts.join(" ")
     }
 }
 
@@ -127,25 +184,25 @@ mod tests {
         };
 
         let conf = InterceptConf::try_from("1,2,3").unwrap();
-        assert_eq!(conf.pids, vec![1, 2, 3].into_iter().collect());
-        assert!(conf.process_names.is_empty());
-        assert!(!conf.invert);
         assert!(conf.should_intercept(&a));
         assert!(!conf.should_intercept(&b));
 
         let conf = InterceptConf::try_from("").unwrap();
-        assert!(conf.pids.is_empty());
-        assert!(conf.process_names.is_empty());
-        assert!(!conf.invert);
         assert!(!conf.should_intercept(&a));
         assert!(!conf.should_intercept(&b));
+        assert_eq!(conf, InterceptConf::disabled());
 
-        let conf = InterceptConf::try_from("!2242").unwrap();
-        assert_eq!(conf.pids, vec![2242].into_iter().collect());
-        assert!(conf.process_names.is_empty());
-        assert!(conf.invert);
+        let conf = InterceptConf::try_from("*,!1234").unwrap();
         assert!(conf.should_intercept(&a));
-        assert!(!conf.should_intercept(&b));
+        assert!(conf.should_intercept(&b));
+
+        let conf = InterceptConf::try_from("!1234").unwrap();
+        assert!(conf.should_intercept(&a));
+        assert!(conf.should_intercept(&b));
+
+        let conf = InterceptConf::try_from("mitm").unwrap();
+        assert!(!conf.should_intercept(&a));
+        assert!(conf.should_intercept(&b));
 
         assert!(InterceptConf::try_from(",,").is_err());
     }
