@@ -2,12 +2,12 @@ use anyhow::{bail, Result};
 use cocoa::base::id;
 use objc::{class, msg_send, sel, sel_impl};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::path::Path;
 use std::io::Cursor;
+use std::path::Path;
 use std::path::PathBuf;
-use std::{collections::hash_map::Entry};
 use sysinfo::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
 
 #[derive(Default)]
@@ -46,7 +46,9 @@ pub fn tiff_to_png(tiff: &[u8]) -> Vec<u8> {
     let tiff_image = image::load_from_memory_with_format(tiff, image::ImageFormat::Tiff)
         .unwrap()
         .resize(32, 32, image::imageops::FilterType::Triangle);
-    tiff_image.write_to(&mut c, image::ImageFormat::Png).unwrap();
+    tiff_image
+        .write_to(&mut c, image::ImageFormat::Png)
+        .unwrap();
     c.into_inner()
 }
 

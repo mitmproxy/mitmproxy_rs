@@ -69,18 +69,15 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         #[cfg(target_os = "macos")]
         c.bench_function("tiff_data_for_executable", |b| {
-            b.iter(|| {
-                unsafe {
-                    processes::bench::tiff_data_for_executable(&test_executable).unwrap();
-                }
+            b.iter(|| unsafe {
+                processes::bench::tiff_data_for_executable(&test_executable).unwrap();
             })
         });
 
         #[cfg(target_os = "macos")]
         c.bench_function("tiff_to_png", |b| {
-            let tiff = unsafe {
-                processes::bench::tiff_data_for_executable(&test_executable).unwrap()
-            };
+            let tiff =
+                unsafe { processes::bench::tiff_data_for_executable(&test_executable).unwrap() };
             b.iter(|| {
                 processes::bench::tiff_to_png(&tiff);
             })

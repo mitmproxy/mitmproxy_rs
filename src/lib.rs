@@ -1,8 +1,8 @@
 pub use network::MAX_PACKET_SIZE;
 
+pub mod certificates;
 pub mod intercept_conf;
 pub mod ipc;
-pub mod certificates;
 pub mod messages;
 pub mod network;
 pub mod packet_sources;
