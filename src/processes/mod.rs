@@ -32,7 +32,8 @@ pub struct ProcessInfo {
 pub type ProcessList = Vec<ProcessInfo>;
 
 #[cfg(any(windows, target_os = "macos"))]
-pub static ICON_CACHE: once_cell::sync::Lazy<std::sync::Mutex<IconCache>> = once_cell::sync::Lazy::new(|| std::sync::Mutex::new(IconCache::default()));
+pub static ICON_CACHE: once_cell::sync::Lazy<std::sync::Mutex<IconCache>> =
+    once_cell::sync::Lazy::new(|| std::sync::Mutex::new(IconCache::default()));
 
 pub mod bench {
     #[cfg(target_os = "macos")]
