@@ -1,16 +1,12 @@
 import Foundation
 
 enum Action {
-    case includeAll
     case include(Pattern)
     case exclude(Pattern)
 
     init(from string: String) throws {
-        if string == "*" {
-            self = .includeAll
-        } else if string.hasPrefix("!") {
-        self = .exclude(Pattern(from: String(string.dropFirst())))
-
+        if string.hasPrefix("!") {
+            self = .exclude(Pattern(from: String(string.dropFirst())))
         } else {
             self = .include(Pattern(from: string))
         }
@@ -47,25 +43,25 @@ enum Pattern {
 /// The intercept spec decides whether a TCP/UDP flow should be intercepted or not.
 class InterceptConf {
 
+    private var defaultAction: Bool
     private var actions: [Action]
     
-    init(actions: [Action]) {
+    init(defaultAction: Bool, actions: [Action]) {
+        self.defaultAction = defaultAction
         self.actions = actions
     }
     
     convenience init(from ipc: MitmproxyIpc_InterceptConf) throws {
         let actions = try ipc.actions.map { try Action(from: $0) }
-        self.init(actions: actions)
+        self.init(defaultAction: ipc.default, actions: actions)
     }
     
     /// Mirrored after the Rust implementation
     func shouldIntercept(_ processInfo: ProcessInfo) -> Bool {
-        var intercept = false
+        var intercept = self.defaultAction
         
         for action in actions {
             switch action {
-            case .includeAll:
-                intercept = true
             case .include(let pattern):
                 intercept = intercept || pattern.matches(processInfo)
             case .exclude(let pattern):

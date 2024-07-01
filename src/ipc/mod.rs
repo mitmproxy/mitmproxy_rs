@@ -25,6 +25,7 @@ impl From<SocketAddr> for Address {
 impl From<intercept_conf::InterceptConf> for InterceptConf {
     fn from(conf: intercept_conf::InterceptConf) -> Self {
         InterceptConf {
+            default: conf.default(),
             actions: conf.actions(),
         }
     }

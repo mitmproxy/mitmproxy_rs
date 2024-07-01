@@ -10,12 +10,12 @@ pub struct ProcessInfo {
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct InterceptConf {
+    default: bool,
     actions: Vec<Action>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 enum Action {
-    IncludeAll,
     Include(Pattern),
     Exclude(Pattern),
 }
@@ -69,9 +69,7 @@ impl TryFrom<&str> for Action {
     type Error = anyhow::Error;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let value = value.trim();
-        if value == "*" {
-            Ok(Action::IncludeAll)
-        } else if let Some(value) = value.strip_prefix('!') {
+        if let Some(value) = value.strip_prefix('!') {
             Ok(Action::Exclude(Pattern::try_from(value)?))
         } else {
             Ok(Action::Include(Pattern::try_from(value)?))
@@ -94,7 +92,6 @@ impl TryFrom<&str> for Pattern {
 impl ToString for Action {
     fn to_string(&self) -> String {
         match self {
-            Action::IncludeAll => "*".to_string(),
             Action::Include(pat) => pat.to_string(),
             Action::Exclude(pat) => format!("!{}", pat.to_string()),
         }
@@ -111,29 +108,27 @@ impl ToString for Pattern {
 }
 
 impl InterceptConf {
-    pub fn disabled() -> Self {
-        Self { actions: vec![] }
+    fn new(actions: Vec<Action>) -> Self {
+        let default = matches!(actions.first(), Some(Action::Exclude(_)));
+        Self { default, actions }
     }
 
-    fn new(mut actions: Vec<Action>) -> Self {
-        // Backwards compat: If the first action is an exclude action, include everything first.
-        if matches!(actions.first(), Some(Action::Exclude(_))) {
-            actions.insert(0, Action::IncludeAll);
-        }
-        Self { actions }
+    pub fn disabled() -> Self {
+        Self::new(vec![])
     }
 
     pub fn actions(&self) -> Vec<String> {
         self.actions.iter().map(|a| a.to_string()).collect()
     }
 
+    pub fn default(&self) -> bool {
+        self.default
+    }
+
     pub fn should_intercept(&self, process_info: &ProcessInfo) -> bool {
-        let mut intercept = false;
+        let mut intercept = self.default;
         for action in &self.actions {
             match action {
-                Action::IncludeAll => {
-                    intercept = true;
-                }
                 Action::Include(pattern) => {
                     intercept = intercept || pattern.matches(process_info);
                 }
@@ -153,7 +148,6 @@ impl InterceptConf {
             .actions
             .iter()
             .map(|a| match a {
-                Action::IncludeAll => "Intercept everything.".to_string(),
                 Action::Include(Pattern::Pid(pid)) => format!("Include PID {}.", pid),
                 Action::Include(Pattern::Process(name)) => {
                     format!("Include processes matching \"{}\".", name)
@@ -191,10 +185,6 @@ mod tests {
         assert!(!conf.should_intercept(&a));
         assert!(!conf.should_intercept(&b));
         assert_eq!(conf, InterceptConf::disabled());
-
-        let conf = InterceptConf::try_from("*,!1234").unwrap();
-        assert!(conf.should_intercept(&a));
-        assert!(conf.should_intercept(&b));
 
         let conf = InterceptConf::try_from("!1234").unwrap();
         assert!(conf.should_intercept(&a));

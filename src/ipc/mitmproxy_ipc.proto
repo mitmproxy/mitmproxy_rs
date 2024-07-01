@@ -30,7 +30,8 @@ message Packet {
 }
 // Intercept conf (macOS Control Stream)
 message InterceptConf {
-  repeated string actions = 1;
+  bool default = 1;
+  repeated string actions = 2;
 }
 // New flow (macOS TCP/UDP Stream)
 message NewFlow {
