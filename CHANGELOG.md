@@ -1,4 +1,8 @@
-## 0.5.1
+## 0.6.0
+
+- Change intercept spec syntax.
+
+## 0.5.2
 
 - Dependency updates.
 
