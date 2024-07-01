@@ -30,6 +30,7 @@ impl IconCache {
                 let mut hasher = DefaultHasher::new();
                 tiff.hash(&mut hasher);
                 let tiff_hash = hasher.finish();
+                e.insert(tiff_hash);
                 let icon = self
                     .icons
                     .entry(tiff_hash)
@@ -49,7 +50,7 @@ pub fn tiff_to_png(tiff: &[u8]) -> Vec<u8> {
     c.into_inner()
 }
 
-unsafe fn tiff_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
+pub unsafe fn tiff_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
     let mut sys = System::new();
     sys.refresh_processes_specifics(ProcessRefreshKind::new());
     for (pid, process) in sys.processes() {

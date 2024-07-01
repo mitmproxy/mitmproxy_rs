@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 #[cfg(target_os = "macos")]
-use mitmproxy::macos::icons;
+use mitmproxy::processes;
 #[cfg(windows)]
 use mitmproxy::windows::{icons, processes};
 
@@ -11,6 +11,7 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 fn criterion_benchmark(c: &mut Criterion) {
     #[cfg(windows)]
     {
+        // FIXME Outdated
         let hinst = unsafe { GetModuleHandleW(None).unwrap() };
         let pid = std::process::id();
         let mut test_exe = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -27,44 +28,61 @@ fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function("get_display_name", |b| {
             b.iter(|| processes::get_display_name(&test_exe))
         });
-        c.bench_function("get_icon", |b| {
-            b.iter(|| {
-                icons::IconCache::default()
-                    .get_png(test_exe.clone())
-                    .unwrap();
-            })
-        });
+    }
 
-        let mut icon_cache = icons::IconCache::default();
-        c.bench_function("get_icon (cached)", |b| {
-            b.iter(|| {
-                icon_cache.get_png(test_exe.clone()).unwrap();
-            })
-        });
-
-        c.bench_function("visible_windows", |b| b.iter(processes::visible_windows));
+    #[cfg(any(windows, target_os = "macos"))]
+    {
         c.bench_function("active_executables", |b| {
             b.iter(processes::active_executables)
         });
-    }
-    #[cfg(target_os = "macos")]
-    {
-        let test_app = std::path::PathBuf::from(
+
+        c.bench_function("visible_windows", |b| {
+            b.iter(processes::bench::visible_windows)
+        });
+
+        #[cfg(target_os = "macos")]
+        let test_executable = std::path::PathBuf::from(
             "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder",
         );
+        #[cfg(windows)]
+        let test_executable = {
+            let mut test_executable = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            test_executable.push("benches\\openvpnserv.exe");
+            test_executable
+        };
 
         c.bench_function("get_png", |b| {
             b.iter(|| {
-                icons::IconCache::default()
-                    .get_png(test_app.clone())
+                processes::bench::IconCache::default()
+                    .get_png(test_executable.clone())
                     .unwrap();
             })
         });
 
-        let mut cache = icons::IconCache::default();
+        let mut cache = processes::bench::IconCache::default();
+        cache.get_png(test_executable.clone()).unwrap();
         c.bench_function("get_png (cached)", |b| {
             b.iter(|| {
-                cache.get_png(test_app.clone()).unwrap();
+                cache.get_png(test_executable.clone()).unwrap();
+            })
+        });
+
+        #[cfg(target_os = "macos")]
+        c.bench_function("tiff_data_for_executable", |b| {
+            b.iter(|| {
+                unsafe {
+                    processes::bench::tiff_data_for_executable(&test_executable).unwrap();
+                }
+            })
+        });
+
+        #[cfg(target_os = "macos")]
+        c.bench_function("tiff_to_png", |b| {
+            let tiff = unsafe {
+                processes::bench::tiff_data_for_executable(&test_executable).unwrap()
+            };
+            b.iter(|| {
+                processes::bench::tiff_to_png(&tiff);
             })
         });
     }

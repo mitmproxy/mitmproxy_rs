@@ -36,3 +36,19 @@ pub type ProcessList = Vec<ProcessInfo>;
 
 #[cfg(any(windows, target_os = "macos"))]
 pub static ICON_CACHE: Lazy<Mutex<IconCache>> = Lazy::new(|| Mutex::new(IconCache::default()));
+
+
+pub mod bench {
+    #[cfg(target_os = "macos")]
+    pub use super::macos_list::visible_windows;
+    #[cfg(windows)]
+    pub use super::windows_list::visible_windows;
+
+    #[cfg(target_os = "macos")]
+    pub use super::macos_icons::IconCache;
+    #[cfg(windows)]
+    pub use super::windows_icons::IconCache;
+
+    #[cfg(target_os = "macos")]
+    pub use super::macos_icons::{tiff_to_png, tiff_data_for_executable};
+}
