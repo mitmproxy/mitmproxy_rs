@@ -3,7 +3,6 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
-use async_trait::async_trait;
 use boringtun::noise::{
     errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult,
 };
@@ -42,7 +41,6 @@ pub struct WireGuardConf {
     pub peer_public_keys: Vec<PublicKey>,
 }
 
-#[async_trait]
 impl PacketSourceConf for WireGuardConf {
     type Task = WireGuardTask;
     type Data = SocketAddr;
@@ -145,7 +143,6 @@ pub struct WireGuardTask {
     network_task_handle: tokio::task::JoinHandle<Result<()>>,
 }
 
-#[async_trait]
 impl PacketSourceTask for WireGuardTask {
     async fn run(mut self) -> Result<()> {
         if self.peers_by_idx.is_empty() {
