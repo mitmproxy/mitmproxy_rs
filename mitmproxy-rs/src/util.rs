@@ -2,7 +2,7 @@
 use anyhow::{anyhow, Result};
 use data_encoding::BASE64;
 #[cfg(target_os = "macos")]
-use mitmproxy::macos;
+use mitmproxy::certificates;
 
 use pyo3::exceptions::PyOSError;
 use pyo3::types::{PyString, PyTuple};
@@ -82,7 +82,7 @@ pub fn add_cert(py: Python<'_>, pem: String) -> PyResult<()> {
             return Err(anyhow!("{} does not exist", executable_path.display()).into());
         }
         let der = BASE64.decode(pem_body.as_bytes()).unwrap();
-        match macos::certificates::add_cert(der, executable_path.to_str().unwrap()) {
+        match certificates::add_cert(der, executable_path.to_str().unwrap()) {
             Ok(_) => Ok(()),
             Err(e) => Err(PyErr::new::<PyOSError, _>(format!(
                 "Failed to add certificate: {:?}",
@@ -101,7 +101,7 @@ pub fn add_cert(py: Python<'_>, pem: String) -> PyResult<()> {
 pub fn remove_cert() -> PyResult<()> {
     #[cfg(target_os = "macos")]
     {
-        match macos::certificates::remove_cert() {
+        match certificates::remove_cert() {
             Ok(_) => Ok(()),
             Err(e) => Err(PyErr::new::<PyOSError, _>(format!(
                 "Failed to remove certificate: {:?}",
