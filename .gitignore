@@ -6,4 +6,8 @@
 /docs/
 __pycache__/
 *.xcuserstate
+<<<<<<< HEAD
 editable.marker
+=======
+*.DS_Store
+>>>>>>> pr-118
