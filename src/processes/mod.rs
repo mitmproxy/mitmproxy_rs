@@ -50,4 +50,7 @@ pub mod bench {
 
     #[cfg(target_os = "macos")]
     pub use super::macos_icons::{tiff_data_for_executable, tiff_to_png};
+
+    #[cfg(windows)]
+    pub use super::windows_list::{get_is_critical, get_process_name, enumerate_pids, get_display_name};
 }
