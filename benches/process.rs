@@ -4,11 +4,9 @@ use mitmproxy::processes;
 
 #[allow(unused_variables)]
 fn criterion_benchmark(c: &mut Criterion) {
-
     #[cfg(target_os = "macos")]
-    let test_executable = std::path::PathBuf::from(
-        "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder",
-    );
+    let test_executable =
+        std::path::PathBuf::from("/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder");
     #[cfg(windows)]
     let test_executable = {
         let mut test_executable = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -53,9 +51,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function("get_process_name", |b| {
             b.iter(|| processes::bench::get_process_name(pid))
         });
-        c.bench_function("enumerate_pids", |b| {
-            b.iter(|| processes::enumerate_pids())
-        });
+        c.bench_function("enumerate_pids", |b| b.iter(|| processes::enumerate_pids()));
         c.bench_function("get_display_name", |b| {
             b.iter(|| processes::bench::get_display_name(&test_exe))
         });
