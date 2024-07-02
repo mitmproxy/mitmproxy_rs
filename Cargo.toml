@@ -67,7 +67,7 @@ features = [
 ]
 
 [target.'cfg(target_os = "macos")'.dependencies]
-apple-security-framework = "2.9.2"
+security-framework = "2.11.0"
 nix = { version = "0.29.0", default-features = false, features = ["fs"] }
 
 [dev-dependencies]

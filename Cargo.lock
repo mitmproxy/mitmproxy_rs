@@ -101,29 +101,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "apple-security-framework"
-version = "2.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07831f002eaa83d94f7e2c1300f3268a8f949c35a41dd99faceb6575c191d871"
-dependencies = [
- "apple-security-framework-sys",
- "bitflags 2.5.0",
- "core-foundation",
- "core-foundation-sys",
- "libc",
-]
-
-[[package]]
-name = "apple-security-framework-sys"
-version = "2.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09acfa027e87e9f590474e9ef19d0f12158bf1c72af80ac76806f17e84959a42"
-dependencies = [
- "core-foundation-sys",
- "libc",
-]
-
-[[package]]
 name = "arc-swap"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1244,7 +1221,7 @@ checksum = "9106e1d747ffd48e6be5bb2d97fa706ed25b144fbee4d5c02eae110cd8d6badd"
 name = "macos-certificate-truster"
 version = "0.6.0"
 dependencies = [
- "apple-security-framework",
+ "security-framework",
 ]
 
 [[package]]
@@ -1332,7 +1309,6 @@ name = "mitmproxy"
 version = "0.6.0"
 dependencies = [
  "anyhow",
- "apple-security-framework",
  "boringtun",
  "console-subscriber",
  "criterion",
@@ -1348,6 +1324,7 @@ dependencies = [
  "prost",
  "rand",
  "rand_core",
+ "security-framework",
  "smoltcp",
  "tokio",
  "tokio-util",
@@ -1935,6 +1912,29 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "security-framework"
+version = "2.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c627723fd09706bacdb5cf41499e95098555af3c3c29d014dc3c458ef6be11c0"
+dependencies = [
+ "bitflags 2.5.0",
+ "core-foundation",
+ "core-foundation-sys",
+ "libc",
+ "security-framework-sys",
+]
+
+[[package]]
+name = "security-framework-sys"
+version = "2.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "317936bbbd05227752583946b9e66d7ce3b489f84e11a94a510b4437fef407d7"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+]
 
 [[package]]
 name = "semver"
