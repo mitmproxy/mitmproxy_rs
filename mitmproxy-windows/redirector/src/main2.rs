@@ -13,7 +13,7 @@ use mitmproxy::ipc;
 use mitmproxy::ipc::FromProxy;
 use mitmproxy::packet_sources::windows::IPC_BUF_SIZE;
 use mitmproxy::windows::network::network_table;
-use mitmproxy::windows::processes::get_process_name;
+use mitmproxy::processes::get_process_name;
 use mitmproxy::MAX_PACKET_SIZE;
 use prost::Message;
 use std::io::Cursor;
