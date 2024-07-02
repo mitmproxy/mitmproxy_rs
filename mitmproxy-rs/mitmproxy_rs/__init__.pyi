@@ -124,7 +124,16 @@ class Process:
     @property
     def is_system(self) -> bool: ...
 
-# DNS resolver
+# DNS resolution
 
-async def getaddrinfo(host: str, family: int = 0, use_hosts_file: bool = True): list[str]
+@final
+class DnsResolver:
+    async def lookup_ip(self, host: str) -> list[str]: ...
+
+@final
+class DnsResolverBuilder:
+    def use_hosts_file(self, value: bool) -> None: ...
+    def use_name_servers(self, value: list[str]) -> None: ...
+    def build(self) -> DnsResolver: ...
+
 def get_system_dns_servers(): list[str]

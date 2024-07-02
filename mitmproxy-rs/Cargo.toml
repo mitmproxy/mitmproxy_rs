@@ -27,6 +27,7 @@ boringtun = "0.6"
 tar = "0.4.41"
 console-subscriber = { version = "0.3.0", optional = true }
 
+
 [dev-dependencies]
 env_logger = "0.11"
 
