@@ -52,7 +52,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             b.iter(|| processes::bench::get_process_name(pid))
         });
         c.bench_function("enumerate_pids", |b| {
-            b.iter(|| processes::bench::enumerate_pids())
+            b.iter(processes::bench::enumerate_pids)
         });
         c.bench_function("get_display_name", |b| {
             b.iter(|| processes::bench::get_display_name(&test_executable))

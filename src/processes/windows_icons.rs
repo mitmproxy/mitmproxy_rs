@@ -7,12 +7,10 @@ use std::mem::MaybeUninit;
 use std::os::windows::prelude::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::ptr::addr_of_mut;
-use std::sync::Mutex;
 use std::{iter, mem};
 
 use anyhow::{bail, Result};
 use image::RgbaImage;
-use once_cell::sync::Lazy;
 use windows::Win32::Foundation::{HMODULE, HWND};
 use windows::Win32::Graphics::Gdi::{
     DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFOHEADER, BI_RGB,
