@@ -60,8 +60,9 @@ pub fn mitmproxy_rs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<process_info::Process>()?;
     m.add_function(wrap_pyfunction!(process_info::executable_icon, m)?)?;
 
+    m.add_class::<dns_resolver::AddressFamily>()?;
     m.add_function(wrap_pyfunction!(dns_resolver::getaddrinfo, m)?)?;
-    m.add_function(wrap_pyfunction!(dns_resolver::get_system_dns_server, m)?)?;
+    m.add_function(wrap_pyfunction!(dns_resolver::get_system_dns_servers, m)?)?;
 
     m.add_class::<stream::Stream>()?;
 

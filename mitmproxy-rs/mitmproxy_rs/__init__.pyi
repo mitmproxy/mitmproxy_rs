@@ -127,4 +127,4 @@ class Process:
 # DNS resolver
 
 async def getaddrinfo(host: str, family: int = 0, use_hosts_file: bool = True): list[str]
-def get_system_dns_server(): set[str]
+def get_system_dns_servers(): list[str]
