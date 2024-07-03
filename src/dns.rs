@@ -5,10 +5,11 @@ use hickory_resolver::system_conf::read_system_conf;
 use hickory_resolver::TokioAsyncResolver;
 use once_cell::sync::Lazy;
 use std::net::IpAddr;
+use std::net::SocketAddr;
 
-pub use hickory_resolver::config::NameServerConfig;
-pub use hickory_resolver::config::Protocol;
-pub use hickory_resolver::config::ResolverConfig;
+use hickory_resolver::config::NameServerConfig;
+use hickory_resolver::config::Protocol;
+use hickory_resolver::config::ResolverConfig;
 pub use hickory_resolver::error::ResolveErrorKind;
 pub use hickory_resolver::proto::op::ResponseCode;
 
@@ -22,43 +23,27 @@ pub static DNS_SERVERS: Lazy<ResolveResult<Vec<String>>> = Lazy::new(|| {
         .collect::<Vec<String>>())
 });
 
-pub struct DnsResolverBuilder {
-    use_hosts_file: bool,
-    config: Option<ResolverConfig>,
-}
-
-impl Default for DnsResolverBuilder {
-    fn default() -> Self {
-        DnsResolverBuilder {
-            use_hosts_file: true,
-            config: None,
-        }
-    }
-}
-
-impl DnsResolverBuilder {
-    pub fn use_hosts_file(&mut self, value: bool) -> &mut Self {
-        self.use_hosts_file = value;
-        self
-    }
-
-    pub fn use_config(&mut self, value: ResolverConfig) -> &mut Self {
-        self.config = Some(value);
-        self
-    }
-
-    pub fn build(&self) -> ResolveResult<DnsResolver> {
-        let (system_config, mut opts) = read_system_conf()?;
-        let config = self.config.clone().unwrap_or(system_config);
-        opts.use_hosts_file = self.use_hosts_file;
-        opts.ip_strategy = LookupIpStrategy::Ipv4AndIpv6;
-        Ok(DnsResolver(TokioAsyncResolver::tokio(config, opts)))
-    }
-}
-
 pub struct DnsResolver(TokioAsyncResolver);
 
 impl DnsResolver {
+    pub fn new(name_servers: Option<Vec<SocketAddr>>, use_hosts_file: bool) -> ResolveResult<Self> {
+        let (system_config, mut opts) = read_system_conf()?;
+
+        let config = if let Some(ns) = name_servers {
+            let mut conf = ResolverConfig::new();
+            for addr in ns.into_iter() {
+                conf.add_name_server(NameServerConfig::new(addr, Protocol::Udp));
+                conf.add_name_server(NameServerConfig::new(addr, Protocol::Tcp));
+            }
+            conf
+        } else {
+            system_config
+        };
+        opts.use_hosts_file = use_hosts_file;
+        opts.ip_strategy = LookupIpStrategy::Ipv4AndIpv6;
+        Ok(Self(TokioAsyncResolver::tokio(config, opts)))
+    }
+
     pub async fn lookup_ip(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
         self.0.lookup_ip(host).await.map(_interleave_addrinfos)
     }
@@ -107,9 +92,7 @@ mod tests {
 
         let mut config = ResolverConfig::new();
         config.add_name_server(NameServerConfig::new(listen_addr, Protocol::Udp));
-        let results = DnsResolverBuilder::default()
-            .use_config(config)
-            .build()?
+        let results = DnsResolver::new(Some(vec![listen_addr]), false)?
             .lookup_ip("example.com.".to_string())
             .await?;
 
