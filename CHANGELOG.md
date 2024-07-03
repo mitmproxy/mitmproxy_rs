@@ -1,6 +1,7 @@
 ## 0.6.0
 
 - Change intercept spec syntax.
+- Add DNS resolver.
 
 ## 0.5.2
 
