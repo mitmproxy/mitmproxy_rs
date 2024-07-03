@@ -41,7 +41,7 @@ impl Process {
 /// Return a list of all running executables.
 /// Note that this groups multiple processes by executable name.
 ///
-/// *Availability: Windows*
+/// *Availability: Windows, macOS*
 #[pyfunction]
 pub fn active_executables() -> PyResult<Vec<Process>> {
     #[cfg(any(windows, target_os = "macos"))]
@@ -56,6 +56,9 @@ pub fn active_executables() -> PyResult<Vec<Process>> {
     ))
 }
 
+/// Get a PNG icon for an executable path.
+///
+/// *Availability: Windows, macOS*
 #[pyfunction]
 #[allow(unused_variables)]
 pub fn executable_icon(path: PathBuf) -> Result<PyObject> {
