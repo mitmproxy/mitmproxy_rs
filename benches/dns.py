@@ -3,10 +3,7 @@ import asyncio
 import socket
 
 async def main():
-    builder = mitmproxy_rs.DnsResolverBuilder()
-    builder.use_hosts_file(False)
-    builder.use_nameserver(["8.8.8.8"])
-    resolver = builder.build()
+    resolver = mitmproxy_rs.DnsResolver(use_hosts_file=False, name_servers=['8.8.8.8'])
 
     async def lookup(host: str):
         try:
