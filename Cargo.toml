@@ -46,6 +46,7 @@ futures-util = { version = "0.3.30", features = ["sink"] }
 lru_time_cache = "0.11.11"
 internet-packet = { version = "0.2.0", features = ["smoltcp"] }
 data-encoding = "2.4.0"
+hickory-resolver = "0.24.1"
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
@@ -80,6 +81,7 @@ sysinfo = "0.29.10"
 env_logger = "0.11"
 rand = "0.8"
 criterion = "0.5.1"
+hickory-server = "0.24.1"
 
 
 [[bench]]
