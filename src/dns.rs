@@ -27,7 +27,6 @@ pub struct DnsResolver(TokioAsyncResolver);
 
 impl DnsResolver {
     pub fn new(name_servers: Option<Vec<SocketAddr>>, use_hosts_file: bool) -> ResolveResult<Self> {
-
         let (config, mut opts) = if let Some(ns) = name_servers {
             // Try to get opts from system, but fall back gracefully if that is unavailable.
             let opts = read_system_conf().map(|r| r.1).unwrap_or_default();
