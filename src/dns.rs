@@ -27,17 +27,19 @@ pub struct DnsResolver(TokioAsyncResolver);
 
 impl DnsResolver {
     pub fn new(name_servers: Option<Vec<SocketAddr>>, use_hosts_file: bool) -> ResolveResult<Self> {
-        let (system_config, mut opts) = read_system_conf()?;
 
-        let config = if let Some(ns) = name_servers {
+        let (config, mut opts) = if let Some(ns) = name_servers {
+            // Try to get opts from system, but fall back gracefully if that is unavailable.
+            let opts = read_system_conf().map(|r| r.1).unwrap_or_default();
+
             let mut conf = ResolverConfig::new();
             for addr in ns.into_iter() {
                 conf.add_name_server(NameServerConfig::new(addr, Protocol::Udp));
                 conf.add_name_server(NameServerConfig::new(addr, Protocol::Tcp));
             }
-            conf
+            (conf, opts)
         } else {
-            system_config
+            read_system_conf()?
         };
         opts.use_hosts_file = use_hosts_file;
         opts.ip_strategy = LookupIpStrategy::Ipv4AndIpv6;
