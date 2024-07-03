@@ -15,7 +15,7 @@ pub struct DnsResolver(Arc<mitmproxy::dns::DnsResolver>);
 #[pymethods]
 impl DnsResolver {
     #[new]
-    #[pyo3(signature = (*, name_servers, use_hosts_file=true))]
+    #[pyo3(signature = (*, name_servers=None, use_hosts_file=true))]
     fn new(name_servers: Option<Vec<IpAddr>>, use_hosts_file: bool) -> PyResult<Self> {
         let name_servers = name_servers.map(|ns| {
             ns.into_iter()
