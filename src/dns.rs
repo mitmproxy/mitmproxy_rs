@@ -1,5 +1,5 @@
 use hickory_resolver::config::LookupIpStrategy;
-use hickory_resolver::error::ResolveResult;
+use hickory_resolver::error::ResolveError;
 use hickory_resolver::lookup_ip::LookupIp;
 use hickory_resolver::system_conf::read_system_conf;
 use hickory_resolver::TokioAsyncResolver;
@@ -11,7 +11,9 @@ use hickory_resolver::config::NameServerConfig;
 use hickory_resolver::config::Protocol;
 use hickory_resolver::config::ResolverConfig;
 pub use hickory_resolver::error::ResolveErrorKind;
+pub use hickory_resolver::error::ResolveResult;
 pub use hickory_resolver::proto::op::ResponseCode;
+pub use hickory_resolver::proto::op::Query;
 
 pub static DNS_SERVERS: Lazy<ResolveResult<Vec<String>>> = Lazy::new(|| {
     let (config, _opts) = read_system_conf()?;
@@ -48,6 +50,30 @@ impl DnsResolver {
     pub async fn lookup_ip(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
         self.0.lookup_ip(host).await.map(_interleave_addrinfos)
     }
+
+    // hickory_resolver's ipv4/v6_lookup() doesn't use the hosts file for lookups but lookup_ip does,
+    // so we instead filter addresses returned from lookup_ip for now
+    //
+    // https://github.com/hickory-dns/hickory-dns/pull/2149
+    pub async fn ipv4_lookup(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
+        let lookup = self.0.lookup_ip(host).await?;
+        let ipv4_addrs: Vec<IpAddr> = lookup
+        .iter()
+        .filter(|addr| addr.is_ipv4())
+        .collect();
+        let query = lookup.query();
+        _return_result(query.clone(), ipv4_addrs)
+    }
+
+    pub async fn ipv6_lookup(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
+        let lookup = self.0.lookup_ip(host).await?;
+        let ipv6_addrs: Vec<IpAddr> = lookup
+        .iter()
+        .filter(|addr| addr.is_ipv6())
+        .collect();
+        let query = lookup.query();
+        _return_result(query.clone(), ipv6_addrs)
+    }
 }
 
 fn _interleave_addrinfos(lookup_ip: LookupIp) -> Vec<IpAddr> {
@@ -64,6 +90,20 @@ fn _interleave_addrinfos(lookup_ip: LookupIp) -> Vec<IpAddr> {
     }
     interleaved.append(&mut ipv6_addrs);
     interleaved
+}
+
+fn _return_result(query: Query, addrs: Vec<IpAddr>) -> ResolveResult<Vec<IpAddr>> {
+    if addrs.is_empty() {
+        Err(ResolveError::from(ResolveErrorKind::NoRecordsFound {
+            query: Box::new(query),
+            response_code: ResponseCode::NoError,
+            soa: None,
+            negative_ttl: None,
+            trusted: true
+        }))
+    } else {
+        Ok(addrs)
+    }
 }
 
 #[cfg(test)]
@@ -93,14 +133,29 @@ mod tests {
 
         let mut config = ResolverConfig::new();
         config.add_name_server(NameServerConfig::new(listen_addr, Protocol::Udp));
-        let results = DnsResolver::new(Some(vec![listen_addr]), false)?
-            .lookup_ip("example.com.".to_string())
-            .await?;
+        let resolver = DnsResolver::new(Some(vec![listen_addr]), false)?;
 
+        let mut results = resolver.lookup_ip("example.com.".to_string()).await?;
         assert_eq!(
             results,
             vec![
                 IpAddr::from_str("93.184.215.14")?,
+                IpAddr::from_str("2606:2800:21f:cb07:6820:80da:af6b:8b2c")?,
+            ]
+        );
+
+        results = resolver.ipv4_lookup("example.com.".to_string()).await?;
+        assert_eq!(
+            results,
+            vec![
+                IpAddr::from_str("93.184.215.14")?,
+            ]
+        );
+
+        results = resolver.ipv6_lookup("example.com.".to_string()).await?;
+        assert_eq!(
+            results,
+            vec![
                 IpAddr::from_str("2606:2800:21f:cb07:6820:80da:af6b:8b2c")?,
             ]
         );

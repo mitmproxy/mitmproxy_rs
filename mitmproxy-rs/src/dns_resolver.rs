@@ -1,4 +1,4 @@
-use mitmproxy::dns::{ResolveErrorKind, ResponseCode, DNS_SERVERS};
+use mitmproxy::dns::{ResolveErrorKind, ResponseCode, DNS_SERVERS, ResolveResult};
 use pyo3::exceptions::socket::gaierror;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
@@ -38,23 +38,30 @@ impl DnsResolver {
     pub fn lookup_ip<'py>(&self, py: Python<'py>, host: String) -> PyResult<Bound<'py, PyAny>> {
         let resolver = self.0.clone();
         pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
-            match resolver.lookup_ip(host).await {
-                Ok(resp) => Ok(resp
-                    .into_iter()
-                    .map(|ip| ip.to_string())
-                    .collect::<Vec<String>>()),
-                Err(e) => match *e.kind() {
-                    ResolveErrorKind::NoRecordsFound {
-                        response_code: ResponseCode::NXDomain,
-                        ..
-                    } => Err(gaierror::new_err("NXDOMAIN")),
-                    ResolveErrorKind::NoRecordsFound {
-                        response_code: ResponseCode::NoError,
-                        ..
-                    } => Err(gaierror::new_err("NOERROR")),
-                    _ => Err(gaierror::new_err(e.to_string())),
-                },
-            }
+            let ips = resolver.lookup_ip(host).await;
+            _convert_to_string(ips)
+        })
+    }
+
+    /// Lookup the IPv4 addresses for a hostname.
+    ///
+    /// Raises `socket.gaierror` if the domain does not exist, has no records, or there is a general connectivity failure.
+    pub fn ipv4_lookup<'py>(&self, py: Python<'py>, host: String) -> PyResult<Bound<'py, PyAny>> {
+        let resolver = self.0.clone();
+        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
+            let ips = resolver.lookup_ip(host).await;
+            _convert_to_string(ips)
+        })
+    }
+
+    /// Lookup the IPv6 addresses for a hostname.
+    ///
+    /// Raises `socket.gaierror` if the domain does not exist, has no records, or there is a general connectivity failure.
+    pub fn ipv6_lookup<'py>(&self, py: Python<'py>, host: String) -> PyResult<Bound<'py, PyAny>> {
+        let resolver = self.0.clone();
+        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
+            let ips = resolver.ipv6_lookup(host).await;
+            _convert_to_string(ips)
         })
     }
 }
@@ -68,4 +75,24 @@ pub fn get_system_dns_servers() -> PyResult<Vec<String>> {
     DNS_SERVERS.clone().map_err(|e| {
         pyo3::exceptions::PyRuntimeError::new_err(format!("failed to get dns servers: {}", e))
     })
+}
+
+fn _convert_to_string(ips: ResolveResult<Vec<IpAddr>>) -> Result<Vec<String>, PyErr> {
+    match ips {
+        Ok(resp) => Ok(resp
+            .into_iter()
+            .map(|ip| ip.to_string())
+            .collect::<Vec<String>>()),
+        Err(e) => match *e.kind() {
+            ResolveErrorKind::NoRecordsFound {
+                response_code: ResponseCode::NXDomain,
+                ..
+            } => Err(gaierror::new_err("NXDOMAIN")),
+            ResolveErrorKind::NoRecordsFound {
+                response_code: ResponseCode::NoError,
+                ..
+            } => Err(gaierror::new_err("NOERROR")),
+            _ => Err(gaierror::new_err(e.to_string())),
+        },
+    }
 }
