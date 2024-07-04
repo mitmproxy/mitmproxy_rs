@@ -38,30 +38,30 @@ impl DnsResolver {
     pub fn lookup_ip<'py>(&self, py: Python<'py>, host: String) -> PyResult<Bound<'py, PyAny>> {
         let resolver = self.0.clone();
         pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
-            let ips = resolver.lookup_ip(host).await;
-            _convert_to_string(ips)
+            let resolved = resolver.lookup_ip(host).await;
+            resolve_result_to_py(resolved)
         })
     }
 
     /// Lookup the IPv4 addresses for a hostname.
     ///
     /// Raises `socket.gaierror` if the domain does not exist, has no records, or there is a general connectivity failure.
-    pub fn ipv4_lookup<'py>(&self, py: Python<'py>, host: String) -> PyResult<Bound<'py, PyAny>> {
+    pub fn lookup_ipv4<'py>(&self, py: Python<'py>, host: String) -> PyResult<Bound<'py, PyAny>> {
         let resolver = self.0.clone();
         pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
-            let ips = resolver.ipv4_lookup(host).await;
-            _convert_to_string(ips)
+            let resolved = resolver.lookup_ipv4(host).await;
+            resolve_result_to_py(resolved)
         })
     }
 
     /// Lookup the IPv6 addresses for a hostname.
     ///
     /// Raises `socket.gaierror` if the domain does not exist, has no records, or there is a general connectivity failure.
-    pub fn ipv6_lookup<'py>(&self, py: Python<'py>, host: String) -> PyResult<Bound<'py, PyAny>> {
+    pub fn lookup_ipv6<'py>(&self, py: Python<'py>, host: String) -> PyResult<Bound<'py, PyAny>> {
         let resolver = self.0.clone();
         pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
-            let ips = resolver.ipv6_lookup(host).await;
-            _convert_to_string(ips)
+            let resolved = resolver.lookup_ipv6(host).await;
+            resolve_result_to_py(resolved)
         })
     }
 }
@@ -77,8 +77,8 @@ pub fn get_system_dns_servers() -> PyResult<Vec<String>> {
     })
 }
 
-fn _convert_to_string(ips: ResolveResult<Vec<IpAddr>>) -> Result<Vec<String>, PyErr> {
-    match ips {
+fn resolve_result_to_py(resolved: ResolveResult<Vec<IpAddr>>) -> Result<Vec<String>, PyErr> {
+    match resolved {
         Ok(resp) => Ok(resp
             .into_iter()
             .map(|ip| ip.to_string())

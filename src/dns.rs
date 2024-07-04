@@ -55,18 +55,32 @@ impl DnsResolver {
     // so we instead filter addresses returned from lookup_ip for now
     //
     // https://github.com/hickory-dns/hickory-dns/pull/2149
-    pub async fn ipv4_lookup(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
-        let lookup = self.0.lookup_ip(host).await?;
-        let ipv4_addrs: Vec<IpAddr> = lookup.iter().filter(|addr| addr.is_ipv4()).collect();
-        let query = lookup.query();
-        _return_result(query.clone(), ipv4_addrs)
+    pub async fn lookup_ipv4(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
+        self.lookup_ipvx(host, IpAddr::is_ipv4).await
     }
 
-    pub async fn ipv6_lookup(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
+    pub async fn lookup_ipv6(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
+        self.lookup_ipvx(host, IpAddr::is_ipv6).await
+    }
+
+    async fn lookup_ipvx<F>(&self, host: String, filter: F) -> ResolveResult<Vec<IpAddr>>
+    where
+        F: FnMut(&IpAddr) -> bool,
+    {
         let lookup = self.0.lookup_ip(host).await?;
-        let ipv6_addrs: Vec<IpAddr> = lookup.iter().filter(|addr| addr.is_ipv6()).collect();
-        let query = lookup.query();
-        _return_result(query.clone(), ipv6_addrs)
+        let addrs: Vec<IpAddr> = lookup.iter().filter(filter).collect();
+
+        if addrs.is_empty() {
+            Err(ResolveError::from(ResolveErrorKind::NoRecordsFound {
+                query: Box::new(lookup.query().clone()),
+                response_code: ResponseCode::NoError,
+                soa: None,
+                negative_ttl: None,
+                trusted: true,
+            }))
+        } else {
+            Ok(addrs)
+        }
     }
 }
 
@@ -84,20 +98,6 @@ fn _interleave_addrinfos(lookup_ip: LookupIp) -> Vec<IpAddr> {
     }
     interleaved.append(&mut ipv6_addrs);
     interleaved
-}
-
-fn _return_result(query: Query, addrs: Vec<IpAddr>) -> ResolveResult<Vec<IpAddr>> {
-    if addrs.is_empty() {
-        Err(ResolveError::from(ResolveErrorKind::NoRecordsFound {
-            query: Box::new(query),
-            response_code: ResponseCode::NoError,
-            soa: None,
-            negative_ttl: None,
-            trusted: true,
-        }))
-    } else {
-        Ok(addrs)
-    }
 }
 
 #[cfg(test)]
@@ -138,10 +138,10 @@ mod tests {
             ]
         );
 
-        results = resolver.ipv4_lookup("example.com.".to_string()).await?;
+        results = resolver.lookup_ipv4("example.com.".to_string()).await?;
         assert_eq!(results, vec![IpAddr::from_str("93.184.215.14")?,]);
 
-        results = resolver.ipv6_lookup("example.com.".to_string()).await?;
+        results = resolver.lookup_ipv6("example.com.".to_string()).await?;
         assert_eq!(
             results,
             vec![IpAddr::from_str("2606:2800:21f:cb07:6820:80da:af6b:8b2c")?,]
