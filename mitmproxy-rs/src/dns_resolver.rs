@@ -1,4 +1,4 @@
-use mitmproxy::dns::{ResolveErrorKind, ResponseCode, DNS_SERVERS, ResolveResult};
+use mitmproxy::dns::{ResolveErrorKind, ResolveResult, ResponseCode, DNS_SERVERS};
 use pyo3::exceptions::socket::gaierror;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
@@ -49,7 +49,7 @@ impl DnsResolver {
     pub fn ipv4_lookup<'py>(&self, py: Python<'py>, host: String) -> PyResult<Bound<'py, PyAny>> {
         let resolver = self.0.clone();
         pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
-            let ips = resolver.lookup_ip(host).await;
+            let ips = resolver.ipv4_lookup(host).await;
             _convert_to_string(ips)
         })
     }

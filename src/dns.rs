@@ -12,8 +12,8 @@ use hickory_resolver::config::Protocol;
 use hickory_resolver::config::ResolverConfig;
 pub use hickory_resolver::error::ResolveErrorKind;
 pub use hickory_resolver::error::ResolveResult;
-pub use hickory_resolver::proto::op::ResponseCode;
 pub use hickory_resolver::proto::op::Query;
+pub use hickory_resolver::proto::op::ResponseCode;
 
 pub static DNS_SERVERS: Lazy<ResolveResult<Vec<String>>> = Lazy::new(|| {
     let (config, _opts) = read_system_conf()?;
@@ -57,20 +57,14 @@ impl DnsResolver {
     // https://github.com/hickory-dns/hickory-dns/pull/2149
     pub async fn ipv4_lookup(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
         let lookup = self.0.lookup_ip(host).await?;
-        let ipv4_addrs: Vec<IpAddr> = lookup
-        .iter()
-        .filter(|addr| addr.is_ipv4())
-        .collect();
+        let ipv4_addrs: Vec<IpAddr> = lookup.iter().filter(|addr| addr.is_ipv4()).collect();
         let query = lookup.query();
         _return_result(query.clone(), ipv4_addrs)
     }
 
     pub async fn ipv6_lookup(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
         let lookup = self.0.lookup_ip(host).await?;
-        let ipv6_addrs: Vec<IpAddr> = lookup
-        .iter()
-        .filter(|addr| addr.is_ipv6())
-        .collect();
+        let ipv6_addrs: Vec<IpAddr> = lookup.iter().filter(|addr| addr.is_ipv6()).collect();
         let query = lookup.query();
         _return_result(query.clone(), ipv6_addrs)
     }
@@ -99,7 +93,7 @@ fn _return_result(query: Query, addrs: Vec<IpAddr>) -> ResolveResult<Vec<IpAddr>
             response_code: ResponseCode::NoError,
             soa: None,
             negative_ttl: None,
-            trusted: true
+            trusted: true,
         }))
     } else {
         Ok(addrs)
@@ -145,19 +139,12 @@ mod tests {
         );
 
         results = resolver.ipv4_lookup("example.com.".to_string()).await?;
-        assert_eq!(
-            results,
-            vec![
-                IpAddr::from_str("93.184.215.14")?,
-            ]
-        );
+        assert_eq!(results, vec![IpAddr::from_str("93.184.215.14")?,]);
 
         results = resolver.ipv6_lookup("example.com.".to_string()).await?;
         assert_eq!(
             results,
-            vec![
-                IpAddr::from_str("2606:2800:21f:cb07:6820:80da:af6b:8b2c")?,
-            ]
+            vec![IpAddr::from_str("2606:2800:21f:cb07:6820:80da:af6b:8b2c")?,]
         );
 
         Ok(())
