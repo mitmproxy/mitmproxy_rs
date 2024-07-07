@@ -89,23 +89,25 @@ impl TryFrom<&str> for Pattern {
     }
 }
 
-impl ToString for Action {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Action {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Action::Include(pat) => pat.to_string(),
-            Action::Exclude(pat) => format!("!{}", pat.to_string()),
+            Action::Include(pat) => write!(f, "{}", pat),
+            Action::Exclude(pat) => write!(f, "!{}", pat),
         }
     }
 }
 
-impl ToString for Pattern {
-    fn to_string(&self) -> String {
+
+impl std::fmt::Display for Pattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Pattern::Pid(pid) => pid.to_string(),
-            Pattern::Process(name) => name.clone(),
+            Pattern::Pid(pid) => write!(f, "{}", pid),
+            Pattern::Process(name) => write!(f, "{}", name),
         }
     }
 }
+
 
 impl InterceptConf {
     fn new(actions: Vec<Action>) -> Self {
