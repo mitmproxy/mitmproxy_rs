@@ -1,3 +1,7 @@
+## 0.6.1
+
+- Add dedicated IPv4/IPv6 resolution methods to the DNS resolver.
+
 ## 0.6.0
 
 - Change intercept spec syntax.
