@@ -98,7 +98,6 @@ impl std::fmt::Display for Action {
     }
 }
 
-
 impl std::fmt::Display for Pattern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -107,7 +106,6 @@ impl std::fmt::Display for Pattern {
         }
     }
 }
-
 
 impl InterceptConf {
     fn new(actions: Vec<Action>) -> Self {

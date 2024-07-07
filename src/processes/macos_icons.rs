@@ -67,9 +67,7 @@ pub fn tiff_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
                 let tiff: id = msg_send![img, TIFFRepresentation];
                 let length: usize = msg_send![tiff, length];
                 let bytes: *const u8 = msg_send![tiff, bytes];
-                let data = unsafe {
-                    std::slice::from_raw_parts(bytes, length)
-                }.to_vec();
+                let data = unsafe { std::slice::from_raw_parts(bytes, length) }.to_vec();
                 return Ok(data);
             }
         }
