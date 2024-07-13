@@ -26,7 +26,7 @@ impl IconCache {
                 Ok(self.icons.get(e.get()).unwrap())
             }
             Entry::Vacant(e) => {
-                let tiff = unsafe { tiff_data_for_executable(e.key())? };
+                let tiff = tiff_data_for_executable(e.key())?;
                 let mut hasher = DefaultHasher::new();
                 tiff.hash(&mut hasher);
                 let tiff_hash = hasher.finish();
@@ -52,23 +52,25 @@ pub fn tiff_to_png(tiff: &[u8]) -> Vec<u8> {
     c.into_inner()
 }
 
-pub unsafe fn tiff_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
+pub fn tiff_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
     let mut sys = System::new();
     sys.refresh_processes_specifics(ProcessRefreshKind::new());
     for (pid, process) in sys.processes() {
         let pid = pid.as_u32();
         if executable == process.exe().to_path_buf() {
-            let app: id = msg_send![
-                class!(NSRunningApplication),
-                runningApplicationWithProcessIdentifier: pid
-            ];
-            if !app.is_null() {
-                let img: id = msg_send![app, icon];
-                let tiff: id = msg_send![img, TIFFRepresentation];
-                let length: usize = msg_send![tiff, length];
-                let bytes: *const u8 = msg_send![tiff, bytes];
-                let data = std::slice::from_raw_parts(bytes, length).to_vec();
-                return Ok(data);
+            unsafe {
+                let app: id = msg_send![
+                    class!(NSRunningApplication),
+                    runningApplicationWithProcessIdentifier: pid
+                ];
+                if !app.is_null() {
+                    let img: id = msg_send![app, icon];
+                    let tiff: id = msg_send![img, TIFFRepresentation];
+                    let length: usize = msg_send![tiff, length];
+                    let bytes: *const u8 = msg_send![tiff, bytes];
+                    let data = std::slice::from_raw_parts(bytes, length).to_vec();
+                    return Ok(data);
+                }
             }
         }
     }
@@ -96,7 +98,7 @@ mod tests {
     fn memory_leak() {
         let path = PathBuf::from("/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder");
         for _ in 0..500 {
-            _ = unsafe { &tiff_data_for_executable(&path) };
+            _ = &tiff_data_for_executable(&path);
         }
     }
 }
