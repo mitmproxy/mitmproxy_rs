@@ -21,7 +21,7 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
 }
 
 /// Packet with associated tunnel info (Windows pipe to mitmproxy)
-struct MitmproxyIpc_PacketWithMeta {
+struct MitmproxyIpc_PacketWithMeta: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -44,7 +44,7 @@ struct MitmproxyIpc_PacketWithMeta {
   fileprivate var _tunnelInfo: MitmproxyIpc_TunnelInfo? = nil
 }
 
-struct MitmproxyIpc_TunnelInfo {
+struct MitmproxyIpc_TunnelInfo: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -68,7 +68,7 @@ struct MitmproxyIpc_TunnelInfo {
 }
 
 /// Packet or intercept spec (Windows pipe to redirector)
-struct MitmproxyIpc_FromProxy {
+struct MitmproxyIpc_FromProxy: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -93,35 +93,17 @@ struct MitmproxyIpc_FromProxy {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  enum OneOf_Message: Equatable {
+  enum OneOf_Message: Equatable, Sendable {
     case packet(MitmproxyIpc_Packet)
     case interceptConf(MitmproxyIpc_InterceptConf)
 
-  #if !swift(>=4.1)
-    static func ==(lhs: MitmproxyIpc_FromProxy.OneOf_Message, rhs: MitmproxyIpc_FromProxy.OneOf_Message) -> Bool {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch (lhs, rhs) {
-      case (.packet, .packet): return {
-        guard case .packet(let l) = lhs, case .packet(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.interceptConf, .interceptConf): return {
-        guard case .interceptConf(let l) = lhs, case .interceptConf(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      default: return false
-      }
-    }
-  #endif
   }
 
   init() {}
 }
 
 /// Packet (macOS UDP Stream)
-struct MitmproxyIpc_Packet {
+struct MitmproxyIpc_Packet: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -134,7 +116,7 @@ struct MitmproxyIpc_Packet {
 }
 
 /// Intercept conf (macOS Control Stream)
-struct MitmproxyIpc_InterceptConf {
+struct MitmproxyIpc_InterceptConf: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -149,7 +131,7 @@ struct MitmproxyIpc_InterceptConf {
 }
 
 /// New flow (macOS TCP/UDP Stream)
-struct MitmproxyIpc_NewFlow {
+struct MitmproxyIpc_NewFlow: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -174,34 +156,16 @@ struct MitmproxyIpc_NewFlow {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  enum OneOf_Message: Equatable {
+  enum OneOf_Message: Equatable, Sendable {
     case tcp(MitmproxyIpc_TcpFlow)
     case udp(MitmproxyIpc_UdpFlow)
 
-  #if !swift(>=4.1)
-    static func ==(lhs: MitmproxyIpc_NewFlow.OneOf_Message, rhs: MitmproxyIpc_NewFlow.OneOf_Message) -> Bool {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch (lhs, rhs) {
-      case (.tcp, .tcp): return {
-        guard case .tcp(let l) = lhs, case .tcp(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      case (.udp, .udp): return {
-        guard case .udp(let l) = lhs, case .udp(let r) = rhs else { preconditionFailure() }
-        return l == r
-      }()
-      default: return false
-      }
-    }
-  #endif
   }
 
   init() {}
 }
 
-struct MitmproxyIpc_TcpFlow {
+struct MitmproxyIpc_TcpFlow: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -232,7 +196,7 @@ struct MitmproxyIpc_TcpFlow {
   fileprivate var _tunnelInfo: MitmproxyIpc_TunnelInfo? = nil
 }
 
-struct MitmproxyIpc_UdpFlow {
+struct MitmproxyIpc_UdpFlow: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -263,7 +227,7 @@ struct MitmproxyIpc_UdpFlow {
   fileprivate var _tunnelInfo: MitmproxyIpc_TunnelInfo? = nil
 }
 
-struct MitmproxyIpc_UdpPacket {
+struct MitmproxyIpc_UdpPacket: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -286,7 +250,7 @@ struct MitmproxyIpc_UdpPacket {
   fileprivate var _remoteAddress: MitmproxyIpc_Address? = nil
 }
 
-struct MitmproxyIpc_Address {
+struct MitmproxyIpc_Address: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -299,21 +263,6 @@ struct MitmproxyIpc_Address {
 
   init() {}
 }
-
-#if swift(>=5.5) && canImport(_Concurrency)
-extension MitmproxyIpc_PacketWithMeta: @unchecked Sendable {}
-extension MitmproxyIpc_TunnelInfo: @unchecked Sendable {}
-extension MitmproxyIpc_FromProxy: @unchecked Sendable {}
-extension MitmproxyIpc_FromProxy.OneOf_Message: @unchecked Sendable {}
-extension MitmproxyIpc_Packet: @unchecked Sendable {}
-extension MitmproxyIpc_InterceptConf: @unchecked Sendable {}
-extension MitmproxyIpc_NewFlow: @unchecked Sendable {}
-extension MitmproxyIpc_NewFlow.OneOf_Message: @unchecked Sendable {}
-extension MitmproxyIpc_TcpFlow: @unchecked Sendable {}
-extension MitmproxyIpc_UdpFlow: @unchecked Sendable {}
-extension MitmproxyIpc_UdpPacket: @unchecked Sendable {}
-extension MitmproxyIpc_Address: @unchecked Sendable {}
-#endif  // swift(>=5.5) && canImport(_Concurrency)
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
