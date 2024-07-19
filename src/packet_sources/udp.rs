@@ -88,6 +88,14 @@ impl PacketSourceTask for UdpTask {
                 },
                 // ... or process incoming packets
                 r = self.socket.recv_from(&mut udp_buf), if py_tx_available => {
+                    #[cfg(windows)]
+                    if let Err(e) = &r {
+                        if matches!(e.raw_os_error(), Some(10054)) {
+                            // Workaround for https://stackoverflow.com/a/73792103:
+                            // We get random errors here on Windows if a previous send() failed.
+                            continue;
+                        }
+                    }
                     let (len, src_addr) = r.context("UDP recv() failed")?;
                     self.handler.receive_data(
                         UdpPacket {

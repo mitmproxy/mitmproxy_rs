@@ -156,6 +156,14 @@ impl PacketSourceTask for WireGuardTask {
                 exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
                 // wait for WireGuard packets incoming on the UDP socket
                 r = self.socket.recv_from(&mut udp_buf) => {
+                    #[cfg(windows)]
+                    if let Err(e) = &r {
+                        if matches!(e.raw_os_error(), Some(10054)) {
+                            // Workaround for https://stackoverflow.com/a/73792103:
+                            // We get random errors here on Windows if a previous send() failed.
+                            continue;
+                        }
+                    }
                     let (len, src_orig) = r.context("UDP recv() failed")?;
                     self.process_incoming_datagram(&udp_buf[..len], src_orig).await?;
                 },

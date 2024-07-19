@@ -113,6 +113,14 @@ impl UdpClientTask {
             tokio::select! {
                 // wait for transport_events_tx channel capacity...
                 len = self.socket.recv(&mut udp_buf), if packet_tx.is_some() => {
+                    #[cfg(windows)]
+                    if let Err(e) = &len {
+                        if matches!(e.raw_os_error(), Some(10054)) {
+                            // Workaround for https://stackoverflow.com/a/73792103:
+                            // We get random errors here on Windows if a previous send() failed.
+                            continue;
+                        }
+                    }
                     let len = len.context("UDP recv() failed")?;
                     packet_tx
                         .take()
