@@ -114,6 +114,7 @@ impl UdpClientTask {
             tokio::select! {
                 // wait for transport_events_tx channel capacity...
                 len = self.socket.recv(&mut udp_buf), if packet_tx.is_some() => {
+                    #[cfg(windows)]
                     if let Err(e) = &len {
                         if remote_host_closed_conn(e) {
                             continue;

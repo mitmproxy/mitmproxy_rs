@@ -157,6 +157,7 @@ impl PacketSourceTask for WireGuardTask {
                 exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
                 // wait for WireGuard packets incoming on the UDP socket
                 r = self.socket.recv_from(&mut udp_buf) => {
+                    #[cfg(windows)]
                     if let Err(e) = &r {
                         if remote_host_closed_conn(e) {
                             continue;

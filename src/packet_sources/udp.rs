@@ -14,18 +14,14 @@ use crate::network::udp::{UdpHandler, UdpPacket};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 
-const REMOTE_HOST_CLOSED_CONN_ERR: i32 = 10054;
-
 pub fn remote_host_closed_conn(e: &Error) -> bool {
-    #[cfg(windows)]
-    {
-        if matches!(e.raw_os_error(), Some(REMOTE_HOST_CLOSED_CONN_ERR)) {
-            // Workaround for https://stackoverflow.com/a/73792103:
-            // We get random errors here on Windows if a previous send() failed.
-            return true;
-        }
+    const REMOTE_HOST_CLOSED_CONN_ERR: i32 = 10054;
+    if matches!(e.raw_os_error(), Some(REMOTE_HOST_CLOSED_CONN_ERR)) {
+        // Workaround for https://stackoverflow.com/a/73792103:
+        // We get random errors here on Windows if a previous send() failed.
+        return true;
     }
-    false
+    return false;
 }
 
 pub struct UdpConf {
@@ -103,6 +99,7 @@ impl PacketSourceTask for UdpTask {
                 },
                 // ... or process incoming packets
                 r = self.socket.recv_from(&mut udp_buf), if py_tx_available => {
+                    #[cfg(windows)]
                     if let Err(e) = &r {
                         if remote_host_closed_conn(e) {
                             continue;
