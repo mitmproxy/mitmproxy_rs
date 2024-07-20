@@ -1,5 +1,5 @@
-use std::net::{Ipv4Addr, SocketAddr};
 use std::io::Error;
+use std::net::{Ipv4Addr, SocketAddr};
 
 use anyhow::{Context, Result};
 
@@ -22,7 +22,7 @@ pub fn remote_host_closed_conn(e: &Error) -> bool {
         if matches!(e.raw_os_error(), Some(REMOTE_HOST_CLOSED_CONN_ERR)) {
             // Workaround for https://stackoverflow.com/a/73792103:
             // We get random errors here on Windows if a previous send() failed.
-            return true
+            return true;
         }
     }
     false

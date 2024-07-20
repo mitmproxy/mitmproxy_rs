@@ -9,8 +9,8 @@ use tokio::sync::oneshot;
 
 use crate::stream::{Stream, StreamState};
 use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
-use mitmproxy::MAX_PACKET_SIZE;
 use mitmproxy::packet_sources::udp::remote_host_closed_conn;
+use mitmproxy::MAX_PACKET_SIZE;
 
 /// Start a UDP client that is configured with the given parameters:
 ///
