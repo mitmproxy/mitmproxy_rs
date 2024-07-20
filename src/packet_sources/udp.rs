@@ -1,4 +1,3 @@
-use std::io::Error;
 use std::net::{Ipv4Addr, SocketAddr};
 
 use anyhow::{Context, Result};
@@ -14,12 +13,13 @@ use crate::network::udp::{UdpHandler, UdpPacket};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 
-pub fn remote_host_closed_conn(e: &Error) -> bool {
-    const REMOTE_HOST_CLOSED_CONN_ERR: i32 = 10054;
-    if matches!(e.raw_os_error(), Some(REMOTE_HOST_CLOSED_CONN_ERR)) {
+pub fn remote_host_closed_conn<T>(_res: &Result<T, std::io::Error>) -> bool {
+    #[cfg(windows)]
+    if let Err(e) = _res {
         // Workaround for https://stackoverflow.com/a/73792103:
         // We get random errors here on Windows if a previous send() failed.
-        return true;
+        const REMOTE_HOST_CLOSED_CONN_ERR: i32 = 10054;
+        return matches!(e.raw_os_error(), Some(REMOTE_HOST_CLOSED_CONN_ERR))
     }
     false
 }
@@ -99,11 +99,8 @@ impl PacketSourceTask for UdpTask {
                 },
                 // ... or process incoming packets
                 r = self.socket.recv_from(&mut udp_buf), if py_tx_available => {
-                    #[cfg(windows)]
-                    if let Err(e) = &r {
-                        if remote_host_closed_conn(e) {
-                            continue;
-                        }
+                    if remote_host_closed_conn(&r) {
+                        continue;
                     }
                     let (len, src_addr) = r.context("UDP recv() failed")?;
                     self.handler.receive_data(

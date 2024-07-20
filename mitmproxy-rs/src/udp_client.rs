@@ -11,6 +11,8 @@ use crate::stream::{Stream, StreamState};
 use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
 use mitmproxy::MAX_PACKET_SIZE;
 
+use mitmproxy::packet_sources::udp::remote_host_closed_conn;
+
 /// Start a UDP client that is configured with the given parameters:
 ///
 /// - `host`: The host address.
@@ -112,14 +114,11 @@ impl UdpClientTask {
         loop {
             tokio::select! {
                 // wait for transport_events_tx channel capacity...
-                len = self.socket.recv(&mut udp_buf), if packet_tx.is_some() => {
-                    #[cfg(windows)]
-                    if let Err(e) = &len {
-                        if remote_host_closed_conn(e) {
-                            continue;
-                        }
+                r = self.socket.recv(&mut udp_buf), if packet_tx.is_some() => {
+                    if remote_host_closed_conn(&r) {
+                        continue;
                     }
-                    let len = len.context("UDP recv() failed")?;
+                    let len = r.context("UDP recv() failed")?;
                     packet_tx
                         .take()
                         .unwrap()
