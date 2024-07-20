@@ -23,7 +23,6 @@ use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
-use crate::packet_sources::udp::remote_host_closed_conn;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 
 // WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6

@@ -21,7 +21,7 @@ pub fn remote_host_closed_conn(e: &Error) -> bool {
         // We get random errors here on Windows if a previous send() failed.
         return true;
     }
-    return false;
+    false
 }
 
 pub struct UdpConf {
