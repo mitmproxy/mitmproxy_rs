@@ -10,6 +10,7 @@ use tokio::sync::oneshot;
 use crate::stream::{Stream, StreamState};
 use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
 use mitmproxy::MAX_PACKET_SIZE;
+use mitmproxy::packet_sources::udp::remote_host_closed_conn;
 
 /// Start a UDP client that is configured with the given parameters:
 ///
@@ -113,11 +114,8 @@ impl UdpClientTask {
             tokio::select! {
                 // wait for transport_events_tx channel capacity...
                 len = self.socket.recv(&mut udp_buf), if packet_tx.is_some() => {
-                    #[cfg(windows)]
                     if let Err(e) = &len {
-                        if matches!(e.raw_os_error(), Some(10054)) {
-                            // Workaround for https://stackoverflow.com/a/73792103:
-                            // We get random errors here on Windows if a previous send() failed.
+                        if remote_host_closed_conn(e) {
                             continue;
                         }
                     }

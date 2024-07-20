@@ -24,6 +24,7 @@ use crate::messages::{
 };
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+use crate::packet_sources::udp::remote_host_closed_conn;
 
 // WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6
 const WG_HEADER_SIZE: usize = 80;
@@ -156,11 +157,8 @@ impl PacketSourceTask for WireGuardTask {
                 exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
                 // wait for WireGuard packets incoming on the UDP socket
                 r = self.socket.recv_from(&mut udp_buf) => {
-                    #[cfg(windows)]
                     if let Err(e) = &r {
-                        if matches!(e.raw_os_error(), Some(10054)) {
-                            // Workaround for https://stackoverflow.com/a/73792103:
-                            // We get random errors here on Windows if a previous send() failed.
+                        if remote_host_closed_conn(e) {
                             continue;
                         }
                     }
