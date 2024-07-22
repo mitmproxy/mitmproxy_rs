@@ -19,7 +19,7 @@ pub fn remote_host_closed_conn<T>(_res: &Result<T, std::io::Error>) -> bool {
         // Workaround for https://stackoverflow.com/a/73792103:
         // We get random errors here on Windows if a previous send() failed.
         const REMOTE_HOST_CLOSED_CONN_ERR: i32 = 10054;
-        return matches!(e.raw_os_error(), Some(REMOTE_HOST_CLOSED_CONN_ERR))
+        return matches!(e.raw_os_error(), Some(REMOTE_HOST_CLOSED_CONN_ERR));
     }
     false
 }
