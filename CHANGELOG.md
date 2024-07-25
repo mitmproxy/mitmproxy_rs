@@ -1,3 +1,7 @@
+## 0.6.2
+
+- Handle errors when remote host has closed UDP socket
+
 ## 0.6.1
 
 - Add dedicated IPv4/IPv6 resolution methods to the DNS resolver.
