@@ -1,3 +1,7 @@
+## 0.6.3
+
+- Fix a bug when initializing local redirect mode on macOS.
+
 ## 0.6.2
 
 - Handle errors when remote host has closed UDP socket
