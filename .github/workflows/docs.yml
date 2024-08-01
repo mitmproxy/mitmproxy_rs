@@ -24,11 +24,11 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@a67baed1f3621161d94603370c658dbe62df5af2
+        uses: install-pinned/maturin-with-zig@4804d730717f28b7565e71e68e5c9fe8c4f9b089
       - name: Install mypy from PyPI
-        uses: install-pinned/mypy@8fd8c50eff0144780246d326dc2159289f090e33
+        uses: install-pinned/mypy@52365a71b7d64ebed3db400b67077d3e91a769b4
       - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@1c9b43333795a1dd8c02ebae276462ca8559a3c4
+        uses: install-pinned/pdoc@d628d5ad9584eabc2dd01c7466a4e995d8228574
 
       - run: maturin build
         working-directory: ./mitmproxy-rs
