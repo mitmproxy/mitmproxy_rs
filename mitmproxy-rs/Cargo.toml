@@ -22,10 +22,10 @@ pyo3 = { version = "0.21", features = ["abi3", "abi3-py310", "extension-module",
 pyo3-asyncio-0-21 = { version = "0.21", features = ["tokio-runtime"] }
 pyo3-log = "0.11.0"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
-tokio = { version = "1.38", features = ["macros", "net", "rt-multi-thread", "sync"] }
+tokio = { version = "1.39", features = ["macros", "net", "rt-multi-thread", "sync"] }
 boringtun = "0.6"
 tar = "0.4.41"
-console-subscriber = { version = "0.3.0", optional = true }
+console-subscriber = { version = "0.4.0", optional = true }
 
 
 [dev-dependencies]
