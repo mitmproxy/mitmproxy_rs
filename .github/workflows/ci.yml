@@ -92,10 +92,10 @@ jobs:
 
       - if: runner.os == 'Linux'
         name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@a67baed1f3621161d94603370c658dbe62df5af2
+        uses: install-pinned/maturin-with-zig@4804d730717f28b7565e71e68e5c9fe8c4f9b089
       - if: runner.os != 'Linux'
         name: Install maturin from PyPI
-        uses: install-pinned/maturin@0620ca40d2c575adaa48574fe2f6c76aa188e2c6
+        uses: install-pinned/maturin@3d59037009f92def8f023f3b3e4810179477786d
 
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         run: python .github/scripts/pin-versions.py
@@ -180,7 +180,7 @@ jobs:
         with:
           python-version-file: .github/python-version.txt
       - name: Install build from PyPI
-        uses: install-pinned/build@e798670240f907689b7149e32a6d26f55fabbc38
+        uses: install-pinned/build@c338f60f1b806f43de717d240cc5bb43e224d698
       - run: python -m build --wheel ./mitmproxy-${{ matrix.os }} --outdir target/wheels/
       - uses: actions/upload-artifact@v4
         with:
@@ -198,7 +198,7 @@ jobs:
       jobs: ${{ toJSON(needs) }}
 
   deploy:
-    uses: mhils/workflows/.github/workflows/python-deploy.yml@v5
+    uses: mhils/workflows/.github/workflows/python-deploy.yml@v8
     needs: check
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     with:
