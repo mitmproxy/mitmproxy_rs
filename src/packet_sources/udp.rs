@@ -46,9 +46,9 @@ impl PacketSourceConf for UdpConf {
         shutdown: broadcast::Receiver<()>,
     ) -> Result<(Self::Task, Self::Data)> {
         let addr = format!("{}:{}", self.host, self.port);
-        let local_addr = SocketAddr::from_str(&addr).context("Invalid listen address specified")?;
+        let sock_addr = SocketAddr::from_str(&addr).context("Invalid listen address specified")?;
 
-        let domain = if local_addr.is_ipv4() {
+        let domain = if sock_addr.is_ipv4() {
             Domain::IPV4
         } else {
             Domain::IPV6
@@ -56,16 +56,20 @@ impl PacketSourceConf for UdpConf {
         let sock2 = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
 
         // Ensure that IPv6 sockets listen on IPv6 only
-        if local_addr.is_ipv6() {
+        if sock_addr.is_ipv6() {
             sock2
                 .set_only_v6(true)
                 .context("Failed to set IPV6_V6ONLY flag")?;
         }
 
         sock2
-            .bind(&local_addr.into())
+            .bind(&sock_addr.into())
             .context(format!("Failed to bind UDP socket to {}", addr))?;
-        let socket = UdpSocket::from_std(sock2.into())?;
+
+        let std_sock: std::net::UdpSocket = sock2.into();
+        std_sock.set_nonblocking(true)?;
+        let socket = UdpSocket::from_std(std_sock)?;
+        let local_addr = socket.local_addr()?;
 
         log::debug!("UDP server listening on {} ...", local_addr);
 
