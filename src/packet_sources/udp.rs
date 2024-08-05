@@ -1,4 +1,5 @@
 use std::net::{Ipv4Addr, SocketAddr};
+use std::str::FromStr;
 
 use anyhow::{Context, Result};
 
@@ -7,6 +8,7 @@ use tokio::{
     net::UdpSocket,
     sync::{broadcast, mpsc::Sender},
 };
+use socket2::{Socket, Domain, Type, Protocol};
 
 use crate::messages::{TransportCommand, TransportEvent, TunnelInfo};
 use crate::network::udp::{UdpHandler, UdpPacket};
@@ -23,6 +25,7 @@ pub fn remote_host_closed_conn<T>(_res: &Result<T, std::io::Error>) -> bool {
     }
     false
 }
+
 
 pub struct UdpConf {
     pub host: String,
@@ -43,11 +46,23 @@ impl PacketSourceConf for UdpConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
     ) -> Result<(Self::Task, Self::Data)> {
-        // bind to UDP socket. Note that UdpSocket::bind accepts ToSocketAddrs, but will only ever bind to one address!
-        let socket = UdpSocket::bind((self.host.as_str(), self.port))
-            .await
-            .with_context(|| format!("Failed to bind UDP socket to {}:{}", self.host, self.port))?;
-        let local_addr = socket.local_addr()?;
+        let addr = format!("{}:{}", self.host, self.port);
+        let local_addr = SocketAddr::from_str(&addr).context("Invalid listen address specified")?;
+
+        let domain = if local_addr.is_ipv4() {
+            Domain::IPV4
+        } else {
+            Domain::IPV6
+        };
+        let sock2 = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
+
+        // Ensure that IPv6 sockets listen on IPv6 only
+        if local_addr.is_ipv6() {
+            sock2.set_only_v6(true).context("Failed to set IPV6_V6ONLY flag")?;
+        }
+
+        sock2.bind(&local_addr.into()).context(format!("Failed to bind UDP socket to {}", addr))?;
+        let socket = UdpSocket::from_std(sock2.into())?;
 
         log::debug!("UDP server listening on {} ...", local_addr);
 
