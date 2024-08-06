@@ -1,7 +1,9 @@
 use std::net::{Ipv4Addr, SocketAddr};
+use std::str::FromStr;
 
 use anyhow::{Context, Result};
 
+use socket2::{Domain, Protocol, Socket, Type};
 use tokio::sync::mpsc::{Permit, UnboundedReceiver};
 use tokio::{
     net::UdpSocket,
@@ -43,10 +45,30 @@ impl PacketSourceConf for UdpConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
     ) -> Result<(Self::Task, Self::Data)> {
-        // bind to UDP socket. Note that UdpSocket::bind accepts ToSocketAddrs, but will only ever bind to one address!
-        let socket = UdpSocket::bind((self.host.as_str(), self.port))
-            .await
-            .with_context(|| format!("Failed to bind UDP socket to {}:{}", self.host, self.port))?;
+        let addr = format!("{}:{}", self.host, self.port);
+        let sock_addr = SocketAddr::from_str(&addr).context("Invalid listen address specified")?;
+
+        let domain = if sock_addr.is_ipv4() {
+            Domain::IPV4
+        } else {
+            Domain::IPV6
+        };
+        let sock2 = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
+
+        // Ensure that IPv6 sockets listen on IPv6 only
+        if sock_addr.is_ipv6() {
+            sock2
+                .set_only_v6(true)
+                .context("Failed to set IPV6_V6ONLY flag")?;
+        }
+
+        sock2
+            .bind(&sock_addr.into())
+            .context(format!("Failed to bind UDP socket to {}", addr))?;
+
+        let std_sock: std::net::UdpSocket = sock2.into();
+        std_sock.set_nonblocking(true)?;
+        let socket = UdpSocket::from_std(std_sock)?;
         let local_addr = socket.local_addr()?;
 
         log::debug!("UDP server listening on {} ...", local_addr);

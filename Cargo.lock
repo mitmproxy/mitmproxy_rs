@@ -1644,6 +1644,7 @@ dependencies = [
  "rand_core",
  "security-framework",
  "smoltcp",
+ "socket2",
  "sysinfo",
  "tokio",
  "tokio-util",
