@@ -1,3 +1,7 @@
+## 0.7.0
+
+- Set IPV6_V6ONLY flag for UDP sockets
+
 ## 0.6.3
 
 - Fix a bug when initializing local redirect mode on macOS.
@@ -160,7 +164,7 @@
 
 ## 0.1.7
 
-- Do not exit the network task when a draining TcpStream is already closed. 
+- Do not exit the network task when a draining TcpStream is already closed.
 - Make log messages for "no current WireGuard session" more user-friendly.
 - Attempt to build binary wheels for `aarch64-unknown-linux-gnu` for Raspberry
   Pi support.
