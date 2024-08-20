@@ -1,9 +1,9 @@
 use mitmproxy::dns::{ResolveErrorKind, ResolveResult, ResponseCode, DNS_SERVERS};
+use once_cell::sync::OnceCell;
 use pyo3::exceptions::socket::gaierror;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
 use std::{net::IpAddr, net::SocketAddr, sync::Arc};
-use once_cell::sync::{OnceCell};
 
 /// A DNS resolver backed by [hickory-dns](https://github.com/hickory-dns/hickory-dns).
 /// This can serve as a replacement for `getaddrinfo` with configurable resolution behavior.
@@ -84,8 +84,8 @@ impl AddrInfoErrorConst {
         AddrInfoErrorConst(identifier, OnceCell::new())
     }
     fn get(&self) -> isize {
-        *self.1.get_or_init(||
-            Python::with_gil(|py|
+        *self.1.get_or_init(|| {
+            Python::with_gil(|py| {
                 py.import_bound("socket")
                     .and_then(|m| m.getattr(self.0))
                     .and_then(|m| m.extract())
@@ -93,15 +93,14 @@ impl AddrInfoErrorConst {
                         log::error!("Failed to resolve socket constant: {e}");
                         0
                     })
-            )
-        )
+            })
+        })
     }
 }
 
 static EAI_AGAIN: AddrInfoErrorConst = AddrInfoErrorConst::new("EAI_AGAIN");
 static EAI_NONAME: AddrInfoErrorConst = AddrInfoErrorConst::new("EAI_NONAME");
 static EAI_NODATA: AddrInfoErrorConst = AddrInfoErrorConst::new("EAI_NODATA");
-
 
 fn resolve_result_to_py(resolved: ResolveResult<Vec<IpAddr>>) -> Result<Vec<String>, PyErr> {
     match resolved {
