@@ -1,4 +1,5 @@
 use mitmproxy::dns::{ResolveErrorKind, ResolveResult, ResponseCode, DNS_SERVERS};
+use once_cell::sync::OnceCell;
 use pyo3::exceptions::socket::gaierror;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
@@ -77,6 +78,30 @@ pub fn get_system_dns_servers() -> PyResult<Vec<String>> {
     })
 }
 
+struct AddrInfoErrorConst(&'static str, OnceCell<isize>);
+impl AddrInfoErrorConst {
+    const fn new(identifier: &'static str) -> Self {
+        AddrInfoErrorConst(identifier, OnceCell::new())
+    }
+    fn get(&self) -> isize {
+        *self.1.get_or_init(|| {
+            Python::with_gil(|py| {
+                py.import_bound("socket")
+                    .and_then(|m| m.getattr(self.0))
+                    .and_then(|m| m.extract())
+                    .unwrap_or_else(|e| {
+                        log::error!("Failed to resolve socket constant: {e}");
+                        0
+                    })
+            })
+        })
+    }
+}
+
+static EAI_AGAIN: AddrInfoErrorConst = AddrInfoErrorConst::new("EAI_AGAIN");
+static EAI_NONAME: AddrInfoErrorConst = AddrInfoErrorConst::new("EAI_NONAME");
+static EAI_NODATA: AddrInfoErrorConst = AddrInfoErrorConst::new("EAI_NODATA");
+
 fn resolve_result_to_py(resolved: ResolveResult<Vec<IpAddr>>) -> Result<Vec<String>, PyErr> {
     match resolved {
         Ok(resp) => Ok(resp
@@ -87,12 +112,12 @@ fn resolve_result_to_py(resolved: ResolveResult<Vec<IpAddr>>) -> Result<Vec<Stri
             ResolveErrorKind::NoRecordsFound {
                 response_code: ResponseCode::NXDomain,
                 ..
-            } => Err(gaierror::new_err("NXDOMAIN")),
+            } => Err(gaierror::new_err((EAI_NONAME.get(), "NXDOMAIN"))),
             ResolveErrorKind::NoRecordsFound {
                 response_code: ResponseCode::NoError,
                 ..
-            } => Err(gaierror::new_err("NOERROR")),
-            _ => Err(gaierror::new_err(e.to_string())),
+            } => Err(gaierror::new_err((EAI_NODATA.get(), "NOERROR"))),
+            _ => Err(gaierror::new_err((EAI_AGAIN.get(), e.to_string()))),
         },
     }
 }

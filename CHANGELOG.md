@@ -1,3 +1,7 @@
+## 0.7.1
+
+- Make DnsResolver.lookup_* methods return error numbers matching `getaddrinfo`.
+
 ## 0.7.0
 
 - Set IPV6_V6ONLY flag for UDP sockets
