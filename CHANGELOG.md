@@ -1,3 +1,7 @@
+## 0.7.2
+
+- Make `active_executables` raise for invalid paths on Windows.
+
 ## 0.7.1
 
 - Make DnsResolver.lookup_* methods return error numbers matching `getaddrinfo`.

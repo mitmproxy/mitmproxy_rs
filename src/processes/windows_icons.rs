@@ -36,6 +36,11 @@ impl IconCache {
                 Ok(self.icons.get(e.get()).unwrap())
             }
             Entry::Vacant(e) => {
+                if !e.key().exists() {
+                    // ExtractAssociatedIconW always returns a placeholder icon for invalid paths.
+                    // We want unknown paths to raise on all platforms.
+                    bail!("Executable does not exist.");
+                }
                 let pixels = unsafe {
                     let hinst = GetModuleHandleW(None)?;
                     icon_for_executable(e.key(), hinst)?
@@ -165,5 +170,25 @@ unsafe fn icon_to_pixels(icon: HICON) -> PixelData {
         bgra: buf,
         width: width_u32,
         height: height_u32,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn png() {
+        let path = PathBuf::from("C:\\Windows\\System32\\calc.exe");
+        let mut icon_cache = IconCache::default();
+        let vec = icon_cache.get_png(path).unwrap();
+        assert!(!vec.is_empty());
+    }
+
+    #[test]
+    fn no_icon_found() {
+        let path = PathBuf::from("invalid path");
+        let mut icon_cache = IconCache::default();
+        assert!(icon_cache.get_png(path).is_err());
     }
 }
