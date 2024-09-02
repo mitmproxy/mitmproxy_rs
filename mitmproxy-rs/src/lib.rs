@@ -38,68 +38,45 @@ mod mitmproxy_rs {
     #[pymodule]
     mod certs {
         #[pymodule_export]
-        use crate::util::{
-            add_cert,
-            remove_cert,
-        };
+        use crate::util::{add_cert, remove_cert};
     }
 
     #[pymodule]
     mod dns {
         #[pymodule_export]
-        use crate::dns_resolver::{
-            DnsResolver,
-            get_system_dns_servers,
-        };
+        use crate::dns_resolver::{get_system_dns_servers, DnsResolver};
     }
 
     #[pymodule]
     mod local {
         #[pymodule_export]
-        use crate::server::{
-            start_local_redirector,
-            LocalRedirector
-        };
+        use crate::server::{start_local_redirector, LocalRedirector};
     }
 
     #[pymodule]
     mod process_info {
         #[pymodule_export]
-        use crate::process_info::{
-            active_executables,
-            Process,
-            executable_icon
-        };
+        use crate::process_info::{active_executables, executable_icon, Process};
     }
 
     #[pymodule]
     mod udp {
         #[pymodule_export]
-        use crate::udp_client::open_udp_connection;
+        use crate::server::{start_udp_server, UdpServer};
         #[pymodule_export]
-        use crate::server::{
-            start_udp_server,
-            UdpServer
-        };
+        use crate::udp_client::open_udp_connection;
     }
 
     #[pymodule]
     mod wireguard {
         #[pymodule_export]
-        use crate::util::{
-            genkey,
-            pubkey
-        };
+        use crate::server::{start_wireguard_server, WireGuardServer};
         #[pymodule_export]
-        use crate::server::{
-            start_wireguard_server,
-            WireGuardServer
-        };
+        use crate::util::{genkey, pubkey};
     }
 
     #[pymodule_export]
     use crate::stream::Stream;
-
 
     #[pymodule_init]
     #[allow(unused_variables)]
@@ -118,6 +95,5 @@ mod mitmproxy_rs {
         m.py().import_bound("mitmproxy_windows")?;
 
         Ok(())
-
     }
 }
