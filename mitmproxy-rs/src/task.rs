@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use pyo3::exceptions::asyncio::CancelledError;
 use pyo3::prelude::*;
 use pyo3_asyncio_0_21::TaskLocals;
 use tokio::sync::{broadcast, mpsc, Mutex};
@@ -99,7 +100,10 @@ impl PyInteropTask {
                                     let active_streams = active_streams.clone();
                                     tokio::spawn(async move {
                                         if let Err(err) = future.await {
-                                            log::error!("TCP connection handler coroutine raised an exception:\n{}", err)
+                                            let is_cancelled = Python::with_gil(|py| err.is_instance_of::<CancelledError>(py));
+                                            if !is_cancelled {
+                                                log::error!("TCP connection handler coroutine raised an exception:\n{}", err);
+                                            }
                                         }
                                         active_streams.lock().await.remove(&connection_id);
                                     })
