@@ -1,3 +1,6 @@
+
+- Move functionality into submodules.
+
 ## 0.7.2
 
 - Make `active_executables` raise for invalid paths on Windows.
