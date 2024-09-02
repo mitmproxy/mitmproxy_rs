@@ -9,7 +9,6 @@ async def start_udp_server(
     port: int,
     handle_udp_stream: Callable[[Stream], Awaitable[None]],
 ) -> UdpServer: ...
-
 @final
 class UdpServer:
     def getsockname(self) -> tuple[str, int]: ...
