@@ -9,7 +9,7 @@ mod dns_resolver;
 mod process_info;
 mod server;
 mod stream;
-mod task;
+pub mod task;
 mod udp_client;
 mod util;
 
