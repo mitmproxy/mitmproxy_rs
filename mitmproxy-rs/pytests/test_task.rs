@@ -1,7 +1,7 @@
 mod logger;
 
 mod tests {
-    
+
     use std::future::Future;
 
     use mitmproxy::messages::{ConnectionId, TransportEvent, TunnelInfo};
