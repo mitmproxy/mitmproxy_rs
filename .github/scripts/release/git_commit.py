@@ -13,8 +13,8 @@ def git_commit(message: str = ""):
     subprocess.check_call(
         [
             "git",
-            *("-c", f"user.name={project} run bot"),
-            *("-c", "user.email=git-run-bot@maximilianhils.com"),
+            *("-c", f"user.name={project} release bot"),
+            *("-c", "user.email=git-release-bot@maximilianhils.com"),
             "commit",
             "--all",
             *("-m", message or f"{project} {get_version()}"),

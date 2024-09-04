@@ -66,11 +66,11 @@ def get_tag_name() -> str:
 def http_get(url: str) -> http.client.HTTPResponse:
     assert url.startswith("https://")
     host, path = re.split(r"(?=/)", url.removeprefix("https://"), maxsplit=1)
-    logger.info(f"GET {host} {path}")
+    logger.info(f"GET https://{host}/{path}")
     conn = http.client.HTTPSConnection(host)
     conn.request("GET", path, headers={"User-Agent": "mhils/run-tools"})
     resp = conn.getresponse()
-    print(f"HTTP {resp.status} {resp.reason}")
+    logger.info(f"HTTP {resp.status} {resp.reason}")
     return resp
 
 
