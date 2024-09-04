@@ -1,0 +1,26 @@
+#!/usr/bin/env -S python3 -u
+import logging
+
+from common import branch, get_next_dev_version
+from status_check import status_check
+from update_changelog import update_changelog
+from update_rust_version import update_rust_version
+from git_commit import git_commit
+from git_tag import git_tag
+from git_push import git_push
+
+logger = logging.getLogger(__name__)
+
+if __name__ == "__main__":
+    status_check()
+    update_changelog()
+    update_rust_version()
+    git_commit()
+    git_tag()
+
+    if branch == "main":
+        update_rust_version(version=get_next_dev_version())
+        git_commit(message="reopen main for development")
+
+    git_push()
+    logger.info("✅ All done. 🥳")
