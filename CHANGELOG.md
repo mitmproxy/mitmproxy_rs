@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+
+## 04 September 2024: mitmproxy_rs 0.8.0
+
 - Move functionality into submodules.
 
 ## 0.7.2
