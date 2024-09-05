@@ -102,7 +102,7 @@ pub struct UdpClientTask {
 
 impl UdpClientTask {
     pub async fn run(mut self) -> Result<()> {
-        let mut udp_buf = Box::new([0; MAX_PACKET_SIZE]);
+        let mut udp_buf = vec![0; MAX_PACKET_SIZE];
 
         // this here isn't perfect because we block the entire transport_commands_rx channel if we
         // cannot send (so we also block receiving new packets), but that's hopefully good enough.
@@ -114,7 +114,7 @@ impl UdpClientTask {
         loop {
             tokio::select! {
                 // wait for transport_events_tx channel capacity...
-                r = self.socket.recv(udp_buf.as_mut()), if packet_tx.is_some() => {
+                r = self.socket.recv(udp_buf.as_mut_slice()), if packet_tx.is_some() => {
                     if remote_host_closed_conn(&r) {
                         continue;
                     }
