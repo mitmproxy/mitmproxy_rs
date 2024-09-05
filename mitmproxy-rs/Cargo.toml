@@ -8,6 +8,9 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+[lints]
+workspace = true
+
 [lib]
 name = "mitmproxy_rs"
 crate-type = ["lib", "cdylib"]

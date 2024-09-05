@@ -9,6 +9,9 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 anyhow = "1.0.86"
 data-encoding = "2.6.0"
