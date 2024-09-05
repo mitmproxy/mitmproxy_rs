@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+
+## 05 September 2024: mitmproxy_rs 0.9.0
+
 - Better speculative fix.
 
 ## 04 September 2024: mitmproxy_rs 0.8.1
