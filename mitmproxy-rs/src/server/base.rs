@@ -72,8 +72,8 @@ impl Server {
 
         // spawn tasks
         let mut tasks = JoinSet::new();
-        tasks.spawn(Box::pin(async move { packet_source_task.run().await }));
-        tasks.spawn(Box::pin(async move { py_task.run().await }));
+        tasks.spawn(async move { packet_source_task.run().await });
+        tasks.spawn(async move { py_task.run().await });
 
         let (shutdown_done_tx, shutdown_done_rx) = broadcast::channel(1);
         tokio::spawn(shutdown_task(tasks, shutdown_done_tx));
