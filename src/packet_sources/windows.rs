@@ -110,7 +110,7 @@ impl PacketSourceConf for WindowsConf {
         Ok((
             WindowsTask {
                 ipc_server,
-                buf: [0u8; IPC_BUF_SIZE],
+                buf: vec![0u8; IPC_BUF_SIZE],
                 net_tx,
                 net_rx,
                 conf_rx,
@@ -123,7 +123,7 @@ impl PacketSourceConf for WindowsConf {
 
 pub struct WindowsTask {
     ipc_server: NamedPipeServer,
-    buf: [u8; IPC_BUF_SIZE],
+    buf: Vec<u8>,
 
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,

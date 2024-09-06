@@ -101,7 +101,7 @@ pub struct UdpTask {
 impl PacketSourceTask for UdpTask {
     async fn run(mut self) -> Result<()> {
         let transport_events_tx = self.transport_events_tx.clone();
-        let mut udp_buf = [0; MAX_PACKET_SIZE];
+        let mut udp_buf = vec![0; MAX_PACKET_SIZE];
 
         let mut packet_needs_sending = false;
         let mut packet_payload = Vec::new();
@@ -120,7 +120,7 @@ impl PacketSourceTask for UdpTask {
                     permit = Some(p);
                 },
                 // ... or process incoming packets
-                r = self.socket.recv_from(&mut udp_buf), if py_tx_available => {
+                r = self.socket.recv_from(udp_buf.as_mut_slice()), if py_tx_available => {
                     if remote_host_closed_conn(&r) {
                         continue;
                     }

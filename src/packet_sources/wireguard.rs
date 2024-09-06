@@ -118,7 +118,7 @@ impl PacketSourceConf for WireGuardConf {
                 peers_by_idx,
                 peers_by_key,
                 peers_by_ip: HashMap::new(),
-                wg_buf: [0u8; MAX_PACKET_SIZE],
+                wg_buf: vec![0u8; MAX_PACKET_SIZE],
 
                 net_tx,
                 net_rx,
@@ -141,7 +141,7 @@ pub struct WireGuardTask {
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
 
-    wg_buf: [u8; MAX_PACKET_SIZE],
+    wg_buf: Vec<u8>,
     network_task_handle: tokio::task::JoinHandle<Result<()>>,
 }
 
@@ -151,13 +151,13 @@ impl PacketSourceTask for WireGuardTask {
             return Err(anyhow!("No WireGuard peers were configured."));
         }
 
-        let mut udp_buf = [0; MAX_PACKET_SIZE];
+        let mut udp_buf = vec![0; MAX_PACKET_SIZE];
 
         loop {
             tokio::select! {
                 exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
                 // wait for WireGuard packets incoming on the UDP socket
-                r = self.socket.recv_from(&mut udp_buf) => {
+                r = self.socket.recv_from(udp_buf.as_mut_slice()) => {
                     if remote_host_closed_conn(&r) {
                         continue;
                     }
