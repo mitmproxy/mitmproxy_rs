@@ -45,7 +45,7 @@ pub fn add_network_layer(
         transport_commands_rx,
         shutdown,
     )?;
-    let h = tokio::spawn(async move { task.run().await });
+    let h = tokio::spawn(Box::pin(async move { task.run().await }));
     Ok((h, network_events_tx, network_commands_rx))
 }
 
