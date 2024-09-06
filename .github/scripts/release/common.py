@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 github_repository: str
 project: str
 branch: str
-get_version: Callable[[], str]
 
 if github_repository := os.environ.get("GITHUB_REPOSITORY", None):
     logger.info(f"Got repository from environment: {github_repository}")
