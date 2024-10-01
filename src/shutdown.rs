@@ -8,7 +8,11 @@ pub async fn shutdown_task(mut tasks: JoinSet<Result<()>>, shutdown_done: broadc
         match task {
             Ok(Ok(())) => (),
             Ok(Err(error)) => {
-                log::error!("Task failed: {}\n{}", error, error.backtrace().to_string());
+                log::error!(
+                    "Task failed: {:?}\n{}",
+                    error,
+                    error.backtrace().to_string()
+                );
                 tasks.shutdown().await;
             }
             Err(error) => {
