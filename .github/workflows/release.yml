@@ -23,10 +23,8 @@ jobs:
     - uses: actions/checkout@v4
       with:
         token: ${{ secrets.GH_PUSH_TOKEN }}  # this token works to push to the protected main branch.
-    - uses: actions/setup-python@v5
-      with:
-        python-version-file: .github/python-version.txt
-    - run: ./.github/scripts/release/ci
+    - uses: mhils/releasetool@v1
+    - run: ./.github/scripts/release
       env:
         PROJECT_VERSION: ${{ inputs.version }}
         STATUS_CHECK_SKIP_GIT: ${{ inputs.skip-branch-status-check }}
