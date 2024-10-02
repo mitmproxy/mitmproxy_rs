@@ -28,7 +28,7 @@ jobs:
       - name: Install mypy from PyPI
         uses: install-pinned/mypy@2b552bed479e3f7065314667b670f7303619e989
       - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@183dbb3f880d8b80cf533186fbcbf4449a3c8bff
+        uses: install-pinned/pdoc@fd9469ecb06f32b7012e07e449ce98b217bf1189
 
       - run: maturin build
         working-directory: ./mitmproxy-rs
