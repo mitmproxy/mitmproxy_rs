@@ -2,8 +2,7 @@ use anyhow::{anyhow, Result};
 use security_framework::{
     certificate::SecCertificate,
     item::{
-        AddRef, ItemAddOptions, ItemAddValue, ItemClass, ItemSearchOptions, Reference,
-        SearchResult,
+        AddRef, ItemAddOptions, ItemAddValue, ItemClass, ItemSearchOptions, Reference, SearchResult,
     },
 };
 use tokio::process::Command;
@@ -11,7 +10,7 @@ use tokio::process::Command;
 pub fn add_cert(der: Vec<u8>, path: &str) -> Result<()> {
     let cert = SecCertificate::from_der(&der)?;
     let add_ref = AddRef::Certificate(cert);
-    let mut  add_option = ItemAddOptions::new(ItemAddValue::Ref(add_ref));
+    let mut add_option = ItemAddOptions::new(ItemAddValue::Ref(add_ref));
     add_option.set_label("mitmproxy");
 
     let search_result = ItemSearchOptions::new()
