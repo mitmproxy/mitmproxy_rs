@@ -200,10 +200,10 @@ impl ConnectionTask {
         match new_flow {
             NewFlow {
                 message: Some(ipc::new_flow::Message::Tcp(tcp_flow)),
-            } => self.handle_tcp(tcp_flow).await,
+            } => self.handle_tcp(tcp_flow).await.context("failed to handle TCP stream"),
             NewFlow {
                 message: Some(ipc::new_flow::Message::Udp(udp_flow)),
-            } => self.handle_udp(udp_flow).await,
+            } => self.handle_udp(udp_flow).await.context("failed to handle UDP stream"),
             _ => bail!("Received invalid IPC message: {:?}", new_flow),
         }
     }
@@ -228,7 +228,7 @@ impl ConnectionTask {
             let Some(addr) = &flow.local_address else {
                 bail!("no local address")
             };
-            SocketAddr::try_from(addr)?
+            SocketAddr::try_from(addr).with_context(|| format!("invalid local_address: {}", addr))?
         };
         let mut remote_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
         let (command_tx, mut command_rx) = unbounded_channel();
@@ -246,7 +246,7 @@ impl ConnectionTask {
                     ).context("invalid IPC message")?;
                     let dst_addr = {
                         let Some(dst_addr) = &packet.remote_address else { bail!("no remote addr") };
-                        SocketAddr::try_from(dst_addr).context("invalid socket address")?
+                        SocketAddr::try_from(dst_addr).with_context(|| format!("invalid remote_address: {}", dst_addr))?
                     };
 
                     // We can only send ConnectionEstablished once we know the destination address.
