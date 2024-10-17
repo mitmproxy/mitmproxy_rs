@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use security_framework::{
     certificate::SecCertificate,
     item::{
-        add_item, AddRef, ItemAddOptions, ItemAddValue, ItemClass, ItemSearchOptions, Reference,
+        AddRef, ItemAddOptions, ItemAddValue, ItemClass, ItemSearchOptions, Reference,
         SearchResult,
     },
 };
@@ -12,8 +12,7 @@ pub fn add_cert(der: Vec<u8>, path: &str) -> Result<()> {
     let cert = SecCertificate::from_der(&der)?;
     let add_ref = AddRef::Certificate(cert);
     let add_option = ItemAddOptions::new(ItemAddValue::Ref(add_ref))
-        .set_label("mitmproxy")
-        .to_dictionary();
+        .set_label("mitmproxy");
 
     let search_result = ItemSearchOptions::new()
         .class(ItemClass::certificate())
@@ -26,7 +25,7 @@ pub fn add_cert(der: Vec<u8>, path: &str) -> Result<()> {
         cert.delete()?;
     }
 
-    add_item(add_option)?;
+    add_option.add()?;
 
     Command::new("open")
         .arg(path)
