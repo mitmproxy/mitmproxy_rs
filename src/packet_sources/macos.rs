@@ -200,10 +200,16 @@ impl ConnectionTask {
         match new_flow {
             NewFlow {
                 message: Some(ipc::new_flow::Message::Tcp(tcp_flow)),
-            } => self.handle_tcp(tcp_flow).await.context("failed to handle TCP stream"),
+            } => self
+                .handle_tcp(tcp_flow)
+                .await
+                .context("failed to handle TCP stream"),
             NewFlow {
                 message: Some(ipc::new_flow::Message::Udp(udp_flow)),
-            } => self.handle_udp(udp_flow).await.context("failed to handle UDP stream"),
+            } => self
+                .handle_udp(udp_flow)
+                .await
+                .context("failed to handle UDP stream"),
             _ => bail!("Received invalid IPC message: {:?}", new_flow),
         }
     }
@@ -228,7 +234,8 @@ impl ConnectionTask {
             let Some(addr) = &flow.local_address else {
                 bail!("no local address")
             };
-            SocketAddr::try_from(addr).with_context(|| format!("invalid local_address: {}", addr))?
+            SocketAddr::try_from(addr)
+                .with_context(|| format!("invalid local_address: {}", addr))?
         };
         let mut remote_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
         let (command_tx, mut command_rx) = unbounded_channel();
