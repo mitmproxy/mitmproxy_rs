@@ -11,18 +11,24 @@ pub struct Process(mitmproxy::processes::ProcessInfo);
 
 #[pymethods]
 impl Process {
+    /// Absolute path for the executable.
     #[getter]
     fn executable(&self) -> &Path {
         &self.0.executable
     }
+    /// Process name suitable for display in the UI.
     #[getter]
     fn display_name(&self) -> &str {
         &self.0.display_name
     }
+    /// `True` if the process has a visible window, `False` otherwise.
+    /// This information is useful when sorting the process list.
     #[getter]
     fn is_visible(&self) -> bool {
         self.0.is_visible
     }
+    /// `True` if the process is a system process, `False` otherwise.
+    /// This information is useful to hide noise in the process list.
     #[getter]
     fn is_system(&self) -> bool {
         self.0.is_system
