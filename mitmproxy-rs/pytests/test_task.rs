@@ -82,7 +82,7 @@ mod tests {
                 connection_id: ConnectionId::unassigned_udp(),
                 src_addr: "127.0.0.1:51232".parse()?,
                 dst_addr: "127.0.0.1:53".parse()?,
-                tunnel_info: TunnelInfo::Udp,
+                tunnel_info: TunnelInfo::None,
                 command_tx: None,
             })
             .await

@@ -131,7 +131,7 @@ impl PacketSourceTask for UdpTask {
                             dst_addr: self.local_addr,
                             payload: udp_buf[..len].to_vec(),
                         },
-                        TunnelInfo::Udp {},
+                        TunnelInfo::None {},
                         permit.take().unwrap()
                     );
                 },

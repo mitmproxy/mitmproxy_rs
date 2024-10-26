@@ -50,7 +50,7 @@ pub fn open_udp_connection(
             command_tx,
             peername,
             sockname,
-            tunnel_info: TunnelInfo::Udp,
+            tunnel_info: TunnelInfo::None,
         };
 
         Ok(stream)

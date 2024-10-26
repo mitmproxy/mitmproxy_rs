@@ -194,7 +194,7 @@ impl Stream {
                 }
                 _ => (),
             },
-            TunnelInfo::Udp {} => (),
+            TunnelInfo::None {} => (),
         }
         match default {
             Some(x) => Ok(x),
