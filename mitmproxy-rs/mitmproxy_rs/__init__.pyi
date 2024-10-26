@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 from typing import final, overload, TypeVar
-from . import certs, dns, local, process_info, udp, wireguard
+from . import certs, dns, local, process_info, tun, udp, wireguard
 
 T = TypeVar("T")
 
@@ -60,6 +60,7 @@ __all__ = [
     "dns",
     "local",
     "process_info",
+    "tun",
     "udp",
     "wireguard",
     "Stream",

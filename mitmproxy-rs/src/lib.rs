@@ -60,6 +60,12 @@ mod mitmproxy_rs {
     }
 
     #[pymodule]
+    mod tun {
+        #[pymodule_export]
+        use crate::server::{create_tun_interface, TunInterface};
+    }
+
+    #[pymodule]
     mod udp {
         #[pymodule_export]
         use crate::server::{start_udp_server, UdpServer};
