@@ -41,6 +41,7 @@ impl TunInterface {
 ///
 /// *Availability: Linux*
 #[pyfunction]
+#[allow(unused_variables)]
 pub fn create_tun_interface(
     py: Python<'_>,
     handle_tcp_stream: PyObject,
