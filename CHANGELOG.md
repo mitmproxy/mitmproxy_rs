@@ -1,5 +1,6 @@
 ## Unreleased: mitmproxy_rs next
 
+- Add `tun` mode.
 
 ## 18 October 2024: mitmproxy_rs 0.9.3
 
