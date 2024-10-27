@@ -90,6 +90,7 @@ impl PacketSourceTask for TunTask {
                         log::error!("Skipping invalid packet from tun interface: {:?}", &buf[..len]);
                         continue;
                     };
+                    dbg!(&packet);
                     permit.take().unwrap().send(NetworkEvent::ReceivePacket {
                         packet,
                         tunnel_info: TunnelInfo::None,
@@ -103,6 +104,7 @@ impl PacketSourceTask for TunTask {
                 Some(command) = self.net_rx.recv(), if packet_to_send.is_empty() => {
                     match command {
                         NetworkCommand::SendPacket(packet) => {
+                            dbg!(&packet);
                             packet_to_send = packet.into_inner();
                         }
                     }
