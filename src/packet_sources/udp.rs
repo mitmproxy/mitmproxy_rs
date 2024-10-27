@@ -137,7 +137,10 @@ impl PacketSourceTask for UdpTask {
                 },
                 // send_to is cancel safe, so we can use that for backpressure.
                 r = self.socket.send_to(&packet_payload, packet_dst), if packet_needs_sending => {
-                    r.context("UDP send_to() failed")?;
+                    let sent = r.context("UDP send_to() failed")?;
+                    if sent != packet_payload.len() {
+                        log::debug!("socket.send_to: {} of {} bytes sent.", sent, packet_payload.len());
+                    }
                     packet_needs_sending = false;
                 },
                 Some(command) = self.transport_commands_rx.recv(), if !packet_needs_sending => {
