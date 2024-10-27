@@ -16,7 +16,7 @@ use crate::server::base::Server;
 /// The public API is intended to be similar to the API provided by
 /// [`asyncio.Server`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.Server)
 /// from the Python standard library.
-#[pyclass(module = "mitmproxy_rs")]
+#[pyclass(module = "mitmproxy_rs.wireguard")]
 #[derive(Debug)]
 pub struct WireGuardServer {
     /// local address of the WireGuard UDP socket

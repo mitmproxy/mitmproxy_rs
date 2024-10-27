@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 #[cfg(any(windows, target_os = "macos"))]
 use mitmproxy::processes;
 
-#[pyclass(module = "mitmproxy_rs", frozen)]
+#[pyclass(module = "mitmproxy_rs.process_info", frozen)]
 pub struct Process(mitmproxy::processes::ProcessInfo);
 
 #[pymethods]

@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use crate::server::base::Server;
 use tokio::sync::mpsc;
 
-#[pyclass(module = "mitmproxy_rs")]
+#[pyclass(module = "mitmproxy_rs.local")]
 #[derive(Debug)]
 pub struct LocalRedirector {
     server: Server,
