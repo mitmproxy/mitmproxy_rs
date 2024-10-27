@@ -29,6 +29,8 @@ impl PacketSourceConf for TunConf {
     ) -> Result<(Self::Task, Self::Data)> {
         let mut config = tun2::Configuration::default();
         config.mtu(MAX_PACKET_SIZE as u16);
+        // Setting a local address is required on Linux.
+        config.address("169.254.0.1");
         config.up();
         if let Some(tun_name) = self.tun_name {
             config.tun_name(&tun_name);

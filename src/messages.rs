@@ -1,4 +1,5 @@
 use std::fmt;
+use std::fmt::Formatter;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use anyhow::{anyhow, Result};
@@ -112,10 +113,20 @@ impl TransportCommand {
 }
 
 /// Generic IPv4/IPv6 packet type that wraps smoltcp's IPv4 and IPv6 packet buffers
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum SmolPacket {
     V4(Ipv4Packet<Vec<u8>>),
     V6(Ipv6Packet<Vec<u8>>),
+}
+
+impl fmt::Debug for SmolPacket {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SmolPacket")
+            .field("src_ip", &self.src_ip())
+            .field("dst_ip", &self.dst_ip())
+            .field("transport_protocol", &self.transport_protocol())
+            .finish()
+    }
 }
 
 impl From<Ipv4Packet<Vec<u8>>> for SmolPacket {
