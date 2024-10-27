@@ -1669,7 +1669,7 @@ checksum = "9106e1d747ffd48e6be5bb2d97fa706ed25b144fbee4d5c02eae110cd8d6badd"
 
 [[package]]
 name = "macos-certificate-truster"
-version = "0.10.3"
+version = "0.11.3-dev"
 dependencies = [
  "security-framework",
 ]
@@ -1761,7 +1761,7 @@ dependencies = [
 
 [[package]]
 name = "mitm-wg-test-client"
-version = "0.10.3"
+version = "0.11.3-dev"
 dependencies = [
  "anyhow",
  "boringtun",
@@ -1772,7 +1772,7 @@ dependencies = [
 
 [[package]]
 name = "mitmproxy"
-version = "0.10.3"
+version = "0.11.3-dev"
 dependencies = [
  "anyhow",
  "boringtun",
@@ -1810,7 +1810,7 @@ dependencies = [
 
 [[package]]
 name = "mitmproxy_rs"
-version = "0.10.3"
+version = "0.11.3-dev"
 dependencies = [
  "anyhow",
  "boringtun",
@@ -3256,7 +3256,7 @@ dependencies = [
 
 [[package]]
 name = "windows-redirector"
-version = "0.10.3"
+version = "0.11.3-dev"
 dependencies = [
  "anyhow",
  "env_logger",
