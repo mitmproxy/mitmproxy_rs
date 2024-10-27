@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+
+## 27 October 2024: mitmproxy_rs 0.10.1
+
 - Assign a local IP address to our `tun` interface for Linux compatibility.
 
 ## 27 October 2024: mitmproxy_rs 0.10.0
