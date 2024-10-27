@@ -121,11 +121,24 @@ pub enum SmolPacket {
 
 impl fmt::Debug for SmolPacket {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SmolPacket")
-            .field("src_ip", &self.src_ip())
-            .field("dst_ip", &self.dst_ip())
-            .field("transport_protocol", &self.transport_protocol())
-            .finish()
+
+        match TryInto::<InternetPacket>::try_into(self.clone()) {
+            Ok(p) => {
+                f.debug_struct("SmolPacket")
+                    .field("src", &p.src())
+                    .field("dst", &p.dst())
+                    .field("protocol", &p.protocol())
+                    .field("tcp_flags_str", &p.tcp_flag_str())
+                    .finish()
+            }
+            Err(_) => {
+                f.debug_struct("SmolPacket")
+                    .field("src_ip", &self.src_ip())
+                    .field("dst_ip", &self.dst_ip())
+                    .field("transport_protocol", &self.transport_protocol())
+                    .finish()
+            }
+        }
     }
 }
 
@@ -186,10 +199,14 @@ impl SmolPacket {
     pub fn transport_protocol(&self) -> IpProtocol {
         match self {
             SmolPacket::V4(packet) => packet.next_header(),
-            SmolPacket::V6(packet) => {
-                log::debug!("TODO: Implement IPv6 next_header logic.");
-                packet.next_header()
-            }
+            SmolPacket::V6(packet) => match packet.next_header() {
+                IpProtocol::Tcp => IpProtocol::Tcp,
+                IpProtocol::Udp => IpProtocol::Udp,
+                other => {
+                    log::debug!("TODO: Implement IPv6 next_header logic: {}", other);
+                    other
+                }
+            },
         }
     }
 
