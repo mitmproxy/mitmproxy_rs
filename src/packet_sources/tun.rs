@@ -31,6 +31,7 @@ impl PacketSourceConf for TunConf {
         // Setting a local address and a destination is required on Linux.
         config.address("169.254.0.2");
         config.destination("169.254.0.1");
+        config.netmask("0.0.0.0");
         config.up();
         if let Some(tun_name) = self.tun_name {
             config.tun_name(&tun_name);
