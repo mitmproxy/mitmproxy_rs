@@ -47,7 +47,7 @@ prost = "0.13.3"
 tokio-util = { version = "0.7.12", features = ["codec"] }
 futures-util = { version = "0.3.30", features = ["sink"] }
 lru_time_cache = "0.11.11"
-internet-packet = { version = "0.2.0", features = ["smoltcp", "internet-checksum"] }
+internet-packet = { version = "0.2.0", features = ["smoltcp"] }
 data-encoding = "2.4.0"
 hickory-resolver = "0.24.1"
 socket2 = "0.5.7"
@@ -56,7 +56,6 @@ socket2 = "0.5.7"
 # tokio = { path = "../tokio/tokio" }
 smoltcp = { git = 'https://github.com/smoltcp-rs/smoltcp', rev = 'ef67e7b46cabf49783053cbf68d8671ed97ff8d4' }
 boringtun = { git = 'https://github.com/cloudflare/boringtun', rev = 'e3252d9c4f4c8fc628995330f45369effd4660a1' }
-# tun2 = { path = "../rust-tun" }
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.57.0"
@@ -84,7 +83,7 @@ objc = "0.2"
 sysinfo = "0.29.10"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-tun2 = { version = "3.1.8", features = ["async"] }
+tun = { version = "0.7.1", features = ["async"] }
 
 [dev-dependencies]
 env_logger = "0.11"

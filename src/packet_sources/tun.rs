@@ -8,7 +8,7 @@ use std::cmp::max;
 use std::fs;
 use tokio::sync::mpsc::{Permit, Receiver, UnboundedReceiver};
 use tokio::sync::{broadcast, mpsc::Sender};
-use tun2::AbstractDevice;
+use tun::AbstractDevice;
 
 pub struct TunConf {
     pub tun_name: Option<String>,
@@ -28,7 +28,7 @@ impl PacketSourceConf for TunConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
     ) -> Result<(Self::Task, Self::Data)> {
-        let mut config = tun2::Configuration::default();
+        let mut config = tun::Configuration::default();
         config.mtu(MAX_PACKET_SIZE as u16);
         // Setting a local address and a destination is required on Linux.
         config.address("169.254.0.1");
@@ -39,7 +39,7 @@ impl PacketSourceConf for TunConf {
             config.tun_name(&tun_name);
         }
 
-        let device = tun2::create_as_async(&config).context("Failed to create TUN device")?;
+        let device = tun::create_as_async(&config).context("Failed to create TUN device")?;
         let tun_name = device.tun_name().context("Failed to get TUN name")?;
 
         if let Err(e) = disable_rp_filter(&tun_name) {
@@ -68,7 +68,7 @@ impl PacketSourceConf for TunConf {
 }
 
 pub struct TunTask {
-    device: tun2::AsyncDevice,
+    device: tun::AsyncDevice,
 
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
@@ -77,7 +77,7 @@ pub struct TunTask {
 
 impl PacketSourceTask for TunTask {
     async fn run(mut self) -> Result<()> {
-        let size = self.device.mtu()? as usize + tun2::PACKET_INFORMATION_LENGTH;
+        let size = self.device.mtu()? as usize + tun::PACKET_INFORMATION_LENGTH;
         let mut buf = vec![0; size];
 
         let mut packet_to_send = Vec::new();
