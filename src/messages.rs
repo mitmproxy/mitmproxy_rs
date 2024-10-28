@@ -121,23 +121,21 @@ pub enum SmolPacket {
 
 impl fmt::Debug for SmolPacket {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-
         match TryInto::<InternetPacket>::try_into(self.clone()) {
-            Ok(p) => {
-                f.debug_struct("SmolPacket")
-                    .field("src", &p.src())
-                    .field("dst", &p.dst())
-                    .field("protocol", &p.protocol())
-                    .field("tcp_flags_str", &p.tcp_flag_str())
-                    .finish()
-            }
-            Err(_) => {
-                f.debug_struct("SmolPacket")
-                    .field("src_ip", &self.src_ip())
-                    .field("dst_ip", &self.dst_ip())
-                    .field("transport_protocol", &self.transport_protocol())
-                    .finish()
-            }
+            Ok(p) => f
+                .debug_struct("SmolPacket")
+                .field("src", &p.src())
+                .field("dst", &p.dst())
+                .field("protocol", &p.protocol())
+                .field("tcp_flags_str", &p.tcp_flag_str())
+                .field("payload", &String::from_utf8_lossy(p.payload()))
+                .finish(),
+            Err(_) => f
+                .debug_struct("SmolPacket")
+                .field("src_ip", &self.src_ip())
+                .field("dst_ip", &self.dst_ip())
+                .field("transport_protocol", &self.transport_protocol())
+                .finish(),
         }
     }
 }

@@ -1,5 +1,6 @@
 ## Unreleased: mitmproxy_rs next
 
+- tun mode: disable rp_filter, remove debug logging.
 
 ## 28 October 2024: mitmproxy_rs 0.10.6
 
