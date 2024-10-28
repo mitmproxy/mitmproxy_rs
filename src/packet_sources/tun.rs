@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use internet_packet::InternetPacket;
 use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
@@ -29,9 +30,9 @@ impl PacketSourceConf for TunConf {
         let mut config = tun2::Configuration::default();
         config.mtu(MAX_PACKET_SIZE as u16);
         // Setting a local address and a destination is required on Linux.
-        config.address("169.254.0.2");
-        config.destination("169.254.0.1");
-        config.netmask("0.0.0.0");
+        config.address("169.254.0.1");
+        // config.netmask("0.0.0.0");
+        // config.destination("169.254.0.1");
         config.up();
         if let Some(tun_name) = self.tun_name {
             config.tun_name(&tun_name);
@@ -91,6 +92,7 @@ impl PacketSourceTask for TunTask {
                         log::error!("Skipping invalid packet from tun interface: {:?}", &buf[..len]);
                         continue;
                     };
+                    dbg!(&packet);
                     permit.take().unwrap().send(NetworkEvent::ReceivePacket {
                         packet,
                         tunnel_info: TunnelInfo::None,
@@ -107,7 +109,20 @@ impl PacketSourceTask for TunTask {
                 Some(command) = self.net_rx.recv(), if packet_to_send.is_empty() => {
                     match command {
                         NetworkCommand::SendPacket(packet) => {
-                            packet_to_send = packet.into_inner();
+                            dbg!(&packet);
+                            // FIXME: Speculative checksum fix
+                            match TryInto::<InternetPacket>::try_into(packet.clone()) {
+                                Ok(mut p) => {
+                                    p.recalculate_tcp_checksum();
+                                    p.recalculate_udp_checksum();
+                                    p.recalculate_ip_checksum();
+                                    dbg!("checksum fixed");
+                                    packet_to_send = p.inner();
+                                }
+                                Err(_) => {
+                                    packet_to_send = packet.into_inner();
+                                }
+                            }
                         }
                     }
                 }
