@@ -80,7 +80,7 @@ core-graphics = "0.24"
 core-foundation = "0.10"
 cocoa = "0.26"
 objc = "0.2"
-sysinfo = "0.29.10"
+sysinfo = "0.32.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tun = { version = "0.7.1", features = ["async"] }
