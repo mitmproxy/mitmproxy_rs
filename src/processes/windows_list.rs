@@ -186,7 +186,7 @@ pub fn active_executables() -> Result<ProcessList> {
                 if !process_info.is_visible && visible.contains(&pid) {
                     let mut display_name_cache = DISPLAY_NAME_CACHE.lock().unwrap();
                     if let Ok(d) = display_name_cache.get(e.key().clone()) {
-                        e.get_mut().display_name = d.clone();
+                        e.get_mut().display_name.clone_from(d);
                     }
                     e.get_mut().is_visible = true;
                 }

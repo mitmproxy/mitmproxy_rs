@@ -32,3 +32,7 @@ hook-dirs = "mitmproxy_rs._pyinstaller:hook_dirs"
 exclude = [
     'mitmproxy_rs/_pyinstaller'
 ]
+
+# https://pyo3.rs/v0.22.2/faq.html?highlight=cargo%20test#i-cant-run-cargo-test-or-i-cant-build-in-a-cargo-workspace-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror
+[tool.maturin]
+features = ["pyo3/extension-module"]

@@ -4,7 +4,6 @@ use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
-use async_trait::async_trait;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
 use tokio::sync::broadcast;
@@ -32,7 +31,6 @@ pub struct WindowsConf {
     pub executable_path: PathBuf,
 }
 
-#[async_trait]
 impl PacketSourceConf for WindowsConf {
     type Task = WindowsTask;
     type Data = UnboundedSender<InterceptConf>;
@@ -112,7 +110,7 @@ impl PacketSourceConf for WindowsConf {
         Ok((
             WindowsTask {
                 ipc_server,
-                buf: [0u8; IPC_BUF_SIZE],
+                buf: vec![0u8; IPC_BUF_SIZE],
                 net_tx,
                 net_rx,
                 conf_rx,
@@ -125,7 +123,7 @@ impl PacketSourceConf for WindowsConf {
 
 pub struct WindowsTask {
     ipc_server: NamedPipeServer,
-    buf: [u8; IPC_BUF_SIZE],
+    buf: Vec<u8>,
 
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
@@ -133,7 +131,6 @@ pub struct WindowsTask {
     network_task_handle: tokio::task::JoinHandle<Result<()>>,
 }
 
-#[async_trait]
 impl PacketSourceTask for WindowsTask {
     async fn run(mut self) -> Result<()> {
         log::debug!("Waiting for IPC connection...");

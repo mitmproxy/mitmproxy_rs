@@ -58,6 +58,7 @@ impl<'a> NetworkStack<'a> {
                 Ok(())
             }
             IpProtocol::Icmp => self.receive_packet_icmp(packet),
+            IpProtocol::Icmpv6 => self.receive_packet_icmp(packet),
             _ => {
                 log::debug!(
                     "Received IP packet for unknown protocol: {}",

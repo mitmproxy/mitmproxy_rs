@@ -5,10 +5,11 @@ use std::sync::RwLock;
 use once_cell::sync::Lazy;
 use pyo3::{exceptions::PyException, prelude::*};
 
+mod dns_resolver;
 mod process_info;
 mod server;
 mod stream;
-mod task;
+pub mod task;
 mod udp_client;
 mod util;
 
@@ -30,42 +31,75 @@ fn init_logger() -> PyResult<()> {
     }
 }
 
-#[allow(unused)]
 #[pymodule]
-pub fn mitmproxy_rs(py: Python, m: &PyModule) -> PyResult<()> {
-    // set up the Rust logger to send messages to the Python logger
-    init_logger()?;
+mod mitmproxy_rs {
+    use super::*;
 
-    // set up tracing subscriber for introspection with tokio-console
-    #[cfg(feature = "tracing")]
-    console_subscriber::init();
+    #[pymodule]
+    mod certs {
+        #[pymodule_export]
+        use crate::util::{add_cert, remove_cert};
+    }
 
-    m.add_function(wrap_pyfunction!(server::start_wireguard_server, m)?)?;
-    m.add_class::<server::WireGuardServer>()?;
-    m.add_function(wrap_pyfunction!(util::genkey, m)?)?;
-    m.add_function(wrap_pyfunction!(util::pubkey, m)?)?;
-    m.add_function(wrap_pyfunction!(util::add_cert, m)?)?;
-    m.add_function(wrap_pyfunction!(util::remove_cert, m)?)?;
+    #[pymodule]
+    mod dns {
+        #[pymodule_export]
+        use crate::dns_resolver::{get_system_dns_servers, DnsResolver};
+    }
 
-    m.add_function(wrap_pyfunction!(server::start_local_redirector, m)?)?;
-    m.add_class::<server::LocalRedirector>()?;
+    #[pymodule]
+    mod local {
+        #[pymodule_export]
+        use crate::server::{start_local_redirector, LocalRedirector};
+    }
 
-    m.add_function(wrap_pyfunction!(server::start_udp_server, m)?)?;
-    m.add_class::<server::UdpServer>()?;
+    #[pymodule]
+    mod process_info {
+        #[pymodule_export]
+        use crate::process_info::{active_executables, executable_icon, Process};
+    }
 
-    m.add_function(wrap_pyfunction!(udp_client::open_udp_connection, m)?)?;
+    #[pymodule]
+    mod tun {
+        #[pymodule_export]
+        use crate::server::{create_tun_interface, TunInterface};
+    }
 
-    m.add_function(wrap_pyfunction!(process_info::active_executables, m)?)?;
-    m.add_class::<process_info::Process>()?;
-    m.add_function(wrap_pyfunction!(process_info::executable_icon, m)?)?;
+    #[pymodule]
+    mod udp {
+        #[pymodule_export]
+        use crate::server::{start_udp_server, UdpServer};
+        #[pymodule_export]
+        use crate::udp_client::open_udp_connection;
+    }
 
-    m.add_class::<stream::Stream>()?;
+    #[pymodule]
+    mod wireguard {
+        #[pymodule_export]
+        use crate::server::{start_wireguard_server, WireGuardServer};
+        #[pymodule_export]
+        use crate::util::{genkey, pubkey};
+    }
 
-    // Import platform-specific modules here so that missing dependencies are raising immediately.
-    #[cfg(target_os = "macos")]
-    py.import("mitmproxy_macos")?;
-    #[cfg(windows)]
-    py.import("mitmproxy_windows")?;
+    #[pymodule_export]
+    use crate::stream::Stream;
 
-    Ok(())
+    #[pymodule_init]
+    #[allow(unused_variables)]
+    fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        // set up the Rust logger to send messages to the Python logger
+        init_logger()?;
+
+        // set up tracing subscriber for introspection with tokio-console
+        #[cfg(feature = "tracing")]
+        console_subscriber::init();
+
+        // Import platform-specific modules here so that missing dependencies are raising immediately.
+        #[cfg(target_os = "macos")]
+        m.py().import_bound("mitmproxy_macos")?;
+        #[cfg(windows)]
+        m.py().import_bound("mitmproxy_windows")?;
+
+        Ok(())
+    }
 }

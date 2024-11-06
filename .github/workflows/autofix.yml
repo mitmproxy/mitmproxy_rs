@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  rust_clippy: "1.74"  # MSRV
+  rust_clippy: "1.80"  # MSRV
 
 jobs:
   protobuf:
@@ -24,7 +24,7 @@ jobs:
           --prost_out=./src/ipc/
           --swift_out=./mitmproxy-macos/redirector/ipc
       - run: cargo fmt --all
-      - uses: autofix-ci/action@d3e591514b99d0fca6779455ff8338516663f7cc
+      - uses: autofix-ci/action@dd55f44df8f7cdb7a6bf74c78677eb8acd40cd0a
 
   rustfmt:
     runs-on: ${{ matrix.os }}
@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: rustup toolchain install ${{ env.rust_clippy }} --profile minimal --component rustfmt --component clippy
       - run: rustup default ${{ env.rust_clippy }}
-      - uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84  # v2.7.3
+      - uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab  # v2.7.5
         timeout-minutes: 2
         continue-on-error: true
       # PyO3 wants recent Python on Windows.
@@ -50,4 +50,4 @@ jobs:
       - run: cargo fmt --all
       - run: git checkout src/ipc/mitmproxy_ipc.rs
 
-      - uses: autofix-ci/action@d3e591514b99d0fca6779455ff8338516663f7cc
+      - uses: autofix-ci/action@dd55f44df8f7cdb7a6bf74c78677eb8acd40cd0a

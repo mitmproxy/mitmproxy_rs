@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use pyo3::exceptions::asyncio::CancelledError;
 use pyo3::prelude::*;
-use pyo3_asyncio::TaskLocals;
+use pyo3_asyncio_0_21::TaskLocals;
 use tokio::sync::{broadcast, mpsc, Mutex};
 
 use mitmproxy::messages::{TransportCommand, TransportEvent};
@@ -31,8 +32,8 @@ impl PyInteropTask {
     ) -> Result<Self> {
         // Note: The current asyncio event loop needs to be determined here on the main thread.
         let locals = Python::with_gil(|py| -> Result<TaskLocals, PyErr> {
-            let py_loop = pyo3_asyncio::tokio::get_current_loop(py)?.into_py(py);
-            TaskLocals::new(py_loop.as_ref(py)).copy_context(py)
+            let py_loop = pyo3_asyncio_0_21::tokio::get_current_loop(py)?;
+            TaskLocals::new(py_loop).copy_context(py)
         })
         .context("failed to get python task locals")?;
 
@@ -92,14 +93,17 @@ impl PyInteropTask {
                                 };
 
                                 // convert Python awaitable into Rust Future
-                                let future = pyo3_asyncio::into_future_with_locals(&self.locals, coro.as_ref(py))?;
+                                let future = pyo3_asyncio_0_21::into_future_with_locals(&self.locals, coro.into_bound(py))?;
 
                                 // run Future on a new Tokio task
                                 let handle = {
                                     let active_streams = active_streams.clone();
                                     tokio::spawn(async move {
                                         if let Err(err) = future.await {
-                                            log::error!("TCP connection handler coroutine raised an exception:\n{}", err)
+                                            let is_cancelled = Python::with_gil(|py| err.is_instance_of::<CancelledError>(py));
+                                            if !is_cancelled {
+                                                log::error!("TCP connection handler coroutine raised an exception:\n{}", err);
+                                            }
                                         }
                                         active_streams.lock().await.remove(&connection_id);
                                     })

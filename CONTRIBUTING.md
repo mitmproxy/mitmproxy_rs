@@ -54,12 +54,7 @@ be no busy waiting.
 If you are the current maintainer of mitmproxy_rs,
 you can perform the following steps to ship a release:
 
-1. Make sure that...
-   - you are on the `main` branch with a clean working tree.
-   - `cargo test` is passing without errors.
-2. Bump the version in [`Cargo.toml`](Cargo.toml).
-3. Run `cargo update --workspace` to update the lockfile with the new version.
-4. Update [`CHANGELOG.md`](./CHANGELOG.md).
-5. Commit the changes and tag them.
-   - Convention: Tag name is simply the version number, e.g. `1.0.1`.
-6. Manually confirm the CI deploy step on GitHub.
+1. Make sure that CI is passing without errors.
+2. Make sure that CHANGELOG.md is up-to-date with all entries in the "Unreleased" section.
+3. Invoke the release workflow from the GitHub UI: https://github.com/mitmproxy/mitmproxy_rs/actions/workflows/release.yml
+4. The spawned workflow run will require manual deploy confirmation on GitHub: https://github.com/mitmproxy/mitmproxy/actions

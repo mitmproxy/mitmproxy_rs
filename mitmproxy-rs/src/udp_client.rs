@@ -11,6 +11,8 @@ use crate::stream::{Stream, StreamState};
 use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
 use mitmproxy::MAX_PACKET_SIZE;
 
+use mitmproxy::packet_sources::udp::remote_host_closed_conn;
+
 /// Start a UDP client that is configured with the given parameters:
 ///
 /// - `host`: The host address.
@@ -23,8 +25,8 @@ pub fn open_udp_connection(
     host: String,
     port: u16,
     local_addr: Option<(String, u16)>,
-) -> PyResult<&PyAny> {
-    pyo3_asyncio::tokio::future_into_py(py, async move {
+) -> PyResult<Bound<PyAny>> {
+    pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
         let socket = udp_connect(host, port, local_addr).await?;
 
         let peername = socket.peer_addr()?;
@@ -48,7 +50,7 @@ pub fn open_udp_connection(
             command_tx,
             peername,
             sockname,
-            tunnel_info: TunnelInfo::Udp,
+            tunnel_info: TunnelInfo::None,
         };
 
         Ok(stream)
@@ -100,7 +102,7 @@ pub struct UdpClientTask {
 
 impl UdpClientTask {
     pub async fn run(mut self) -> Result<()> {
-        let mut udp_buf = [0; MAX_PACKET_SIZE];
+        let mut udp_buf = vec![0; MAX_PACKET_SIZE];
 
         // this here isn't perfect because we block the entire transport_commands_rx channel if we
         // cannot send (so we also block receiving new packets), but that's hopefully good enough.
@@ -112,8 +114,11 @@ impl UdpClientTask {
         loop {
             tokio::select! {
                 // wait for transport_events_tx channel capacity...
-                len = self.socket.recv(&mut udp_buf), if packet_tx.is_some() => {
-                    let len = len.context("UDP recv() failed")?;
+                r = self.socket.recv(udp_buf.as_mut_slice()), if packet_tx.is_some() => {
+                    if remote_host_closed_conn(&r) {
+                        continue;
+                    }
+                    let len = r.context("UDP recv() failed")?;
                     packet_tx
                         .take()
                         .unwrap()

@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - "*"
+      - 'v[0-9]+.[0-9]+.[0-9]+'
   pull_request:
 
 permissions:
@@ -22,10 +22,10 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            rust: "1.74"  # MSRV
+            rust: "1.80"  # MSRV
             args: --exclude macos-certificate-truster
           - os: macos-latest
-            rust: "1.74"
+            rust: "1.80"
             args: --exclude windows-redirector
           - os: ubuntu-latest
             rust: stable
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain
         run: rustup toolchain install ${{ matrix.rust }} --profile minimal
-      - uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84  # v2.7.3
+      - uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab  # v2.7.5
         timeout-minutes: 2
         continue-on-error: true
       # PyO3 wants recent Python on Windows.
@@ -83,7 +83,7 @@ jobs:
       - if: matrix.target
         run: rustup target add ${{ matrix.target }}
       - run: rustup show
-      - uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84  # v2.7.3
+      - uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab  # v2.7.5
         timeout-minutes: 2
         continue-on-error: true
       - uses: actions/setup-python@v5
@@ -92,10 +92,10 @@ jobs:
 
       - if: runner.os == 'Linux'
         name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@99ca9e7f6388283533da289b033822f9997d583c
+        uses: install-pinned/maturin-with-zig@4804d730717f28b7565e71e68e5c9fe8c4f9b089
       - if: runner.os != 'Linux'
         name: Install maturin from PyPI
-        uses: install-pinned/maturin@9ef429e73235cb3ab68a9f8677ca10a189592a5e
+        uses: install-pinned/maturin@ab13013f30551a87b56c6a9c2bdd7b6287581def
 
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         run: python .github/scripts/pin-versions.py
@@ -152,7 +152,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # Build Rust
-      - uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84  # v2.7.3
+      - uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab  # v2.7.5
         timeout-minutes: 2
         continue-on-error: true
       - run: rustup toolchain install stable --profile minimal
@@ -180,7 +180,7 @@ jobs:
         with:
           python-version-file: .github/python-version.txt
       - name: Install build from PyPI
-        uses: install-pinned/build@0308e579e8aad0c0efc2da421dd2a682abdaf3db
+        uses: install-pinned/build@fd74312bf8fa4a8e5db75511358065e3d99b17b0
       - run: python -m build --wheel ./mitmproxy-${{ matrix.os }} --outdir target/wheels/
       - uses: actions/upload-artifact@v4
         with:
@@ -198,7 +198,7 @@ jobs:
       jobs: ${{ toJSON(needs) }}
 
   deploy:
-    uses: mhils/workflows/.github/workflows/python-deploy.yml@v5
+    uses: mhils/workflows/.github/workflows/python-deploy.yml@v11
     needs: check
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     with:

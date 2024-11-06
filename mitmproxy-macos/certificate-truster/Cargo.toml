@@ -9,4 +9,4 @@ rust-version.workspace = true
 publish.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
-apple-security-framework = "2.9.2"
+security-framework = "3.0.0"

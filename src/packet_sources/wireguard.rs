@@ -3,7 +3,6 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
-use async_trait::async_trait;
 use boringtun::noise::{
     errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult,
 };
@@ -26,6 +25,8 @@ use crate::messages::{
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 
+use crate::packet_sources::udp::remote_host_closed_conn;
+
 // WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6
 const WG_HEADER_SIZE: usize = 80;
 
@@ -42,7 +43,6 @@ pub struct WireGuardConf {
     pub peer_public_keys: Vec<PublicKey>,
 }
 
-#[async_trait]
 impl PacketSourceConf for WireGuardConf {
     type Task = WireGuardTask;
     type Data = SocketAddr;
@@ -118,7 +118,7 @@ impl PacketSourceConf for WireGuardConf {
                 peers_by_idx,
                 peers_by_key,
                 peers_by_ip: HashMap::new(),
-                wg_buf: [0u8; MAX_PACKET_SIZE],
+                wg_buf: vec![0u8; MAX_PACKET_SIZE],
 
                 net_tx,
                 net_rx,
@@ -141,24 +141,26 @@ pub struct WireGuardTask {
     net_tx: Sender<NetworkEvent>,
     net_rx: Receiver<NetworkCommand>,
 
-    wg_buf: [u8; MAX_PACKET_SIZE],
+    wg_buf: Vec<u8>,
     network_task_handle: tokio::task::JoinHandle<Result<()>>,
 }
 
-#[async_trait]
 impl PacketSourceTask for WireGuardTask {
     async fn run(mut self) -> Result<()> {
         if self.peers_by_idx.is_empty() {
             return Err(anyhow!("No WireGuard peers were configured."));
         }
 
-        let mut udp_buf = [0; MAX_PACKET_SIZE];
+        let mut udp_buf = vec![0; MAX_PACKET_SIZE];
 
         loop {
             tokio::select! {
                 exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
                 // wait for WireGuard packets incoming on the UDP socket
-                r = self.socket.recv_from(&mut udp_buf) => {
+                r = self.socket.recv_from(udp_buf.as_mut_slice()) => {
+                    if remote_host_closed_conn(&r) {
+                        continue;
+                    }
                     let (len, src_orig) = r.context("UDP recv() failed")?;
                     self.process_incoming_datagram(&udp_buf[..len], src_orig).await?;
                 },

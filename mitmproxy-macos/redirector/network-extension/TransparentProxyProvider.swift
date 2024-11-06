@@ -44,7 +44,7 @@ class TransparentProxyProvider: NETransparentProxyProvider {
             do {
                 while let spec = try await control.receive(ipc: MitmproxyIpc_InterceptConf.self) {
                     log.debug("Received spec: \(String(describing: spec), privacy: .public)")
-                    self.spec = InterceptConf(from: spec)
+                    self.spec = try InterceptConf(from: spec)
                 }
             } catch {
                 log.error("Error on control channel: \(String(describing: error), privacy: .public)")

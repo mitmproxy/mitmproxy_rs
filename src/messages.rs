@@ -1,4 +1,5 @@
 use std::fmt;
+use std::fmt::Formatter;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use anyhow::{anyhow, Result};
@@ -19,7 +20,7 @@ pub enum TunnelInfo {
         /// an unresolved remote_endpoint instead.
         remote_endpoint: Option<(String, u16)>,
     },
-    Udp,
+    None,
 }
 
 /// Events that are sent by WireGuard to the TCP stack.
@@ -112,10 +113,31 @@ impl TransportCommand {
 }
 
 /// Generic IPv4/IPv6 packet type that wraps smoltcp's IPv4 and IPv6 packet buffers
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum SmolPacket {
     V4(Ipv4Packet<Vec<u8>>),
     V6(Ipv6Packet<Vec<u8>>),
+}
+
+impl fmt::Debug for SmolPacket {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match TryInto::<InternetPacket>::try_into(self.clone()) {
+            Ok(p) => f
+                .debug_struct("SmolPacket")
+                .field("src", &p.src())
+                .field("dst", &p.dst())
+                .field("protocol", &p.protocol())
+                .field("tcp_flags_str", &p.tcp_flag_str())
+                .field("payload", &String::from_utf8_lossy(p.payload()))
+                .finish(),
+            Err(_) => f
+                .debug_struct("SmolPacket")
+                .field("src_ip", &self.src_ip())
+                .field("dst_ip", &self.dst_ip())
+                .field("transport_protocol", &self.transport_protocol())
+                .finish(),
+        }
+    }
 }
 
 impl From<Ipv4Packet<Vec<u8>>> for SmolPacket {
@@ -175,10 +197,16 @@ impl SmolPacket {
     pub fn transport_protocol(&self) -> IpProtocol {
         match self {
             SmolPacket::V4(packet) => packet.next_header(),
-            SmolPacket::V6(packet) => {
-                log::debug!("TODO: Implement IPv6 next_header logic.");
-                packet.next_header()
-            }
+            SmolPacket::V6(packet) => match packet.next_header() {
+                IpProtocol::Tcp => IpProtocol::Tcp,
+                IpProtocol::Udp => IpProtocol::Udp,
+                IpProtocol::Icmp => IpProtocol::Icmp,
+                IpProtocol::Icmpv6 => IpProtocol::Icmpv6,
+                other => {
+                    log::debug!("TODO: Implement IPv6 next_header logic: {}", other);
+                    other
+                }
+            },
         }
     }
 

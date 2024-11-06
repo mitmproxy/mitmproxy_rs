@@ -1,4 +1,92 @@
-## 0.5.1
+## Unreleased: mitmproxy_rs next
+
+
+## 28 October 2024: mitmproxy_rs 0.10.7
+
+- tun mode: disable rp_filter, remove debug logging.
+
+## 28 October 2024: mitmproxy_rs 0.10.6
+
+- tun mode: re-add debug logging.
+
+## 27 October 2024: mitmproxy_rs 0.10.5
+
+- tun mode: add default netmask
+
+## 27 October 2024: mitmproxy_rs 0.10.4
+
+- Remove superfluous debug logs.
+
+## 27 October 2024: mitmproxy_rs 0.10.3
+
+- Add more debug info.
+
+## 27 October 2024: mitmproxy_rs 0.10.2
+
+- Add debug info.
+
+## 27 October 2024: mitmproxy_rs 0.10.1
+
+- Assign a local IP address to our `tun` interface for Linux compatibility.
+
+## 27 October 2024: mitmproxy_rs 0.10.0
+
+- Add `tun` mode.
+
+## 18 October 2024: mitmproxy_rs 0.9.3
+
+- Improve error messages for better debugging.
+
+## 02 October 2024: mitmproxy_rs 0.9.2
+
+- Improve error messages for better debugging.
+
+## 06 September 2024: mitmproxy_rs 0.9.1
+
+- Actually better speculative fix.
+
+## 05 September 2024: mitmproxy_rs 0.9.0
+
+- Better speculative fix.
+
+## 04 September 2024: mitmproxy_rs 0.8.1
+
+- Speculative fix for stack overflows on Windows.
+
+## 04 September 2024: mitmproxy_rs 0.8.0
+
+- Move functionality into submodules.
+
+## 0.7.2
+
+- Make `active_executables` raise for invalid paths on Windows.
+
+## 0.7.1
+
+- Make DnsResolver.lookup_* methods return error numbers matching `getaddrinfo`.
+
+## 0.7.0
+
+- Set IPV6_V6ONLY flag for UDP sockets
+
+## 0.6.3
+
+- Fix a bug when initializing local redirect mode on macOS.
+
+## 0.6.2
+
+- Handle errors when remote host has closed UDP socket
+
+## 0.6.1
+
+- Add dedicated IPv4/IPv6 resolution methods to the DNS resolver.
+
+## 0.6.0
+
+- Change intercept spec syntax.
+- Add DNS resolver.
+
+## 0.5.2
 
 - Dependency updates.
 
@@ -143,7 +231,7 @@
 
 ## 0.1.7
 
-- Do not exit the network task when a draining TcpStream is already closed. 
+- Do not exit the network task when a draining TcpStream is already closed.
 - Make log messages for "no current WireGuard session" more user-friendly.
 - Attempt to build binary wheels for `aarch64-unknown-linux-gnu` for Raspberry
   Pi support.

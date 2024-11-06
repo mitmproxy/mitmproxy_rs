@@ -16,7 +16,7 @@ use crate::server::base::Server;
 /// The public API is intended to be similar to the API provided by
 /// [`asyncio.Server`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.Server)
 /// from the Python standard library.
-#[pyclass(module = "mitmproxy_rs")]
+#[pyclass(module = "mitmproxy_rs.wireguard")]
 #[derive(Debug)]
 pub struct WireGuardServer {
     /// local address of the WireGuard UDP socket
@@ -38,7 +38,7 @@ impl WireGuardServer {
     ///
     /// This coroutine will yield once pending data has been flushed and all server tasks have
     /// successfully terminated after calling the `Server.close` method.
-    pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<&'p PyAny> {
+    pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<Bound<'p, PyAny>> {
         self.server.wait_closed(py)
     }
 
@@ -69,7 +69,7 @@ pub fn start_wireguard_server(
     peer_public_keys: Vec<String>,
     handle_tcp_stream: PyObject,
     handle_udp_stream: PyObject,
-) -> PyResult<&PyAny> {
+) -> PyResult<Bound<PyAny>> {
     let private_key = string_to_key(private_key)?;
     let peer_public_keys = peer_public_keys
         .into_iter()
@@ -81,7 +81,7 @@ pub fn start_wireguard_server(
         private_key,
         peer_public_keys,
     };
-    pyo3_asyncio::tokio::future_into_py(py, async move {
+    pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
         let (server, local_addr) = Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
         Ok(WireGuardServer { server, local_addr })
     })

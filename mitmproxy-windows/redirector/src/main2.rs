@@ -13,7 +13,7 @@ use mitmproxy::ipc;
 use mitmproxy::ipc::FromProxy;
 use mitmproxy::packet_sources::windows::IPC_BUF_SIZE;
 use mitmproxy::windows::network::network_table;
-use mitmproxy::windows::processes::get_process_name;
+use mitmproxy::processes::get_process_name;
 use mitmproxy::MAX_PACKET_SIZE;
 use prost::Message;
 use std::io::Cursor;
@@ -124,7 +124,7 @@ async fn main() -> Result<()> {
     let tx_clone = event_tx.clone();
     thread::spawn(move || relay_network_events(network_handle, tx_clone));
 
-    let mut state = InterceptConf::new(vec![], vec![], false);
+    let mut state = InterceptConf::disabled();
     event_tx.send(Event::Ipc(ipc::from_proxy::Message::InterceptConf(state.clone().into())))?;
 
     tokio::spawn(async move {
@@ -353,7 +353,7 @@ async fn main() -> Result<()> {
                 inject_handle.send(&packet)?;
             }
             Event::Ipc(ipc::from_proxy::Message::InterceptConf(conf)) => {
-                state = conf.into();
+                state = conf.try_into()?;
                 info!("{}", state.description());
 
                 // Handle preexisting connections.

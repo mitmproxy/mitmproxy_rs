@@ -20,15 +20,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84  # v2.7.3
+      - uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab  # v2.7.5
         timeout-minutes: 2
         continue-on-error: true
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@99ca9e7f6388283533da289b033822f9997d583c
+        uses: install-pinned/maturin-with-zig@4804d730717f28b7565e71e68e5c9fe8c4f9b089
       - name: Install mypy from PyPI
-        uses: install-pinned/mypy@2eabe14b1638b48be440607da1cfb5c3e9be3d4d
+        uses: install-pinned/mypy@15172e0901cf7045a4181d12138212867fb66389
       - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@f2fbf58d572a8f3db623e6abd97d3ec3054aeb1a
+        uses: install-pinned/pdoc@e84522771f760a774c423ce40c9bb9844f843825
 
       - run: maturin build
         working-directory: ./mitmproxy-rs

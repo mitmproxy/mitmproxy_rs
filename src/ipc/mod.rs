@@ -25,14 +25,16 @@ impl From<SocketAddr> for Address {
 impl From<intercept_conf::InterceptConf> for InterceptConf {
     fn from(conf: intercept_conf::InterceptConf) -> Self {
         InterceptConf {
-            pids: conf.pids.into_iter().collect(),
-            process_names: conf.process_names,
-            invert: conf.invert,
+            default: conf.default(),
+            actions: conf.actions(),
         }
     }
 }
-impl From<InterceptConf> for intercept_conf::InterceptConf {
-    fn from(conf: InterceptConf) -> Self {
-        intercept_conf::InterceptConf::new(conf.pids, conf.process_names, conf.invert)
+
+impl TryFrom<InterceptConf> for intercept_conf::InterceptConf {
+    type Error = anyhow::Error;
+
+    fn try_from(conf: InterceptConf) -> Result<Self, Self::Error> {
+        intercept_conf::InterceptConf::try_from(conf.actions)
     }
 }
