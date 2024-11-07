@@ -115,7 +115,7 @@ async fn main() -> Result<()> {
         WinDivertFlags::new().set_recv_only().set_sniff(),
     )?;
     // WinDivert's syntax supports IP ranges (https://github.com/basil00/Divert/issues/250#issuecomment-723515347)
-    let wd_net_filter = "!loopback && ((ip && remoteAddr < 224.0.0.0) || (ip6 && remoteAddr < ff00::)) && (tcp || udp)";
+    let wd_net_filter = "!loopback && ((ip && remoteAddr < 224.0.0.0) || (ipv6 && remoteAddr < ff00::)) && (tcp || udp)";
     let network_handle = WinDivert::network(wd_net_filter, 1040, WinDivertFlags::new())?;
     let inject_handle = WinDivert::network("false", 1039, WinDivertFlags::new().set_send_only())?;
 
