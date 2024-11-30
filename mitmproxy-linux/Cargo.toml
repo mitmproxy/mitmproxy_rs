@@ -1,0 +1,28 @@
+[package]
+name = "mitmproxy_linux"
+license = "MIT"
+authors.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "mitmproxy-linux-redirector"
+path = "src/main.rs"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+mitmproxy = { path = "../" }
+tokio = { version = "1.40", features = ["macros", "net", "rt-multi-thread", "sync", "io-util"] }
+anyhow = { version = "1.0.89", features = ["backtrace"] }
+log = "0.4.22"
+env_logger = "0.11.5"
+prost = "0.13.3"
+internet-packet = { version = "0.2.0", features = ["checksums"] }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+hex = "0.4.3"

@@ -1,0 +1,21 @@
+name: 'setup-rust'
+description: 'setup rust and cache'
+inputs:
+  rust-version:
+    description: 'Rust version'
+    required: true
+    default: 'stable'
+  extra-targets:
+    description: 'Extra Rust targets'
+  toolchain-args:
+    description: 'Extra args for `rustup toolchain`'
+runs:
+  using: "composite"
+  steps:
+    - uses: mhils/workflows/checkout@v12
+    - uses: mhils/workflows/setup-python@v12  # PyO3 wants recent Python on Windows.
+    - run: rustup toolchain install ${{ inputs.rust-version }} --profile minimal
+    - run: rustup default ${{ inputs.rust-version }}
+    - if: inputs.extra-targets
+      run: rustup target add ${{ inputs.extra-targets }}
+    - uses: mhils/workflows/rust-cache@v12

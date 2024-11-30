@@ -1,15 +1,13 @@
 use mitmproxy::intercept_conf::InterceptConf;
 
-#[cfg(target_os = "macos")]
-use mitmproxy::packet_sources::macos::MacosConf;
 #[cfg(windows)]
 use mitmproxy::packet_sources::windows::WindowsConf;
+#[cfg(target_os = "linux")]
+use mitmproxy::packet_sources::linux::LinuxConf;
+#[cfg(target_os = "macos")]
+use mitmproxy::packet_sources::macos::MacosConf;
 
 use pyo3::prelude::*;
-#[cfg(target_os = "macos")]
-use std::path::Path;
-#[cfg(windows)]
-use std::path::PathBuf;
 
 use crate::server::base::Server;
 use tokio::sync::mpsc;
@@ -82,7 +80,7 @@ pub fn start_local_redirector(
 ) -> PyResult<Bound<PyAny>> {
     #[cfg(windows)]
     {
-        let executable_path: PathBuf = py
+        let executable_path: std::path::PathBuf = py
             .import_bound("mitmproxy_windows")?
             .call_method0("executable_path")?
             .extract()?;
@@ -97,16 +95,33 @@ pub fn start_local_redirector(
             Ok(LocalRedirector::new(server, conf_tx))
         })
     }
+    #[cfg(target_os = "linux")]
+    {
+        let executable_path: std::path::PathBuf = py
+            .import_bound("mitmproxy_linux")?
+            .call_method0("executable_path")?
+            .extract()?;
+        if !executable_path.exists() {
+            return Err(anyhow::anyhow!("{} does not exist", executable_path.display()).into());
+        }
+        let conf = LinuxConf { executable_path };
+        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
+            let (server, conf_tx) =
+                Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
+
+            Ok(LocalRedirector::new(server, conf_tx))
+        })
+    }
     #[cfg(target_os = "macos")]
     {
         let mut copy_task = None;
-        let destination_path = Path::new("/Applications/Mitmproxy Redirector.app");
+        let destination_path = std::path::Path::new("/Applications/Mitmproxy Redirector.app");
         if destination_path.exists() {
             log::info!("Using existing mitmproxy redirector app.");
         } else {
             let filename = py.import_bound("mitmproxy_macos")?.filename()?;
 
-            let source_path = Path::new(filename.to_str()?)
+            let source_path = std::path::Path::new(filename.to_str()?)
                 .parent()
                 .ok_or_else(|| anyhow::anyhow!("invalid path"))?
                 .join("Mitmproxy Redirector.app.tar");
@@ -133,8 +148,8 @@ pub fn start_local_redirector(
             Ok(LocalRedirector::new(server, conf_tx))
         })
     }
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
-        "OS proxy mode is only available on Windows and macOS",
+        "OS proxy mode is only available on Windows, Linux, and macOS",
     ))
 }
