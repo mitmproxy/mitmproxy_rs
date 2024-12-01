@@ -1,15 +1,15 @@
 use crate::intercept_conf::InterceptConf;
-use crate::ipc;
+use crate::{ipc, MAX_PACKET_SIZE};
 use crate::ipc::PacketWithMeta;
 use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::network::add_network_layer;
-use crate::packet_sources::linux::IPC_BUF_SIZE;
 use anyhow::{anyhow, Context, Result};
 use prost::Message;
 use std::future::Future;
 use std::io::Cursor;
+use log::{info, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc::{Sender, UnboundedReceiver};
 use tokio::sync::{broadcast, mpsc};
@@ -43,6 +43,8 @@ pub trait PacketSourceTask: Send {
     fn run(self) -> impl Future<Output = Result<()>> + Send;
 }
 
+pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 1024;
+
 /// Feed packets from a socket into smol, and the other way around.
 async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
     mut channel: T,
@@ -68,7 +70,9 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                 msg.encode(&mut buf.as_mut_slice())?;
                 let len = msg.encoded_len();
 
-                channel.write_all(&buf[..len]).await?;
+                info!("Sending IPC message: {len} {:?}", &buf[..len]);
+
+                channel.write_all(&buf[..len]).await.context("failed to propagate interception config update")?;
             },
             // read packets from the IPC pipe into our network stack.
             r = channel.read(&mut buf) => {
@@ -83,6 +87,8 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                     // Instead, empty reads indicate that the IPC client has disconnected.
                     return Err(anyhow!("redirect daemon exited prematurely."));
                 }
+
+                warn!("Receiving packet: {} {:?}", len, &buf[..len]);
 
                 let mut cursor = Cursor::new(&buf[..len]);
                 let Ok(PacketWithMeta { data, tunnel_info: Some(ipc::TunnelInfo { pid, process_name })}) = PacketWithMeta::decode(&mut cursor) else {
@@ -117,7 +123,7 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                         let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet( ipc::Packet { data: packet.into_inner() }))};
                         packet.encode(&mut buf.as_mut_slice())?;
                         let len = packet.encoded_len();
-                        channel.write_all(&buf[..len]).await?;
+                        channel.write_all(&buf[..len]).await.context("failed to send packet")?;
                     }
                 }
             }

@@ -1,25 +1,27 @@
-use anyhow::{bail, Context, Result};
+use std::io::Error;
+use std::net::Shutdown;
+use anyhow::{anyhow, bail, Context, Result};
 use log::{debug, error, log, Level};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::process::Stdio;
 use std::str::FromStr;
+use std::task::Poll;
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, BufReader, ReadBuf};
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use crate::intercept_conf::InterceptConf;
 use crate::messages::{TransportCommand, TransportEvent};
-use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{forward_packets, PacketSourceConf, PacketSourceTask};
-use tokio::net::{UnixListener, UnixStream};
+use tokio::net::UnixDatagram;
 use tokio::process::Command;
 use tokio::time::timeout;
+use tempfile::{tempdir, TempDir};
 
-pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 1024;
-
-async fn start_redirector(executable: PathBuf, listener_addr: String) -> Result<()> {
+async fn start_redirector(executable: &Path, listener_addr: &Path) -> Result<PathBuf> {
     debug!("Elevating privileges...");
     // Try to elevate privileges using a dummy sudo invocation.
     // The idea here is to block execution and give the user time to enter their password.
@@ -46,15 +48,10 @@ async fn start_redirector(executable: PathBuf, listener_addr: String) -> Result<
         .spawn()
         .context("Failed to launch mitmproxy-linux-redirector.")?;
 
-    let mut stdout = BufReader::new(redirector_process.stdout.take().unwrap()).lines();
-    let mut stderr = BufReader::new(redirector_process.stderr.take().unwrap()).lines();
-
+    let stdout = redirector_process.stdout.take().unwrap();
+    let stderr = redirector_process.stderr.take().unwrap();
     tokio::spawn(async move {
-        while let Ok(Some(line)) = stdout.next_line().await {
-            error!("[linux-redirector] {}", line);
-        }
-    });
-    tokio::spawn(async move {
+        let mut stderr = BufReader::new(stderr).lines();
         let mut level = Level::Error;
         while let Ok(Some(line)) = stderr.next_line().await {
             let new_level = line
@@ -84,11 +81,39 @@ async fn start_redirector(executable: PathBuf, listener_addr: String) -> Result<
         }
     });
 
-    Ok(())
+    timeout(
+        Duration::new(5, 0),
+        BufReader::new(stdout).lines().next_line(),
+    )
+        .await
+        .context("failed to establish connection to Linux redirector")??
+        .ok_or(anyhow!("redirector did not produce stdout"))
+        .map(PathBuf::from)
 }
 
 pub struct LinuxConf {
     pub executable_path: PathBuf,
+}
+
+pub struct AsyncUnixDatagram(UnixDatagram);
+
+impl AsyncRead for AsyncUnixDatagram {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
+        self.0.poll_recv(cx, buf)
+    }
+}
+impl AsyncWrite for AsyncUnixDatagram {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>, buf: &[u8]) -> Poll<std::result::Result<usize, Error>> {
+        self.0.poll_send(cx, buf)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<std::result::Result<(), Error>> {
+        self.0.poll_send_ready(cx)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> Poll<std::result::Result<(), Error>> {
+        Poll::Ready(self.0.shutdown(Shutdown::Write))
+    }
 }
 
 impl PacketSourceConf for LinuxConf {
@@ -105,24 +130,23 @@ impl PacketSourceConf for LinuxConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
     ) -> Result<(Self::Task, Self::Data)> {
-        let listener_addr = format!("/tmp/mitmproxy-{}", std::process::id());
-        let listener = UnixListener::bind(&listener_addr)?;
 
-        start_redirector(self.executable_path, listener_addr).await?;
+        let datagram_dir = tempdir().context("failed to create temp dir")?;
 
-        debug!("Waiting for redirector...");
-        let stream = timeout(Duration::new(5, 0), listener.accept())
-            .await
-            .context("failed to establish connection to Linux redirector")??
-            .0;
-        debug!("Redirector connected.");
+        let channel = UnixDatagram::bind(datagram_dir.path().join("mitmproxy"))?;
+        let dst = start_redirector(&self.executable_path, datagram_dir.path()).await?;
+
+        let _ = datagram_dir.into_path(); let datagram_dir = tempdir()?; // FIXME
+
+        channel.connect(&dst)
+            .with_context(|| format!("Failed to connect to redirector at {}", dst.display()))?;
 
         let (conf_tx, conf_rx) = unbounded_channel();
 
         Ok((
             LinuxTask {
-                listener,
-                stream,
+                datagram_dir,
+                channel: AsyncUnixDatagram(channel),
                 transport_events_tx,
                 transport_commands_rx,
                 conf_rx,
@@ -134,10 +158,8 @@ impl PacketSourceConf for LinuxConf {
 }
 
 pub struct LinuxTask {
-    // XXX: Can we drop the listener already, or does that close the channel?
-    #[allow(dead_code)]
-    listener: UnixListener,
-    stream: UnixStream,
+    datagram_dir: TempDir,
+    channel: AsyncUnixDatagram,
     transport_events_tx: Sender<TransportEvent>,
     transport_commands_rx: UnboundedReceiver<TransportCommand>,
     conf_rx: UnboundedReceiver<InterceptConf>,
@@ -147,12 +169,14 @@ pub struct LinuxTask {
 impl PacketSourceTask for LinuxTask {
     async fn run(self) -> Result<()> {
         forward_packets(
-            self.stream,
+            self.channel,
             self.transport_events_tx,
             self.transport_commands_rx,
             self.conf_rx,
             self.shutdown,
         )
-        .await
+        .await?;
+        drop(self.datagram_dir);
+        Ok(())
     }
 }

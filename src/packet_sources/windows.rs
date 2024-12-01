@@ -22,10 +22,8 @@ use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
-use crate::packet_sources::{forward_packets, PacketSourceConf, PacketSourceTask};
+use crate::packet_sources::{forward_packets, PacketSourceConf, PacketSourceTask, IPC_BUF_SIZE};
 use prost::Message;
-
-pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 1024;
 
 pub struct WindowsConf {
     pub executable_path: PathBuf,

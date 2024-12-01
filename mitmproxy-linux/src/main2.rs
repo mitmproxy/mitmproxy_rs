@@ -1,19 +1,23 @@
-use std::ops::Deref;
+use std::fs;
+use std::fs::Permissions;
 use anyhow::Context;
+use anyhow::anyhow;
 use aya::EbpfLoader;
 use std::io::Cursor;
+use std::os::unix::fs::PermissionsExt;
+use std::path::PathBuf;
 use aya::Btf;
 use aya::programs::{links::CgroupAttachMode, CgroupSock};
 use log::{debug, warn, info};
-use tokio::io::AsyncWriteExt;
-use tokio::io::AsyncReadExt;
-use tokio::net::UnixStream;
-use tokio::signal;
+use tokio::net::UnixDatagram;
+use tokio::select;
 use mitmproxy::packet_sources::tun::create_tun_device;
 use tun::AbstractDevice;
 use prost::Message;
-use mitmproxy::ipc::PacketWithMeta;
+use mitmproxy::ipc::{PacketWithMeta, TunnelInfo, from_proxy};
 use mitmproxy::ipc::FromProxy;
+use mitmproxy::packet_sources::IPC_BUF_SIZE;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(
@@ -24,18 +28,13 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let args: Vec<String> = std::env::args().collect();
-    let pipe_name = args
+    let pipe_dir = args
         .get(1)
-        .map(|x| x.as_str())
-        .with_context(|| format!("usage: {} <pipe>", args[0]))?;
-
-    info!("Connecting to {pipe_name}...");
-    let mut stream = UnixStream::connect(pipe_name)
-        .await
-        .with_context(|| format!("failed to connect to {pipe_name}"))?;
+        .map(PathBuf::from)
+        .with_context(|| format!("usage: {} <pipe-dir>", args[0]))?;
 
     info!("Creating tun device...");
-    let (mut device, name) = create_tun_device(None)?;
+    let (device, name) = create_tun_device(None)?;
     let device_index = device.tun_index().context("failed to get tun device index")? as u32;
     info!("Tun device created: {name} (id={device_index})");
 
@@ -74,15 +73,73 @@ async fn main() -> anyhow::Result<()> {
     prog.attach(&cgroup, CgroupAttachMode::Single)?;
     info!("Attached!");
 
+    let pipe_name = pipe_dir.join("mitmproxy");
+    info!("Connecting to {}...", pipe_name.display());
+    let datagram_path = pipe_dir.join("redirector");
+    let ipc = UnixDatagram::bind(&datagram_path)
+        .with_context(|| format!("failed to bind to {}", datagram_path.display()))?;
+    ipc.connect(&pipe_name)
+        .with_context(|| format!("failed to connect to {}", pipe_name.display()))?;
+    fs::set_permissions(&pipe_name, Permissions::from_mode(0o777))?;
+    fs::set_permissions(&datagram_path, Permissions::from_mode(0o777))?;
+    println!("{}", datagram_path.to_string_lossy());
 
-    let mut buf = vec![0; device.mtu()? as usize + 1024];
-    let r = device.recv(buf.as_mut_slice()).await;
-    info!("r={r:?}");
+    let mut ipc_buf = [0u8; IPC_BUF_SIZE];
+    let mut dev_buf = [0u8; IPC_BUF_SIZE];
+
+    loop {
+        select! {
+            r = ipc.recv(&mut ipc_buf) => {
+                match r {
+                    Ok(len) if len > 0 => {
+
+                        let mut cursor = Cursor::new(&ipc_buf[..len]);
+
+                        info!("Received IPC message: {len} {:?}", &ipc_buf[..len]);
 
 
-    println!("Waiting for Ctrl-C...");
-    signal::ctrl_c().await?;
-    println!("Exiting...");
+                        let Ok(FromProxy { message: Some(message)}) = FromProxy::decode(&mut cursor) else {
+                            return Err(anyhow!("Received invalid IPC message: {:?}", &ipc_buf[..len]));
+                        };
+                        assert_eq!(cursor.position(), len as u64);
 
-    Ok(())
+                        match message {
+                            from_proxy::Message::Packet(packet) => {
+                                info!("Received Packet: {packet:?}");
+                                device.send(&packet.data).await?;
+                            }
+                            from_proxy::Message::InterceptConf(conf) => {
+                                info!("Received InterceptConf: {conf:?}");
+                            }
+                        }
+                    }
+                    _ => {
+                        info!("IPC read failed. Exiting.");
+                        std::process::exit(0);
+                    }
+                }
+            },
+            // ... or process incoming packets
+            r = device.recv(dev_buf.as_mut_slice()) => {
+                let len = r.context("TUN read() failed")?;
+
+                // Unnecessary copying, oh well...
+                let packet = PacketWithMeta {
+                    data: dev_buf[..len].to_vec(),
+                    // FIXME
+                    tunnel_info: Some(TunnelInfo {
+                        pid: 0,
+                        process_name: None,
+                    }),
+                };
+
+                packet.encode(&mut dev_buf.as_mut_slice())?;
+                let len = packet.encoded_len();
+
+                info!("Sending packet: {} {:?}", len, &dev_buf[..len]);
+
+                ipc.send(&dev_buf[..len]).await?;
+            },
+        }
+    }
 }

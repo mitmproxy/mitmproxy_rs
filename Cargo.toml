@@ -102,6 +102,7 @@ sysinfo = "0.29.10"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tun = { workspace = true, features = ["async"] }
+tempfile = "3.14.0"
 
 [dev-dependencies]
 env_logger = "0.11"

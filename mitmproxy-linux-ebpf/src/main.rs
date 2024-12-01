@@ -27,12 +27,13 @@ pub fn is_nc(command: Result<[u8; TASK_COMM_LEN], c_long>) -> bool {
 #[cgroup_sock(sock_create)]
 pub fn cgroup_sock_create(ctx: SockContext) -> i32 {
     if is_nc(ctx.command()) {
-        info!(&ctx, "sock_create from nc");
-        debug_assert_ne!(INTERFACE_ID, 0);
+        let interface_id = unsafe {
+            core::ptr::read_volatile(&INTERFACE_ID)
+        };
+        info!(&ctx, "sock_create from nc {}", interface_id);
         unsafe {
-            (*ctx.sock).bound_dev_if = INTERFACE_ID;  // Replace with interface id from `ip link show`
+            (*ctx.sock).bound_dev_if = interface_id;  // Replace with interface id from `ip link show`
         }
-
     }
     /*
     unsafe {
