@@ -51,7 +51,7 @@ pub struct TcpHandler<'a> {
     active_connections: HashSet<(SocketAddr, SocketAddr)>,
 }
 
-impl<'a> TcpHandler<'a> {
+impl TcpHandler<'_> {
     pub fn new(net_tx: Sender<NetworkCommand>) -> Self {
         let mut device = VirtualDevice::new(net_tx);
 

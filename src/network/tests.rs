@@ -45,7 +45,7 @@ impl MockNetwork {
             smol_to_py_tx,
             py_to_smol_rx,
             sd_watcher,
-        )?;
+        );
 
         let handle = tokio::spawn(task.run());
 

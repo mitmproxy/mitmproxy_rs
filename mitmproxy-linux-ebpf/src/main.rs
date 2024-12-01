@@ -1,14 +1,18 @@
 #![no_std]
 #![no_main]
 
-use aya_ebpf::{EbpfContext, TASK_COMM_LEN};
 use aya_ebpf::cty::c_long;
 use aya_ebpf::macros::cgroup_sock;
 use aya_ebpf::programs::SockContext;
+use aya_ebpf::{EbpfContext, TASK_COMM_LEN};
 use aya_log_ebpf::info;
 
+#[no_mangle]
+static INTERFACE_ID: u32 = 0;
+
 pub fn command_to_str(command: &[u8; 16]) -> &str {
-    let len = command.iter()
+    let len = command
+        .iter()
         .position(|&c| c == b'\0')
         .unwrap_or(command.len());
     unsafe { core::str::from_utf8_unchecked(&command[..len]) }
@@ -24,6 +28,11 @@ pub fn is_nc(command: Result<[u8; TASK_COMM_LEN], c_long>) -> bool {
 pub fn cgroup_sock_create(ctx: SockContext) -> i32 {
     if is_nc(ctx.command()) {
         info!(&ctx, "sock_create from nc");
+        debug_assert_ne!(INTERFACE_ID, 0);
+        unsafe {
+            (*ctx.sock).bound_dev_if = INTERFACE_ID;  // Replace with interface id from `ip link show`
+        }
+
     }
     /*
     unsafe {

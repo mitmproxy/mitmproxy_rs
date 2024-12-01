@@ -28,32 +28,10 @@ impl PacketSourceConf for TunConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
     ) -> Result<(Self::Task, Self::Data)> {
-        let mut config = tun::Configuration::default();
-        config.mtu(MAX_PACKET_SIZE as u16);
-        // Setting a local address and a destination is required on Linux.
-        config.address("169.254.0.1");
-        // config.netmask("0.0.0.0");
-        // config.destination("169.254.0.1");
-        config.up();
-        if let Some(tun_name) = self.tun_name {
-            config.tun_name(&tun_name);
-        }
-
-        let device = tun::create_as_async(&config).context("Failed to create TUN device")?;
-        let tun_name = device.tun_name().context("Failed to get TUN name")?;
-
-        if let Err(e) = disable_rp_filter(&tun_name) {
-            log::error!("failed to set rp_filter: {e}");
-        }
-        if let Err(e) = fs::write(
-            format!("/proc/sys/net/ipv4/conf/{tun_name}/route_localnet"),
-            "1",
-        ) {
-            log::error!("Failed to enable route_localnet: {e}");
-        }
+        let (device, tun_name) = create_tun_device(self.tun_name)?;
 
         let (network_task_handle, net_tx, net_rx) =
-            add_network_layer(transport_events_tx, transport_commands_rx, shutdown)?;
+            add_network_layer(transport_events_tx, transport_commands_rx, shutdown);
 
         Ok((
             TunTask {
@@ -65,6 +43,33 @@ impl PacketSourceConf for TunConf {
             tun_name,
         ))
     }
+}
+
+pub fn create_tun_device(tun_name: Option<String>) -> Result<(tun::AsyncDevice, String)> {
+    let mut config = tun::Configuration::default();
+    config.mtu(MAX_PACKET_SIZE as u16);
+    // Setting a local address and a destination is required on Linux.
+    config.address("169.254.0.1");
+    // config.netmask("0.0.0.0");
+    // config.destination("169.254.0.1");
+    config.up();
+    if let Some(tun_name) = tun_name {
+        config.tun_name(&tun_name);
+    }
+
+    let device = tun::create_as_async(&config).context("Failed to create TUN device")?;
+    let tun_name = device.tun_name().context("Failed to get TUN name")?;
+
+    if let Err(e) = disable_rp_filter(&tun_name) {
+        log::error!("failed to set rp_filter: {e}");
+    }
+    if let Err(e) = fs::write(
+        format!("/proc/sys/net/ipv4/conf/{tun_name}/route_localnet"),
+        "1",
+    ) {
+        log::error!("Failed to enable route_localnet: {e}");
+    }
+    Ok((device, tun_name))
 }
 
 pub struct TunTask {

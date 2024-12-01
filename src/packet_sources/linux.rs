@@ -1,31 +1,23 @@
-use anyhow::{anyhow, bail, Context, Result};
-use std::io::Cursor;
-use std::iter;
+use anyhow::{bail, Context, Result};
+use log::{debug, error, log, Level};
 use std::path::PathBuf;
-use std::process::{ExitStatus, Stdio};
+use std::process::Stdio;
+use std::str::FromStr;
 use std::time::Duration;
-use log::{debug, error, info, warn};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
-use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use crate::intercept_conf::InterceptConf;
-use crate::ipc;
-use crate::ipc::PacketWithMeta;
-use crate::messages::{
-    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
-};
-use crate::network::{add_network_layer, MAX_PACKET_SIZE};
-use crate::packet_sources::{PacketForwarderTask, PacketSourceConf, PacketSourceTask};
-use prost::Message;
+use crate::messages::{TransportCommand, TransportEvent};
+use crate::network::MAX_PACKET_SIZE;
+use crate::packet_sources::{forward_packets, PacketSourceConf, PacketSourceTask};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::process::Command;
-use tokio::task::JoinSet;
 use tokio::time::timeout;
 
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 1024;
-
 
 async fn start_redirector(executable: PathBuf, listener_addr: String) -> Result<()> {
     debug!("Elevating privileges...");
@@ -43,29 +35,42 @@ async fn start_redirector(executable: PathBuf, listener_addr: String) -> Result<
     }
 
     debug!("Starting mitmproxy-linux-redirector...");
-    let mut redirector_process =
-        Command::new("sudo")
-            .arg("--non-interactive")
-            .arg("--preserve-env")
-            .arg(executable)
-            .arg(listener_addr)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .context("Failed to launch mitmproxy-linux-redirector.")?;
+    let mut redirector_process = Command::new("sudo")
+        .arg("--non-interactive")
+        .arg("--preserve-env")
+        .arg(executable)
+        .arg(listener_addr)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("Failed to launch mitmproxy-linux-redirector.")?;
 
     let mut stdout = BufReader::new(redirector_process.stdout.take().unwrap()).lines();
     let mut stderr = BufReader::new(redirector_process.stderr.take().unwrap()).lines();
 
     tokio::spawn(async move {
         while let Ok(Some(line)) = stdout.next_line().await {
-            info!("[linux-redirector] {}", line);
+            error!("[linux-redirector] {}", line);
         }
     });
     tokio::spawn(async move {
+        let mut level = Level::Error;
         while let Ok(Some(line)) = stderr.next_line().await {
-            error!("[linux-redirector] {}", line);
+            let new_level = line
+                .strip_prefix("[")
+                .and_then(|s| s.split_once(" "))
+                .and_then(|(level, line)| {
+                    Level::from_str(level)
+                        .ok()
+                        .map(|l| (l, line.trim_ascii_start()))
+                });
+            if let Some((l, line)) = new_level {
+                level = l;
+                log!(level, "[{line}");
+            } else {
+                log!(level, "{line}");
+            }
         }
     });
     tokio::spawn(async move {
@@ -87,7 +92,7 @@ pub struct LinuxConf {
 }
 
 impl PacketSourceConf for LinuxConf {
-    type Task = PacketForwarderTask<UnixListener, UnixStream>;
+    type Task = LinuxTask;
     type Data = UnboundedSender<InterceptConf>;
 
     fn name(&self) -> &'static str {
@@ -106,26 +111,48 @@ impl PacketSourceConf for LinuxConf {
         start_redirector(self.executable_path, listener_addr).await?;
 
         debug!("Waiting for redirector...");
-        let channel = timeout(Duration::new(5, 0), listener.accept())
+        let stream = timeout(Duration::new(5, 0), listener.accept())
             .await
             .context("failed to establish connection to Linux redirector")??
             .0;
         debug!("Redirector connected.");
 
         let (conf_tx, conf_rx) = unbounded_channel();
-        let (network_task_handle, net_tx, net_rx) =
-            add_network_layer(transport_events_tx, transport_commands_rx, shutdown)?;
 
         Ok((
-            PacketForwarderTask {
+            LinuxTask {
                 listener,
-                channel,
-                net_tx,
-                net_rx,
+                stream,
+                transport_events_tx,
+                transport_commands_rx,
                 conf_rx,
-                network_task_handle,
+                shutdown,
             },
             conf_tx,
         ))
+    }
+}
+
+pub struct LinuxTask {
+    // XXX: Can we drop the listener already, or does that close the channel?
+    #[allow(dead_code)]
+    listener: UnixListener,
+    stream: UnixStream,
+    transport_events_tx: Sender<TransportEvent>,
+    transport_commands_rx: UnboundedReceiver<TransportCommand>,
+    conf_rx: UnboundedReceiver<InterceptConf>,
+    shutdown: broadcast::Receiver<()>,
+}
+
+impl PacketSourceTask for LinuxTask {
+    async fn run(self) -> Result<()> {
+        forward_packets(
+            self.stream,
+            self.transport_events_tx,
+            self.transport_commands_rx,
+            self.conf_rx,
+            self.shutdown,
+        )
+        .await
     }
 }

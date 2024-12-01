@@ -2085,6 +2085,7 @@ dependencies = [
  "mitmproxy-linux-ebpf-common",
  "prost",
  "tokio",
+ "tun",
 ]
 
 [[package]]

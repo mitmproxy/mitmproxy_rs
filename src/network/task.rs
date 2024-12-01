@@ -29,11 +29,11 @@ pub fn add_network_layer(
     transport_events_tx: Sender<TransportEvent>,
     transport_commands_rx: UnboundedReceiver<TransportCommand>,
     shutdown: broadcast::Receiver<()>,
-) -> Result<(
+) -> (
     JoinHandle<Result<()>>,
     Sender<NetworkEvent>,
     Receiver<NetworkCommand>,
-)> {
+) {
     // initialize channels between the WireGuard server and the virtual network device
     let (network_events_tx, network_events_rx) = mpsc::channel(256);
     let (network_commands_tx, network_commands_rx) = mpsc::channel(256);
@@ -44,9 +44,9 @@ pub fn add_network_layer(
         transport_events_tx,
         transport_commands_rx,
         shutdown,
-    )?;
+    );
     let h = tokio::spawn(Box::pin(async move { task.run().await }));
-    Ok((h, network_events_tx, network_commands_rx))
+    (h, network_events_tx, network_commands_rx)
 }
 
 impl NetworkTask<'_> {
@@ -56,16 +56,16 @@ impl NetworkTask<'_> {
         py_tx: Sender<TransportEvent>,
         py_rx: UnboundedReceiver<TransportCommand>,
         shutdown: BroadcastReceiver<()>,
-    ) -> Result<Self> {
+    ) -> Self {
         let io = NetworkStack::new(net_tx.clone());
-        Ok(Self {
+        Self {
             net_tx,
             net_rx,
             py_tx,
             py_rx,
             shutdown,
             io,
-        })
+        }
     }
 
     pub async fn run(mut self) -> Result<()> {

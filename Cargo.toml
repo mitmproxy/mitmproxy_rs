@@ -35,6 +35,7 @@ aya = { version = "0.13.0", default-features = false }
 aya-ebpf = { version = "0.1.1", default-features = false }
 aya-log = { version = "0.2.1", default-features = false }
 aya-log-ebpf = { version = "0.1.1", default-features = false }
+tun = { version = "0.7.1" }
 
 [workspace.lints.clippy]
 large_futures = "deny"
@@ -100,7 +101,7 @@ objc = "0.2"
 sysinfo = "0.29.10"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-tun = { version = "0.7.1", features = ["async"] }
+tun = { workspace = true, features = ["async"] }
 
 [dev-dependencies]
 env_logger = "0.11"

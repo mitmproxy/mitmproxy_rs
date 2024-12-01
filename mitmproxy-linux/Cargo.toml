@@ -18,6 +18,7 @@ path = "src/main.rs"
 [target.'cfg(target_os = "linux")'.dependencies]
 mitmproxy = { path = "../" }
 mitmproxy-linux-ebpf-common = { path = "../mitmproxy-linux-ebpf-common", features = ["user"] }
+tun = { workspace = true, features = ["async"] }
 tokio = { version = "1.40", features = ["macros", "net", "rt-multi-thread", "sync", "io-util", "signal"] }
 anyhow = { version = "1.0.89", features = ["backtrace"] }
 log = "0.4.22"

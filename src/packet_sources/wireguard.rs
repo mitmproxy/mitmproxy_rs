@@ -58,7 +58,7 @@ impl PacketSourceConf for WireGuardConf {
         shutdown: broadcast::Receiver<()>,
     ) -> Result<(Self::Task, Self::Data)> {
         let (network_task_handle, net_tx, net_rx) =
-            add_network_layer(transport_events_tx, transport_commands_rx, shutdown)?;
+            add_network_layer(transport_events_tx, transport_commands_rx, shutdown);
 
         // initialize WireGuard server
         let mut peers_by_idx = HashMap::new();
