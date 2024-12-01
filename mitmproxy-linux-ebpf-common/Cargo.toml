@@ -1,0 +1,19 @@
+[package]
+name = "mitmproxy-linux-ebpf-common"
+license = "MIT"
+authors.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+user = ["aya"]
+
+[dependencies]
+aya = { workspace = true, optional = true }
+
+[lib]
+path = "src/lib.rs"

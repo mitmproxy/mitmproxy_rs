@@ -17,12 +17,22 @@ path = "src/main.rs"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 mitmproxy = { path = "../" }
-tokio = { version = "1.40", features = ["macros", "net", "rt-multi-thread", "sync", "io-util"] }
+mitmproxy-linux-ebpf-common = { path = "../mitmproxy-linux-ebpf-common", features = ["user"] }
+tokio = { version = "1.40", features = ["macros", "net", "rt-multi-thread", "sync", "io-util", "signal"] }
 anyhow = { version = "1.0.89", features = ["backtrace"] }
 log = "0.4.22"
 env_logger = "0.11.5"
 prost = "0.13.3"
 internet-packet = { version = "0.2.0", features = ["checksums"] }
+aya = { workspace = true }
+aya-log = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.build-dependencies]
+cargo_metadata = { version = "0.19.0", default-features = false }
+mitmproxy-linux-ebpf = { path = "../mitmproxy-linux-ebpf" }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 hex = "0.4.3"
+[dependencies]
+clap = { version = "4.5.8", features = ["derive"] }
+libc = "0.2.155"

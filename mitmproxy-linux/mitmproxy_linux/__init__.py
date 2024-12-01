@@ -18,15 +18,13 @@ def executable_path() -> Path:
         exe = here / "mitmproxy-linux-redirector"
 
         # Development path: This should never happen with precompiled wheels.
-        if not exe.exists() and (here / "editable.marker").exists():
+        if not exe.exists() and (here / "../Cargo.toml").exists():
             import logging
             import subprocess
 
             logger = logging.getLogger(__name__)
             logger.warning("Development mode: Compiling mitmproxy-linux-redirector...")
 
-            # FIXME: Build eBPF
-            subprocess.run(["cargo", "build"], cwd=here.parent / "mitmproxy-linux-ebpf", check=True)
             # Build Redirector
             subprocess.run(["cargo", "build"], cwd=here.parent, check=True)
             target_debug = here.parent.parent / "target/debug"

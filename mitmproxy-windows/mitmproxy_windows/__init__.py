@@ -12,7 +12,7 @@ def executable_path() -> Path:
     exe = here / "windows-redirector.exe"
 
     # Development path: This should never happen with precompiled wheels.
-    if not exe.exists() and (here / "editable.marker").exists():
+    if not exe.exists() and (here / "../Cargo.toml").exists():
         import logging
         import shutil
         import subprocess

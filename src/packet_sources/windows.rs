@@ -2,7 +2,7 @@ use std::io::Cursor;
 use std::iter;
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
-
+use std::time::Duration;
 use anyhow::{anyhow, Context, Result};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
@@ -22,8 +22,9 @@ use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
-use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+use crate::packet_sources::{PacketForwarderTask, PacketSourceConf, PacketSourceTask};
 use prost::Message;
+use tokio::time::timeout;
 
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 1024;
 
@@ -50,7 +51,7 @@ impl PacketSourceConf for WindowsConf {
             std::process::id()
         );
 
-        let ipc_server = ServerOptions::new()
+        let mut ipc_server = ServerOptions::new()
             .pipe_mode(PipeMode::Message)
             .first_pipe_instance(true)
             .max_instances(1)
@@ -107,10 +108,17 @@ impl PacketSourceConf for WindowsConf {
         let (network_task_handle, net_tx, net_rx) =
             add_network_layer(transport_events_tx, transport_commands_rx, shutdown)?;
 
+        log::debug!("Waiting for IPC connection...");
+        let channel = timeout(Duration::new(5, 0), ipc_server.connect())
+            .await
+            .context("failed to establish connection to Windows redirector")??
+            .0;
+        log::debug!("IPC connected!");
+
         Ok((
-            WindowsTask {
-                ipc_server,
-                buf: vec![0u8; IPC_BUF_SIZE],
+            PacketForwarderTask {
+                listener: ipc_server,
+                channel,
                 net_tx,
                 net_rx,
                 conf_rx,
@@ -121,6 +129,7 @@ impl PacketSourceConf for WindowsConf {
     }
 }
 
+/*
 pub struct WindowsTask {
     ipc_server: NamedPipeServer,
     buf: Vec<u8>,
@@ -133,9 +142,7 @@ pub struct WindowsTask {
 
 impl PacketSourceTask for WindowsTask {
     async fn run(mut self) -> Result<()> {
-        log::debug!("Waiting for IPC connection...");
-        self.ipc_server.connect().await?;
-        log::debug!("IPC connected!");
+
 
         loop {
             tokio::select! {
@@ -210,3 +217,4 @@ impl PacketSourceTask for WindowsTask {
         Ok(())
     }
 }
+*/

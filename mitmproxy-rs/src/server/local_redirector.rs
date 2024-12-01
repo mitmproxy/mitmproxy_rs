@@ -1,11 +1,11 @@
 use mitmproxy::intercept_conf::InterceptConf;
 
-#[cfg(windows)]
-use mitmproxy::packet_sources::windows::WindowsConf;
 #[cfg(target_os = "linux")]
 use mitmproxy::packet_sources::linux::LinuxConf;
 #[cfg(target_os = "macos")]
 use mitmproxy::packet_sources::macos::MacosConf;
+#[cfg(windows)]
+use mitmproxy::packet_sources::windows::WindowsConf;
 
 use pyo3::prelude::*;
 

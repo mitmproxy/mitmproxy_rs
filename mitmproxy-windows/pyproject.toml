@@ -14,7 +14,6 @@ Source = "https://github.com/mitmproxy/mitmproxy-rs"
 
 [tool.hatch.build]
 only-include = ["mitmproxy_windows"]
-exclude = ["mitmproxy_windows/editable.marker"]
 
 [tool.hatch.version]
 path = "../Cargo.toml"
