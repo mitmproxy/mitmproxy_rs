@@ -37,8 +37,7 @@ jobs:
             rust: stable
             args: --exclude windows-redirector --exclude macos-certificate-truster
     steps:
-      - uses: mhils/workflows/checkout@v12
-      - uses: ./.github/actions/setup-rust
+      - uses: ./.github/actions/setup
         with:
           rust-version: ${{ matrix.rust }}
 
@@ -77,9 +76,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: build mitmproxy-rs (${{ matrix.name }})
     steps:
-      - uses: mhils/workflows/checkout@v12
-      - uses: mhils/workflows/setup-python@v12
-      - uses: ./.github/actions/setup-rust
+      - uses: ./.github/actions/setup
         with:
           extra-targets: ${{ matrix.target }}
 
@@ -134,8 +131,7 @@ jobs:
     runs-on: windows-latest
     name: build mitmproxy-windows
     steps:
-      - uses: mhils/workflows/checkout@v12
-      - uses: ./.github/actions/setup-rust
+      - uses: ./.github/actions/setup
       - uses: install-pinned/build@aa7fb973fec4a5593736c5dc25b322120ca41a98
 
       - run: cargo build --release --package windows-redirector
@@ -151,8 +147,7 @@ jobs:
     needs: build-macos-app
     runs-on: macos-latest
     steps:
-      - uses: mhils/workflows/checkout@v12
-      - uses: ./.github/actions/setup-rust
+      - uses: ./.github/actions/setup
         with:
           extra-targets: aarch64-apple-darwin x86_64-apple-darwin
       - uses: install-pinned/build@aa7fb973fec4a5593736c5dc25b322120ca41a98
@@ -184,10 +179,11 @@ jobs:
             args: --compatibility manylinux2014 --zig --target aarch64-unknown-linux-gnu
     runs-on: ubuntu-latest
     steps:
-      - uses: mhils/workflows/checkout@v12
-      - uses: ./.github/actions/setup-rust
+      - uses: ./.github/actions/setup
         with:
           extra-targets: ${{ matrix.target }}
+      - name: Install maturin[zig] from PyPI
+        uses: install-pinned/maturin-with-zig@4804d730717f28b7565e71e68e5c9fe8c4f9b089
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./mitmproxy-linux

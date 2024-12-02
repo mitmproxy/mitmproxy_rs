@@ -1,5 +1,5 @@
-name: 'setup-rust'
-description: 'setup rust and cache'
+name: 'setup'
+description: 'checkout, setup rust and python'
 inputs:
   rust-version:
     description: 'Rust version'
