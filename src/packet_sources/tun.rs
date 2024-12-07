@@ -10,6 +10,9 @@ use tokio::sync::mpsc::{Permit, Receiver, UnboundedReceiver};
 use tokio::sync::{broadcast, mpsc::Sender};
 use tun::AbstractDevice;
 
+#[cfg(target_os = "linux")]
+use nix::unistd::Uid;
+
 pub struct TunConf {
     pub tun_name: Option<String>,
 }
@@ -171,4 +174,16 @@ fn disable_rp_filter(tun_name: &str) -> Result<()> {
         .context("failed to disable /proc/sys/net/ipv4/conf/all/rp_filter")?;
     log::debug!("Successfully updated rp_filter.");
     Ok(())
+}
+
+pub fn unavailable_reason() -> Option<String> {
+    #[cfg(target_os = "linux")]
+    if !Uid::effective().is_root() {
+        Some(String::from("mitmproxy is not running as root"))
+    } else {
+        None
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    Some(String::from("OS not supported for TUN proxy mode"))
 }

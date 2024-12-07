@@ -62,7 +62,7 @@ mod mitmproxy_rs {
     #[pymodule]
     mod tun {
         #[pymodule_export]
-        use crate::server::{create_tun_interface, TunInterface};
+        use crate::server::{create_tun_interface, unavailable_reason, TunInterface};
     }
 
     #[pymodule]

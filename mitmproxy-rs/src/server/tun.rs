@@ -1,4 +1,5 @@
 use crate::server::base::Server;
+use mitmproxy::packet_sources::tun;
 use pyo3::prelude::*;
 
 /// An open TUN interface.
@@ -50,7 +51,7 @@ pub fn create_tun_interface(
 ) -> PyResult<Bound<PyAny>> {
     #[cfg(target_os = "linux")]
     {
-        let conf = mitmproxy::packet_sources::tun::TunConf { tun_name };
+        let conf = tun::TunConf { tun_name };
         pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
             let (server, tun_name) =
                 Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
@@ -59,6 +60,16 @@ pub fn create_tun_interface(
     }
     #[cfg(not(target_os = "linux"))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
-        "TUN proxy mode is only available on Linux",
+        unavailable_reason(),
     ))
+}
+
+/// Determines the reason for unavailability of TUN proxy mode
+///
+/// Returns
+/// - `String`: reason for unavailability
+/// - `None`: if available or reason unknown for unavailability
+#[pyfunction]
+pub fn unavailable_reason() -> Option<String> {
+    tun::unavailable_reason()
 }
