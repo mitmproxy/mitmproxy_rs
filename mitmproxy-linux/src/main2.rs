@@ -17,6 +17,7 @@ use prost::Message;
 use mitmproxy::ipc::{PacketWithMeta, TunnelInfo, from_proxy};
 use mitmproxy::ipc::FromProxy;
 use mitmproxy::packet_sources::IPC_BUF_SIZE;
+use mitmproxy_linux_ebpf_common::{Action, Pattern};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -72,6 +73,13 @@ async fn main() -> anyhow::Result<()> {
     prog.load()?;
     prog.attach(&cgroup, CgroupAttachMode::Single)?;
     info!("Attached!");
+
+    let mut config = aya::maps::Array::<_, Action>::try_from(ebpf.map_mut("INTERCEPT_CONF").unwrap())?;
+    config.set(
+        0,
+        Action::Include(Pattern::from("nc")),
+        0,
+    )?;
 
     let pipe_name = pipe_dir.join("mitmproxy");
     info!("Connecting to {}...", pipe_name.display());

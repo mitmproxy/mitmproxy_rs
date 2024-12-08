@@ -2,54 +2,53 @@
 #![no_main]
 
 use aya_ebpf::cty::c_long;
-use aya_ebpf::macros::cgroup_sock;
+use aya_ebpf::macros::{cgroup_sock, map};
 use aya_ebpf::programs::SockContext;
 use aya_ebpf::{EbpfContext, TASK_COMM_LEN};
+use aya_ebpf::maps::Array;
 use aya_log_ebpf::info;
+use mitmproxy_linux_ebpf_common::Action;
 
 #[no_mangle]
 static INTERFACE_ID: u32 = 0;
 
-pub fn command_to_str(command: &[u8; 16]) -> &str {
-    let len = command
-        .iter()
-        .position(|&c| c == b'\0')
-        .unwrap_or(command.len());
-    unsafe { core::str::from_utf8_unchecked(&command[..len]) }
-}
+const INTERCEPT_CONF_LEN: u32 = 20;
 
-pub fn is_nc(command: Result<[u8; TASK_COMM_LEN], c_long>) -> bool {
-    let c = command.unwrap_or_default();
-    let cmd = command_to_str(&c);
-    cmd == "nc"
+#[map]
+static INTERCEPT_CONF: Array<Action> = Array::with_max_entries(INTERCEPT_CONF_LEN, 0);
+
+pub fn should_intercept(ctx: &SockContext) -> bool {
+    let command = ctx.command().ok();
+    let pid = ctx.pid();
+
+    let mut intercept = matches!(INTERCEPT_CONF.get(0), Some(Action::Exclude(_)));
+    for i in 0..INTERCEPT_CONF_LEN {
+        match INTERCEPT_CONF.get(i) {
+            Some(Action::Include(pattern)) => {
+                intercept = intercept || pattern.matches(command.as_ref(), pid);
+            }
+            Some(Action::Exclude(pattern)) => {
+                intercept = intercept && !pattern.matches(command.as_ref(), pid);
+            }
+            _ => {
+                break;
+            }
+        }
+    }
+    intercept
 }
 
 #[cgroup_sock(sock_create)]
 pub fn cgroup_sock_create(ctx: SockContext) -> i32 {
-    if is_nc(ctx.command()) {
+    if should_intercept(&ctx) {
+        info!(&ctx, "sock_create from nc");
         let interface_id = unsafe {
             core::ptr::read_volatile(&INTERFACE_ID)
         };
-        info!(&ctx, "sock_create from nc {}", interface_id);
         unsafe {
             (*ctx.sock).bound_dev_if = interface_id;  // Replace with interface id from `ip link show`
         }
     }
-    /*
-    unsafe {
-        // XXX: something is off here.
-        // bpf_printk!(b"sock_create! %u", (*ctx.sock).src_port);
-        // info!(&ctx, "sock_create {:x} {:x}", (*ctx.sock).src_port, (*ctx.sock).dst_ip6[0]);
-    }
-    if is_nc(ctx.command()) {
-
-
-        info!(&ctx, "sock_create {}", unsafe { (*ctx.sock).dst_port });
-        /*unsafe {
-            (*ctx.sock).bound_dev_if = 143;  // Replace with interface id from `ip link show`
-        }*/
-    }
-    */
     1
 }
 
