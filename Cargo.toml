@@ -51,7 +51,6 @@ internet-packet = { version = "0.2.2", features = ["smoltcp"] }
 data-encoding = "2.4.0"
 hickory-resolver = "0.24.1"
 socket2 = "0.5.8"
-nix = "0.17.0"
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }

@@ -1,6 +1,8 @@
 use crate::server::base::Server;
-use mitmproxy::packet_sources::tun;
 use pyo3::prelude::*;
+
+#[cfg(target_os = "linux")]
+use nix::unistd::Uid;
 
 /// An open TUN interface.
 ///
@@ -51,7 +53,7 @@ pub fn create_tun_interface(
 ) -> PyResult<Bound<PyAny>> {
     #[cfg(target_os = "linux")]
     {
-        let conf = tun::TunConf { tun_name };
+        let conf = mitmproxy::packet_sources::tun::TunConf { tun_name };
         pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
             let (server, tun_name) =
                 Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
@@ -71,5 +73,13 @@ pub fn create_tun_interface(
 /// - `None`: if available or reason unknown for unavailability
 #[pyfunction]
 pub fn unavailable_reason() -> Option<String> {
-    tun::unavailable_reason()
+    #[cfg(target_os = "linux")]
+    if !Uid::effective().is_root() {
+        Some(String::from("mitmproxy is not running as root"))
+    } else {
+        None
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    Some(String::from("OS not supported for TUN proxy mode"))
 }

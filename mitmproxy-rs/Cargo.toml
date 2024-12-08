@@ -29,7 +29,7 @@ tokio = { version = "1.41", features = ["macros", "net", "rt-multi-thread", "syn
 boringtun = "0.6"
 tar = "0.4.43"
 console-subscriber = { version = "0.4.1", optional = true }
-
+nix = "0.17.0"
 
 [dev-dependencies]
 env_logger = "0.11"
