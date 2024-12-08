@@ -13,6 +13,11 @@ pub use self::windows_list::active_executables;
 #[cfg(windows)]
 pub use self::windows_list::get_process_name;
 
+#[cfg(target_os = "linux")]
+mod linux_list;
+#[cfg(target_os = "linux")]
+pub use self::linux_list::active_executables;
+
 #[cfg(target_os = "macos")]
 mod macos_icons;
 #[cfg(target_os = "macos")]

@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use pyo3::prelude::*;
 
-#[cfg(any(windows, target_os = "macos"))]
 use mitmproxy::processes;
 
 #[pyclass(module = "mitmproxy_rs.process_info", frozen)]
@@ -50,16 +49,9 @@ impl Process {
 /// *Availability: Windows, macOS*
 #[pyfunction]
 pub fn active_executables() -> PyResult<Vec<Process>> {
-    #[cfg(any(windows, target_os = "macos"))]
-    {
-        processes::active_executables()
-            .map(|p| p.into_iter().map(Process).collect())
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{}", e)))
-    }
-    #[cfg(not(any(windows, target_os = "macos")))]
-    Err(pyo3::exceptions::PyNotImplementedError::new_err(
-        "active_executables is only available on Windows",
-    ))
+    processes::active_executables()
+        .map(|p| p.into_iter().map(Process).collect())
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{}", e)))
 }
 
 /// Get a PNG icon for an executable path.
