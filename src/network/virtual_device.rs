@@ -29,8 +29,14 @@ impl VirtualDevice {
 }
 
 impl Device for VirtualDevice {
-    type RxToken<'a> = VirtualRxToken where Self: 'a;
-    type TxToken<'a> = VirtualTxToken<'a> where Self: 'a;
+    type RxToken<'a>
+        = VirtualRxToken
+    where
+        Self: 'a;
+    type TxToken<'a>
+        = VirtualTxToken<'a>
+    where
+        Self: 'a;
 
     fn receive(&mut self, _timestamp: Instant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
         if self.rx_buffer.is_empty() {

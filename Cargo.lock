@@ -1819,6 +1819,7 @@ dependencies = [
  "env_logger",
  "log",
  "mitmproxy",
+ "nix 0.29.0",
  "once_cell",
  "pyo3",
  "pyo3-asyncio-0-21",
