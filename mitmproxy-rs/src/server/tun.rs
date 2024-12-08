@@ -2,7 +2,7 @@ use crate::server::base::Server;
 use pyo3::prelude::*;
 
 #[cfg(target_os = "linux")]
-use nix::unistd::Uid;
+use nix::unistd;
 
 /// An open TUN interface.
 ///
@@ -66,15 +66,13 @@ pub fn create_tun_interface(
     ))
 }
 
-/// Determines the reason for unavailability of TUN proxy mode
+/// Returns a `str` describing why tun mode is unavailable, or `None` if TUN mode is available.
 ///
-/// Returns
-/// - `String`: reason for unavailability
-/// - `None`: if available or reason unknown for unavailability
+/// Reasons for unavailability may be an unsupported platform, or missing privileges.
 #[pyfunction]
 pub fn unavailable_reason() -> Option<String> {
     #[cfg(target_os = "linux")]
-    if !Uid::effective().is_root() {
+    if !unistd::geteuid().is_root() {
         Some(String::from("mitmproxy is not running as root"))
     } else {
         None
