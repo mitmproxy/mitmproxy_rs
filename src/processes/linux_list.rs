@@ -10,10 +10,10 @@ pub fn active_executables() -> Result<ProcessList> {
     let mut sys = System::new();
 
     sys.refresh_processes_specifics(
-         ProcessesToUpdate::All,
-         true,
-         ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet)
-     );
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
+    );
 
     for process in sys.processes().values() {
         // process.exe() will return empty path if there was an error while trying to read /proc/<pid>/exe.
