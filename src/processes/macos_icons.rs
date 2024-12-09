@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 use std::path::Path;
 use std::path::PathBuf;
-use sysinfo::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 #[derive(Default)]
 pub struct IconCache {
@@ -54,22 +54,29 @@ pub fn tiff_to_png(tiff: &[u8]) -> Vec<u8> {
 
 pub fn tiff_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
     let mut sys = System::new();
-    sys.refresh_processes_specifics(ProcessRefreshKind::new());
+    sys.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
+    );
     for (pid, process) in sys.processes() {
-        let pid = pid.as_u32();
-        if executable == process.exe().to_path_buf() {
-            unsafe {
-                let app: id = msg_send![
-                    class!(NSRunningApplication),
-                    runningApplicationWithProcessIdentifier: pid
-                ];
-                if !app.is_null() {
-                    let img: id = msg_send![app, icon];
-                    let tiff: id = msg_send![img, TIFFRepresentation];
-                    let length: usize = msg_send![tiff, length];
-                    let bytes: *const u8 = msg_send![tiff, bytes];
-                    let data = std::slice::from_raw_parts(bytes, length).to_vec();
-                    return Ok(data);
+        // process.exe() will return empty path if there was an error while trying to read /proc/<pid>/exe.
+        if let Some(path) = process.exe() {
+            if executable == path.to_path_buf() {
+                let pid = pid.as_u32();
+                unsafe {
+                    let app: id = msg_send![
+                        class!(NSRunningApplication),
+                        runningApplicationWithProcessIdentifier: pid
+                    ];
+                    if !app.is_null() {
+                        let img: id = msg_send![app, icon];
+                        let tiff: id = msg_send![img, TIFFRepresentation];
+                        let length: usize = msg_send![tiff, length];
+                        let bytes: *const u8 = msg_send![tiff, bytes];
+                        let data = std::slice::from_raw_parts(bytes, length).to_vec();
+                        return Ok(data);
+                    }
                 }
             }
         }
