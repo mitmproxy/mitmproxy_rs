@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use pyo3::prelude::*;
 
-#[cfg(any(windows, target_os = "macos"))]
+#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 use mitmproxy::processes;
 
 #[pyclass(module = "mitmproxy_rs.process_info", frozen)]
@@ -47,18 +47,18 @@ impl Process {
 /// Return a list of all running executables.
 /// Note that this groups multiple processes by executable name.
 ///
-/// *Availability: Windows, macOS*
+/// *Availability: Windows, macOS, Linux*
 #[pyfunction]
 pub fn active_executables() -> PyResult<Vec<Process>> {
-    #[cfg(any(windows, target_os = "macos"))]
+    #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
     {
         processes::active_executables()
             .map(|p| p.into_iter().map(Process).collect())
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{}", e)))
     }
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
-        "active_executables is only available on Windows",
+        "active_executables not supported on the current OS",
     ))
 }
 
