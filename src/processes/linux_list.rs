@@ -3,18 +3,17 @@ use anyhow::Result;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System};
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 pub fn active_executables() -> Result<ProcessList> {
     let mut executables: HashMap<PathBuf, ProcessInfo> = HashMap::new();
-    let mut sys = System::new_with_specifics(
-        RefreshKind::nothing().with_processes(ProcessRefreshKind::everything())
-    );
+    let mut sys = System::new();
+
     sys.refresh_processes_specifics(
-        ProcessesToUpdate::All,
-        true,
-        ProcessRefreshKind::everything(),
-    );
+         ProcessesToUpdate::All,
+         true,
+         ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet)
+     );
 
     for process in sys.processes().values() {
         // process.exe() will return empty path if there was an error while trying to read /proc/<pid>/exe.
