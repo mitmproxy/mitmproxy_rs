@@ -11,6 +11,9 @@ use std::path::Path;
 #[cfg(windows)]
 use std::path::PathBuf;
 
+#[cfg(target_os = "linux")]
+use nix::unistd;
+
 use crate::server::base::Server;
 use tokio::sync::mpsc;
 
@@ -60,6 +63,25 @@ impl LocalRedirector {
 
     pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<Bound<'p, PyAny>> {
         self.server.wait_closed(py)
+    }
+
+    /// Returns a `str` describing why local redirect mode is unavailable, or `None` if it is available.
+    ///
+    /// Reasons for unavailability may be an unsupported platform, or missing privileges.
+    #[staticmethod]
+    pub fn unavailable_reason() -> Option<String> {
+        #[cfg(any(windows, target_os = "macos"))]
+        return None;
+
+        #[cfg(target_os = "linux")]
+        if !unistd::geteuid().is_root() {
+            Some(String::from("mitmproxy is not running as root"))
+        } else {
+            return None;
+        }
+
+        #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+        Some(String::from("OS not supported for local redirect mode"))
     }
 
     pub fn __repr__(&self) -> String {
@@ -135,6 +157,6 @@ pub fn start_local_redirector(
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
-        "OS proxy mode is only available on Windows and macOS",
+        LocalRedirector::unavailable_reason(),
     ))
 }

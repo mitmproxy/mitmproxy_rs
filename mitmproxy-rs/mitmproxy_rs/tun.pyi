@@ -4,7 +4,6 @@ from collections.abc import Awaitable, Callable
 from typing import final
 from . import Stream
 
-def unavailable_reason() -> str | None: ...
 async def create_tun_interface(
         handle_tcp_stream: Callable[[Stream], Awaitable[None]],
         handle_udp_stream: Callable[[Stream], Awaitable[None]],

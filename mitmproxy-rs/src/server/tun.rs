@@ -31,6 +31,22 @@ impl TunInterface {
         self.server.wait_closed(py)
     }
 
+    /// Returns a `str` describing why tun mode is unavailable, or `None` if TUN mode is available.
+    ///
+    /// Reasons for unavailability may be an unsupported platform, or missing privileges.
+    #[staticmethod]
+    pub fn unavailable_reason() -> Option<String> {
+        #[cfg(target_os = "linux")]
+        if !unistd::geteuid().is_root() {
+            Some(String::from("mitmproxy is not running as root"))
+        } else {
+            None
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        Some(String::from("OS not supported for TUN proxy mode"))
+    }
+
     pub fn __repr__(&self) -> String {
         format!("TunInterface({})", self.tun_name)
     }
@@ -62,22 +78,7 @@ pub fn create_tun_interface(
     }
     #[cfg(not(target_os = "linux"))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
-        unavailable_reason(),
+        TunInterface::unavailable_reason(),
     ))
 }
 
-/// Returns a `str` describing why tun mode is unavailable, or `None` if TUN mode is available.
-///
-/// Reasons for unavailability may be an unsupported platform, or missing privileges.
-#[pyfunction]
-pub fn unavailable_reason() -> Option<String> {
-    #[cfg(target_os = "linux")]
-    if !unistd::geteuid().is_root() {
-        Some(String::from("mitmproxy is not running as root"))
-    } else {
-        None
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    Some(String::from("OS not supported for TUN proxy mode"))
-}
