@@ -3,11 +3,13 @@ use anyhow::Result;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System};
 
 pub fn active_executables() -> Result<ProcessList> {
     let mut executables: HashMap<PathBuf, ProcessInfo> = HashMap::new();
-    let mut sys = System::new_all();
+    let mut sys = System::new_with_specifics(
+        RefreshKind::nothing().with_processes(ProcessRefreshKind::everything())
+    );
     sys.refresh_processes_specifics(
         ProcessesToUpdate::All,
         true,
