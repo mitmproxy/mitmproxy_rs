@@ -16,16 +16,20 @@ pub fn active_executables() -> Result<ProcessList> {
     );
 
     for process in sys.processes().values() {
-        // process.exe() will return empty path if there was an error while trying to read /proc/<pid>/exe.
-        if let Some(exec) = process.exe() {
-            let exec_buf = exec.to_path_buf();
+        // process.exe() will return an empty path if there was an error while trying to read /proc/<pid>/exe.
+        if let Some(path) = process.exe() {
+            let executable = path.to_path_buf();
 
-            match executables.entry(exec_buf) {
+            match executables.entry(executable) {
                 Entry::Occupied(_) => {}
                 Entry::Vacant(e) => {
                     let executable = e.key().clone();
-                    // process display name can contain non-UTF-8 characters, forcing us to use to_string_lossy
-                    let display_name = process.name().to_string_lossy().to_string();
+                    // .file_name() returns `None` if the path terminates in `..`
+                    // We use the absolute path in such a case.
+                    let display_name = match path.file_name() {
+                        Some(s) => s.to_string_lossy().to_string(),
+                        None => path.to_string_lossy().to_string(),
+                    };
                     e.insert(ProcessInfo {
                         executable,
                         display_name,
