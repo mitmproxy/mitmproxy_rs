@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use pyo3::prelude::*;
 
+#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 use mitmproxy::processes;
 
 #[pyclass(module = "mitmproxy_rs.process_info", frozen)]
