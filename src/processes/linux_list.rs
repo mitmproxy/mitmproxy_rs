@@ -23,11 +23,11 @@ pub fn active_executables() -> Result<ProcessList> {
             match executables.entry(exec_buf) {
                 Entry::Occupied(_) => {}
                 Entry::Vacant(e) => {
-                    let exec_buf = e.key().clone();
+                    let executable = e.key().clone();
                     // process display name can contain non-UTF-8 characters, forcing us to use to_string_lossy
                     let display_name = process.name().to_string_lossy().to_string();
                     e.insert(ProcessInfo {
-                        executable: exec_buf,
+                        executable,
                         display_name,
                         is_visible: false,
                         is_system: false,
