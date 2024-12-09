@@ -3,7 +3,7 @@ use anyhow::Result;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use sysinfo::{ProcessesToUpdate, ProcessRefreshKind, System};
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
 
 pub fn active_executables() -> Result<ProcessList> {
     let mut executables: HashMap<PathBuf, ProcessInfo> = HashMap::new();
@@ -23,9 +23,11 @@ pub fn active_executables() -> Result<ProcessList> {
                 Entry::Occupied(_) => {}
                 Entry::Vacant(e) => {
                     let exec_buf = e.key().clone();
+                    // process display name can contain non-UTF-8 characters, forcing us to use to_string_lossy
+                    let display_name = process.name().to_string_lossy().to_string();
                     e.insert(ProcessInfo {
                         executable: exec_buf,
-                        display_name: String::from(""),
+                        display_name,
                         is_visible: false,
                         is_system: false,
                     });
