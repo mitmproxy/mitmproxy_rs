@@ -77,7 +77,7 @@ impl LocalRedirector {
         if !unistd::geteuid().is_root() {
             Some(String::from("mitmproxy is not running as root"))
         } else {
-            return None;
+            None
         }
 
         #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
