@@ -62,6 +62,25 @@ impl LocalRedirector {
         self.server.wait_closed(py)
     }
 
+    /// Returns a `str` describing why local redirect mode is unavailable, or `None` if it is available.
+    ///
+    /// Reasons for unavailability may be an unsupported platform, or missing privileges.
+    #[staticmethod]
+    pub fn unavailable_reason() -> Option<String> {
+        #[cfg(any(windows, target_os = "macos"))]
+        return None;
+
+        // #[cfg(target_os = "linux")]
+        // if !unistd::geteuid().is_root() {
+        //     Some(String::from("mitmproxy is not running as root"))
+        // } else {
+        //     None
+        // }
+
+        #[cfg(not(any(windows, target_os = "macos")))]
+        Some(String::from("OS not supported for local redirect mode"))
+    }
+
     pub fn __repr__(&self) -> String {
         format!("Local Redirector({})", self.spec)
     }
@@ -135,6 +154,6 @@ pub fn start_local_redirector(
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
-        "OS proxy mode is only available on Windows and macOS",
+        LocalRedirector::unavailable_reason(),
     ))
 }
