@@ -81,4 +81,3 @@ pub fn create_tun_interface(
         TunInterface::unavailable_reason(),
     ))
 }
-
