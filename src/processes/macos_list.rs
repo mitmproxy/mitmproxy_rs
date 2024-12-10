@@ -15,34 +15,46 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::ffi::c_void;
 use std::path::PathBuf;
-use sysinfo::{PidExt, ProcessExt, ProcessRefreshKind, System, SystemExt};
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 pub fn active_executables() -> Result<ProcessList> {
     let mut executables: HashMap<PathBuf, ProcessInfo> = HashMap::new();
     let visible = visible_windows()?;
     let mut sys = System::new();
-    sys.refresh_processes_specifics(ProcessRefreshKind::new());
+    sys.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
+    );
     for (pid, process) in sys.processes() {
-        let pid = pid.as_u32();
-        let display_name = process.name().to_string();
-        let executable = process.exe().to_path_buf();
-        let is_system = executable.starts_with("/System/");
-        match executables.entry(executable) {
-            Entry::Occupied(mut e) => {
-                let process_info = e.get();
-                if !process_info.is_visible && visible.contains(&pid) {
-                    e.get_mut().is_visible = true;
+        // process.exe() will return empty path if there was an error while trying to read /proc/<pid>/exe.
+        if let Some(path) = process.exe() {
+            let pid = pid.as_u32();
+            let executable = path.to_path_buf();
+            match executables.entry(executable) {
+                Entry::Occupied(mut e) => {
+                    let process_info = e.get();
+                    if !process_info.is_visible && visible.contains(&pid) {
+                        e.get_mut().is_visible = true;
+                    }
                 }
-            }
-            Entry::Vacant(e) => {
-                let executable = e.key().clone();
-                let is_visible = visible.contains(&pid);
-                e.insert(ProcessInfo {
-                    executable,
-                    display_name,
-                    is_visible,
-                    is_system,
-                });
+                Entry::Vacant(e) => {
+                    let executable = e.key().clone();
+                    // .file_name() returns `None` if the path terminates in `..`
+                    // We use the absolute path in such a case.
+                    let display_name = match path.file_name() {
+                        Some(s) => s.to_string_lossy().to_string(),
+                        None => path.to_string_lossy().to_string(),
+                    };
+                    let is_visible = visible.contains(&pid);
+                    let is_system = executable.starts_with("/System/");
+                    e.insert(ProcessInfo {
+                        executable,
+                        display_name,
+                        is_visible,
+                        is_system,
+                    });
+                }
             }
         }
     }
