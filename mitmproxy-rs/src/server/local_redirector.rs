@@ -11,9 +11,6 @@ use std::path::Path;
 #[cfg(windows)]
 use std::path::PathBuf;
 
-#[cfg(target_os = "linux")]
-use nix::unistd;
-
 use crate::server::base::Server;
 use tokio::sync::mpsc;
 
@@ -73,14 +70,14 @@ impl LocalRedirector {
         #[cfg(any(windows, target_os = "macos"))]
         return None;
 
-        #[cfg(target_os = "linux")]
-        if !unistd::geteuid().is_root() {
-            Some(String::from("mitmproxy is not running as root"))
-        } else {
-            None
-        }
+        // #[cfg(target_os = "linux")]
+        // if !unistd::geteuid().is_root() {
+        //     Some(String::from("mitmproxy is not running as root"))
+        // } else {
+        //     None
+        // }
 
-        #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+        #[cfg(not(any(windows, target_os = "macos")))]
         Some(String::from("OS not supported for local redirect mode"))
     }
 
