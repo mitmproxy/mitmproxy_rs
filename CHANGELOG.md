@@ -3,10 +3,11 @@
 
 ## 11 December 2024: mitmproxy_rs 0.11.1
 
+- Update twine to fix the deploy CI.
 
 ## 10 December 2024: mitmproxy_rs 0.11.0
 
-- Add `LocalRedirection.unavailable_reason()` and `TunInterface.unavailable_reason()`.
+- Add `LocalRedirector.unavailable_reason()` and `TunInterface.unavailable_reason()`.
 - Add `active_processes()` on Linux.
 
 ## 28 October 2024: mitmproxy_rs 0.10.7
