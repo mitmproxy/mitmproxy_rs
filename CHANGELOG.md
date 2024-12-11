@@ -1,6 +1,9 @@
 ## Unreleased: mitmproxy_rs next
 
 
+## 11 December 2024: mitmproxy_rs 0.11.1
+
+
 ## 10 December 2024: mitmproxy_rs 0.11.0
 
 - Add `LocalRedirection.unavailable_reason()` and `TunInterface.unavailable_reason()`.
