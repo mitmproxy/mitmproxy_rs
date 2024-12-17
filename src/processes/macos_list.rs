@@ -42,12 +42,16 @@ pub fn active_executables() -> Result<ProcessList> {
                     let executable = e.key().clone();
                     // .file_name() returns `None` if the path terminates in `..`
                     // We use the absolute path in such a case.
-                    let display_name = match path.file_name() {
-                        Some(s) => s.to_string_lossy().to_string(),
-                        None => path.to_string_lossy().to_string(),
+                    let display_name = path
+                        .file_name()
+                        .unwrap_or(path.as_os_str())
+                        .to_string_lossy()
+                        .to_string();
+                    let is_system = match process.effective_user_id() {
+                        Some(id) => id.to_string() == "0",
+                        None => false,
                     };
                     let is_visible = visible.contains(&pid);
-                    let is_system = executable.starts_with("/System/");
                     e.insert(ProcessInfo {
                         executable,
                         display_name,
