@@ -234,7 +234,7 @@ async fn main() -> Result<()> {
                     debug!("Skipping PID 4");
 
                     clear_connections(
-                        connection_id,
+                        packet.connection_id(),
                         &mut connections,
                         &inject_handle,
                         &mut ipc_tx,
@@ -248,7 +248,7 @@ async fn main() -> Result<()> {
                     warn!("Unknown transport protocol: {}", address.protocol());
 
                     clear_connections(
-                        connection_id,
+                        packet.connection_id(),
                         &mut connections,
                         &inject_handle,
                         &mut ipc_tx,
@@ -266,7 +266,7 @@ async fn main() -> Result<()> {
                 if connection_id.src.ip().is_multicast() || connection_id.dst.ip().is_multicast() {
 
                     clear_connections(
-                        connection_id,
+                        packet.connection_id(),
                         &mut connections,
                         &inject_handle,
                         &mut ipc_tx,
