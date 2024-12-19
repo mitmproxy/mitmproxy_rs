@@ -1,18 +1,23 @@
 use crate::intercept_conf::PID;
 use crate::processes::{ProcessInfo, ProcessList};
 use anyhow::Result;
+
+#[cfg(target_os = "macos")]
 use cocoa::base::nil;
+#[cfg(target_os = "macos")]
 use cocoa::foundation::NSString;
-use core_foundation::number::kCFNumberSInt32Type;
-use core_foundation::number::CFNumberGetValue;
-use core_foundation::number::CFNumberRef;
+#[cfg(target_os = "macos")]
+use core_foundation::number::{kCFNumberSInt32Type, CFNumberGetValue, CFNumberRef};
+#[cfg(target_os = "macos")]
 use core_graphics::display::{
     kCGNullWindowID, kCGWindowListExcludeDesktopElements, kCGWindowListOptionOnScreenOnly,
     CFArrayGetCount, CFArrayGetValueAtIndex, CFDictionaryGetValueIfPresent, CFDictionaryRef,
     CGWindowListCopyWindowInfo,
 };
+
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
+#[cfg(target_os = "macos")]
 use std::ffi::c_void;
 use std::path::PathBuf;
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
@@ -42,12 +47,16 @@ pub fn active_executables() -> Result<ProcessList> {
                     let executable = e.key().clone();
                     // .file_name() returns `None` if the path terminates in `..`
                     // We use the absolute path in such a case.
-                    let display_name = match path.file_name() {
-                        Some(s) => s.to_string_lossy().to_string(),
-                        None => path.to_string_lossy().to_string(),
+                    let display_name = path
+                        .file_name()
+                        .unwrap_or(path.as_os_str())
+                        .to_string_lossy()
+                        .to_string();
+                    let is_system = match process.effective_user_id() {
+                        Some(id) => id.to_string() == "0",
+                        None => false,
                     };
                     let is_visible = visible.contains(&pid);
-                    let is_system = executable.starts_with("/System/");
                     e.insert(ProcessInfo {
                         executable,
                         display_name,
@@ -61,6 +70,7 @@ pub fn active_executables() -> Result<ProcessList> {
     Ok(executables.into_values().collect())
 }
 
+#[cfg(target_os = "macos")]
 pub fn visible_windows() -> Result<HashSet<PID>> {
     let mut pids: HashSet<PID> = HashSet::new();
     unsafe {
@@ -96,6 +106,12 @@ pub fn visible_windows() -> Result<HashSet<PID>> {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
+pub fn visible_windows() -> Result<HashSet<PID>> {
+    // Finding visible windows on other platforms is not worth the effort
+    Ok(HashSet::new())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,6 +129,7 @@ mod tests {
         dbg!(lst.len());
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn visible_windows_list() {
         let open_windows_pids = visible_windows().unwrap();
