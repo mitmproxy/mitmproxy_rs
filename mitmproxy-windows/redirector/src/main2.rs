@@ -229,12 +229,19 @@ async fn main() -> Result<()> {
                 }
             }
             Event::SocketInfo(address) => {
+                let proto = TransportProtocol::try_from(address.protocol())?;
+                let connection_id = ConnectionId {
+                    proto,
+                    src: SocketAddr::from((address.local_address(), address.local_port())),
+                    dst: SocketAddr::from((address.remote_address(), address.remote_port())),
+                };
+
                 if address.process_id() == 4 {
                     // We get some weird operating system events here, which are not useful.
                     debug!("Skipping PID 4");
 
                     clear_connections(
-                        packet.connection_id(),
+                        connection_id,
                         &mut connections,
                         &inject_handle,
                         &mut ipc_tx,
@@ -248,7 +255,7 @@ async fn main() -> Result<()> {
                     warn!("Unknown transport protocol: {}", address.protocol());
 
                     clear_connections(
-                        packet.connection_id(),
+                        connection_id,
                         &mut connections,
                         &inject_handle,
                         &mut ipc_tx,
@@ -266,7 +273,7 @@ async fn main() -> Result<()> {
                 if connection_id.src.ip().is_multicast() || connection_id.dst.ip().is_multicast() {
 
                     clear_connections(
-                        packet.connection_id(),
+                        connection_id,
                         &mut connections,
                         &inject_handle,
                         &mut ipc_tx,
