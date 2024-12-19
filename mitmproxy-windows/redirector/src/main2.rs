@@ -264,11 +264,6 @@ async fn main() -> Result<()> {
 
                     continue;
                 };
-                let connection_id = ConnectionId {
-                    proto,
-                    src: SocketAddr::from((address.local_address(), address.local_port())),
-                    dst: SocketAddr::from((address.remote_address(), address.remote_port())),
-                };
 
                 if connection_id.src.ip().is_multicast() || connection_id.dst.ip().is_multicast() {
 
