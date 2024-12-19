@@ -2,9 +2,9 @@ pub use image;
 use std::path::PathBuf;
 
 #[cfg(target_os = "macos")]
-mod macos_list;
+mod nix_list;
 #[cfg(target_os = "macos")]
-pub use self::macos_list::active_executables;
+pub use self::nix_list::active_executables;
 
 #[cfg(windows)]
 mod windows_list;
@@ -14,9 +14,9 @@ pub use self::windows_list::active_executables;
 pub use self::windows_list::get_process_name;
 
 #[cfg(target_os = "linux")]
-mod linux_list;
+mod nix_list;
 #[cfg(target_os = "linux")]
-pub use self::linux_list::active_executables;
+pub use self::nix_list::active_executables;
 
 #[cfg(target_os = "macos")]
 mod macos_icons;
@@ -44,7 +44,7 @@ pub static ICON_CACHE: once_cell::sync::Lazy<std::sync::Mutex<IconCache>> =
 
 pub mod bench {
     #[cfg(target_os = "macos")]
-    pub use super::macos_list::visible_windows;
+    pub use super::nix_list::visible_windows;
     #[cfg(windows)]
     pub use super::windows_list::visible_windows;
 

@@ -1,18 +1,23 @@
 use crate::intercept_conf::PID;
 use crate::processes::{ProcessInfo, ProcessList};
 use anyhow::Result;
+
+#[cfg(target_os = "macos")]
 use cocoa::base::nil;
+#[cfg(target_os = "macos")]
 use cocoa::foundation::NSString;
-use core_foundation::number::kCFNumberSInt32Type;
-use core_foundation::number::CFNumberGetValue;
-use core_foundation::number::CFNumberRef;
+#[cfg(target_os = "macos")]
+use core_foundation::number::{kCFNumberSInt32Type, CFNumberGetValue, CFNumberRef};
+#[cfg(target_os = "macos")]
 use core_graphics::display::{
     kCGNullWindowID, kCGWindowListExcludeDesktopElements, kCGWindowListOptionOnScreenOnly,
     CFArrayGetCount, CFArrayGetValueAtIndex, CFDictionaryGetValueIfPresent, CFDictionaryRef,
     CGWindowListCopyWindowInfo,
 };
+
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
+#[cfg(target_os = "macos")]
 use std::ffi::c_void;
 use std::path::PathBuf;
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
@@ -65,6 +70,7 @@ pub fn active_executables() -> Result<ProcessList> {
     Ok(executables.into_values().collect())
 }
 
+#[cfg(target_os = "macos")]
 pub fn visible_windows() -> Result<HashSet<PID>> {
     let mut pids: HashSet<PID> = HashSet::new();
     unsafe {
@@ -100,6 +106,12 @@ pub fn visible_windows() -> Result<HashSet<PID>> {
     }
 }
 
+#[cfg(target_os = "linux")]
+pub fn visible_windows() -> Result<HashSet<PID>> {
+    // Finding visible windows on linux is not worth the effort
+    Ok(HashSet::new())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,6 +129,7 @@ mod tests {
         dbg!(lst.len());
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn visible_windows_list() {
         let open_windows_pids = visible_windows().unwrap();
