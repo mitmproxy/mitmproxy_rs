@@ -1,9 +1,9 @@
 pub use image;
 use std::path::PathBuf;
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 mod nix_list;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub use self::nix_list::active_executables;
 
 #[cfg(windows)]
@@ -12,11 +12,6 @@ mod windows_list;
 pub use self::windows_list::active_executables;
 #[cfg(windows)]
 pub use self::windows_list::get_process_name;
-
-#[cfg(target_os = "linux")]
-mod nix_list;
-#[cfg(target_os = "linux")]
-pub use self::nix_list::active_executables;
 
 #[cfg(target_os = "macos")]
 mod macos_icons;

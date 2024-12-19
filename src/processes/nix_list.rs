@@ -106,9 +106,9 @@ pub fn visible_windows() -> Result<HashSet<PID>> {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "macos"))]
 pub fn visible_windows() -> Result<HashSet<PID>> {
-    // Finding visible windows on linux is not worth the effort
+    // Finding visible windows on other platforms is not worth the effort
     Ok(HashSet::new())
 }
 
