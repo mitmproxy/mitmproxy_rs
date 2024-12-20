@@ -1,3 +1,4 @@
+use crate::intercept_conf::PID;
 use anyhow::Result;
 use cocoa::base::nil;
 use cocoa::foundation::NSString;
@@ -7,9 +8,8 @@ use core_graphics::display::{
     CFArrayGetCount, CFArrayGetValueAtIndex, CFDictionaryGetValueIfPresent, CFDictionaryRef,
     CGWindowListCopyWindowInfo,
 };
-use crate::intercept_conf::PID;
-use std::ffi::c_void;
 use std::collections::HashSet;
+use std::ffi::c_void;
 
 pub fn macos_visible_windows() -> Result<HashSet<PID>> {
     let mut pids: HashSet<PID> = HashSet::new();

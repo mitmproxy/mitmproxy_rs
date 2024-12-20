@@ -70,7 +70,9 @@ fn is_system(executable: &PathBuf) -> bool {
     #[cfg(target_os = "linux")]
     let sys_paths = vec!["/sbin/", "/usr/sbin/", "/usr/libexec/", "/usr/lib/systemd/"];
 
-    sys_paths.into_iter().any(|path| executable.starts_with(path))
+    sys_paths
+        .into_iter()
+        .any(|path| executable.starts_with(path))
 }
 
 #[cfg(test)]
