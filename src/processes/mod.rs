@@ -23,6 +23,9 @@ mod windows_icons;
 #[cfg(windows)]
 use self::windows_icons::IconCache;
 
+#[cfg(target_os = "macos")]
+mod macos_visible_windows;
+
 #[derive(Debug, Clone)]
 pub struct ProcessInfo {
     pub executable: PathBuf,

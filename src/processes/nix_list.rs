@@ -1,26 +1,13 @@
 use crate::intercept_conf::PID;
 use crate::processes::{ProcessInfo, ProcessList};
 use anyhow::Result;
-
-#[cfg(target_os = "macos")]
-use cocoa::base::nil;
-#[cfg(target_os = "macos")]
-use cocoa::foundation::NSString;
-#[cfg(target_os = "macos")]
-use core_foundation::number::{kCFNumberSInt32Type, CFNumberGetValue, CFNumberRef};
-#[cfg(target_os = "macos")]
-use core_graphics::display::{
-    kCGNullWindowID, kCGWindowListExcludeDesktopElements, kCGWindowListOptionOnScreenOnly,
-    CFArrayGetCount, CFArrayGetValueAtIndex, CFDictionaryGetValueIfPresent, CFDictionaryRef,
-    CGWindowListCopyWindowInfo,
-};
-
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
-#[cfg(target_os = "macos")]
-use std::ffi::c_void;
 use std::path::PathBuf;
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+
+#[cfg(target_os = "macos")]
+use crate::processes::macos_visible_windows::macos_visible_windows;
 
 pub fn active_executables() -> Result<ProcessList> {
     let mut executables: HashMap<PathBuf, ProcessInfo> = HashMap::new();
@@ -52,10 +39,7 @@ pub fn active_executables() -> Result<ProcessList> {
                         .unwrap_or(path.as_os_str())
                         .to_string_lossy()
                         .to_string();
-                    let is_system = match process.effective_user_id() {
-                        Some(id) => id.to_string() == "0",
-                        None => false,
-                    };
+                    let is_system = is_system(&executable);
                     let is_visible = visible.contains(&pid);
                     e.insert(ProcessInfo {
                         executable,
@@ -70,46 +54,23 @@ pub fn active_executables() -> Result<ProcessList> {
     Ok(executables.into_values().collect())
 }
 
-#[cfg(target_os = "macos")]
 pub fn visible_windows() -> Result<HashSet<PID>> {
-    let mut pids: HashSet<PID> = HashSet::new();
-    unsafe {
-        let windows_info_list = CGWindowListCopyWindowInfo(
-            kCGWindowListOptionOnScreenOnly + kCGWindowListExcludeDesktopElements,
-            kCGNullWindowID,
-        );
-        let count = CFArrayGetCount(windows_info_list);
+    #[cfg(target_os = "macos")]
+    return macos_visible_windows();
 
-        for i in 0..count - 1 {
-            let dic_ref = CFArrayGetValueAtIndex(windows_info_list, i);
-            let key = NSString::alloc(nil).init_str("kCGWindowOwnerPID");
-            let mut pid: *const c_void = std::ptr::null_mut();
-
-            if CFDictionaryGetValueIfPresent(
-                dic_ref as CFDictionaryRef,
-                key as *const c_void,
-                &mut pid,
-            ) != 0
-            {
-                let pid_cf_ref = pid as CFNumberRef;
-                let mut pid: i32 = 0;
-                if CFNumberGetValue(
-                    pid_cf_ref,
-                    kCFNumberSInt32Type,
-                    &mut pid as *mut i32 as *mut c_void,
-                ) {
-                    pids.insert(pid as u32);
-                }
-            }
-        }
-        Ok(pids)
-    }
+    #[cfg(target_os = "linux")]
+    // Finding visible windows is less useful on Linux, where more applications tend to be CLI-based.
+    // So we skip all the X11/Wayland complexity.
+    return Ok(HashSet::new());
 }
 
-#[cfg(not(target_os = "macos"))]
-pub fn visible_windows() -> Result<HashSet<PID>> {
-    // Finding visible windows on other platforms is not worth the effort
-    Ok(HashSet::new())
+fn is_system(executable: &PathBuf) -> bool {
+    #[cfg(target_os = "macos")]
+    let sys_paths = vec!["/sbin", "/usr/sbin", "/usr/libexec", "/System/"];
+    #[cfg(target_os = "linux")]
+    let sys_paths = vec!["/sbin/", "/usr/sbin/", "/usr/libexec/", "/usr/lib/systemd/"];
+
+    sys_paths.into_iter().any(|path| executable.starts_with(path))
 }
 
 #[cfg(test)]
