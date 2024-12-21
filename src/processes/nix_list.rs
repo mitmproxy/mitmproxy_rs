@@ -77,7 +77,11 @@ fn is_system(process: &Process) -> bool {
     // process.user_id() returns 0 even if process is started using `sudo`
     return process
         .user_id()
-        .and_then(|uid| sysinfo::Uid::try_from(1000).ok().map(|uid_1000| uid < &uid_1000))
+        .and_then(|uid| {
+            sysinfo::Uid::try_from(1000)
+                .ok()
+                .map(|uid_1000| uid < &uid_1000)
+        })
         .unwrap_or(false);
 }
 
