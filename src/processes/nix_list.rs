@@ -6,6 +6,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use sysinfo::{Process, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
+#[cfg(target_os = "linux")]
+use std::ops::Deref;
+
 #[cfg(target_os = "macos")]
 use macos_visible_windows::macos_visible_windows;
 
@@ -74,14 +77,9 @@ fn is_system(process: &Process) -> bool {
         .unwrap_or(false);
 
     #[cfg(target_os = "linux")]
-    // process.user_id() returns 0 even if process is started using `sudo`
     return process
         .user_id()
-        .and_then(|uid| {
-            sysinfo::Uid::try_from(1000)
-                .ok()
-                .map(|uid_1000| uid < &uid_1000)
-        })
+        .map(|uid| *uid.deref() < 1000)
         .unwrap_or(false);
 }
 
