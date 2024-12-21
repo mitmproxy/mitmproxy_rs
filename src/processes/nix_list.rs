@@ -4,7 +4,7 @@ use anyhow::Result;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind, Process, Uid};
 
 #[cfg(target_os = "macos")]
 use crate::processes::macos_visible_windows::macos_visible_windows;
@@ -16,7 +16,9 @@ pub fn active_executables() -> Result<ProcessList> {
     sys.refresh_processes_specifics(
         ProcessesToUpdate::All,
         true,
-        ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
+        ProcessRefreshKind::nothing()
+            .with_exe(UpdateKind::OnlyIfNotSet)
+            .with_user(UpdateKind::OnlyIfNotSet),
     );
     for (pid, process) in sys.processes() {
         // process.exe() will return empty path if there was an error while trying to read /proc/<pid>/exe.
@@ -39,7 +41,7 @@ pub fn active_executables() -> Result<ProcessList> {
                         .unwrap_or(path.as_os_str())
                         .to_string_lossy()
                         .to_string();
-                    let is_system = is_system(&executable);
+                    let is_system = is_system(&process);
                     let is_visible = visible.contains(&pid);
                     e.insert(ProcessInfo {
                         executable,
@@ -64,15 +66,16 @@ pub fn visible_windows() -> Result<HashSet<PID>> {
     return Ok(HashSet::new());
 }
 
-fn is_system(executable: &PathBuf) -> bool {
+fn is_system(process: &Process) -> bool {
     #[cfg(target_os = "macos")]
-    let sys_paths = vec!["/sbin", "/usr/sbin", "/usr/libexec", "/System/"];
+    return process.exe().starts_with("/System/");
     #[cfg(target_os = "linux")]
-    let sys_paths = vec!["/sbin/", "/usr/sbin/", "/usr/libexec/", "/usr/lib/systemd/"];
-
-    sys_paths
-        .into_iter()
-        .any(|path| executable.starts_with(path))
+    process
+        .user_id()
+        .and_then(|uid| Uid::try_from(1000)
+            .ok()
+            .map(|uid_1000| uid < &uid_1000))
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
