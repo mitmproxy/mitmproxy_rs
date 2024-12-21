@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use sysinfo::{Process, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 #[cfg(target_os = "macos")]
-use crate::processes::macos_visible_windows::macos_visible_windows;
+use macos_visible_windows::macos_visible_windows;
 
 pub fn active_executables() -> Result<ProcessList> {
     let mut executables: HashMap<PathBuf, ProcessInfo> = HashMap::new();
@@ -83,6 +83,57 @@ fn is_system(process: &Process) -> bool {
                 .map(|uid_1000| uid < &uid_1000)
         })
         .unwrap_or(false);
+}
+
+#[cfg(target_os = "macos")]
+mod macos_visible_windows {
+    use crate::intercept_conf::PID;
+    use anyhow::Result;
+    use cocoa::base::nil;
+    use cocoa::foundation::NSString;
+    use core_foundation::number::{kCFNumberSInt32Type, CFNumberGetValue, CFNumberRef};
+    use core_graphics::display::{
+        kCGNullWindowID, kCGWindowListExcludeDesktopElements, kCGWindowListOptionOnScreenOnly,
+        CFArrayGetCount, CFArrayGetValueAtIndex, CFDictionaryGetValueIfPresent, CFDictionaryRef,
+        CGWindowListCopyWindowInfo,
+    };
+    use std::collections::HashSet;
+    use std::ffi::c_void;
+
+    pub fn macos_visible_windows() -> Result<HashSet<PID>> {
+        let mut pids: HashSet<PID> = HashSet::new();
+        unsafe {
+            let windows_info_list = CGWindowListCopyWindowInfo(
+                kCGWindowListOptionOnScreenOnly + kCGWindowListExcludeDesktopElements,
+                kCGNullWindowID,
+            );
+            let count = CFArrayGetCount(windows_info_list);
+
+            for i in 0..count - 1 {
+                let dic_ref = CFArrayGetValueAtIndex(windows_info_list, i);
+                let key = NSString::alloc(nil).init_str("kCGWindowOwnerPID");
+                let mut pid: *const c_void = std::ptr::null_mut();
+
+                if CFDictionaryGetValueIfPresent(
+                    dic_ref as CFDictionaryRef,
+                    key as *const c_void,
+                    &mut pid,
+                ) != 0
+                {
+                    let pid_cf_ref = pid as CFNumberRef;
+                    let mut pid: i32 = 0;
+                    if CFNumberGetValue(
+                        pid_cf_ref,
+                        kCFNumberSInt32Type,
+                        &mut pid as *mut i32 as *mut c_void,
+                    ) {
+                        pids.insert(pid as u32);
+                    }
+                }
+            }
+            Ok(pids)
+        }
+    }
 }
 
 #[cfg(test)]
