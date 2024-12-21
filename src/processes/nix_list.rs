@@ -68,7 +68,8 @@ pub fn visible_windows() -> Result<HashSet<PID>> {
 
 fn is_system(process: &Process) -> bool {
     #[cfg(target_os = "macos")]
-    return process.exe()
+    return process
+        .exe()
         .map(|path| path.starts_with("/System/"))
         .unwrap_or(false);
 
