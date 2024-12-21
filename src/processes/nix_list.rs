@@ -4,7 +4,7 @@ use anyhow::Result;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use sysinfo::{Process, ProcessRefreshKind, ProcessesToUpdate, System, Uid, UpdateKind};
+use sysinfo::{Process, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 #[cfg(target_os = "macos")]
 use crate::processes::macos_visible_windows::macos_visible_windows;
