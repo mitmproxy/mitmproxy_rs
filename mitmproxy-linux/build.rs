@@ -1,3 +1,4 @@
+#[cfg(target_os = "linux")]
 use std::{
     env, fs,
     io::{BufRead as _, BufReader},
@@ -5,6 +6,7 @@ use std::{
     process::{Child, Command, Stdio},
 };
 
+#[cfg(target_os = "linux")]
 use cargo_metadata::{
     Artifact, CompilerMessage, Message, Metadata, MetadataCommand, Package, Target,
 };
