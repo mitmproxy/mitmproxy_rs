@@ -10,6 +10,7 @@ use prost::Message;
 use std::future::Future;
 use std::io::Cursor;
 use log::{info, warn};
+use prost::bytes::Bytes;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc::{Sender, UnboundedReceiver};
 use tokio::sync::{broadcast, mpsc};
@@ -96,6 +97,9 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                 };
                 assert_eq!(cursor.position(), len as u64);
 
+                // TODO: Use Bytes in SmolPacket to avoid copy
+                let data = data.to_vec();
+
                 let Ok(mut packet) = SmolPacket::try_from(data) else {
                     log::error!("Skipping invalid packet: {:?}", &buf[..len]);
                     continue;
@@ -120,7 +124,7 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
             Some(e) = net_rx.recv() => {
                 match e {
                     NetworkCommand::SendPacket(packet) => {
-                        let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet( ipc::Packet { data: packet.into_inner() }))};
+                        let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet( ipc::Packet { data: Bytes::from(packet.into_inner()) }))};
                         packet.encode(&mut buf.as_mut_slice())?;
                         let len = packet.encoded_len();
                         channel.write_all(&buf[..len]).await.context("failed to send packet")?;

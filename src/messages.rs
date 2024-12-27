@@ -14,7 +14,7 @@ pub enum TunnelInfo {
         dst_addr: SocketAddr,
     },
     LocalRedirector {
-        pid: u32,
+        pid: Option<u32>,
         process_name: Option<String>,
         /// macOS TCP connections may not have a valid sockname, but
         /// an unresolved remote_endpoint instead.

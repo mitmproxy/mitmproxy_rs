@@ -17,7 +17,7 @@ path = "src/main.rs"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 mitmproxy = { path = "../" }
-mitmproxy-linux-ebpf-common = { path = "../mitmproxy-linux-ebpf-common", features = ["user"] }
+mitmproxy-linux-ebpf-common = { path = "../mitmproxy-linux-ebpf-common"}
 tun = { workspace = true, features = ["async"] }
 aya = { workspace = true }
 aya-log = { workspace = true }

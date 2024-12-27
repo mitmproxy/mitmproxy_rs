@@ -8,12 +8,7 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
-[features]
-default = []
-user = ["aya"]
-
 [dependencies]
-aya = { workspace = true, optional = true }
 aya-ebpf = { workspace = true }
 
 [lib]

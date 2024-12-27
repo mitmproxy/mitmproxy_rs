@@ -1,8 +1,10 @@
 #![no_std]
 
-pub use aya_ebpf::TASK_COMM_LEN;
+use aya_ebpf::TASK_COMM_LEN;
 
 type PID = u32;
+
+pub const INTERCEPT_CONF_LEN: u32 = 20;
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
@@ -18,11 +20,6 @@ pub enum Action {
     Include(Pattern),
     Exclude(Pattern),
 }
-
-#[cfg(feature = "user")]
-unsafe impl aya::Pod for Pattern {}
-#[cfg(feature = "user")]
-unsafe impl aya::Pod for Action {}
 
 impl Pattern {
     pub fn matches(&self, command: Option<&[u8; TASK_COMM_LEN]>, pid: PID) -> bool {

@@ -26,16 +26,19 @@ jobs:
         include:
           - os: windows-latest
             rust: ${{ env.MSRV }}
-            args: --exclude macos-certificate-truster --exclude linux-redirector
+            args: --exclude mitmproxy-linux-ebpf
           - os: macos-latest
             rust: ${{ env.MSRV }}
-            args: --exclude windows-redirector --exclude linux-redirector
+            args: --exclude mitmproxy-linux-ebpf
           - os: ubuntu-latest
             rust: ${{ env.MSRV }}
-            args: --exclude windows-redirector --exclude macos-certificate-truster
+            args: --exclude mitmproxy-linux-ebpf
           - os: ubuntu-latest
             rust: stable
-            args: --exclude windows-redirector --exclude macos-certificate-truster
+            args: --exclude mitmproxy-linux-ebpf
+          - os: ubuntu-latest
+            rust: nightly
+            args: --package mitmproxy-linux-ebpf
     steps:
       - uses: ./.github/actions/setup
         with:
