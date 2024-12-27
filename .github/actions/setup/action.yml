@@ -22,5 +22,5 @@ runs:
       shell: bash
     - uses: mhils/workflows/rust-cache@v14
     - if: runner.os == 'Linux'
-      run: cargo install bpf-linker
+      run: cargo install --locked bpf-linker
       shell: bash

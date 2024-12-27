@@ -2,14 +2,14 @@
 
 use aya_ebpf::TASK_COMM_LEN;
 
-type PID = u32;
+type Pid = u32;
 
 pub const INTERCEPT_CONF_LEN: u32 = 20;
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub enum Pattern {
-    Pid(PID),
+    Pid(Pid),
     Process([u8; TASK_COMM_LEN]),
 }
 
@@ -22,7 +22,7 @@ pub enum Action {
 }
 
 impl Pattern {
-    pub fn matches(&self, command: Option<&[u8; TASK_COMM_LEN]>, pid: PID) -> bool {
+    pub fn matches(&self, command: Option<&[u8; TASK_COMM_LEN]>, pid: Pid) -> bool {
         match self {
             Pattern::Pid(p) => pid == *p,
             Pattern::Process(process) => {
