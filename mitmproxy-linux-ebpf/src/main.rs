@@ -2,15 +2,14 @@
 #![no_main]
 
 use aya_ebpf::macros::{cgroup_sock, map};
-use aya_ebpf::programs::SockContext;
-use aya_ebpf::{EbpfContext};
 use aya_ebpf::maps::Array;
-use aya_log_ebpf::{debug};
+use aya_ebpf::programs::SockContext;
+use aya_ebpf::EbpfContext;
+use aya_log_ebpf::debug;
 use mitmproxy_linux_ebpf_common::{Action, INTERCEPT_CONF_LEN};
 
 #[no_mangle]
 static INTERFACE_ID: u32 = 0;
-
 
 #[map]
 static INTERCEPT_CONF: Array<Action> = Array::with_max_entries(INTERCEPT_CONF_LEN, 0);
@@ -19,9 +18,7 @@ static INTERCEPT_CONF: Array<Action> = Array::with_max_entries(INTERCEPT_CONF_LE
 pub fn cgroup_sock_create(ctx: SockContext) -> i32 {
     if should_intercept(&ctx) {
         debug!(&ctx, "intercepting in sock_create");
-        let interface_id = unsafe {
-            core::ptr::read_volatile(&INTERFACE_ID)
-        };
+        let interface_id = unsafe { core::ptr::read_volatile(&INTERFACE_ID) };
         unsafe {
             (*ctx.sock).bound_dev_if = interface_id;
         }

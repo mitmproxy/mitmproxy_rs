@@ -1,16 +1,16 @@
 use crate::intercept_conf::InterceptConf;
-use crate::{ipc, MAX_PACKET_SIZE};
 use crate::ipc::PacketWithMeta;
 use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::network::add_network_layer;
+use crate::{ipc, MAX_PACKET_SIZE};
 use anyhow::{anyhow, Context, Result};
+use log::{info, warn};
+use prost::bytes::Bytes;
 use prost::Message;
 use std::future::Future;
 use std::io::Cursor;
-use log::{info, warn};
-use prost::bytes::Bytes;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc::{Sender, UnboundedReceiver};
 use tokio::sync::{broadcast, mpsc};

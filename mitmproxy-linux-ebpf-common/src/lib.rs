@@ -25,15 +25,15 @@ impl Pattern {
     pub fn matches(&self, command: Option<&[u8; TASK_COMM_LEN]>, pid: PID) -> bool {
         match self {
             Pattern::Pid(p) => pid == *p,
-            Pattern::Process(process) => command
-                .map(|command| command.eq(process))
-                .unwrap_or(false),
+            Pattern::Process(process) => {
+                command.map(|command| command.eq(process)).unwrap_or(false)
+            }
         }
     }
 }
 
 impl From<&str> for Action {
-    fn from(value: &str) -> Self{
+    fn from(value: &str) -> Self {
         let value = value.trim();
         if let Some(value) = value.strip_prefix('!') {
             Action::Exclude(Pattern::from(value))
@@ -56,7 +56,7 @@ impl From<&str> for Pattern {
                 let len = core::cmp::min(TASK_COMM_LEN - 1, src.len());
                 val[..len].copy_from_slice(&src[..len]);
                 Pattern::Process(val)
-            },
+            }
         }
     }
 }

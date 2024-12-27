@@ -1,7 +1,7 @@
-use std::io::Error;
-use std::net::Shutdown;
 use anyhow::{anyhow, bail, Context, Result};
 use log::{debug, error, log, Level};
+use std::io::Error;
+use std::net::Shutdown;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::Stdio;
@@ -16,10 +16,10 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use crate::intercept_conf::InterceptConf;
 use crate::messages::{TransportCommand, TransportEvent};
 use crate::packet_sources::{forward_packets, PacketSourceConf, PacketSourceTask};
+use tempfile::{tempdir, TempDir};
 use tokio::net::UnixDatagram;
 use tokio::process::Command;
 use tokio::time::timeout;
-use tempfile::{tempdir, TempDir};
 
 async fn start_redirector(executable: &Path, listener_addr: &Path) -> Result<PathBuf> {
     debug!("Elevating privileges...");
@@ -85,10 +85,10 @@ async fn start_redirector(executable: &Path, listener_addr: &Path) -> Result<Pat
         Duration::new(5, 0),
         BufReader::new(stdout).lines().next_line(),
     )
-        .await
-        .context("failed to establish connection to Linux redirector")??
-        .ok_or(anyhow!("redirector did not produce stdout"))
-        .map(PathBuf::from)
+    .await
+    .context("failed to establish connection to Linux redirector")??
+    .ok_or(anyhow!("redirector did not produce stdout"))
+    .map(PathBuf::from)
 }
 
 pub struct LinuxConf {
@@ -98,20 +98,34 @@ pub struct LinuxConf {
 pub struct AsyncUnixDatagram(UnixDatagram);
 
 impl AsyncRead for AsyncUnixDatagram {
-    fn poll_read(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
         self.0.poll_recv(cx, buf)
     }
 }
 impl AsyncWrite for AsyncUnixDatagram {
-    fn poll_write(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>, buf: &[u8]) -> Poll<std::result::Result<usize, Error>> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::result::Result<usize, Error>> {
         self.0.poll_send(cx, buf)
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<std::result::Result<(), Error>> {
+    fn poll_flush(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<std::result::Result<(), Error>> {
         self.0.poll_send_ready(cx)
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> Poll<std::result::Result<(), Error>> {
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> Poll<std::result::Result<(), Error>> {
         Poll::Ready(self.0.shutdown(Shutdown::Write))
     }
 }
@@ -130,15 +144,16 @@ impl PacketSourceConf for LinuxConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: broadcast::Receiver<()>,
     ) -> Result<(Self::Task, Self::Data)> {
-
         let datagram_dir = tempdir().context("failed to create temp dir")?;
 
         let channel = UnixDatagram::bind(datagram_dir.path().join("mitmproxy"))?;
         let dst = start_redirector(&self.executable_path, datagram_dir.path()).await?;
 
-        let _ = datagram_dir.into_path(); let datagram_dir = tempdir()?; // FIXME
+        let _ = datagram_dir.into_path();
+        let datagram_dir = tempdir()?; // FIXME
 
-        channel.connect(&dst)
+        channel
+            .connect(&dst)
             .with_context(|| format!("Failed to connect to redirector at {}", dst.display()))?;
 
         let (conf_tx, conf_rx) = unbounded_channel();

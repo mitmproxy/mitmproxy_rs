@@ -50,7 +50,14 @@ struct MitmproxyIpc_TunnelInfo: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var pid: UInt32 = 0
+  var pid: UInt32 {
+    get {return _pid ?? 0}
+    set {_pid = newValue}
+  }
+  /// Returns true if `pid` has been explicitly set.
+  var hasPid: Bool {return self._pid != nil}
+  /// Clears the value of `pid`. Subsequent reads from it will return its default value.
+  mutating func clearPid() {self._pid = nil}
 
   var processName: String {
     get {return _processName ?? String()}
@@ -65,6 +72,7 @@ struct MitmproxyIpc_TunnelInfo: Sendable {
 
   init() {}
 
+  fileprivate var _pid: UInt32? = nil
   fileprivate var _processName: String? = nil
 }
 
@@ -322,7 +330,7 @@ extension MitmproxyIpc_TunnelInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.pid) }()
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self._pid) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self._processName) }()
       default: break
       }
@@ -334,9 +342,9 @@ extension MitmproxyIpc_TunnelInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
     // allocates stack space for every if/case branch local when no optimizations
     // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
     // https://github.com/apple/swift-protobuf/issues/1182
-    if self.pid != 0 {
-      try visitor.visitSingularUInt32Field(value: self.pid, fieldNumber: 1)
-    }
+    try { if let v = self._pid {
+      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 1)
+    } }()
     try { if let v = self._processName {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
     } }()
@@ -344,7 +352,7 @@ extension MitmproxyIpc_TunnelInfo: SwiftProtobuf.Message, SwiftProtobuf._Message
   }
 
   static func ==(lhs: MitmproxyIpc_TunnelInfo, rhs: MitmproxyIpc_TunnelInfo) -> Bool {
-    if lhs.pid != rhs.pid {return false}
+    if lhs._pid != rhs._pid {return false}
     if lhs._processName != rhs._processName {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
