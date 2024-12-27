@@ -4,7 +4,6 @@ use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;

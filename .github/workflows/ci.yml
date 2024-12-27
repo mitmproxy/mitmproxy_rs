@@ -35,7 +35,7 @@ jobs:
             args: --exclude mitmproxy-linux-ebpf
           - os: ubuntu-latest
             rust: nightly
-            args: --package mitmproxy-linux-ebpf
+            args: --package mitmproxy-linux-ebpf -C panic=abort -Zpanic_abort_tests
     steps:
       - uses: mhils/workflows/checkout@v12
       - uses: ./.github/actions/setup
@@ -98,7 +98,7 @@ jobs:
       # ensure that sdist is building.
       # We do this here instead of a separate job because we don't want to wait for the entire matrix.
       - if: contains(matrix.args, 'sdist')
-        run: pip install target/wheels/*.tar.gz
+        run: pip install --no-dependencies target/wheels/*.tar.gz
 
       - uses: actions/upload-artifact@v4
         with:
@@ -198,10 +198,23 @@ jobs:
           name: wheels-os-${{ matrix.name }}
           path: target/wheels
 
+  test-linux-wheel-sdist:
+    needs: build-linux-wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: mhils/workflows/checkout@v12
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels-os-linux-x86_64
+          path: target/wheels
+      - run: pip install --no-dependencies target/wheels/*.tar.gz
+
   check:
     if: always()
     needs:
       - test
+      - test-linux-wheel-sdist
       - build
       - build-windows-wheel
       - build-linux-wheel

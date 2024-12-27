@@ -11,7 +11,7 @@ use lru_time_cache::LruCache;
 use mitmproxy::intercept_conf::{InterceptConf, ProcessInfo};
 use mitmproxy::ipc;
 use mitmproxy::ipc::FromProxy;
-use mitmproxy::packet_sources::windows::IPC_BUF_SIZE;
+use mitmproxy::packet_sources::IPC_BUF_SIZE;
 use mitmproxy::windows::network::network_table;
 use mitmproxy::processes::get_process_name;
 use mitmproxy::MAX_PACKET_SIZE;
