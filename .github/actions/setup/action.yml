@@ -20,4 +20,4 @@ runs:
     - if: inputs.extra-targets
       run: rustup target add ${{ inputs.extra-targets }}
       shell: bash
-    - uses: mhils/workflows/rust-cache@v12
+    - uses: mhils/workflows/rust-cache@v14
