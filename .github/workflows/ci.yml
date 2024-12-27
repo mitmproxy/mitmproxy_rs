@@ -40,6 +40,7 @@ jobs:
             rust: nightly
             args: --package mitmproxy-linux-ebpf
     steps:
+      - uses: mhils/workflows/checkout@v12
       - uses: ./.github/actions/setup
         with:
           rust-version: ${{ matrix.rust }}
@@ -79,6 +80,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: build mitmproxy-rs (${{ matrix.name }})
     steps:
+      - uses: mhils/workflows/checkout@v12
       - uses: ./.github/actions/setup
         with:
           extra-targets: ${{ matrix.target }}
@@ -134,6 +136,7 @@ jobs:
     runs-on: windows-latest
     name: build mitmproxy-windows
     steps:
+      - uses: mhils/workflows/checkout@v12
       - uses: ./.github/actions/setup
       - uses: install-pinned/build@aa7fb973fec4a5593736c5dc25b322120ca41a98
 
@@ -150,6 +153,7 @@ jobs:
     needs: build-macos-app
     runs-on: macos-latest
     steps:
+      - uses: mhils/workflows/checkout@v12
       - uses: ./.github/actions/setup
         with:
           extra-targets: aarch64-apple-darwin x86_64-apple-darwin
@@ -182,6 +186,7 @@ jobs:
             args: --compatibility manylinux2014 --zig --target aarch64-unknown-linux-gnu
     runs-on: ubuntu-latest
     steps:
+      - uses: mhils/workflows/checkout@v12
       - uses: ./.github/actions/setup
         with:
           extra-targets: ${{ matrix.target }}

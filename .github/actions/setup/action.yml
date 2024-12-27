@@ -12,10 +12,12 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: mhils/workflows/checkout@v12
     - uses: mhils/workflows/setup-python@v12  # PyO3 wants recent Python on Windows.
     - run: rustup toolchain install ${{ inputs.rust-version }} --profile minimal
+      shell: bash
     - run: rustup default ${{ inputs.rust-version }}
+      shell: bash
     - if: inputs.extra-targets
       run: rustup target add ${{ inputs.extra-targets }}
+      shell: bash
     - uses: mhils/workflows/rust-cache@v12

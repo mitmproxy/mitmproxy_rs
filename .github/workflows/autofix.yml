@@ -36,6 +36,7 @@ jobs:
           - os: macos-latest
           - os: ubuntu-latest
     steps:
+      - uses: mhils/workflows/checkout@v12
       - uses: ./.github/actions/setup
         with:
           rust-version: ${{ env.MSRV }}
