@@ -10,6 +10,7 @@ use anyhow::{bail, Context, Result};
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 
+use prost::bytes::Bytes;
 use prost::bytes::BytesMut;
 use prost::Message;
 
@@ -317,7 +318,7 @@ impl ConnectionTask {
         let dst_addr = SocketAddr::try_from(&remote)
             .unwrap_or_else(|_| SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)));
         let tunnel_info = TunnelInfo::LocalRedirector {
-            pid: flow.tunnel_info.and_then(|t| t.pid),
+            pid: flow.tunnel_info.as_ref().and_then(|t| t.pid),
             process_name: flow.tunnel_info.and_then(|t| t.process_name),
             remote_endpoint: Some((remote.host, remote.port as u16)),
         };
