@@ -329,7 +329,8 @@ async fn main() -> Result<()> {
                 address.set_tcp_checksum(false);
                 address.set_udp_checksum(false);
 
-                let packet = match InternetPacket::try_from(buf) {
+                // TODO: Use Bytes everywhere to avoid allocation.
+                let packet = match InternetPacket::try_from(buf.to_vec()) {
                     Ok(p) => p,
                     Err(e) => {
                         info!("Error parsing packet: {:?}", e);
@@ -550,9 +551,9 @@ async fn process_packet(
             }
 
             ipc_tx.send(ipc::PacketWithMeta {
-                data: packet.inner(),
+                data: packet.inner().into(),
                 tunnel_info: Some(ipc::TunnelInfo {
-                    pid: *pid,
+                    pid: Some(*pid),
                     process_name: process_name.clone(),
                 }),
             })?;
