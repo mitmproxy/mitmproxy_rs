@@ -21,3 +21,6 @@ runs:
       run: rustup target add ${{ inputs.extra-targets }}
       shell: bash
     - uses: mhils/workflows/rust-cache@v14
+    - if: runner.os == 'Linux'
+      run: cargo install bpf-linker
+      shell: bash
