@@ -13,7 +13,7 @@ runs:
   using: "composite"
   steps:
     - uses: mhils/workflows/setup-python@v12  # PyO3 wants recent Python on Windows.
-    - run: rustup toolchain install ${{ inputs.rust-version }} --profile minimal
+    - run: rustup toolchain install ${{ inputs.rust-version }} --profile minimal ${{ inputs.toolchain-args }}
       shell: bash
     - run: rustup default ${{ inputs.rust-version }}
       shell: bash
