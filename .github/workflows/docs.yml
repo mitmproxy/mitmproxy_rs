@@ -28,7 +28,7 @@ jobs:
 
       - run: maturin build
         working-directory: ./mitmproxy-rs
-      - run: pip install --no-index --find-links --no-dependencies target/wheels/ mitmproxy_rs
+      - run: pip install --no-index --no-dependencies --find-links target/wheels/ mitmproxy_rs
 
       - run: stubtest --allowlist mitmproxy-rs/stubtest-allowlist.txt --mypy-config-file mitmproxy-rs/pyproject.toml mitmproxy_rs
 

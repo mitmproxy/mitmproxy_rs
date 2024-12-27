@@ -269,7 +269,8 @@ impl ConnectionTask {
                     } else if remote_address != dst_addr {
                         bail!("UDP packet destinations do not match: {remote_address} -> {dst_addr}")
                     }
-                    state.add_packet(packet.data);
+                    // TODO: Make ConnectionState accept Bytes, not Vec<u8>
+                    state.add_packet(packet.data.to_vec());
                 },
                 Some(command) = command_rx.recv() => {
                     match command {
@@ -279,7 +280,7 @@ impl ConnectionTask {
                         TransportCommand::WriteData(_, data) => {
                             assert!(first_packet.is_none());
                             let packet = ipc::UdpPacket {
-                                data,
+                                data: Bytes::from(data),
                                 remote_address: Some(remote_address.into()),
                             };
                             write_buf.reserve(packet.encoded_len());
@@ -316,7 +317,7 @@ impl ConnectionTask {
         let dst_addr = SocketAddr::try_from(&remote)
             .unwrap_or_else(|_| SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)));
         let tunnel_info = TunnelInfo::LocalRedirector {
-            pid: flow.tunnel_info.as_ref().map(|t| t.pid).unwrap_or(0),
+            pid: flow.tunnel_info.and_then(|t| t.pid),
             process_name: flow.tunnel_info.and_then(|t| t.process_name),
             remote_endpoint: Some((remote.host, remote.port as u16)),
         };
