@@ -1,6 +1,9 @@
 use crate::server::base::Server;
 use pyo3::prelude::*;
 
+#[cfg(target_os = "linux")]
+use nix::unistd;
+
 /// An open TUN interface.
 ///
 /// A new tun interface can be created by calling `create_tun_interface`.
@@ -26,6 +29,22 @@ impl TunInterface {
     /// Wait until the interface has shut down.
     pub fn wait_closed<'p>(&self, py: Python<'p>) -> PyResult<Bound<'p, PyAny>> {
         self.server.wait_closed(py)
+    }
+
+    /// Returns a `str` describing why tun mode is unavailable, or `None` if TUN mode is available.
+    ///
+    /// Reasons for unavailability may be an unsupported platform, or missing privileges.
+    #[staticmethod]
+    pub fn unavailable_reason() -> Option<String> {
+        #[cfg(target_os = "linux")]
+        if !unistd::geteuid().is_root() {
+            Some(String::from("mitmproxy is not running as root"))
+        } else {
+            None
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        Some(String::from("OS not supported for TUN proxy mode"))
     }
 
     pub fn __repr__(&self) -> String {
@@ -59,6 +78,6 @@ pub fn create_tun_interface(
     }
     #[cfg(not(target_os = "linux"))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
-        "TUN proxy mode is only available on Linux",
+        TunInterface::unavailable_reason(),
     ))
 }

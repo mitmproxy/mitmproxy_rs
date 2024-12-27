@@ -24,7 +24,7 @@ authors = [
     "Fabio Valentini <decathorpe@gmail.com>",
     "Maximilian Hils <cargo@maximilianhils.com>",
 ]
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 publish = false
 repository = "https://github.com/mitmproxy/mitmproxy-rs"
 edition = "2021"
@@ -51,16 +51,16 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
-anyhow = { version = "1.0.92", features = ["backtrace"] }
+anyhow = { version = "1.0.93", features = ["backtrace"] }
 log = "0.4.22"
 once_cell = "1"
 pretty-hex = "0.4.1"
 smoltcp = "0.11"
-tokio = { version = "1.41.0", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util", "process"] }
+tokio = { version = "1.41.1", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util", "process"] }
 boringtun = { version = "0.6", default-features = false }
 x25519-dalek = "2.0.0"
 console-subscriber = { version = "0.4.1", optional = true }
-image = { version = "0.25.4", default-features = false, features = ["png", "tiff"] }
+image = { version = "0.25.5", default-features = false, features = ["png", "tiff"] }
 prost = "0.13.3"
 tokio-util = { version = "0.7.12", features = ["codec"] }
 futures-util = { version = "0.3.31", features = ["sink"] }
@@ -68,7 +68,7 @@ lru_time_cache = "0.11.11"
 internet-packet = { version = "0.2.2", features = ["smoltcp"] }
 data-encoding = "2.4.0"
 hickory-resolver = "0.24.1"
-socket2 = "0.5.7"
+socket2 = "0.5.8"
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
@@ -92,17 +92,18 @@ features = [
 ]
 
 [target.'cfg(target_os = "macos")'.dependencies]
-security-framework = "3.0.0"
+security-framework = "3.0.1"
 nix = { version = "0.29.0", default-features = false, features = ["fs"] }
 core-graphics = "0.24"
 core-foundation = "0.10"
 cocoa = "0.26"
 objc = "0.2"
-sysinfo = "0.29.10"
+sysinfo = "0.33.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tun = { workspace = true, features = ["async"] }
 tempfile = "3.14.0"
+sysinfo = "0.33.0"
 
 [dev-dependencies]
 env_logger = "0.11"
