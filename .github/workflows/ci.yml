@@ -35,7 +35,9 @@ jobs:
             args: --exclude mitmproxy-linux-ebpf
           - os: ubuntu-latest
             rust: nightly
-            args: --package mitmproxy-linux-ebpf -C panic=abort -Zpanic_abort_tests
+            args: --package mitmproxy-linux-ebpf
+    env:
+      RUSTFLAGS: ${{ matrix.rust == 'nightly' && '-C panic=abort' || '' }}
     steps:
       - uses: mhils/workflows/checkout@v12
       - uses: ./.github/actions/setup

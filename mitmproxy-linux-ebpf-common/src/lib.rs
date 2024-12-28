@@ -1,9 +1,9 @@
 #![no_std]
 
 // Weird compilation errors on Windows
-#[cfg(windows)]
-use aya_ebpf::TASK_COMM_LEN;
 #[cfg(not(windows))]
+use aya_ebpf::TASK_COMM_LEN;
+#[cfg(windows)]
 const TASK_COMM_LEN: usize = 16;
 
 type Pid = u32;
