@@ -1,13 +1,12 @@
-use std::io::Cursor;
 use std::iter;
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
-use tokio::sync::mpsc::{unbounded_channel, Receiver, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use windows::core::w;
 use windows::core::PCWSTR;
 use windows::Win32::UI::Shell::ShellExecuteW;
@@ -15,14 +14,8 @@ use windows::Win32::UI::Shell::SE_ERR_ACCESSDENIED;
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
 use crate::intercept_conf::InterceptConf;
-use crate::ipc;
-use crate::ipc::PacketWithMeta;
-use crate::messages::{
-    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
-};
-use crate::network::{add_network_layer, MAX_PACKET_SIZE};
+use crate::messages::{TransportCommand, TransportEvent};
 use crate::packet_sources::{forward_packets, PacketSourceConf, PacketSourceTask, IPC_BUF_SIZE};
-use prost::Message;
 
 pub struct WindowsConf {
     pub executable_path: PathBuf,
@@ -123,7 +116,7 @@ pub struct WindowsTask {
 }
 
 impl PacketSourceTask for WindowsTask {
-    async fn run(mut self) -> Result<()> {
+    async fn run(self) -> Result<()> {
         log::debug!("Waiting for IPC connection...");
         self.ipc_server.connect().await?;
         log::debug!("IPC connected!");
