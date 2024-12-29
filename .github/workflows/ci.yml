@@ -37,7 +37,7 @@ jobs:
             rust: nightly
             args: --package mitmproxy-linux-ebpf
     env:
-      RUSTFLAGS: ${{ matrix.rust == 'nightly' && '-C panic=abort' || '' }}
+      RUSTFLAGS: ${{ matrix.rust == 'nightly' && '-Zpanic_abort_tests -C panic=abort' || '' }}
     steps:
       - uses: mhils/workflows/checkout@v12
       - uses: ./.github/actions/setup
@@ -86,10 +86,10 @@ jobs:
 
       - if: runner.os == 'Linux'
         name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@4804d730717f28b7565e71e68e5c9fe8c4f9b089
+        uses: install-pinned/maturin-with-zig@9b93d1cb00f6b4e370eafb0a56a356eded87f69f
       - if: runner.os != 'Linux'
         name: Install maturin from PyPI
-        uses: install-pinned/maturin@c8c3a8f7f2b2ecf1728c96824734c6c6afe7e3e8
+        uses: install-pinned/maturin@0de1880845261f9916e3d1395587eb80365ad3ac
 
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         run: python .github/scripts/pin-versions.py
@@ -190,7 +190,7 @@ jobs:
         with:
           extra-targets: ${{ matrix.target }}
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@4804d730717f28b7565e71e68e5c9fe8c4f9b089
+        uses: install-pinned/maturin-with-zig@9b93d1cb00f6b4e370eafb0a56a356eded87f69f
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./mitmproxy-linux
