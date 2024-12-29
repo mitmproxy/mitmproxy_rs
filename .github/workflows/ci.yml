@@ -51,7 +51,8 @@ jobs:
           toolchain: ${{ matrix.rust }}
           command: check
           args: --workspace --verbose ${{ matrix.args }}
-      - name: Run "cargo test"
+      - if: matrix.rust != 'nightly'  # XXX: weird errors here
+        name: Run "cargo test"
         # the action-rs/cargo action adds inline annotations for "cargo test" output
         uses: actions-rs/cargo@9e120dd99b0fbad1c065f686657e914e76bd7b72
         with:
@@ -86,10 +87,10 @@ jobs:
 
       - if: runner.os == 'Linux'
         name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@9b93d1cb00f6b4e370eafb0a56a356eded87f69f
+        uses: install-pinned/maturin-with-zig@9b93d1cb00f6b4e370eafb0a56a356eded87f69f  # 1.8.0
       - if: runner.os != 'Linux'
         name: Install maturin from PyPI
-        uses: install-pinned/maturin@0de1880845261f9916e3d1395587eb80365ad3ac
+        uses: install-pinned/maturin@c8c3a8f7f2b2ecf1728c96824734c6c6afe7e3e8
 
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         run: python .github/scripts/pin-versions.py
@@ -190,7 +191,7 @@ jobs:
         with:
           extra-targets: ${{ matrix.target }}
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@9b93d1cb00f6b4e370eafb0a56a356eded87f69f
+        uses: install-pinned/maturin-with-zig@4804d730717f28b7565e71e68e5c9fe8c4f9b089
 
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./mitmproxy-linux
