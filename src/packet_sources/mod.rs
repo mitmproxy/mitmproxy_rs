@@ -72,7 +72,7 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                 msg.encode(&mut buf.as_mut_slice())?;
                 let len = msg.encoded_len();
 
-                info!("Sending IPC message: {len} {:?}", &buf[..len]);
+                info!("Sending IPC message to redirector: {len} {:?}", &buf[..len]);
 
                 channel.write_all(&buf[..len]).await.context("failed to propagate interception config update")?;
             },
@@ -93,8 +93,8 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                 warn!("Receiving packet: {} {:?}", len, &buf[..len]);
 
                 let mut cursor = Cursor::new(&buf[..len]);
-                let Ok(PacketWithMeta { data, tunnel_info: Some(ipc::TunnelInfo { pid, process_name })}) = PacketWithMeta::decode(&mut cursor) else {
-                    return Err(anyhow!("Received invalid IPC message: {:?}", &buf[..len]));
+                let Ok(PacketWithMeta { data, tunnel_info}) = PacketWithMeta::decode(&mut cursor) else {
+                    return Err(anyhow!("Received invalid IPC message from redirector: {:?}", &buf[..len]));
                 };
                 assert_eq!(cursor.position(), len as u64);
 
@@ -112,8 +112,8 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                 let event = NetworkEvent::ReceivePacket {
                     packet,
                     tunnel_info: TunnelInfo::LocalRedirector {
-                        pid,
-                        process_name,
+                        pid: tunnel_info.as_ref().and_then(|t| t.pid),
+                        process_name: tunnel_info.and_then(|t| t.process_name),
                         remote_endpoint: None,
                     },
                 };

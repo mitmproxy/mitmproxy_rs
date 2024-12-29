@@ -142,10 +142,10 @@ async fn main() -> anyhow::Result<()> {
                 };
 
                 packet.encode(&mut ipc_buf)?;
-
-                info!("Sending packet: {} {:?}", ipc_buf.len(), &ipc_buf);
                 let encoded = ipc_buf.split();
-                ipc.send(encoded.as_ref()).await?;
+
+                info!("Sending packet to proxy: {} {:?}", encoded.len(), &encoded);
+                ipc.send(&encoded).await?;
             },
         }
     }
