@@ -132,7 +132,7 @@ impl fmt::Debug for SmolPacket {
                 }
                 f.field("payload", &String::from_utf8_lossy(p.payload()));
                 f.finish()
-            },
+            }
             Err(_) => f
                 .field("src_ip", &self.src_ip())
                 .field("dst_ip", &self.dst_ip())
