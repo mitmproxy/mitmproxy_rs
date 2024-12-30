@@ -46,7 +46,7 @@ pub trait PacketSourceTask: Send {
 pub const IPC_BUF_SIZE: usize = MAX_PACKET_SIZE + 1024;
 
 /// Feed packets from a socket into smol, and the other way around.
-#[allow(dead_code)]
+#[cfg(any(windows, target_os = "linux"))]
 async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
     mut channel: T,
     transport_events_tx: Sender<TransportEvent>,

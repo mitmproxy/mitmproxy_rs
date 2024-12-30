@@ -1,9 +1,9 @@
 #![no_std]
 
-// Weird compilation errors on Windows
-#[cfg(not(windows))]
+// aya-ebpf currently does not compile on Windows.
+#[cfg(target_os = "linux")]
 use aya_ebpf::TASK_COMM_LEN;
-#[cfg(windows)]
+#[cfg(not(target_os = "linux"))]
 const TASK_COMM_LEN: usize = 16;
 
 type Pid = u32;

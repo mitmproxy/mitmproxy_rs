@@ -95,6 +95,8 @@ pub struct LinuxConf {
     pub executable_path: PathBuf,
 }
 
+// We implement AsyncRead/AsyncWrite for UnixDatagram to have a common interface
+// with Windows' NamedPipeServer.
 pub struct AsyncUnixDatagram(UnixDatagram);
 
 impl AsyncRead for AsyncUnixDatagram {
@@ -148,9 +150,6 @@ impl PacketSourceConf for LinuxConf {
 
         let channel = UnixDatagram::bind(datagram_dir.path().join("mitmproxy"))?;
         let dst = start_redirector(&self.executable_path, datagram_dir.path()).await?;
-
-        let _ = datagram_dir.into_path();
-        let datagram_dir = tempdir()?; // FIXME
 
         channel
             .connect(&dst)
