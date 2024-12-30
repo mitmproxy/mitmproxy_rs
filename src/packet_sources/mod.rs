@@ -6,7 +6,6 @@ use crate::messages::{
 use crate::network::add_network_layer;
 use crate::{ipc, MAX_PACKET_SIZE};
 use anyhow::{anyhow, Context, Result};
-use log::{info, warn};
 use prost::bytes::{Bytes, BytesMut};
 use prost::Message;
 use std::future::Future;
@@ -70,7 +69,7 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                 };
                 msg.encode(&mut buf)?;
 
-                info!("Sending IPC message to redirector: {} {:?}", buf.len(), buf);
+                // debug!("Sending IPC message to redirector: {} {:?}", buf.len(), buf);
                 channel.write_all_buf(&mut buf).await.context("failed to propagate interception config update")?;
             },
             // read packets from the IPC pipe into our network stack.
@@ -99,7 +98,7 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                     continue;
                 };
 
-                warn!("Receiving packet: {:?}", &packet);
+                // debug!("Receiving packet: {:?}", &packet);
 
                 // WinDivert packets do not have correct IP checksums yet, we need fix that here
                 // otherwise smoltcp will be unhappy with us.
@@ -120,12 +119,11 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
             // write packets from the network stack to the IPC pipe to be reinjected.
             Some(e) = net_rx.recv() => {
                 match e {
-                    NetworkCommand::SendPacket(mut packet) => {
-                        packet.fill_ip_checksum();  // FIXME probably unnecessary.
+                    NetworkCommand::SendPacket(packet) => {
                         let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet( ipc::Packet { data: Bytes::from(packet.into_inner()) }))};
                         assert!(buf.is_empty());
                         packet.encode(&mut buf)?;
-                        warn!("Sending packet: {} {:?}", buf.len(), &packet.message.as_ref().unwrap());
+                        // debug!("Sending packet: {} {:?}", buf.len(), &packet.message.as_ref().unwrap());
                         channel.write_all_buf(&mut buf).await.context("failed to send packet")?;
                     }
                 }

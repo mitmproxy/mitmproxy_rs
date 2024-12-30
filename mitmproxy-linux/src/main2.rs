@@ -48,12 +48,12 @@ async fn main() -> anyhow::Result<()> {
 
     bump_memlock_rlimit();
 
-    info!("Creating tun device...");
+    debug!("Creating tun device...");
     let (mut device, name) = create_tun_device(None)?;
     let device_index = device.tun_index().context("failed to get tun device index")? as u32;
-    info!("Tun device created: {name} (id={device_index})");
+    debug!("Tun device created: {name} (id={device_index})");
 
-    info!("Loading BPF program...");
+    debug!("Loading BPF program...");
     let mut ebpf = EbpfLoader::new()
         .btf(Btf::from_sys_fs().ok().as_ref())
         .set_global("INTERFACE_ID", &device_index, true)
@@ -65,14 +65,14 @@ async fn main() -> anyhow::Result<()> {
         warn!("failed to initialize eBPF logger: {}", e);
     }
 
-    info!("Attaching BPF_CGROUP_INET_SOCK_CREATE program...");
+    debug!("Attaching BPF_CGROUP_INET_SOCK_CREATE program...");
     let prog: &mut CgroupSock = ebpf.program_mut("cgroup_sock_create").context("failed to get cgroup_sock_create")?.try_into()?;
     // root cgroup to get all events.
     let cgroup = std::fs::File::open("/sys/fs/cgroup/")?;
     prog.load()?;
     prog.attach(&cgroup, CgroupAttachMode::Single)?;
 
-    info!("Getting INTERCEPT_CONF map...");
+    debug!("Getting INTERCEPT_CONF map...");
     let mut intercept_conf = {
         let map = ebpf.map_mut("INTERCEPT_CONF")
             .context("couldn't get INTERCEPT_CONF map")?;
@@ -80,7 +80,7 @@ async fn main() -> anyhow::Result<()> {
             .context("Cannot cast INTERCEPT_CONF to Array")?
     };
 
-    info!("Connecting to {}...", mitmproxy_addr.display());
+    debug!("Connecting to {}...", mitmproxy_addr.display());
     let ipc = UnixDatagram::bind(&redirector_addr)
         .with_context(|| format!("failed to bind to {}", redirector_addr.display()))?;
     ipc.connect(&mitmproxy_addr)
@@ -97,21 +97,19 @@ async fn main() -> anyhow::Result<()> {
             r = ipc.recv_buf(&mut ipc_buf) => {
                 match r {
                     Ok(len) if len > 0 => {
-                        info!("Received IPC message len: {}", ipc_buf.len());
-
                         let Ok(FromProxy { message: Some(message)}) = FromProxy::decode(&mut ipc_buf) else {
                             return Err(anyhow!("Received invalid IPC message: {:?}", &ipc_buf[..len]));
                         };
                         assert_eq!(ipc_buf.len(), 0);
-                        info!("Received IPC message: {message:?}");
+                        // debug!("Received IPC message: {message:?}");
 
                         match message {
                             from_proxy::Message::Packet(packet) => {
-                                info!("Forwarding Packet to device: {}", packet.data.len());
+                                // debug!("Forwarding Packet to device: {}", packet.data.len());
                                 device.send(&packet.data).await.context("failed to send packet")?;
                             }
                             from_proxy::Message::InterceptConf(conf) => {
-                                info!("Received InterceptConf: {conf:?}");
+                                debug!("Updating ebpf intercept conf: {conf:?}");
                                 if conf.actions.len() > INTERCEPT_CONF_LEN as usize {
                                     error!("Truncating intercept conf to {INTERCEPT_CONF_LEN} elements.");
                                 }
@@ -145,7 +143,7 @@ async fn main() -> anyhow::Result<()> {
                 packet.encode(&mut ipc_buf)?;
                 let encoded = ipc_buf.split();
 
-                info!("Sending packet to proxy: {} {:?}", encoded.len(), &encoded);
+                // debug!("Sending packet to proxy: {} {:?}", encoded.len(), &encoded);
                 ipc.send(&encoded).await?;
             },
         }
@@ -161,6 +159,6 @@ fn bump_memlock_rlimit() {
     };
     let ret = unsafe { libc::setrlimit(libc::RLIMIT_MEMLOCK, &rlim) };
     if ret != 0 {
-        debug!("remove limit on locked memory failed, ret is: {}", ret);
+        info!("remove limit on locked memory failed, ret is: {}", ret);
     }
 }

@@ -68,15 +68,18 @@ impl LocalRedirector {
         #[cfg(any(windows, target_os = "macos"))]
         return None;
 
-        // #[cfg(target_os = "linux")]
-        // if !unistd::geteuid().is_root() {
-        //     Some(String::from("mitmproxy is not running as root"))
-        // } else {
-        //     None
-        // }
+        #[cfg(target_os = "linux")]
+        if nix::unistd::geteuid().is_root() {
+            None
+        } else {
+            Some("mitmproxy is not running as root.".to_string())
+        }
 
-        #[cfg(not(any(windows, target_os = "macos")))]
-        Some(String::from("OS not supported for local redirect mode"))
+        #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+        Some(format!(
+            "Local redirect mode is not supported on {}",
+            std::env::consts::OS
+        ))
     }
 
     pub fn __repr__(&self) -> String {
