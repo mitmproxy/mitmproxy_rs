@@ -69,6 +69,8 @@ pub fn create_tun_device(tun_name: Option<String>) -> Result<(tun::AsyncDevice, 
     ) {
         log::error!("Failed to enable route_localnet: {e}");
     }
+    // Update accept_local so that injected packets with a local address (e.g. 127.0.0.1)
+    // as source address are accepted.
     if let Err(e) = fs::write(
         format!("/proc/sys/net/ipv4/conf/{tun_name}/accept_local"),
         "1",
