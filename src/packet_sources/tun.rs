@@ -69,6 +69,12 @@ pub fn create_tun_device(tun_name: Option<String>) -> Result<(tun::AsyncDevice, 
     ) {
         log::error!("Failed to enable route_localnet: {e}");
     }
+    if let Err(e) = fs::write(
+        format!("/proc/sys/net/ipv4/conf/{tun_name}/accept_local"),
+        "1",
+    ) {
+        log::error!("Failed to enable accept_local: {e}");
+    }
     Ok((device, tun_name))
 }
 

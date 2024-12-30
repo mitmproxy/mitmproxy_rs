@@ -97,16 +97,17 @@ async fn main() -> anyhow::Result<()> {
             r = ipc.recv_buf(&mut ipc_buf) => {
                 match r {
                     Ok(len) if len > 0 => {
-                        debug!("Received IPC message: {len} {:?}", &ipc_buf[..len]);
+                        info!("Received IPC message len: {}", ipc_buf.len());
 
                         let Ok(FromProxy { message: Some(message)}) = FromProxy::decode(&mut ipc_buf) else {
                             return Err(anyhow!("Received invalid IPC message: {:?}", &ipc_buf[..len]));
                         };
                         assert_eq!(ipc_buf.len(), 0);
+                        info!("Received IPC message: {message:?}");
 
                         match message {
                             from_proxy::Message::Packet(packet) => {
-                                debug!("Received Packet: {packet:?}");
+                                info!("Forwarding Packet to device: {}", packet.data.len());
                                 device.send(&packet.data).await.context("failed to send packet")?;
                             }
                             from_proxy::Message::InterceptConf(conf) => {

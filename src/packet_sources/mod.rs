@@ -7,10 +7,9 @@ use crate::network::add_network_layer;
 use crate::{ipc, MAX_PACKET_SIZE};
 use anyhow::{anyhow, Context, Result};
 use log::{info, warn};
-use prost::bytes::Bytes;
+use prost::bytes::{Bytes, BytesMut};
 use prost::Message;
 use std::future::Future;
-use std::io::Cursor;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc::{Sender, UnboundedReceiver};
 use tokio::sync::{broadcast, mpsc};
@@ -55,7 +54,7 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
     mut conf_rx: UnboundedReceiver<InterceptConf>,
     shutdown: broadcast::Receiver<()>,
 ) -> Result<()> {
-    let mut buf = vec![0u8; IPC_BUF_SIZE];
+    let mut buf = BytesMut::with_capacity(IPC_BUF_SIZE);
     let (mut network_task_handle, net_tx, mut net_rx) =
         add_network_layer(transport_events_tx, transport_commands_rx, shutdown);
 
@@ -69,17 +68,14 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                 let msg = ipc::FromProxy {
                     message: Some(ipc::from_proxy::Message::InterceptConf(conf.into())),
                 };
-                msg.encode(&mut buf.as_mut_slice())?;
-                let len = msg.encoded_len();
+                msg.encode(&mut buf)?;
 
-                info!("Sending IPC message to redirector: {len} {:?}", &buf[..len]);
-
-                channel.write_all(&buf[..len]).await.context("failed to propagate interception config update")?;
+                info!("Sending IPC message to redirector: {} {:?}", buf.len(), buf);
+                channel.write_all_buf(&mut buf).await.context("failed to propagate interception config update")?;
             },
             // read packets from the IPC pipe into our network stack.
-            r = channel.read(&mut buf) => {
-                let len = r.context("IPC read error.")?;
-                if len == 0 {
+            _ = channel.read_buf(&mut buf) => {
+                if buf.is_empty() {
                     // https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-client
                     // Because the client is reading from the pipe in message-read mode, it is
                     // possible for the ReadFile operation to return zero after reading a partial
@@ -90,21 +86,21 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                     return Err(anyhow!("redirect daemon exited prematurely."));
                 }
 
-                warn!("Receiving packet: {} {:?}", len, &buf[..len]);
-
-                let mut cursor = Cursor::new(&buf[..len]);
-                let Ok(PacketWithMeta { data, tunnel_info}) = PacketWithMeta::decode(&mut cursor) else {
-                    return Err(anyhow!("Received invalid IPC message from redirector: {:?}", &buf[..len]));
+                let Ok(PacketWithMeta { data, tunnel_info}) = PacketWithMeta::decode(&mut buf) else {
+                    return Err(anyhow!("Received invalid IPC message from redirector: {:?}", &buf));
                 };
-                assert_eq!(cursor.position(), len as u64);
+                assert!(buf.is_empty());
 
                 // TODO: Use Bytes in SmolPacket to avoid copy
                 let data = data.to_vec();
 
                 let Ok(mut packet) = SmolPacket::try_from(data) else {
-                    log::error!("Skipping invalid packet: {:?}", &buf[..len]);
+                    log::error!("Skipping invalid packet: {:?}", &buf);
                     continue;
                 };
+
+                warn!("Receiving packet: {:?}", &packet);
+
                 // WinDivert packets do not have correct IP checksums yet, we need fix that here
                 // otherwise smoltcp will be unhappy with us.
                 packet.fill_ip_checksum();
@@ -124,11 +120,13 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
             // write packets from the network stack to the IPC pipe to be reinjected.
             Some(e) = net_rx.recv() => {
                 match e {
-                    NetworkCommand::SendPacket(packet) => {
+                    NetworkCommand::SendPacket(mut packet) => {
+                        packet.fill_ip_checksum();  // FIXME probably unnecessary.
                         let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet( ipc::Packet { data: Bytes::from(packet.into_inner()) }))};
-                        packet.encode(&mut buf.as_mut_slice())?;
-                        let len = packet.encoded_len();
-                        channel.write_all(&buf[..len]).await.context("failed to send packet")?;
+                        assert!(buf.is_empty());
+                        packet.encode(&mut buf)?;
+                        warn!("Sending packet: {} {:?}", buf.len(), &packet.message.as_ref().unwrap());
+                        channel.write_all_buf(&mut buf).await.context("failed to send packet")?;
                     }
                 }
             }

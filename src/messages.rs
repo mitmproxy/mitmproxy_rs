@@ -3,7 +3,7 @@ use std::fmt::Formatter;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use anyhow::{anyhow, Result};
-use internet_packet::InternetPacket;
+use internet_packet::{InternetPacket, TransportProtocol};
 use smoltcp::wire::{IpProtocol, Ipv4Packet, Ipv6Packet};
 use tokio::sync::{mpsc, oneshot};
 
@@ -121,17 +121,19 @@ pub enum SmolPacket {
 
 impl fmt::Debug for SmolPacket {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let mut f = f.debug_struct("SmolPacket");
         match TryInto::<InternetPacket>::try_into(self.clone()) {
-            Ok(p) => f
-                .debug_struct("SmolPacket")
-                .field("src", &p.src())
-                .field("dst", &p.dst())
-                .field("protocol", &p.protocol())
-                .field("tcp_flags_str", &p.tcp_flag_str())
-                .field("payload", &String::from_utf8_lossy(p.payload()))
-                .finish(),
+            Ok(p) => {
+                f.field("src", &p.src());
+                f.field("dst", &p.dst());
+                f.field("protocol", &p.protocol());
+                if matches!(p.protocol(), TransportProtocol::Tcp) {
+                    f.field("tcp_flags_str", &p.tcp_flag_str());
+                }
+                f.field("payload", &String::from_utf8_lossy(p.payload()));
+                f.finish()
+            },
             Err(_) => f
-                .debug_struct("SmolPacket")
                 .field("src_ip", &self.src_ip())
                 .field("dst_ip", &self.dst_ip())
                 .field("transport_protocol", &self.transport_protocol())
