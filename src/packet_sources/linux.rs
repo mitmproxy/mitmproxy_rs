@@ -82,13 +82,14 @@ async fn start_redirector(executable: &Path, listener_addr: &Path) -> Result<Pat
     });
 
     timeout(
-        Duration::new(5, 0),
+        Duration::from_secs(5),
         BufReader::new(stdout).lines().next_line(),
     )
-    .await
-    .context("failed to establish connection to Linux redirector")??
-    .ok_or(anyhow!("redirector did not produce stdout"))
-    .map(PathBuf::from)
+        .await
+        .context("failed to establish connection to Linux redirector")?
+        .context("failed to read redirector stdout")?
+        .map(PathBuf::from)
+        .context("redirector did not produce stdout")
 }
 
 pub struct LinuxConf {
