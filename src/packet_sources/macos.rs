@@ -4,6 +4,7 @@ use crate::messages::{ConnectionIdGenerator, TransportCommand, TransportEvent, T
 
 use crate::intercept_conf::InterceptConf;
 use crate::ipc;
+use crate::shutdown;
 use crate::ipc::{NewFlow, TcpFlow, UdpFlow};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use anyhow::{bail, Context, Result};
