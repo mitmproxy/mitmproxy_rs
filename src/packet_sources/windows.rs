@@ -6,7 +6,6 @@ use anyhow::{anyhow, Result};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio::sync::watch;
 use windows::core::w;
 use windows::core::PCWSTR;
 use windows::Win32::UI::Shell::ShellExecuteW;
