@@ -25,7 +25,7 @@ use crate::network::udp::ConnectionState;
 use tokio::process::Command;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio::sync::{broadcast, oneshot};
+use tokio::sync::{watch, oneshot};
 use tokio::task::JoinSet;
 use tokio::time::timeout;
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
@@ -78,7 +78,7 @@ impl PacketSourceConf for MacosConf {
         self,
         transport_events_tx: Sender<TransportEvent>,
         _transport_commands_rx: UnboundedReceiver<TransportCommand>,
-        shutdown: broadcast::Receiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> Result<(Self::Task, Self::Data)> {
         let listener_addr = format!("/tmp/mitmproxy-{}", std::process::id());
         let listener = UnixListener::bind(&listener_addr)?;
@@ -114,7 +114,7 @@ pub struct MacOsTask {
     connections: JoinSet<Result<()>>,
     transport_events_tx: Sender<TransportEvent>,
     conf_rx: UnboundedReceiver<InterceptConf>,
-    shutdown: broadcast::Receiver<()>,
+    shutdown: shutdown::Receiver,
 }
 
 impl PacketSourceTask for MacOsTask {
@@ -142,7 +142,7 @@ impl PacketSourceTask for MacOsTask {
                             let task = ConnectionTask::new(
                                 stream,
                                 self.transport_events_tx.clone(),
-                                self.shutdown.resubscribe(),
+                                self.shutdown.clone(),
                             );
                             self.connections.spawn(task.run());
                         },
@@ -168,14 +168,14 @@ impl PacketSourceTask for MacOsTask {
 struct ConnectionTask {
     stream: UnixStream,
     events: Sender<TransportEvent>,
-    shutdown: broadcast::Receiver<()>,
+    shutdown: shutdown::Receiver,
 }
 
 impl ConnectionTask {
     pub fn new(
         stream: UnixStream,
         events: Sender<TransportEvent>,
-        shutdown: broadcast::Receiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> Self {
         Self {
             stream,

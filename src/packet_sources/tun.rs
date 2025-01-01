@@ -7,8 +7,9 @@ use anyhow::{Context, Result};
 use std::cmp::max;
 use std::fs;
 use tokio::sync::mpsc::{Permit, Receiver, UnboundedReceiver};
-use tokio::sync::{broadcast, mpsc::Sender};
+use tokio::sync::mpsc::Sender;
 use tun::AbstractDevice;
+use crate::shutdown;
 
 pub struct TunConf {
     pub tun_name: Option<String>,
@@ -26,7 +27,7 @@ impl PacketSourceConf for TunConf {
         self,
         transport_events_tx: Sender<TransportEvent>,
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
-        shutdown: broadcast::Receiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> Result<(Self::Task, Self::Data)> {
         let (device, tun_name) = create_tun_device(self.tun_name)?;
 
@@ -102,7 +103,7 @@ impl PacketSourceTask for TunTask {
         loop {
             tokio::select! {
                 // Monitor the network task for errors or planned shutdown.
-                // This way we implicitly monitor the shutdown broadcast channel.
+                // This way we implicitly monitor the shutdown channel.
                 exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
                 // wait for transport_events_tx channel capacity...
                 Ok(p) = self.net_tx.reserve(), if permit.is_none() => {

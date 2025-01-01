@@ -3,16 +3,12 @@ use std::fmt;
 use anyhow::Result;
 
 use std::time::Duration;
-use tokio::sync::{
-    broadcast,
-    broadcast::Receiver as BroadcastReceiver,
-    mpsc,
-    mpsc::{Permit, Receiver, Sender, UnboundedReceiver},
-};
+use tokio::sync::{mpsc, mpsc::{Permit, Receiver, Sender, UnboundedReceiver}};
 use tokio::task::JoinHandle;
 
 use crate::messages::{NetworkCommand, NetworkEvent, TransportCommand, TransportEvent};
 use crate::network::core::NetworkStack;
+use crate::shutdown;
 
 pub struct NetworkTask<'a> {
     net_tx: Sender<NetworkCommand>,
@@ -20,7 +16,7 @@ pub struct NetworkTask<'a> {
     py_tx: Sender<TransportEvent>,
     py_rx: UnboundedReceiver<TransportCommand>,
 
-    shutdown: BroadcastReceiver<()>,
+    shutdown: shutdown::Receiver,
     io: NetworkStack<'a>,
 }
 
@@ -28,7 +24,7 @@ pub struct NetworkTask<'a> {
 pub fn add_network_layer(
     transport_events_tx: Sender<TransportEvent>,
     transport_commands_rx: UnboundedReceiver<TransportCommand>,
-    shutdown: broadcast::Receiver<()>,
+    shutdown: shutdown::Receiver,
 ) -> (
     JoinHandle<Result<()>>,
     Sender<NetworkEvent>,
@@ -55,7 +51,7 @@ impl NetworkTask<'_> {
         net_rx: Receiver<NetworkEvent>,
         py_tx: Sender<TransportEvent>,
         py_rx: UnboundedReceiver<TransportCommand>,
-        shutdown: BroadcastReceiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> Self {
         let io = NetworkStack::new(net_tx.clone());
         Self {

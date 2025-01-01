@@ -6,13 +6,15 @@ use mitmproxy::packet_sources::{PacketSourceConf, PacketSourceTask};
 use mitmproxy::shutdown::shutdown_task;
 use pyo3::prelude::*;
 
+use mitmproxy::shutdown;
+use tokio::sync::mpsc;
+use tokio::sync::watch;
 use tokio::task::JoinSet;
-use tokio::{sync::broadcast, sync::mpsc};
 
 #[derive(Debug)]
 pub struct Server {
-    shutdown_done: broadcast::Receiver<()>,
-    start_shutdown: Option<broadcast::Sender<()>>,
+    shutdown_done: shutdown::Receiver,
+    start_shutdown: Option<watch::Sender<()>>,
 }
 
 impl Server {
@@ -24,9 +26,9 @@ impl Server {
     }
 
     pub fn wait_closed<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let mut receiver = self.shutdown_done.resubscribe();
+        let mut receiver = self.shutdown_done.clone();
         pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
-            receiver.recv().await.ok();
+            receiver.recv().await;
             Ok(())
         })
     }
@@ -51,13 +53,13 @@ impl Server {
         // This needs to be unbounded because write() is not async.
         let (transport_commands_tx, transport_commands_rx) = mpsc::unbounded_channel();
         // Channel used to trigger graceful shutdown
-        let (shutdown_start_tx, shutdown_start_rx) = broadcast::channel(1);
+        let (shutdown_start_tx, shutdown_start_rx) = shutdown::channel();
 
         let (packet_source_task, data) = packet_source_conf
             .build(
                 transport_events_tx,
                 transport_commands_rx,
-                shutdown_start_rx.resubscribe(),
+                shutdown_start_rx.clone(),
             )
             .await?;
 
@@ -75,7 +77,7 @@ impl Server {
         tasks.spawn(async move { packet_source_task.run().await });
         tasks.spawn(async move { py_task.run().await });
 
-        let (shutdown_done_tx, shutdown_done_rx) = broadcast::channel(1);
+        let (shutdown_done_tx, shutdown_done_rx) = shutdown::channel();
         tokio::spawn(shutdown_task(tasks, shutdown_done_tx));
 
         log::debug!("{} successfully initialized.", typ);

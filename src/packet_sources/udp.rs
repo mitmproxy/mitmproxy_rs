@@ -4,16 +4,13 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 
 use socket2::{Domain, Protocol, Socket, Type};
-use tokio::sync::mpsc::{Permit, UnboundedReceiver};
-use tokio::{
-    net::UdpSocket,
-    sync::{broadcast, mpsc::Sender},
-};
-
+use tokio::sync::mpsc::{Permit, UnboundedReceiver, Sender};
+use tokio::net::UdpSocket;
 use crate::messages::{TransportCommand, TransportEvent, TunnelInfo};
 use crate::network::udp::{UdpHandler, UdpPacket};
 use crate::network::MAX_PACKET_SIZE;
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+use crate::shutdown;
 
 pub fn remote_host_closed_conn<T>(_res: &Result<T, std::io::Error>) -> bool {
     #[cfg(windows)]
@@ -43,7 +40,7 @@ impl PacketSourceConf for UdpConf {
         self,
         transport_events_tx: Sender<TransportEvent>,
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
-        shutdown: broadcast::Receiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> Result<(Self::Task, Self::Data)> {
         let addr = format!("{}:{}", self.host, self.port);
         let sock_addr = SocketAddr::from_str(&addr).context("Invalid listen address specified")?;
@@ -95,7 +92,7 @@ pub struct UdpTask {
 
     transport_events_tx: Sender<TransportEvent>,
     transport_commands_rx: UnboundedReceiver<TransportCommand>,
-    shutdown: broadcast::Receiver<()>,
+    shutdown: shutdown::Receiver,
 }
 
 impl PacketSourceTask for UdpTask {

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use log::{debug, error, log, Level};
 use std::io::Error;
 use std::net::Shutdown;
@@ -9,7 +9,6 @@ use std::str::FromStr;
 use std::task::Poll;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, BufReader, ReadBuf};
-use tokio::sync::broadcast;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
@@ -20,6 +19,7 @@ use tempfile::{tempdir, TempDir};
 use tokio::net::UnixDatagram;
 use tokio::process::Command;
 use tokio::time::timeout;
+use crate::shutdown;
 
 async fn start_redirector(executable: &Path, listener_addr: &Path) -> Result<PathBuf> {
     debug!("Elevating privileges...");
@@ -145,7 +145,7 @@ impl PacketSourceConf for LinuxConf {
         self,
         transport_events_tx: Sender<TransportEvent>,
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
-        shutdown: broadcast::Receiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> Result<(Self::Task, Self::Data)> {
         let datagram_dir = tempdir().context("failed to create temp dir")?;
 
@@ -178,7 +178,7 @@ pub struct LinuxTask {
     transport_events_tx: Sender<TransportEvent>,
     transport_commands_rx: UnboundedReceiver<TransportCommand>,
     conf_rx: UnboundedReceiver<InterceptConf>,
-    shutdown: broadcast::Receiver<()>,
+    shutdown: shutdown::Receiver,
 }
 
 impl PacketSourceTask for LinuxTask {

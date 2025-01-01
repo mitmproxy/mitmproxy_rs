@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
-use tokio::sync::broadcast;
+use tokio::sync::watch;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use windows::core::w;
@@ -33,7 +33,7 @@ impl PacketSourceConf for WindowsConf {
         self,
         transport_events_tx: Sender<TransportEvent>,
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
-        shutdown: broadcast::Receiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> Result<(Self::Task, Self::Data)> {
         let pipe_name = format!(
             r"\\.\pipe\mitmproxy-transparent-proxy-{}",
@@ -112,7 +112,7 @@ pub struct WindowsTask {
     transport_events_tx: Sender<TransportEvent>,
     transport_commands_rx: UnboundedReceiver<TransportCommand>,
     conf_rx: UnboundedReceiver<InterceptConf>,
-    shutdown: broadcast::Receiver<()>,
+    shutdown: shutdown::Receiver,
 }
 
 impl PacketSourceTask for WindowsTask {

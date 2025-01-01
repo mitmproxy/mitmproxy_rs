@@ -4,14 +4,14 @@ use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::network::add_network_layer;
-use crate::{ipc, MAX_PACKET_SIZE};
+use crate::{ipc, shutdown, MAX_PACKET_SIZE};
 use anyhow::{anyhow, Context, Result};
 use prost::bytes::{Bytes, BytesMut};
 use prost::Message;
 use std::future::Future;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc::{Sender, UnboundedReceiver};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::mpsc;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
@@ -34,7 +34,7 @@ pub trait PacketSourceConf {
         self,
         transport_events_tx: mpsc::Sender<TransportEvent>,
         transport_commands_rx: mpsc::UnboundedReceiver<TransportCommand>,
-        shutdown: broadcast::Receiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> impl Future<Output = Result<(Self::Task, Self::Data)>> + Send;
 }
 
@@ -51,7 +51,7 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
     transport_events_tx: Sender<TransportEvent>,
     transport_commands_rx: UnboundedReceiver<TransportCommand>,
     mut conf_rx: UnboundedReceiver<InterceptConf>,
-    shutdown: broadcast::Receiver<()>,
+    shutdown: shutdown::Receiver,
 ) -> Result<()> {
     let mut buf = BytesMut::with_capacity(IPC_BUF_SIZE);
     let (mut network_task_handle, net_tx, mut net_rx) =
@@ -60,7 +60,7 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
     loop {
         tokio::select! {
             // Monitor the network task for errors or planned shutdown.
-            // This way we implicitly monitor the shutdown broadcast channel.
+            // This way we implicitly monitor the shutdown channel.
             exit = &mut network_task_handle => break exit.context("network task panic")?.context("network task error")?,
             // pipe through changes to the intercept list
             Some(conf) = conf_rx.recv() => {
