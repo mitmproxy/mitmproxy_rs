@@ -1,8 +1,14 @@
 use std::net::{Ipv6Addr, SocketAddr};
 
+use super::task::NetworkTask;
+use crate::messages::{
+    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
+};
+use crate::shutdown;
 use anyhow::{anyhow, Result};
 use internet_packet::InternetPacket;
 use smoltcp::{phy::ChecksumCapabilities, wire::*};
+use tokio::sync::watch;
 use tokio::{
     sync::{
         mpsc::{channel, unbounded_channel, Receiver, Sender, UnboundedSender},
@@ -10,12 +16,6 @@ use tokio::{
     },
     task::JoinHandle,
 };
-use tokio::sync::watch;
-use crate::messages::{
-    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
-};
-use crate::shutdown;
-use super::task::NetworkTask;
 
 struct MockNetwork {
     wg_to_smol_tx: Sender<NetworkEvent>,

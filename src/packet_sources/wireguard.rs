@@ -2,6 +2,11 @@ use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
+use crate::messages::{
+    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
+};
+use crate::network::{add_network_layer, MAX_PACKET_SIZE};
+use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use anyhow::{anyhow, Context, Result};
 use boringtun::noise::{
     errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult,
@@ -17,11 +22,6 @@ use tokio::{
         Mutex,
     },
 };
-use crate::messages::{
-    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
-};
-use crate::network::{add_network_layer, MAX_PACKET_SIZE};
-use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 
 use crate::packet_sources::udp::remote_host_closed_conn;
 use crate::shutdown;

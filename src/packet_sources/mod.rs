@@ -10,8 +10,8 @@ use prost::bytes::{Bytes, BytesMut};
 use prost::Message;
 use std::future::Future;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::sync::mpsc::{Sender, UnboundedReceiver};
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::{Sender, UnboundedReceiver};
 
 #[cfg(target_os = "linux")]
 pub mod linux;

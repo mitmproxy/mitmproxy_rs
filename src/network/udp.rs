@@ -265,9 +265,9 @@ mod tests {
     use super::*;
     use crate::packet_sources::udp::UdpConf;
     use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+    use crate::shutdown;
     use std::net::{IpAddr, Ipv4Addr};
     use tokio::net::UdpSocket;
-    use crate::shutdown;
 
     #[test]
     fn test_connection_state_recv_recv_read_read() {

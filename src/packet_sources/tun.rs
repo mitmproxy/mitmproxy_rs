@@ -3,13 +3,13 @@ use crate::messages::{
 };
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+use crate::shutdown;
 use anyhow::{Context, Result};
 use std::cmp::max;
 use std::fs;
-use tokio::sync::mpsc::{Permit, Receiver, UnboundedReceiver};
 use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{Permit, Receiver, UnboundedReceiver};
 use tun::AbstractDevice;
-use crate::shutdown;
 
 pub struct TunConf {
     pub tun_name: Option<String>,

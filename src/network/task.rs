@@ -3,7 +3,10 @@ use std::fmt;
 use anyhow::Result;
 
 use std::time::Duration;
-use tokio::sync::{mpsc, mpsc::{Permit, Receiver, Sender, UnboundedReceiver}};
+use tokio::sync::{
+    mpsc,
+    mpsc::{Permit, Receiver, Sender, UnboundedReceiver},
+};
 use tokio::task::JoinHandle;
 
 use crate::messages::{NetworkCommand, NetworkEvent, TransportCommand, TransportEvent};

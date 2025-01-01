@@ -15,11 +15,11 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use crate::intercept_conf::InterceptConf;
 use crate::messages::{TransportCommand, TransportEvent};
 use crate::packet_sources::{forward_packets, PacketSourceConf, PacketSourceTask};
+use crate::shutdown;
 use tempfile::{tempdir, TempDir};
 use tokio::net::UnixDatagram;
 use tokio::process::Command;
 use tokio::time::timeout;
-use crate::shutdown;
 
 async fn start_redirector(
     executable: &Path,
@@ -62,7 +62,7 @@ async fn start_redirector(
             if shutdown2.is_shutting_down() {
                 // We don't want to log during exit, https://github.com/vorner/pyo3-log/issues/30
                 eprintln!("{}", line);
-                continue
+                continue;
             }
 
             let new_level = line
@@ -104,11 +104,11 @@ async fn start_redirector(
         Duration::from_secs(5),
         BufReader::new(stdout).lines().next_line(),
     )
-        .await
-        .context("failed to establish connection to Linux redirector")?
-        .context("failed to read redirector stdout")?
-        .map(PathBuf::from)
-        .context("redirector did not produce stdout")
+    .await
+    .context("failed to establish connection to Linux redirector")?
+    .context("failed to read redirector stdout")?
+    .map(PathBuf::from)
+    .context("redirector did not produce stdout")
 }
 
 pub struct LinuxConf {
@@ -169,7 +169,8 @@ impl PacketSourceConf for LinuxConf {
         let datagram_dir = tempdir().context("failed to create temp dir")?;
 
         let channel = UnixDatagram::bind(datagram_dir.path().join("mitmproxy"))?;
-        let dst = start_redirector(&self.executable_path, datagram_dir.path(), shutdown.clone()).await?;
+        let dst =
+            start_redirector(&self.executable_path, datagram_dir.path(), shutdown.clone()).await?;
 
         channel
             .connect(&dst)

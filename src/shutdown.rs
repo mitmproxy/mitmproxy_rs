@@ -1,5 +1,5 @@
-use std::fmt::{Debug, Formatter};
 use anyhow::Result;
+use std::fmt::{Debug, Formatter};
 
 use tokio::sync::watch;
 use tokio::task::JoinSet;
@@ -21,7 +21,7 @@ impl Receiver {
 impl Debug for Receiver {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("Shutdown")
-                .field(&self.is_shutting_down())
+            .field(&self.is_shutting_down())
             .finish()
     }
 }
@@ -55,7 +55,6 @@ pub async fn shutdown_task(mut tasks: JoinSet<Result<()>>, shutdown_done: watch:
     }
     shutdown_done.send(()).ok();
 }
-
 
 #[cfg(test)]
 mod tests {
