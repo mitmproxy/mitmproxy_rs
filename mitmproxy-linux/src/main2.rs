@@ -16,6 +16,7 @@ use mitmproxy::packet_sources::tun::create_tun_device;
 use tun::AbstractDevice;
 use prost::Message;
 use tokio::io::AsyncReadExt;
+use tokio::signal::unix::{signal, SignalKind};
 use mitmproxy::ipc::{PacketWithMeta, from_proxy};
 use mitmproxy::ipc::FromProxy;
 use mitmproxy::packet_sources::IPC_BUF_SIZE;
@@ -88,6 +89,17 @@ async fn main() -> anyhow::Result<()> {
     fs::set_permissions(&mitmproxy_addr, Permissions::from_mode(0o777))?;
     fs::set_permissions(&redirector_addr, Permissions::from_mode(0o777))?;
     println!("{}", redirector_addr.to_string_lossy());
+
+    // Exit cleanly on SIGINT/SIGTERM
+    tokio::spawn(async {
+        let mut sigint = signal(SignalKind::interrupt()).context("failed to register SIGINT listener").unwrap();
+        let mut sigterm = signal(SignalKind::terminate()).context("failed to register SIGTERM listener").unwrap();
+        select! {
+            _ = sigint.recv() => (),
+            _ = sigterm.recv() => (),
+        }
+        std::process::exit(0);
+    });
 
     let mut ipc_buf = BytesMut::with_capacity(IPC_BUF_SIZE);
     let mut dev_buf = BytesMut::with_capacity(IPC_BUF_SIZE);

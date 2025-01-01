@@ -21,7 +21,11 @@ use tokio::process::Command;
 use tokio::time::timeout;
 use crate::shutdown;
 
-async fn start_redirector(executable: &Path, listener_addr: &Path) -> Result<PathBuf> {
+async fn start_redirector(
+    executable: &Path,
+    listener_addr: &Path,
+    shutdown: shutdown::Receiver,
+) -> Result<PathBuf> {
     debug!("Elevating privileges...");
     // Try to elevate privileges using a dummy sudo invocation.
     // The idea here is to block execution and give the user time to enter their password.
@@ -50,10 +54,17 @@ async fn start_redirector(executable: &Path, listener_addr: &Path) -> Result<Pat
 
     let stdout = redirector_process.stdout.take().unwrap();
     let stderr = redirector_process.stderr.take().unwrap();
+    let shutdown2 = shutdown.clone();
     tokio::spawn(async move {
         let mut stderr = BufReader::new(stderr).lines();
         let mut level = Level::Error;
         while let Ok(Some(line)) = stderr.next_line().await {
+            if shutdown2.is_shutting_down() {
+                // We don't want to log during exit, https://github.com/vorner/pyo3-log/issues/30
+                eprintln!("{}", line);
+                continue
+            }
+
             let new_level = line
                 .strip_prefix("[")
                 .and_then(|s| s.split_once(" "))
@@ -73,10 +84,18 @@ async fn start_redirector(executable: &Path, listener_addr: &Path) -> Result<Pat
     tokio::spawn(async move {
         match redirector_process.wait().await {
             Ok(status) if status.success() => {
-                debug!("[linux-redirector] exited successfully.")
+                if shutdown.is_shutting_down() {
+                    // We don't want to log during exit, https://github.com/vorner/pyo3-log/issues/30
+                } else {
+                    debug!("[linux-redirector] exited successfully.")
+                }
             }
             other => {
-                error!("[linux-redirector] exited: {:?}", other)
+                if shutdown.is_shutting_down() {
+                    eprintln!("[linux-redirector] exited during shutdown: {:?}", other)
+                } else {
+                    error!("[linux-redirector] exited: {:?}", other)
+                }
             }
         }
     });
@@ -150,7 +169,7 @@ impl PacketSourceConf for LinuxConf {
         let datagram_dir = tempdir().context("failed to create temp dir")?;
 
         let channel = UnixDatagram::bind(datagram_dir.path().join("mitmproxy"))?;
-        let dst = start_redirector(&self.executable_path, datagram_dir.path()).await?;
+        let dst = start_redirector(&self.executable_path, datagram_dir.path(), shutdown.clone()).await?;
 
         channel
             .connect(&dst)
