@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use crate::util::{socketaddr_to_py, string_to_key};
+use crate::util::string_to_key;
 
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
 
@@ -43,8 +43,8 @@ impl WireGuardServer {
     }
 
     /// Get the local socket address that the WireGuard server is listening on.
-    pub fn getsockname(&self, py: Python) -> PyObject {
-        socketaddr_to_py(py, self.local_addr)
+    pub fn getsockname(&self) -> (String, u16) {
+        (self.local_addr.ip().to_string(), self.local_addr.port())
     }
 
     pub fn __repr__(&self) -> String {
@@ -81,7 +81,7 @@ pub fn start_wireguard_server(
         private_key,
         peer_public_keys,
     };
-    pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
+    pyo3_async_runtimes::tokio::future_into_py(py, async move {
         let (server, local_addr) = Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
         Ok(WireGuardServer { server, local_addr })
     })

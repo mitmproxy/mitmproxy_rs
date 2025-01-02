@@ -38,7 +38,7 @@ impl DnsResolver {
     /// Raises `socket.gaierror` if the domain does not exist, has no records, or there is a general connectivity failure.
     pub fn lookup_ip<'py>(&self, py: Python<'py>, host: String) -> PyResult<Bound<'py, PyAny>> {
         let resolver = self.0.clone();
-        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
             let resolved = resolver.lookup_ip(host).await;
             resolve_result_to_py(resolved)
         })
@@ -49,7 +49,7 @@ impl DnsResolver {
     /// Raises `socket.gaierror` if the domain does not exist, has no records, or there is a general connectivity failure.
     pub fn lookup_ipv4<'py>(&self, py: Python<'py>, host: String) -> PyResult<Bound<'py, PyAny>> {
         let resolver = self.0.clone();
-        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
             let resolved = resolver.lookup_ipv4(host).await;
             resolve_result_to_py(resolved)
         })
@@ -60,7 +60,7 @@ impl DnsResolver {
     /// Raises `socket.gaierror` if the domain does not exist, has no records, or there is a general connectivity failure.
     pub fn lookup_ipv6<'py>(&self, py: Python<'py>, host: String) -> PyResult<Bound<'py, PyAny>> {
         let resolver = self.0.clone();
-        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
             let resolved = resolver.lookup_ipv6(host).await;
             resolve_result_to_py(resolved)
         })
@@ -86,7 +86,7 @@ impl AddrInfoErrorConst {
     fn get(&self) -> isize {
         *self.1.get_or_init(|| {
             Python::with_gil(|py| {
-                py.import_bound("socket")
+                py.import("socket")
                     .and_then(|m| m.getattr(self.0))
                     .and_then(|m| m.extract())
                     .unwrap_or_else(|e| {

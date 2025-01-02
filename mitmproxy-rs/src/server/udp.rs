@@ -6,8 +6,6 @@ use pyo3::prelude::*;
 
 use crate::server::base::Server;
 
-use crate::util::socketaddr_to_py;
-
 /// A running UDP server.
 ///
 /// A new server can be started by calling `start_udp_server`.
@@ -41,8 +39,8 @@ impl UdpServer {
     }
 
     /// Get the local socket address that the UDP server is listening on.
-    pub fn getsockname(&self, py: Python) -> PyObject {
-        socketaddr_to_py(py, self.local_addr)
+    pub fn getsockname(&self) -> (String, u16) {
+        (self.local_addr.ip().to_string(), self.local_addr.port())
     }
 
     pub fn __repr__(&self) -> String {
@@ -64,7 +62,7 @@ pub fn start_udp_server(
 ) -> PyResult<Bound<PyAny>> {
     let conf = UdpConf { host, port };
     let handle_tcp_stream = py.None();
-    pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
+    pyo3_async_runtimes::tokio::future_into_py(py, async move {
         let (server, local_addr) = Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
         Ok(UdpServer { server, local_addr })
     })

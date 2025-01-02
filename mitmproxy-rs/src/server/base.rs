@@ -27,7 +27,7 @@ impl Server {
 
     pub fn wait_closed<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let mut receiver = self.shutdown_done.clone();
-        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
             receiver.recv().await;
             Ok(())
         })

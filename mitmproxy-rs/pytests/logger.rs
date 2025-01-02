@@ -70,7 +70,7 @@ static _LOGGER: LazyLock<Mutex<&'static TestLogger>> = LazyLock::new(|| {
 });
 
 /// Initialize the logger.
-/// pyo3-asyncio tests all run in parallel in the same runtime, so we use a mutex to ensure
+/// pyo3_async_runtimes tests all run in parallel in the same runtime, so we use a mutex to ensure
 /// that only one test that uses TestLogger runs at the same time.
 pub async fn setup_logger() -> MutexGuard<'static, &'static TestLogger> {
     let logger = _LOGGER.lock().await;

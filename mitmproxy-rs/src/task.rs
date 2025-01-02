@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use pyo3::exceptions::asyncio::CancelledError;
 use pyo3::prelude::*;
-use pyo3_asyncio_0_21::TaskLocals;
+use pyo3_async_runtimes::TaskLocals;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::stream::Stream;
@@ -32,7 +32,7 @@ impl PyInteropTask {
     ) -> Result<Self> {
         // Note: The current asyncio event loop needs to be determined here on the main thread.
         let locals = Python::with_gil(|py| -> Result<TaskLocals, PyErr> {
-            let py_loop = pyo3_asyncio_0_21::tokio::get_current_loop(py)?;
+            let py_loop = pyo3_async_runtimes::tokio::get_current_loop(py)?;
             TaskLocals::new(py_loop).copy_context(py)
         })
         .context("failed to get python task locals")?;
@@ -83,7 +83,6 @@ impl PyInteropTask {
 
                             // spawn connection handler coroutine
                             if let Err(err) = Python::with_gil(|py| -> Result<(), PyErr> {
-                                let stream = stream.into_py(py);
 
                                 // calling Python coroutine object yields an awaitable object
                                 let coro = if connection_id.is_tcp() {
@@ -93,7 +92,7 @@ impl PyInteropTask {
                                 };
 
                                 // convert Python awaitable into Rust Future
-                                let future = pyo3_asyncio_0_21::into_future_with_locals(&self.locals, coro.into_bound(py))?;
+                                let future = pyo3_async_runtimes::into_future_with_locals(&self.locals, coro.into_bound(py))?;
 
                                 // run Future on a new Tokio task
                                 let handle = {

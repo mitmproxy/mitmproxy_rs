@@ -1,7 +1,7 @@
 mod logger;
 
 mod tests {
-
+    use std::ffi::CString;
     use std::future::Future;
 
     use mitmproxy::messages::{ConnectionId, TransportEvent, TunnelInfo};
@@ -14,7 +14,7 @@ mod tests {
     use mitmproxy::shutdown;
     use tokio::sync::mpsc;
 
-    #[pyo3_asyncio_0_21::tokio::test]
+    #[pyo3_async_runtimes::tokio::test]
     async fn test_handler_invalid_signature() -> PyResult<()> {
         let logger = setup_logger().await;
         _test_task_error_handling(
@@ -26,7 +26,7 @@ mod tests {
         Ok(())
     }
 
-    #[pyo3_asyncio_0_21::tokio::test]
+    #[pyo3_async_runtimes::tokio::test]
     async fn test_handler_runtime_error() -> PyResult<()> {
         let logger = setup_logger().await;
         _test_task_error_handling(
@@ -38,7 +38,7 @@ mod tests {
         Ok(())
     }
 
-    #[pyo3_asyncio_0_21::tokio::test]
+    #[pyo3_async_runtimes::tokio::test]
     async fn test_handler_cancelled() -> PyResult<()> {
         let logger = setup_logger().await;
         _test_task_error_handling(
@@ -63,19 +63,15 @@ mod tests {
         let (event_tx, event_rx) = mpsc::channel(1);
         let (shutdown_tx, shutdown_rx) = shutdown::channel();
 
-        let conn_handler = Python::with_gil(|py| {
-            let locals = PyDict::new_bound(py);
-            py.run_bound(code, None, Some(&locals)).unwrap();
-            locals.get_item("handler").unwrap().unwrap().to_object(py)
+        let (tcp_handler, udp_handler) = Python::with_gil(|py| {
+            let locals = PyDict::new(py);
+            let code = CString::new(code).unwrap();
+            py.run(&code, None, Some(&locals)).unwrap();
+            let handler = locals.get_item("handler").unwrap().unwrap().unbind();
+            (handler.clone_ref(py), handler)
         });
 
-        let task = PyInteropTask::new(
-            command_tx,
-            event_rx,
-            conn_handler.clone(),
-            conn_handler,
-            shutdown_rx,
-        )?;
+        let task = PyInteropTask::new(command_tx, event_rx, tcp_handler, udp_handler, shutdown_rx)?;
         let task = tokio::spawn(task.run());
 
         event_tx
@@ -99,7 +95,7 @@ mod tests {
     }
 }
 
-#[pyo3_asyncio_0_21::tokio::main]
+#[pyo3_async_runtimes::tokio::main]
 async fn main() -> pyo3::PyResult<()> {
-    pyo3_asyncio_0_21::testing::main().await
+    pyo3_async_runtimes::testing::main().await
 }
