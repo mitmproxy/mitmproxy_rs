@@ -27,13 +27,13 @@ jobs:
           - os: macos-latest
             rust: "1.80"  # MSRV - can't use variables here.
             args: --exclude mitmproxy-linux-ebpf
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             rust: "1.80"  # MSRV - can't use variables here.
             args: --exclude mitmproxy-linux-ebpf
           - os: ubuntu-latest
             rust: stable
             args: --exclude mitmproxy-linux-ebpf
-          - os: ubuntu-22.04  # old Ubuntu to test eBPF verifier compatibility
+          - os: ubuntu-latest  # old Ubuntu to test eBPF verifier compatibility
             rust: nightly
             args: --package mitmproxy-linux-ebpf
     env:
@@ -59,7 +59,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           command: test
           args: --workspace --verbose ${{ matrix.args }}
-      - if: matrix.rust == 'nightly'  # Test that eBPF loads
+      - if: matrix.os == 'ubuntu-22.04'  # Test that eBPF loads
         run: cargo test --features root-tests
         working-directory: mitmproxy-linux
         env:
