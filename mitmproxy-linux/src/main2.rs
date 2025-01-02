@@ -31,7 +31,7 @@ struct ActionWrapper(Action);
 unsafe impl aya::Pod for ActionWrapper {}
 
 const BPF_PROG: &[u8] = aya::include_bytes_aligned!(concat!(env!("OUT_DIR"), "/mitmproxy-linux"));
-const BPF_HASH: [u8; 20] = const_sha1::sha1(&BPF_PROG).as_bytes();
+const BPF_HASH: [u8; 20] = const_sha1::sha1(BPF_PROG).as_bytes();
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
