@@ -36,3 +36,6 @@ mitmproxy-linux-ebpf = { path = "../mitmproxy-linux-ebpf" }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 hex = "0.4.3"
+
+[features]
+root-tests = []

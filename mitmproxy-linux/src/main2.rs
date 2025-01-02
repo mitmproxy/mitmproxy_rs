@@ -2,7 +2,8 @@ use std::{fs, iter};
 use std::fs::Permissions;
 use anyhow::Context;
 use anyhow::anyhow;
-use aya::EbpfLoader;
+use anyhow::Result;
+use aya::{Ebpf, EbpfLoader};
 use aya::maps::Array;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -33,6 +34,27 @@ unsafe impl aya::Pod for ActionWrapper {}
 const BPF_PROG: &[u8] = aya::include_bytes_aligned!(concat!(env!("OUT_DIR"), "/mitmproxy-linux"));
 const BPF_HASH: [u8; 20] = const_sha1::sha1(BPF_PROG).as_bytes();
 
+fn load_bpf(device_index: u32) -> Result<Ebpf> {
+    debug!("Loading BPF program ({:x})...", Bytes::from_static(&BPF_HASH));
+    let mut ebpf = EbpfLoader::new()
+        .btf(Btf::from_sys_fs().ok().as_ref())
+        .set_global("INTERFACE_ID", &device_index, true)
+        .load(BPF_PROG)
+        .context("failed to load eBPF program")?;
+    if let Err(e) = aya_log::EbpfLogger::init(&mut ebpf) {
+        // This can happen if you remove all log statements from your eBPF program.
+        warn!("failed to initialize eBPF logger: {}", e);
+    }
+
+    debug!("Attaching BPF_CGROUP_INET_SOCK_CREATE program...");
+    let prog: &mut CgroupSock = ebpf.program_mut("cgroup_sock_create").context("failed to get cgroup_sock_create")?.try_into()?;
+    // root cgroup to get all events.
+    let cgroup = fs::File::open("/sys/fs/cgroup/").context("failed to open \"/sys/fs/cgroup/\"")?;
+    prog.load().context("failed to load cgroup_sock_create program")?;
+    prog.attach(&cgroup, CgroupAttachMode::Single).context("failed to attach cgroup_sock_create program")?;
+    Ok(ebpf)
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(
@@ -57,23 +79,7 @@ async fn main() -> anyhow::Result<()> {
     let device_index = device.tun_index().context("failed to get tun device index")? as u32;
     debug!("Tun device created: {name} (id={device_index})");
 
-    debug!("Loading BPF program ({:x})...", Bytes::from_static(&BPF_HASH));
-    let mut ebpf = EbpfLoader::new()
-        .btf(Btf::from_sys_fs().ok().as_ref())
-        .set_global("INTERFACE_ID", &device_index, true)
-        .load(BPF_PROG)
-        .context("failed to load eBPF program")?;
-    if let Err(e) = aya_log::EbpfLogger::init(&mut ebpf) {
-        // This can happen if you remove all log statements from your eBPF program.
-        warn!("failed to initialize eBPF logger: {}", e);
-    }
-
-    debug!("Attaching BPF_CGROUP_INET_SOCK_CREATE program...");
-    let prog: &mut CgroupSock = ebpf.program_mut("cgroup_sock_create").context("failed to get cgroup_sock_create")?.try_into()?;
-    // root cgroup to get all events.
-    let cgroup = fs::File::open("/sys/fs/cgroup/").context("failed to open \"/sys/fs/cgroup/\"")?;
-    prog.load().context("failed to load cgroup_sock_create program")?;
-    prog.attach(&cgroup, CgroupAttachMode::Single).context("failed to attach cgroup_sock_create program")?;
+    let mut ebpf = load_bpf(device_index).context("eBPF initialization failed")?;
 
     debug!("Getting INTERCEPT_CONF map...");
     let mut intercept_conf = {
@@ -175,4 +181,17 @@ fn bump_memlock_rlimit() {
     if ret != 0 {
         info!("remove limit on locked memory failed, ret is: {}", ret);
     }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg_attr(not(feature = "root-tests"), ignore)]
+    #[test]
+    fn bpf_load() {
+        load_bpf(0).unwrap();
+    }
+
 }

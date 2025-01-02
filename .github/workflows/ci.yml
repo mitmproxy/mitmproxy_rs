@@ -27,7 +27,7 @@ jobs:
           - os: macos-latest
             rust: "1.80"  # MSRV - can't use variables here.
             args: --exclude mitmproxy-linux-ebpf
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             rust: "1.80"  # MSRV - can't use variables here.
             args: --exclude mitmproxy-linux-ebpf
           - os: ubuntu-latest
@@ -58,7 +58,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           command: test
-          args: --workspace --verbose ${{ matrix.args }}
+          args: --workspace --all-features --verbose ${{ matrix.args }}
 
   build:
     strategy:
