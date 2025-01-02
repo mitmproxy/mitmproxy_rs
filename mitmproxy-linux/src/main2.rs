@@ -57,11 +57,12 @@ async fn main() -> anyhow::Result<()> {
     let device_index = device.tun_index().context("failed to get tun device index")? as u32;
     debug!("Tun device created: {name} (id={device_index})");
 
-    debug!("Loading BPF program...");
+    debug!("Loading BPF program ({:x})...", Bytes::from_static(&BPF_HASH));
     let mut ebpf = EbpfLoader::new()
         .btf(Btf::from_sys_fs().ok().as_ref())
         .set_global("INTERFACE_ID", &device_index, true)
-        .load(prog).with_context(|| format!("Failed to load eBPF program ({:x})", Bytes::from_static(&BPF_HASH)))?;
+        .load(BPF_PROG)
+        .with_context(|| format!("Failed to load eBPF program ({:x})", Bytes::from_static(&BPF_HASH)))?;
     if let Err(e) = aya_log::EbpfLogger::init(&mut ebpf) {
         // This can happen if you remove all log statements from your eBPF program.
         warn!("failed to initialize eBPF logger: {}", e);
