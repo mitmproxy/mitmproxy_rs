@@ -35,10 +35,9 @@ jobs:
             args: --exclude mitmproxy-linux-ebpf
           - os: ubuntu-22.04  # old Ubuntu to test eBPF verifier compatibility
             rust: nightly
-            args: --package mitmproxy-linux-ebpf --feature mitmproxy-linux/root-tests
+            args: --package mitmproxy-linux-ebpf
     env:
       RUSTFLAGS: ${{ matrix.rust == 'nightly' && '-Zpanic_abort_tests -C panic=abort' || '' }}
-      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: ${{ matrix.rust == 'nightly' && 'sudo -E' || '' }}
     steps:
       - uses: mhils/workflows/checkout@v12
       - uses: ./.github/actions/setup
@@ -60,6 +59,11 @@ jobs:
           toolchain: ${{ matrix.rust }}
           command: test
           args: --workspace --verbose ${{ matrix.args }}
+      - if: matrix.rust == 'nightly'  # Test that eBPF loads
+        run: cargo test --features root-tests
+        working-directory: mitmproxy-linux
+        env:
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: sudo -E
 
   build:
     strategy:

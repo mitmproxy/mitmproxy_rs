@@ -1,5 +1,5 @@
 [package]
-name = "mitmproxy_linux"
+name = "mitmproxy-linux"
 license = "MIT"
 authors.workspace = true
 version.workspace = true

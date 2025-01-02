@@ -189,8 +189,8 @@ mod tests {
     use super::*;
 
     #[cfg_attr(not(feature = "root-tests"), ignore)]
-    #[test]
-    fn bpf_load() {
+    #[tokio::test]
+    async fn bpf_load() {
         load_bpf(0).unwrap();
     }
 
