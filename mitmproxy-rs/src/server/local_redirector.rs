@@ -92,7 +92,7 @@ impl LocalRedirector {
 /// - `handle_tcp_stream`: An async function that will be called for each new TCP `Stream`.
 /// - `handle_udp_stream`: An async function that will be called for each new UDP `Stream`.
 ///
-/// *Availability: Windows and macOS*
+/// *Availability: Windows, Linux, and macOS*
 #[pyfunction]
 #[allow(unused_variables)]
 pub fn start_local_redirector(

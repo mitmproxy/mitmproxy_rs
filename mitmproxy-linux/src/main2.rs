@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use aya::Btf;
 use aya::programs::{links::CgroupAttachMode, CgroupSock};
 use log::{debug, warn, info, error};
-use prost::bytes::BytesMut;
+use prost::bytes::{Bytes, BytesMut};
 use tokio::net::UnixDatagram;
 use tokio::select;
 use mitmproxy::packet_sources::tun::create_tun_device;
@@ -29,6 +29,9 @@ use mitmproxy_linux_ebpf_common::{Action, INTERCEPT_CONF_LEN};
 struct ActionWrapper(Action);
 
 unsafe impl aya::Pod for ActionWrapper {}
+
+const BPF_PROG: &[u8] = aya::include_bytes_aligned!(concat!(env!("OUT_DIR"), "/mitmproxy-linux"));
+const BPF_HASH: [u8; 20] = const_sha1::sha1(&BPF_PROG).as_bytes();
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -58,9 +61,7 @@ async fn main() -> anyhow::Result<()> {
     let mut ebpf = EbpfLoader::new()
         .btf(Btf::from_sys_fs().ok().as_ref())
         .set_global("INTERFACE_ID", &device_index, true)
-        .load(
-            aya::include_bytes_aligned!(concat!(env!("OUT_DIR"), "/mitmproxy-linux"))
-        )?;
+        .load(prog).with_context(|| format!("Failed to load eBPF program ({:x})", Bytes::from_static(&BPF_HASH)))?;
     if let Err(e) = aya_log::EbpfLogger::init(&mut ebpf) {
         // This can happen if you remove all log statements from your eBPF program.
         warn!("failed to initialize eBPF logger: {}", e);
