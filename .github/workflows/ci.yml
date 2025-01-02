@@ -27,17 +27,18 @@ jobs:
           - os: macos-latest
             rust: "1.80"  # MSRV - can't use variables here.
             args: --exclude mitmproxy-linux-ebpf
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             rust: "1.80"  # MSRV - can't use variables here.
             args: --exclude mitmproxy-linux-ebpf
           - os: ubuntu-latest
             rust: stable
             args: --exclude mitmproxy-linux-ebpf
-          - os: ubuntu-latest
+          - os: ubuntu-22.04  # old Ubuntu to test eBPF verifier compatibility
             rust: nightly
-            args: --package mitmproxy-linux-ebpf
+            args: --package mitmproxy-linux-ebpf --feature mitmproxy-linux/root-tests
     env:
       RUSTFLAGS: ${{ matrix.rust == 'nightly' && '-Zpanic_abort_tests -C panic=abort' || '' }}
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: ${{ matrix.rust == 'nightly' && 'sudo -E' || '' }}
     steps:
       - uses: mhils/workflows/checkout@v12
       - uses: ./.github/actions/setup
@@ -58,7 +59,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           command: test
-          args: --workspace --all-features --verbose ${{ matrix.args }}
+          args: --workspace --verbose ${{ matrix.args }}
 
   build:
     strategy:
