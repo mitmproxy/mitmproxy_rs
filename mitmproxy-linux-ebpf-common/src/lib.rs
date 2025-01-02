@@ -30,7 +30,21 @@ impl Pattern {
         match self {
             Pattern::Pid(p) => pid == *p,
             Pattern::Process(process) => {
-                command.map(|command| command.eq(process)).unwrap_or(false)
+                let Some(command) = command else {
+                    return false;
+                };
+                // `command == process` inexplicably causes BPF verifier errors on Ubuntu 22.04,
+                // (it works on 24.04+), so we do a manual strcmp dance.
+                for i in 0..16 {
+                    let curr = command[i];
+                    if curr != process[i] {
+                        return false;
+                    }
+                    if curr == 0 {
+                        break;
+                    }
+                }
+                true
             }
         }
     }
