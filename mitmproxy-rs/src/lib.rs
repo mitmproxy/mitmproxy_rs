@@ -96,9 +96,11 @@ mod mitmproxy_rs {
 
         // Import platform-specific modules here so that missing dependencies are raising immediately.
         #[cfg(target_os = "macos")]
-        m.py().import_bound("mitmproxy_macos")?;
+        m.py().import("mitmproxy_macos")?;
+        #[cfg(target_os = "linux")]
+        m.py().import("mitmproxy_linux")?;
         #[cfg(windows)]
-        m.py().import_bound("mitmproxy_windows")?;
+        m.py().import("mitmproxy_windows")?;
 
         Ok(())
     }

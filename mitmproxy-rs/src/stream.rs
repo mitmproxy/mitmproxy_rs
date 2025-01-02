@@ -1,9 +1,8 @@
 use std::net::SocketAddr;
 
-use once_cell::sync::Lazy;
 
 use pyo3::exceptions::PyKeyError;
-use pyo3::{exceptions::PyOSError, intern, prelude::*, types::PyBytes};
+use pyo3::{exceptions::PyOSError, intern, prelude::*, IntoPyObjectExt};
 
 use tokio::sync::{
     mpsc::{self},
@@ -35,10 +34,6 @@ pub struct Stream {
     pub tunnel_info: TunnelInfo,
 }
 
-/// Do *not* hold the GIL while accessing.
-static EMPTY_BYTES: Lazy<Py<PyBytes>> =
-    Lazy::new(|| Python::with_gil(|py| PyBytes::new_bound(py, &[]).unbind()));
-
 #[pymethods]
 impl Stream {
     /// Read up to `n` bytes of a TCP stream, or a single UDP packet (`n` is ignored for UDP).
@@ -54,16 +49,12 @@ impl Stream {
                     .send(TransportCommand::ReadData(self.connection_id, n, tx))
                     .ok(); // if this fails tx is dropped and rx.await will error.
 
-                pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
-                    if let Ok(data) = rx.await {
-                        Python::with_gil(|py| Ok(PyBytes::new_bound(py, &data).unbind()))
-                    } else {
-                        Ok(EMPTY_BYTES.clone())
-                    }
+                pyo3_async_runtimes::tokio::future_into_py(py, async move {
+                    Ok(rx.await.unwrap_or_default())
                 })
             }
             StreamState::Closed => {
-                pyo3_asyncio_0_21::tokio::future_into_py(py, async move { Ok(EMPTY_BYTES.clone()) })
+                pyo3_async_runtimes::tokio::future_into_py(py, async move { Ok(Vec::<u8>::new()) })
             }
         }
     }
@@ -97,7 +88,7 @@ impl Stream {
             .send(TransportCommand::DrainWriter(self.connection_id, tx))
             .map_err(event_queue_unavailable)?;
 
-        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
             rx.await
                 .map_err(|_| PyOSError::new_err("connection closed"))
         })
@@ -147,7 +138,7 @@ impl Stream {
 
     /// Wait until the stream is closed (currently a no-op).
     fn wait_closed<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        pyo3_asyncio_0_21::tokio::future_into_py(py, std::future::ready(Ok(())))
+        pyo3_async_runtimes::tokio::future_into_py(py, std::future::ready(Ok(())))
     }
 
     /// Query the stream for details of the underlying network connection.
@@ -156,6 +147,7 @@ impl Stream {
     ///   - Always available: `transport_protocol`, `peername`, `sockname`
     ///   - WireGuard mode: `original_dst`, `original_src`
     ///   - Local redirector mode: `pid`, `process_name`, `remote_endpoint`
+    #[pyo3(signature = (name, default=None))]
     fn get_extra_info(
         &self,
         py: Python,
@@ -164,20 +156,21 @@ impl Stream {
     ) -> PyResult<PyObject> {
         match name.as_str() {
             "transport_protocol" => {
-                if self.connection_id.is_tcp() {
-                    return Ok(intern!(py, "tcp").to_object(py));
+                let proto = if self.connection_id.is_tcp() {
+                    intern!(py, "tcp")
                 } else {
-                    return Ok(intern!(py, "udp").to_object(py));
-                }
+                    intern!(py, "udp")
+                };
+                return Ok(proto.clone().unbind().into_any());
             }
-            "peername" => return Ok(socketaddr_to_py(py, self.peername)),
-            "sockname" => return Ok(socketaddr_to_py(py, self.sockname)),
+            "peername" => return socketaddr_to_py(py, self.peername),
+            "sockname" => return socketaddr_to_py(py, self.sockname),
             _ => (),
         }
         match &self.tunnel_info {
             TunnelInfo::WireGuard { src_addr, dst_addr } => match name.as_str() {
-                "original_src" => return Ok(socketaddr_to_py(py, *src_addr)),
-                "original_dst" => return Ok(socketaddr_to_py(py, *dst_addr)),
+                "original_src" => return socketaddr_to_py(py, *src_addr),
+                "original_dst" => return socketaddr_to_py(py, *dst_addr),
                 _ => (),
             },
             TunnelInfo::LocalRedirector {
@@ -185,11 +178,11 @@ impl Stream {
                 process_name,
                 remote_endpoint,
             } => match name.as_str() {
-                "pid" => return Ok(pid.into_py(py)),
-                "process_name" => return Ok(process_name.clone().into_py(py)),
+                "pid" => return pid.into_py_any(py),
+                "process_name" => return process_name.clone().into_py_any(py),
                 "remote_endpoint" => {
                     if let Some(endpoint) = remote_endpoint {
-                        return Ok(endpoint.clone().into_py(py));
+                        return endpoint.into_py_any(py);
                     }
                 }
                 _ => (),

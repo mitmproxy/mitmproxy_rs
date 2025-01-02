@@ -5,14 +5,12 @@ use data_encoding::BASE64;
 use mitmproxy::certificates;
 
 use pyo3::exceptions::PyOSError;
-use pyo3::types::{PyString, PyTuple};
-use pyo3::{exceptions::PyValueError, prelude::*};
+use pyo3::{exceptions::PyValueError, prelude::*, IntoPyObjectExt};
 use rand_core::OsRng;
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 
 use boringtun::x25519::{PublicKey, StaticSecret};
-use std::str::FromStr;
 use tokio::sync::mpsc;
 
 pub fn string_to_key<T>(data: String) -> PyResult<T>
@@ -27,21 +25,8 @@ where
         .ok_or_else(|| PyValueError::new_err("Invalid key."))
 }
 
-pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyObject {
-    (s.ip().to_string(), s.port()).into_py(py)
-}
-
-#[allow(dead_code)]
-pub fn py_to_socketaddr(t: &PyTuple) -> PyResult<SocketAddr> {
-    if t.len() == 2 {
-        let host = t.get_item(0)?.downcast::<PyString>()?;
-        let port: u16 = t.get_item(1)?.extract()?;
-
-        let addr = IpAddr::from_str(host.to_str()?)?;
-        Ok(SocketAddr::from((addr, port)))
-    } else {
-        Err(PyValueError::new_err("not a socket address"))
-    }
+pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyResult<PyObject> {
+    (s.ip().to_string(), s.port()).into_py_any(py)
 }
 
 pub fn event_queue_unavailable<T>(_: mpsc::error::SendError<T>) -> PyErr {
@@ -61,7 +46,7 @@ pub fn pubkey(private_key: String) -> PyResult<String> {
     Ok(BASE64.encode(PublicKey::from(&private_key).as_bytes()))
 }
 
-/// Convert pem certificate to der certificate and add it to macos keychain.
+/// Convert pem certificate to der certificate and add it to macOS keychain.
 #[pyfunction]
 #[allow(unused_variables)]
 pub fn add_cert(py: Python<'_>, pem: String) -> PyResult<()> {
@@ -73,7 +58,7 @@ pub fn add_cert(py: Python<'_>, pem: String) -> PyResult<()> {
             .take_while(|&line| line != "-----END CERTIFICATE-----")
             .collect::<String>();
 
-        let filename = py.import_bound("mitmproxy_rs")?.filename()?;
+        let filename = py.import("mitmproxy_rs")?.filename()?;
         let executable_path = std::path::Path::new(filename.to_str()?)
             .parent()
             .ok_or_else(|| anyhow!("invalid path"))?

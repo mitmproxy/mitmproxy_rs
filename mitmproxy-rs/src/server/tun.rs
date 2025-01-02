@@ -61,6 +61,7 @@ impl TunInterface {
 /// *Availability: Linux*
 #[pyfunction]
 #[allow(unused_variables)]
+#[pyo3(signature = (handle_tcp_stream, handle_udp_stream, tun_name=None))]
 pub fn create_tun_interface(
     py: Python<'_>,
     handle_tcp_stream: PyObject,
@@ -70,7 +71,7 @@ pub fn create_tun_interface(
     #[cfg(target_os = "linux")]
     {
         let conf = mitmproxy::packet_sources::tun::TunConf { tun_name };
-        pyo3_asyncio_0_21::tokio::future_into_py(py, async move {
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
             let (server, tun_name) =
                 Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
             Ok(TunInterface { server, tun_name })

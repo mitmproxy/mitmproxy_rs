@@ -73,7 +73,7 @@ pub fn executable_icon(path: PathBuf) -> Result<PyObject> {
         let mut icon_cache = processes::ICON_CACHE.lock().unwrap();
         let png_bytes = icon_cache.get_png(path)?;
         Ok(Python::with_gil(|py| {
-            pyo3::types::PyBytes::new_bound(py, png_bytes).to_object(py)
+            pyo3::types::PyBytes::new(py, png_bytes).to_object(py)
         }))
     }
     #[cfg(not(any(windows, target_os = "macos")))]
