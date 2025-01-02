@@ -4,8 +4,6 @@ use anyhow::Result;
 
 use std::time::Duration;
 use tokio::sync::{
-    broadcast,
-    broadcast::Receiver as BroadcastReceiver,
     mpsc,
     mpsc::{Permit, Receiver, Sender, UnboundedReceiver},
 };
@@ -13,6 +11,7 @@ use tokio::task::JoinHandle;
 
 use crate::messages::{NetworkCommand, NetworkEvent, TransportCommand, TransportEvent};
 use crate::network::core::NetworkStack;
+use crate::shutdown;
 
 pub struct NetworkTask<'a> {
     net_tx: Sender<NetworkCommand>,
@@ -20,7 +19,7 @@ pub struct NetworkTask<'a> {
     py_tx: Sender<TransportEvent>,
     py_rx: UnboundedReceiver<TransportCommand>,
 
-    shutdown: BroadcastReceiver<()>,
+    shutdown: shutdown::Receiver,
     io: NetworkStack<'a>,
 }
 
@@ -28,12 +27,12 @@ pub struct NetworkTask<'a> {
 pub fn add_network_layer(
     transport_events_tx: Sender<TransportEvent>,
     transport_commands_rx: UnboundedReceiver<TransportCommand>,
-    shutdown: broadcast::Receiver<()>,
-) -> Result<(
+    shutdown: shutdown::Receiver,
+) -> (
     JoinHandle<Result<()>>,
     Sender<NetworkEvent>,
     Receiver<NetworkCommand>,
-)> {
+) {
     // initialize channels between the WireGuard server and the virtual network device
     let (network_events_tx, network_events_rx) = mpsc::channel(256);
     let (network_commands_tx, network_commands_rx) = mpsc::channel(256);
@@ -44,9 +43,9 @@ pub fn add_network_layer(
         transport_events_tx,
         transport_commands_rx,
         shutdown,
-    )?;
+    );
     let h = tokio::spawn(Box::pin(async move { task.run().await }));
-    Ok((h, network_events_tx, network_commands_rx))
+    (h, network_events_tx, network_commands_rx)
 }
 
 impl NetworkTask<'_> {
@@ -55,17 +54,17 @@ impl NetworkTask<'_> {
         net_rx: Receiver<NetworkEvent>,
         py_tx: Sender<TransportEvent>,
         py_rx: UnboundedReceiver<TransportCommand>,
-        shutdown: BroadcastReceiver<()>,
-    ) -> Result<Self> {
+        shutdown: shutdown::Receiver,
+    ) -> Self {
         let io = NetworkStack::new(net_tx.clone());
-        Ok(Self {
+        Self {
             net_tx,
             net_rx,
             py_tx,
             py_rx,
             shutdown,
             io,
-        })
+        }
     }
 
     pub async fn run(mut self) -> Result<()> {

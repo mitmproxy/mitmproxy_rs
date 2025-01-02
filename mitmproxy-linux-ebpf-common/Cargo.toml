@@ -1,0 +1,16 @@
+[package]
+name = "mitmproxy-linux-ebpf-common"
+license = "MIT"
+authors.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# aya-ebpf currently does not compile on Windows.
+[target.'cfg(target_os = "linux")'.dependencies]
+aya-ebpf = { workspace = true }
+
+[lib]
+path = "src/lib.rs"

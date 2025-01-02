@@ -53,7 +53,8 @@ class InterceptConf {
     
     convenience init(from ipc: MitmproxyIpc_InterceptConf) throws {
         let actions = try ipc.actions.map { try Action(from: $0) }
-        self.init(defaultAction: ipc.default, actions: actions)
+        let defaultAction = ipc.actions[0].hasPrefix("!")
+        self.init(defaultAction: defaultAction, actions: actions)
     }
     
     /// Mirrored after the Rust implementation

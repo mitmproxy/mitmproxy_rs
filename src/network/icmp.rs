@@ -69,13 +69,17 @@ pub(super) fn handle_icmpv6_echo_request(
         }
     };
 
-    // Checking that it is an ICMP Echo Request.
-    if input_icmpv6_packet.msg_type() != Icmpv6Message::EchoRequest {
-        log::debug!(
-            "Unsupported ICMPv6 packet of type: {}",
-            input_icmpv6_packet.msg_type()
-        );
-        return None;
+    match input_icmpv6_packet.msg_type() {
+        Icmpv6Message::EchoRequest => (),
+        Icmpv6Message::RouterSolicit => {
+            // These happen in Linux local redirect mode, not investigated any further.
+            log::debug!("Ignoring ICMPv6 router solicitation.");
+            return None;
+        }
+        other => {
+            log::debug!("Unsupported ICMPv6 packet of type: {other}");
+            return None;
+        }
     }
 
     // Creating fake response packet.

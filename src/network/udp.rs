@@ -265,6 +265,7 @@ mod tests {
     use super::*;
     use crate::packet_sources::udp::UdpConf;
     use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+    use crate::shutdown;
     use std::net::{IpAddr, Ipv4Addr};
     use tokio::net::UdpSocket;
 
@@ -316,7 +317,7 @@ mod tests {
     async fn test_udp_server_echo() -> anyhow::Result<()> {
         let (commands_tx, commands_rx) = tokio::sync::mpsc::unbounded_channel();
         let (events_tx, mut events_rx) = tokio::sync::mpsc::channel(1);
-        let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(10);
+        let (shutdown_tx, shutdown_rx) = shutdown::channel();
         let (task, addr) = UdpConf {
             host: "127.0.0.1".to_string(),
             port: 0,

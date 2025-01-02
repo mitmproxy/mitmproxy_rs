@@ -2,6 +2,11 @@ use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
+use crate::messages::{
+    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
+};
+use crate::network::{add_network_layer, MAX_PACKET_SIZE};
+use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use anyhow::{anyhow, Context, Result};
 use boringtun::noise::{
     errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult,
@@ -13,19 +18,13 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{
     net::UdpSocket,
     sync::{
-        broadcast,
         mpsc::{Receiver, Sender},
         Mutex,
     },
 };
 
-use crate::messages::{
-    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
-};
-use crate::network::{add_network_layer, MAX_PACKET_SIZE};
-use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
-
 use crate::packet_sources::udp::remote_host_closed_conn;
+use crate::shutdown;
 
 // WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6
 const WG_HEADER_SIZE: usize = 80;
@@ -55,10 +54,10 @@ impl PacketSourceConf for WireGuardConf {
         self,
         transport_events_tx: Sender<TransportEvent>,
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
-        shutdown: broadcast::Receiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> Result<(Self::Task, Self::Data)> {
         let (network_task_handle, net_tx, net_rx) =
-            add_network_layer(transport_events_tx, transport_commands_rx, shutdown)?;
+            add_network_layer(transport_events_tx, transport_commands_rx, shutdown);
 
         // initialize WireGuard server
         let mut peers_by_idx = HashMap::new();

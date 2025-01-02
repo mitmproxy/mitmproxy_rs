@@ -2,5 +2,6 @@ mitmproxy_rs.mitmproxy_rs
 mitmproxy_rs._pyinstaller.hook-mitmproxy_rs
 mitmproxy_rs._pyinstaller.hook-mitmproxy_windows
 mitmproxy_rs._pyinstaller.hook-mitmproxy_macos
+mitmproxy_rs._pyinstaller.hook-mitmproxy_linux
 mitmproxy_rs.T
 mitmproxy_rs.dns.DnsResolver.__init__

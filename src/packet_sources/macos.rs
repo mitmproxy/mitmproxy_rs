@@ -6,10 +6,12 @@ use crate::intercept_conf::InterceptConf;
 use crate::ipc;
 use crate::ipc::{NewFlow, TcpFlow, UdpFlow};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+use crate::shutdown;
 use anyhow::{bail, Context, Result};
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 
+use prost::bytes::Bytes;
 use prost::bytes::BytesMut;
 use prost::Message;
 
@@ -24,7 +26,7 @@ use crate::network::udp::ConnectionState;
 use tokio::process::Command;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio::sync::{broadcast, oneshot};
+use tokio::sync::oneshot;
 use tokio::task::JoinSet;
 use tokio::time::timeout;
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
@@ -77,7 +79,7 @@ impl PacketSourceConf for MacosConf {
         self,
         transport_events_tx: Sender<TransportEvent>,
         _transport_commands_rx: UnboundedReceiver<TransportCommand>,
-        shutdown: broadcast::Receiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> Result<(Self::Task, Self::Data)> {
         let listener_addr = format!("/tmp/mitmproxy-{}", std::process::id());
         let listener = UnixListener::bind(&listener_addr)?;
@@ -113,7 +115,7 @@ pub struct MacOsTask {
     connections: JoinSet<Result<()>>,
     transport_events_tx: Sender<TransportEvent>,
     conf_rx: UnboundedReceiver<InterceptConf>,
-    shutdown: broadcast::Receiver<()>,
+    shutdown: shutdown::Receiver,
 }
 
 impl PacketSourceTask for MacOsTask {
@@ -141,7 +143,7 @@ impl PacketSourceTask for MacOsTask {
                             let task = ConnectionTask::new(
                                 stream,
                                 self.transport_events_tx.clone(),
-                                self.shutdown.resubscribe(),
+                                self.shutdown.clone(),
                             );
                             self.connections.spawn(task.run());
                         },
@@ -167,14 +169,14 @@ impl PacketSourceTask for MacOsTask {
 struct ConnectionTask {
     stream: UnixStream,
     events: Sender<TransportEvent>,
-    shutdown: broadcast::Receiver<()>,
+    shutdown: shutdown::Receiver,
 }
 
 impl ConnectionTask {
     pub fn new(
         stream: UnixStream,
         events: Sender<TransportEvent>,
-        shutdown: broadcast::Receiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> Self {
         Self {
             stream,
@@ -269,7 +271,8 @@ impl ConnectionTask {
                     } else if remote_address != dst_addr {
                         bail!("UDP packet destinations do not match: {remote_address} -> {dst_addr}")
                     }
-                    state.add_packet(packet.data);
+                    // TODO: Make ConnectionState accept Bytes, not Vec<u8>
+                    state.add_packet(packet.data.to_vec());
                 },
                 Some(command) = command_rx.recv() => {
                     match command {
@@ -279,7 +282,7 @@ impl ConnectionTask {
                         TransportCommand::WriteData(_, data) => {
                             assert!(first_packet.is_none());
                             let packet = ipc::UdpPacket {
-                                data,
+                                data: Bytes::from(data),
                                 remote_address: Some(remote_address.into()),
                             };
                             write_buf.reserve(packet.encoded_len());
@@ -316,7 +319,7 @@ impl ConnectionTask {
         let dst_addr = SocketAddr::try_from(&remote)
             .unwrap_or_else(|_| SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)));
         let tunnel_info = TunnelInfo::LocalRedirector {
-            pid: flow.tunnel_info.as_ref().map(|t| t.pid).unwrap_or(0),
+            pid: flow.tunnel_info.as_ref().and_then(|t| t.pid),
             process_name: flow.tunnel_info.and_then(|t| t.process_name),
             remote_endpoint: Some((remote.host, remote.port as u16)),
         };

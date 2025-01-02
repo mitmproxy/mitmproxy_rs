@@ -19,20 +19,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab  # v2.7.5
-        timeout-minutes: 2
-        continue-on-error: true
-      - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@4804d730717f28b7565e71e68e5c9fe8c4f9b089
-      - name: Install mypy from PyPI
-        uses: install-pinned/mypy@acfb567eb55a86c12a58ca1d28cd3e183e6a6d63
-      - name: Install pdoc from PyPI
-        uses: install-pinned/pdoc@2e3e48c4027dad61fb97866e009e1e6b7da38209
+      # TODO: This should ideally just reuse the main CI artifacts.
+      - uses: mhils/workflows/checkout@v12
+      - uses: ./.github/actions/setup
+      - uses: install-pinned/maturin-with-zig@68c027568b7d08df7bc3c52476ae28d1d2d787f5
+      - uses: install-pinned/mypy@2b552bed479e3f7065314667b670f7303619e989
+      - uses: install-pinned/pdoc@fd9469ecb06f32b7012e07e449ce98b217bf1189
 
       - run: maturin build
         working-directory: ./mitmproxy-rs
-      - run: pip install --no-index --find-links target/wheels/ mitmproxy_rs
+      - run: pip install --no-index --no-dependencies --find-links target/wheels/ mitmproxy_rs
 
       - run: stubtest --allowlist mitmproxy-rs/stubtest-allowlist.txt --mypy-config-file mitmproxy-rs/pyproject.toml mitmproxy_rs
 

@@ -8,15 +8,15 @@
 /// Packet with associated tunnel info (Windows pipe to mitmproxy)
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PacketWithMeta {
-    #[prost(bytes = "vec", tag = "1")]
-    pub data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "bytes", tag = "1")]
+    pub data: ::prost::bytes::Bytes,
     #[prost(message, optional, tag = "2")]
     pub tunnel_info: ::core::option::Option<TunnelInfo>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TunnelInfo {
-    #[prost(uint32, tag = "1")]
-    pub pid: u32,
+    #[prost(uint32, optional, tag = "1")]
+    pub pid: ::core::option::Option<u32>,
     #[prost(string, optional, tag = "2")]
     pub process_name: ::core::option::Option<::prost::alloc::string::String>,
 }
@@ -39,15 +39,13 @@ pub mod from_proxy {
 /// Packet (macOS UDP Stream)
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Packet {
-    #[prost(bytes = "vec", tag = "1")]
-    pub data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "bytes", tag = "1")]
+    pub data: ::prost::bytes::Bytes,
 }
 /// Intercept conf (macOS Control Stream)
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InterceptConf {
-    #[prost(bool, tag = "1")]
-    pub default: bool,
-    #[prost(string, repeated, tag = "2")]
+    #[prost(string, repeated, tag = "1")]
     pub actions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// New flow (macOS TCP/UDP Stream)
@@ -82,8 +80,8 @@ pub struct UdpFlow {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UdpPacket {
-    #[prost(bytes = "vec", tag = "1")]
-    pub data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "bytes", tag = "1")]
+    pub data: ::prost::bytes::Bytes,
     #[prost(message, optional, tag = "2")]
     pub remote_address: ::core::option::Option<Address>,
 }

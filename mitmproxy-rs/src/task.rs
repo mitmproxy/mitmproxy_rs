@@ -5,12 +5,12 @@ use anyhow::{Context, Result};
 use pyo3::exceptions::asyncio::CancelledError;
 use pyo3::prelude::*;
 use pyo3_asyncio_0_21::TaskLocals;
-use tokio::sync::{broadcast, mpsc, Mutex};
-
-use mitmproxy::messages::{TransportCommand, TransportEvent};
+use tokio::sync::{mpsc, Mutex};
 
 use crate::stream::Stream;
 use crate::stream::StreamState;
+use mitmproxy::messages::{TransportCommand, TransportEvent};
+use mitmproxy::shutdown;
 
 pub struct PyInteropTask {
     locals: TaskLocals,
@@ -18,7 +18,7 @@ pub struct PyInteropTask {
     transport_events: mpsc::Receiver<TransportEvent>,
     py_tcp_handler: PyObject,
     py_udp_handler: PyObject,
-    shutdown: broadcast::Receiver<()>,
+    shutdown: shutdown::Receiver,
 }
 
 impl PyInteropTask {
@@ -28,7 +28,7 @@ impl PyInteropTask {
         transport_events: mpsc::Receiver<TransportEvent>,
         py_tcp_handler: PyObject,
         py_udp_handler: PyObject,
-        shutdown: broadcast::Receiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> Result<Self> {
         // Note: The current asyncio event loop needs to be determined here on the main thread.
         let locals = Python::with_gil(|py| -> Result<TaskLocals, PyErr> {

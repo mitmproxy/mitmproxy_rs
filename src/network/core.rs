@@ -20,7 +20,7 @@ pub struct NetworkStack<'a> {
     net_tx: Sender<NetworkCommand>,
 }
 
-impl<'a> NetworkStack<'a> {
+impl NetworkStack<'_> {
     pub fn new(net_tx: Sender<NetworkCommand>) -> Self {
         Self {
             tcp: TcpHandler::new(net_tx.clone()),

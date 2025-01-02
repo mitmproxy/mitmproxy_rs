@@ -73,7 +73,7 @@ pub struct VirtualTxToken<'a> {
     permit: Permit<'a, NetworkCommand>,
 }
 
-impl<'a> TxToken for VirtualTxToken<'a> {
+impl TxToken for VirtualTxToken<'_> {
     fn consume<R, F>(self, len: usize, f: F) -> R
     where
         F: FnOnce(&mut [u8]) -> R,

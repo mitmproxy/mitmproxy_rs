@@ -1,0 +1,26 @@
+name: 'setup'
+description: 'checkout, setup rust and python'
+inputs:
+  rust-version:
+    description: 'Rust version'
+    required: true
+    default: 'stable'
+  extra-targets:
+    description: 'Extra Rust targets'
+  toolchain-args:
+    description: 'Extra args for `rustup toolchain`'
+runs:
+  using: "composite"
+  steps:
+    - uses: mhils/workflows/setup-python@v12  # PyO3 wants recent Python on Windows.
+    - run: rustup toolchain install ${{ inputs.rust-version }} --profile minimal ${{ inputs.toolchain-args }}
+      shell: bash
+    - run: rustup default ${{ inputs.rust-version }}
+      shell: bash
+    - if: inputs.extra-targets
+      run: rustup target add ${{ inputs.extra-targets }}
+      shell: bash
+    - uses: mhils/workflows/rust-cache@v14
+    - if: runner.os == 'Linux'
+      run: cargo install --locked bpf-linker
+      shell: bash

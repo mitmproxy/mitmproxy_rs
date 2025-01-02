@@ -11,6 +11,7 @@ contents = pyproject_toml.read_text()
 contents = (
     contents
     .replace(f"mitmproxy_windows", f"mitmproxy_windows=={version}")
+    .replace(f"mitmproxy_linux", f"mitmproxy_linux=={version}")
     .replace(f"mitmproxy_macos", f"mitmproxy_macos=={version}")
 )
 pyproject_toml.write_text(contents)

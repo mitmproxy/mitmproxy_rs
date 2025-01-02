@@ -14,11 +14,13 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Development Status :: 5 - Production/Stable",
 ]
 
 dependencies = [
     "mitmproxy_windows; os_name == 'nt'",
+    "mitmproxy_linux; sys_platform == 'linux'",
     "mitmproxy_macos; sys_platform == 'darwin'",
 ]
 

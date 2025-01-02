@@ -10,7 +10,8 @@ mod tests {
     use pyo3::types::PyDict;
 
     use crate::logger::setup_logger;
-    use tokio::sync::broadcast;
+
+    use mitmproxy::shutdown;
     use tokio::sync::mpsc;
 
     #[pyo3_asyncio_0_21::tokio::test]
@@ -60,7 +61,7 @@ mod tests {
     {
         let (command_tx, _command_rx) = mpsc::unbounded_channel();
         let (event_tx, event_rx) = mpsc::channel(1);
-        let (shutdown_tx, shutdown_rx) = broadcast::channel(1);
+        let (shutdown_tx, shutdown_rx) = shutdown::channel();
 
         let conn_handler = Python::with_gil(|py| {
             let locals = PyDict::new_bound(py);

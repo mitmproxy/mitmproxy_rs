@@ -3,11 +3,12 @@ use crate::messages::{
 };
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
+use crate::shutdown;
 use anyhow::{Context, Result};
 use std::cmp::max;
 use std::fs;
+use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{Permit, Receiver, UnboundedReceiver};
-use tokio::sync::{broadcast, mpsc::Sender};
 use tun::AbstractDevice;
 
 pub struct TunConf {
@@ -26,34 +27,12 @@ impl PacketSourceConf for TunConf {
         self,
         transport_events_tx: Sender<TransportEvent>,
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
-        shutdown: broadcast::Receiver<()>,
+        shutdown: shutdown::Receiver,
     ) -> Result<(Self::Task, Self::Data)> {
-        let mut config = tun::Configuration::default();
-        config.mtu(MAX_PACKET_SIZE as u16);
-        // Setting a local address and a destination is required on Linux.
-        config.address("169.254.0.1");
-        // config.netmask("0.0.0.0");
-        // config.destination("169.254.0.1");
-        config.up();
-        if let Some(tun_name) = self.tun_name {
-            config.tun_name(&tun_name);
-        }
-
-        let device = tun::create_as_async(&config).context("Failed to create TUN device")?;
-        let tun_name = device.tun_name().context("Failed to get TUN name")?;
-
-        if let Err(e) = disable_rp_filter(&tun_name) {
-            log::error!("failed to set rp_filter: {e}");
-        }
-        if let Err(e) = fs::write(
-            format!("/proc/sys/net/ipv4/conf/{tun_name}/route_localnet"),
-            "1",
-        ) {
-            log::error!("Failed to enable route_localnet: {e}");
-        }
+        let (device, tun_name) = create_tun_device(self.tun_name)?;
 
         let (network_task_handle, net_tx, net_rx) =
-            add_network_layer(transport_events_tx, transport_commands_rx, shutdown)?;
+            add_network_layer(transport_events_tx, transport_commands_rx, shutdown);
 
         Ok((
             TunTask {
@@ -65,6 +44,41 @@ impl PacketSourceConf for TunConf {
             tun_name,
         ))
     }
+}
+
+pub fn create_tun_device(tun_name: Option<String>) -> Result<(tun::AsyncDevice, String)> {
+    let mut config = tun::Configuration::default();
+    config.mtu(MAX_PACKET_SIZE as u16);
+    // Setting a local address and a destination is required on Linux.
+    config.address("169.254.0.1");
+    // config.netmask("0.0.0.0");
+    // config.destination("169.254.0.1");
+    config.up();
+    if let Some(tun_name) = tun_name {
+        config.tun_name(&tun_name);
+    }
+
+    let device = tun::create_as_async(&config).context("Failed to create TUN device")?;
+    let tun_name = device.tun_name().context("Failed to get TUN name")?;
+
+    if let Err(e) = disable_rp_filter(&tun_name) {
+        log::error!("failed to set rp_filter: {e}");
+    }
+    if let Err(e) = fs::write(
+        format!("/proc/sys/net/ipv4/conf/{tun_name}/route_localnet"),
+        "1",
+    ) {
+        log::error!("Failed to enable route_localnet: {e}");
+    }
+    // Update accept_local so that injected packets with a local address (e.g. 127.0.0.1)
+    // as source address are accepted.
+    if let Err(e) = fs::write(
+        format!("/proc/sys/net/ipv4/conf/{tun_name}/accept_local"),
+        "1",
+    ) {
+        log::error!("Failed to enable accept_local: {e}");
+    }
+    Ok((device, tun_name))
 }
 
 pub struct TunTask {
@@ -89,7 +103,7 @@ impl PacketSourceTask for TunTask {
         loop {
             tokio::select! {
                 // Monitor the network task for errors or planned shutdown.
-                // This way we implicitly monitor the shutdown broadcast channel.
+                // This way we implicitly monitor the shutdown channel.
                 exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
                 // wait for transport_events_tx channel capacity...
                 Ok(p) = self.net_tx.reserve(), if permit.is_none() => {

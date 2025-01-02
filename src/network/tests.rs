@@ -1,22 +1,21 @@
 use std::net::{Ipv6Addr, SocketAddr};
 
+use super::task::NetworkTask;
+use crate::messages::{
+    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
+};
+use crate::shutdown;
 use anyhow::{anyhow, Result};
 use internet_packet::InternetPacket;
 use smoltcp::{phy::ChecksumCapabilities, wire::*};
+use tokio::sync::watch;
 use tokio::{
     sync::{
-        broadcast::{self, Sender as BroadcastSender},
         mpsc::{channel, unbounded_channel, Receiver, Sender, UnboundedSender},
         oneshot,
     },
     task::JoinHandle,
 };
-
-use crate::messages::{
-    NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
-};
-
-use super::task::NetworkTask;
 
 struct MockNetwork {
     wg_to_smol_tx: Sender<NetworkEvent>,
@@ -25,7 +24,7 @@ struct MockNetwork {
     py_to_smol_tx: UnboundedSender<TransportCommand>,
     smol_to_py_rx: Receiver<TransportEvent>,
 
-    sd_trigger: BroadcastSender<()>,
+    sd_trigger: watch::Sender<()>,
     handle: JoinHandle<Result<()>>,
 }
 
@@ -37,7 +36,7 @@ impl MockNetwork {
         let (py_to_smol_tx, py_to_smol_rx) = unbounded_channel();
         let (smol_to_py_tx, smol_to_py_rx) = channel(64);
 
-        let (sd_trigger, sd_watcher) = broadcast::channel(1);
+        let (sd_trigger, sd_watcher) = shutdown::channel();
 
         let task = NetworkTask::new(
             smol_to_wg_tx,
@@ -45,7 +44,7 @@ impl MockNetwork {
             smol_to_py_tx,
             py_to_smol_rx,
             sd_watcher,
-        )?;
+        );
 
         let handle = tokio::spawn(task.run());
 
