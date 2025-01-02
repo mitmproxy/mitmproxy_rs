@@ -27,7 +27,7 @@ jobs:
           - os: macos-latest
             rust: "1.80"  # MSRV - can't use variables here.
             args: --exclude mitmproxy-linux-ebpf
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             rust: "1.80"  # MSRV - can't use variables here.
             args: --exclude mitmproxy-linux-ebpf
           - os: ubuntu-latest
