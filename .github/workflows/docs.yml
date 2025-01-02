@@ -26,7 +26,7 @@ jobs:
       - uses: install-pinned/mypy@2b552bed479e3f7065314667b670f7303619e989
       - uses: install-pinned/pdoc@fd9469ecb06f32b7012e07e449ce98b217bf1189
 
-      - run: maturin build --features docs
+      - run: maturin build --features docs,pyo3/extension-module
         working-directory: ./mitmproxy-rs
       - run: pip install --no-index --no-dependencies --find-links target/wheels/ mitmproxy_rs
 
