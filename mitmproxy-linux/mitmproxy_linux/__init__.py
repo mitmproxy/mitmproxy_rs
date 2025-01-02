@@ -1,4 +1,5 @@
 import sys
+import sysconfig
 from pathlib import Path
 
 
@@ -15,7 +16,8 @@ def executable_path() -> Path:
         return Path(pyinstaller_dir) / "mitmproxy-linux-redirector"
     else:
         here = Path(__file__).parent.absolute()
-        exe = here / "mitmproxy-linux-redirector"
+        scripts = Path(sysconfig.get_path("scripts")).absolute()
+        exe = scripts / "mitmproxy-linux-redirector"
 
         # Development path: This should never happen with precompiled wheels.
         if not exe.exists() and (here / "../Cargo.toml").exists():
