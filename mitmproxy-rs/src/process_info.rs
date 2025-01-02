@@ -35,7 +35,7 @@ impl Process {
     }
     fn __repr__(&self) -> String {
         format!(
-            "Process(executable={:?}, display_name={:?}, is_visible={}, is_windows={})",
+            "Process(executable={:?}, display_name={:?}, is_visible={}, is_system={})",
             self.executable(),
             self.display_name(),
             self.is_visible(),
