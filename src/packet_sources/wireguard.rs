@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use crate::messages::{
@@ -286,8 +286,7 @@ impl WireGuardTask {
                             pretty_hex(&buf),
                         );
 
-                        self.peers_by_ip
-                            .insert(Ipv4Addr::from(packet.src_addr()).into(), peer);
+                        self.peers_by_ip.insert(packet.src_addr().into(), peer);
                         let event = NetworkEvent::ReceivePacket {
                             packet: SmolPacket::from(packet),
                             tunnel_info: TunnelInfo::WireGuard {
@@ -318,8 +317,7 @@ impl WireGuardTask {
                             pretty_hex(&buf),
                         );
 
-                        self.peers_by_ip
-                            .insert(Ipv6Addr::from(packet.src_addr()).into(), peer);
+                        self.peers_by_ip.insert(packet.src_addr().into(), peer);
                         let event = NetworkEvent::ReceivePacket {
                             packet: SmolPacket::from(packet),
                             tunnel_info: TunnelInfo::WireGuard {
