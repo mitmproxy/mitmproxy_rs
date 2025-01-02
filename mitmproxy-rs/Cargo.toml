@@ -38,6 +38,7 @@ env_logger = "0.11"
 
 [features]
 tracing = ["console-subscriber"]
+docs = []
 
 [[test]]
 name = "test_task"
