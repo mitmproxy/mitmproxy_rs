@@ -1,4 +1,4 @@
-use std::net::{Ipv6Addr, SocketAddr};
+use std::net::SocketAddr;
 
 use super::task::NetworkTask;
 use crate::messages::{
@@ -6,6 +6,8 @@ use crate::messages::{
 };
 use crate::shutdown;
 use anyhow::{anyhow, Result};
+use core::net::Ipv4Addr;
+use core::net::Ipv6Addr;
 use internet_packet::InternetPacket;
 use smoltcp::{phy::ChecksumCapabilities, wire::*};
 use tokio::sync::watch;
@@ -99,8 +101,8 @@ impl MockNetwork {
 
 #[allow(clippy::too_many_arguments)]
 fn build_ipv4_tcp_packet(
-    src_addr: Ipv4Address,
-    dst_addr: Ipv4Address,
+    src_addr: Ipv4Addr,
+    dst_addr: Ipv4Addr,
     src_port: u16,
     dst_port: u16,
     control: TcpControl,
@@ -119,6 +121,7 @@ fn build_ipv4_tcp_packet(
         max_seg_size: Some(1380),
         sack_permitted: true,
         sack_ranges: [None, None, None],
+        timestamp: None,
         payload,
     };
 
@@ -147,8 +150,8 @@ fn build_ipv4_tcp_packet(
 
 #[allow(clippy::too_many_arguments)]
 fn build_ipv6_tcp_packet(
-    src_addr: Ipv6Address,
-    dst_addr: Ipv6Address,
+    src_addr: Ipv6Addr,
+    dst_addr: Ipv6Addr,
     src_port: u16,
     dst_port: u16,
     control: TcpControl,
@@ -167,6 +170,7 @@ fn build_ipv6_tcp_packet(
         max_seg_size: Some(1380),
         sack_permitted: true,
         sack_ranges: [None, None, None],
+        timestamp: None,
         payload,
     };
 
@@ -194,8 +198,8 @@ fn build_ipv6_tcp_packet(
 }
 
 fn build_ipv4_udp_packet(
-    src_addr: Ipv4Address,
-    dst_addr: Ipv4Address,
+    src_addr: Ipv4Addr,
+    dst_addr: Ipv4Addr,
     src_port: u16,
     dst_port: u16,
     payload: &[u8],
@@ -228,8 +232,8 @@ fn build_ipv4_udp_packet(
 }
 
 fn build_ipv6_udp_packet(
-    src_addr: Ipv6Address,
-    dst_addr: Ipv6Address,
+    src_addr: Ipv6Addr,
+    dst_addr: Ipv6Addr,
     src_port: u16,
     dst_port: u16,
     payload: &[u8],
@@ -262,8 +266,8 @@ fn build_ipv6_udp_packet(
 }
 
 fn build_icmp4_echo_packet(
-    src_addr: Ipv4Address,
-    dst_addr: Ipv4Address,
+    src_addr: Ipv4Addr,
+    dst_addr: Ipv4Addr,
     ident: u16,
     seq_no: u16,
     data: &[u8],
@@ -294,8 +298,8 @@ fn build_icmp4_echo_packet(
 }
 
 fn build_icmp6_echo_packet(
-    src_addr: Ipv6Address,
-    dst_addr: Ipv6Address,
+    src_addr: Ipv6Addr,
+    dst_addr: Ipv6Addr,
     ident: u16,
     seq_no: u16,
     data: &[u8],
@@ -391,8 +395,8 @@ async fn udp_read_write(
 #[tokio::test]
 async fn ipv4_udp() -> Result<()> {
     init_logger();
-    let src_addr = Ipv4Address([10, 0, 0, 1]);
-    let dst_addr = Ipv4Address([10, 0, 0, 42]);
+    let src_addr = "10.0.0.1".parse()?;
+    let dst_addr = "10.0.0.42".parse()?;
     let data = "hello world!".as_bytes();
 
     let udp_ip_packet = build_ipv4_udp_packet(src_addr, dst_addr, 1234, 31337, data);
@@ -409,19 +413,17 @@ async fn ipv4_udp() -> Result<()> {
 async fn ipv6_udp() -> Result<()> {
     init_logger();
 
-    let src: Ipv6Addr = "ca:fe:ca:fe:ca:fe:00:01".parse()?;
-    let dst: Ipv6Addr = "ca:fe:ca:fe:ca:fe:00:02".parse()?;
+    let src_addr: Ipv6Addr = "ca:fe:ca:fe:ca:fe:00:01".parse()?;
+    let dst_addr: Ipv6Addr = "ca:fe:ca:fe:ca:fe:00:02".parse()?;
 
-    let src_addr = Ipv6Address::from(src);
-    let dst_addr = Ipv6Address::from(dst);
     let data = "hello world!".as_bytes();
 
     let udp_ip_packet = build_ipv6_udp_packet(src_addr, dst_addr, 1234, 31337, data);
 
     udp_read_write(
         udp_ip_packet.into(),
-        SocketAddr::from((src, 1234)),
-        SocketAddr::from((dst, 31337)),
+        SocketAddr::from((src_addr, 1234)),
+        SocketAddr::from((dst_addr, 31337)),
     )
     .await
 }
@@ -432,8 +434,8 @@ async fn tcp_ipv4_connection() -> Result<()> {
     let mut mock = MockNetwork::init().await?;
     let mut seq = TcpSeqNumber(rand::random::<i32>());
 
-    let src_addr = Ipv4Address([10, 0, 0, 1]);
-    let dst_addr = Ipv4Address([10, 0, 0, 42]);
+    let src_addr = "10.0.0.1".parse()?;
+    let dst_addr = "10.0.0.42".parse()?;
     let data = "hello world!".as_bytes();
 
     // send TCP SYN
@@ -609,8 +611,8 @@ async fn tcp_ipv6_connection() -> Result<()> {
     let mut mock = MockNetwork::init().await?;
     let mut seq = TcpSeqNumber(rand::random::<i32>());
 
-    let src_addr = Ipv6Address(b"cafecafecafe0001".to_owned());
-    let dst_addr = Ipv6Address(b"cafecafecafe0002".to_owned());
+    let src_addr: Ipv6Addr = "ca:fe:ca:fe:ca:fe:00:01".parse()?;
+    let dst_addr: Ipv6Addr = "ca:fe:ca:fe:ca:fe:00:02".parse()?;
     let data = "hello world!".as_bytes();
 
     // send TCP SYN
@@ -785,8 +787,8 @@ async fn receive_icmp4_echo() -> Result<()> {
     init_logger();
     let mut mock = MockNetwork::init().await?;
 
-    let src_addr = Ipv4Address([10, 0, 0, 1]);
-    let dst_addr = Ipv4Address([10, 0, 0, 42]);
+    let src_addr = "10.0.0.1".parse()?;
+    let dst_addr = "10.0.0.42".parse()?;
     let data = "hello world!".as_bytes();
 
     let icmp_echo_ip_packet = build_icmp4_echo_packet(src_addr, dst_addr, 42, 31337, data);
@@ -823,8 +825,8 @@ async fn receive_icmp6_echo() -> Result<()> {
     init_logger();
     let mut mock = MockNetwork::init().await?;
 
-    let src_addr = Ipv6Address(b"cafecafecafe0001".to_owned());
-    let dst_addr = Ipv6Address(b"cafecafecafe0002".to_owned());
+    let src_addr: Ipv6Addr = "ca:fe:ca:fe:ca:fe:00:01".parse()?;
+    let dst_addr: Ipv6Addr = "ca:fe:ca:fe:ca:fe:00:02".parse()?;
     let data = "hello world!".as_bytes();
 
     let icmp_echo_ip_packet = build_icmp6_echo_packet(src_addr, dst_addr, 42, 31337, data);

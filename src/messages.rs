@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fmt::Formatter;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
 
 use anyhow::{anyhow, Result};
 use internet_packet::{InternetPacket, TransportProtocol};
@@ -184,15 +184,15 @@ impl TryFrom<Vec<u8>> for SmolPacket {
 impl SmolPacket {
     pub fn src_ip(&self) -> IpAddr {
         match self {
-            SmolPacket::V4(packet) => IpAddr::V4(Ipv4Addr::from(packet.src_addr())),
-            SmolPacket::V6(packet) => IpAddr::V6(Ipv6Addr::from(packet.src_addr())),
+            SmolPacket::V4(packet) => IpAddr::V4(packet.src_addr()),
+            SmolPacket::V6(packet) => IpAddr::V6(packet.src_addr()),
         }
     }
 
     pub fn dst_ip(&self) -> IpAddr {
         match self {
-            SmolPacket::V4(packet) => IpAddr::V4(Ipv4Addr::from(packet.dst_addr())),
-            SmolPacket::V6(packet) => IpAddr::V6(Ipv6Addr::from(packet.dst_addr())),
+            SmolPacket::V4(packet) => IpAddr::V4(packet.dst_addr()),
+            SmolPacket::V6(packet) => IpAddr::V6(packet.dst_addr()),
         }
     }
 

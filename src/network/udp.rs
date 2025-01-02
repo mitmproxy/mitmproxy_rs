@@ -12,10 +12,7 @@ use crate::messages::{
 use internet_packet::InternetPacket;
 use smoltcp::phy::ChecksumCapabilities;
 
-use smoltcp::wire::{
-    IpProtocol, IpRepr, Ipv4Address, Ipv4Packet, Ipv4Repr, Ipv6Address, Ipv6Packet, Ipv6Repr,
-    UdpRepr,
-};
+use smoltcp::wire::{IpProtocol, IpRepr, Ipv4Packet, Ipv4Repr, Ipv6Packet, Ipv6Repr, UdpRepr};
 
 #[derive(Default)]
 pub struct ConnectionState {
@@ -217,15 +214,15 @@ impl From<UdpPacket> for SmolPacket {
 
         let ip_repr: IpRepr = match (src_addr, dst_addr) {
             (SocketAddr::V4(src_addr), SocketAddr::V4(dst_addr)) => IpRepr::Ipv4(Ipv4Repr {
-                src_addr: Ipv4Address::from(*src_addr.ip()),
-                dst_addr: Ipv4Address::from(*dst_addr.ip()),
+                src_addr: (*src_addr.ip()),
+                dst_addr: (*dst_addr.ip()),
                 next_header: IpProtocol::Udp,
                 payload_len: udp_repr.header_len() + payload.len(),
                 hop_limit: 255,
             }),
             (SocketAddr::V6(src_addr), SocketAddr::V6(dst_addr)) => IpRepr::Ipv6(Ipv6Repr {
-                src_addr: Ipv6Address::from(*src_addr.ip()),
-                dst_addr: Ipv6Address::from(*dst_addr.ip()),
+                src_addr: (*src_addr.ip()),
+                dst_addr: (*dst_addr.ip()),
                 next_header: IpProtocol::Udp,
                 payload_len: udp_repr.header_len() + payload.len(),
                 hop_limit: 255,
