@@ -62,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
         .btf(Btf::from_sys_fs().ok().as_ref())
         .set_global("INTERFACE_ID", &device_index, true)
         .load(BPF_PROG)
-        .with_context(|| format!("Failed to load eBPF program ({:x})", Bytes::from_static(&BPF_HASH)))?;
+        .context("failed to load eBPF program")?;
     if let Err(e) = aya_log::EbpfLogger::init(&mut ebpf) {
         // This can happen if you remove all log statements from your eBPF program.
         warn!("failed to initialize eBPF logger: {}", e);
@@ -71,9 +71,9 @@ async fn main() -> anyhow::Result<()> {
     debug!("Attaching BPF_CGROUP_INET_SOCK_CREATE program...");
     let prog: &mut CgroupSock = ebpf.program_mut("cgroup_sock_create").context("failed to get cgroup_sock_create")?.try_into()?;
     // root cgroup to get all events.
-    let cgroup = std::fs::File::open("/sys/fs/cgroup/")?;
-    prog.load()?;
-    prog.attach(&cgroup, CgroupAttachMode::Single)?;
+    let cgroup = fs::File::open("/sys/fs/cgroup/").context("failed to open \"/sys/fs/cgroup/\"")?;
+    prog.load().context("failed to load cgroup_sock_create program")?;
+    prog.attach(&cgroup, CgroupAttachMode::Single).context("failed to attach cgroup_sock_create program")?;
 
     debug!("Getting INTERCEPT_CONF map...");
     let mut intercept_conf = {
