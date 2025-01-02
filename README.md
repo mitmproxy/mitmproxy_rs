@@ -22,16 +22,21 @@ This repository contains mitmproxy's Rust bits, most notably:
 
 - [`src/`](./src): The `mitmproxy` crate containing most of the "meat".
 - [`mitmproxy-rs/`](./mitmproxy-rs): The `mitmproxy-rs` Python package,
-  which provides PyO3 bindings for the Rust crate.  
+  which provides Python bindings for the Rust crate using [PyO3](https://pyo3.rs/).  
   Source and binary distributions are available [on PyPI](https://pypi.org/project/mitmproxy-rs/).
 - [`mitmproxy-macos/`](./mitmproxy-macos): The `mitmproxy-macos` Python package, which
   contains a macOS Network Extension to transparently intercept macOS traffic.  
   Only a binary distribution is available [on PyPI](https://pypi.org/project/mitmproxy-macos/)
   due to code signing and notarization requirements.
 - [`mitmproxy-windows/`](./mitmproxy-windows): The `mitmproxy-windows` Python package, which
-  contains the Windows traffic redirector based on WinDivert.  
+  contains the Windows traffic redirector based on [WinDivert](https://github.com/basil00/WinDivert).  
   Only a binary distribution is available [on PyPI](https://pypi.org/project/mitmproxy-windows/)
   due to build complexity.
+- [`mitmproxy-linux/`](./mitmproxy-linux): The `mitmproxy-linux` Python package, which
+  contains the Linux traffic redirector based on [Aya](https://aya-rs.dev/).  
+  Source and binary distributions are available [on PyPI](https://pypi.org/project/mitmproxy-linux/).
+- [`mitmproxy-linux-ebpf/`](./mitmproxy-linux-ebpf): The eBPF program embedded in `mitmproxy-linux`.
+- [`mitmproxy-linux-ebpf-common/`](./mitmproxy-linux-ebpf-common): Data structures shared by user space and eBPF.
 
 ### Architecture
 
