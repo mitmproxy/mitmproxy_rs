@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
+use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
 #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
@@ -71,7 +72,7 @@ pub fn executable_icon(path: PathBuf) -> Result<PyObject> {
     #[cfg(any(windows, target_os = "macos"))]
     {
         let mut icon_cache = processes::ICON_CACHE.lock().unwrap();
-        icon_cache.get_png(path)
+        Ok(icon_cache.get_png(path)?)
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
