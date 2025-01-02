@@ -6,7 +6,6 @@ use pyo3::prelude::*;
 
 use crate::server::base::Server;
 
-
 /// A running UDP server.
 ///
 /// A new server can be started by calling `start_udp_server`.

@@ -71,13 +71,7 @@ mod tests {
             (handler.clone_ref(py), handler)
         });
 
-        let task = PyInteropTask::new(
-            command_tx,
-            event_rx,
-            tcp_handler,
-            udp_handler,
-            shutdown_rx,
-        )?;
+        let task = PyInteropTask::new(command_tx, event_rx, tcp_handler, udp_handler, shutdown_rx)?;
         let task = tokio::spawn(task.run());
 
         event_tx
