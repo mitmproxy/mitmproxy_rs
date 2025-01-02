@@ -1,13 +1,13 @@
-use std::net::{SocketAddr};
+use std::net::SocketAddr;
 
 use super::task::NetworkTask;
 use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
-use core::net::Ipv4Addr;
-use core::net::Ipv6Addr;
 use crate::shutdown;
 use anyhow::{anyhow, Result};
+use core::net::Ipv4Addr;
+use core::net::Ipv6Addr;
 use internet_packet::InternetPacket;
 use smoltcp::{phy::ChecksumCapabilities, wire::*};
 use tokio::sync::watch;
@@ -415,7 +415,7 @@ async fn ipv6_udp() -> Result<()> {
 
     let src_addr: Ipv6Addr = "ca:fe:ca:fe:ca:fe:00:01".parse()?;
     let dst_addr: Ipv6Addr = "ca:fe:ca:fe:ca:fe:00:02".parse()?;
-    
+
     let data = "hello world!".as_bytes();
 
     let udp_ip_packet = build_ipv6_udp_packet(src_addr, dst_addr, 1234, 31337, data);
