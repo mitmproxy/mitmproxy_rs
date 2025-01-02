@@ -134,8 +134,8 @@ unsafe fn icon_to_pixels(icon: HICON) -> PixelData {
     let buf_size = width_usize.checked_mul(height_usize).unwrap();
     let mut buf: Vec<u32> = Vec::with_capacity(buf_size);
 
-    let dc = GetDC(HWND(0));
-    assert!(dc != HDC(0));
+    let dc = GetDC(HWND(std::ptr::null_mut()));
+    assert!(dc != HDC(std::ptr::null_mut()));
 
     let mut bitmap_info = BITMAPINFOHEADER {
         biSize: biheader_size_u32,
@@ -162,7 +162,7 @@ unsafe fn icon_to_pixels(icon: HICON) -> PixelData {
     assert!(result == bitmap.bmHeight);
     buf.set_len(buf.capacity());
 
-    let result = ReleaseDC(HWND(0), dc);
+    let result = ReleaseDC(HWND(std::ptr::null_mut()), dc);
     assert!(result == 1);
     DeleteObject(info.hbmColor).unwrap();
 
