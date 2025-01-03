@@ -52,6 +52,7 @@ fn main() {
     let mut cmd = Command::new("cargo");
     cmd.args([
         "build",
+        "--quiet",
         "-Z",
         "build-std=core",
         "--bins",
@@ -86,10 +87,7 @@ fn main() {
     let stderr = std::thread::spawn(move || {
         for line in stderr.lines() {
             let line = line.unwrap();
-            let skip = line.contains("Compiling ") || line.contains("Finished `");
-            if !skip {
-                println!("cargo:warning={line}");
-            }
+            println!("cargo:warning={line}");
         }
     });
 
