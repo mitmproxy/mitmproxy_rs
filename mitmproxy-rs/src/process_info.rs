@@ -1,8 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::Context;
 use pyo3::prelude::*;
-use pyo3::IntoPyObjectExt;
 
 #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 use mitmproxy::processes;
@@ -80,6 +78,5 @@ pub fn executable_icon(py: Python<'_>, path: PathBuf) -> PyResult<PyObject> {
     #[cfg(not(any(windows, target_os = "macos")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
         "executable_icon is only available on Windows",
-    )
-    .into())
+    ))
 }
