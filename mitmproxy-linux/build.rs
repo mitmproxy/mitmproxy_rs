@@ -87,7 +87,7 @@ fn main() {
     let stderr = std::thread::spawn(move || {
         for line in stderr.lines() {
             let line = line.unwrap();
-            println!("cargo:warning={line}");
+            println!("cargo:warning=Y{line}");
         }
     });
 
@@ -112,7 +112,7 @@ fn main() {
                 }
             }
             Message::TextLine(line) => {
-                println!("cargo:warning={line}");
+                println!("cargo:warning=X{line}");
             }
             _ => {}
         }
