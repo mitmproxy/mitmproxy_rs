@@ -86,7 +86,16 @@ fn main() {
     let stderr = std::thread::spawn(move || {
         for line in stderr.lines() {
             let line = line.unwrap();
-            let skip = line.contains("Compiling ") || line.contains("Finished `");
+            let skip = line.contains("info: latest update on")
+                || line.contains("syncing channel updates")
+                || line.contains("downloading component")
+                || line.contains("installing component")
+                || line.contains("Updating crates.io index")
+                || line.contains("Updating git repository")
+                || line.contains("Downloading")
+                || line.contains("Downloaded")
+                || line.contains("Compiling ")
+                || line.contains("Finished `");
             if !skip {
                 println!("cargo:warning={line}");
             }

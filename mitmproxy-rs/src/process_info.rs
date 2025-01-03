@@ -1,7 +1,10 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+#[cfg(any(windows, target_os = "macos"))]
+use anyhow::Context;
 use pyo3::prelude::*;
+#[cfg(any(windows, target_os = "macos"))]
+use pyo3::IntoPyObjectExt;
 
 #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 use mitmproxy::processes;
@@ -67,18 +70,17 @@ pub fn active_executables() -> PyResult<Vec<Process>> {
 /// *Availability: Windows, macOS*
 #[pyfunction]
 #[allow(unused_variables)]
-pub fn executable_icon(path: PathBuf) -> Result<PyObject> {
+pub fn executable_icon(py: Python<'_>, path: PathBuf) -> PyResult<PyObject> {
     #[cfg(any(windows, target_os = "macos"))]
     {
         let mut icon_cache = processes::ICON_CACHE.lock().unwrap();
-        let png_bytes = icon_cache.get_png(path)?;
-        Ok(Python::with_gil(|py| {
-            pyo3::types::PyBytes::new(py, png_bytes).to_object(py)
-        }))
+        icon_cache
+            .get_png(path)
+            .context("failed to get image")?
+            .into_py_any(py)
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
         "executable_icon is only available on Windows",
-    )
-    .into())
+    ))
 }
