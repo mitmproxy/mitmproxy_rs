@@ -52,7 +52,6 @@ fn main() {
     let mut cmd = Command::new("cargo");
     cmd.args([
         "build",
-        "--quiet",
         "-Z",
         "build-std=core",
         "--bins",
@@ -87,7 +86,17 @@ fn main() {
     let stderr = std::thread::spawn(move || {
         for line in stderr.lines() {
             let line = line.unwrap();
-            println!("cargo:warning=Y{line}");
+            let skip = (line.contains("info: latest update on")
+                || line.contains("syncing channel updates")
+                || line.contains("downloading component")
+                || line.contains("installing component")
+                || line.contains("Downloading")
+                || line.contains("Downloaded")
+                || line.contains("Compiling ")
+                || line.contains("Finished `"));
+            if !skip {
+                println!("cargo:warning={line}");
+            }
         }
     });
 
@@ -112,7 +121,7 @@ fn main() {
                 }
             }
             Message::TextLine(line) => {
-                println!("cargo:warning=X{line}");
+                println!("cargo:warning={line}");
             }
             _ => {}
         }
