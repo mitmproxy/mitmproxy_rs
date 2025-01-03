@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::Context;
 use pyo3::prelude::*;
 use pyo3::IntoPyObjectExt;
 
@@ -68,11 +68,14 @@ pub fn active_executables() -> PyResult<Vec<Process>> {
 /// *Availability: Windows, macOS*
 #[pyfunction]
 #[allow(unused_variables)]
-pub fn executable_icon(path: PathBuf) -> Result<PyObject> {
+pub fn executable_icon(py: Python<'_>, path: PathBuf) -> PyResult<PyObject> {
     #[cfg(any(windows, target_os = "macos"))]
     {
         let mut icon_cache = processes::ICON_CACHE.lock().unwrap();
-        Ok(icon_cache.get_png(path)?)
+        icon_cache
+            .get_png(path)
+            .context("failed to get image")?
+            .into_py_any(py)
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
