@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+
+## 03 January 2025: mitmproxy_rs 0.11.2
+
 - Add local redirect mode for Linux.
 - Update dependencies.
 
