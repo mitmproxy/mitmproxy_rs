@@ -1,5 +1,6 @@
 ## Unreleased: mitmproxy_rs next
 
+- Fix CI to build wheels compatible with Python 3.13 for mitmproxy-linux.
 
 ## 03 January 2025: mitmproxy_rs 0.11.2
 
