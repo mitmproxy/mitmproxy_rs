@@ -39,7 +39,7 @@ jobs:
     env:
       RUSTFLAGS: ${{ matrix.rust == 'nightly' && '-Zpanic_abort_tests -C panic=abort' || '' }}
     steps:
-      - uses: mhils/workflows/checkout@v12
+      - uses: mhils/workflows/checkout@v15
       - uses: ./.github/actions/setup
         with:
           rust-version: ${{ matrix.rust }}
@@ -85,7 +85,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: build mitmproxy-rs (${{ matrix.name }})
     steps:
-      - uses: mhils/workflows/checkout@v12
+      - uses: mhils/workflows/checkout@v15
       - uses: ./.github/actions/setup
         with:
           extra-targets: ${{ matrix.target }}
@@ -116,8 +116,9 @@ jobs:
   build-macos-app:
     runs-on: macos-latest
     steps:
-      - uses: mhils/workflows/checkout@v12
-      - uses: actions/cache@v4
+      - uses: mhils/workflows/checkout@v15
+      - if: ${{ !startsWith(github.ref, 'refs/tags/') }}  # harden against cache poisoning
+        uses: actions/cache@v4
         id: cache-app
         with:
           path: mitmproxy-macos/redirector/dist/
@@ -141,7 +142,7 @@ jobs:
     runs-on: windows-latest
     name: build mitmproxy-windows
     steps:
-      - uses: mhils/workflows/checkout@v12
+      - uses: mhils/workflows/checkout@v15
       - uses: ./.github/actions/setup
       - uses: install-pinned/build@aa7fb973fec4a5593736c5dc25b322120ca41a98
 
@@ -158,7 +159,7 @@ jobs:
     needs: build-macos-app
     runs-on: macos-latest
     steps:
-      - uses: mhils/workflows/checkout@v12
+      - uses: mhils/workflows/checkout@v15
       - uses: ./.github/actions/setup
         with:
           extra-targets: aarch64-apple-darwin x86_64-apple-darwin
@@ -197,7 +198,7 @@ jobs:
             args: --compatibility manylinux2014 --zig --target aarch64-unknown-linux-gnu -i 3.13
     runs-on: ubuntu-latest
     steps:
-      - uses: mhils/workflows/checkout@v12
+      - uses: mhils/workflows/checkout@v15
       - uses: ./.github/actions/setup
         with:
           extra-targets: ${{ matrix.target }}
@@ -216,7 +217,7 @@ jobs:
     needs: build-linux-wheel
     runs-on: ubuntu-latest
     steps:
-      - uses: mhils/workflows/checkout@v12
+      - uses: mhils/workflows/checkout@v15
       - uses: ./.github/actions/setup
       - uses: actions/download-artifact@v4
         with:
@@ -233,12 +234,12 @@ jobs:
       - build-windows-wheel
       - build-linux-wheel
       - build-macos-wheel
-    uses: mhils/workflows/.github/workflows/alls-green.yml@main
+    uses: mhils/workflows/.github/workflows/alls-green.yml@v15
     with:
       jobs: ${{ toJSON(needs) }}
 
   deploy:
-    uses: mhils/workflows/.github/workflows/python-deploy.yml@v13
+    uses: mhils/workflows/.github/workflows/python-deploy.yml@v15
     needs: check
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     with:

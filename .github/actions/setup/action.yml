@@ -12,7 +12,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: mhils/workflows/setup-python@v12  # PyO3 wants recent Python on Windows.
+    - uses: mhils/workflows/setup-python@v15  # PyO3 wants recent Python on Windows.
     - run: rustup toolchain install ${{ inputs.rust-version }} --profile minimal ${{ inputs.toolchain-args }}
       shell: bash
     - run: rustup default ${{ inputs.rust-version }}
@@ -20,7 +20,7 @@ runs:
     - if: inputs.extra-targets
       run: rustup target add ${{ inputs.extra-targets }}
       shell: bash
-    - uses: mhils/workflows/rust-cache@v14
+    - uses: mhils/workflows/rust-cache@v15
     - if: runner.os == 'Linux'
       run: cargo install --locked bpf-linker
       shell: bash
