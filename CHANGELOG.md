@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+
+## 06 January 2025: mitmproxy_rs 0.11.4
+
 - Fix PyInstaller hooks to include `mitmproxy_linux`.
 
 ## 05 January 2025: mitmproxy_rs 0.11.3
