@@ -8,6 +8,8 @@ use crate::messages::{
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use anyhow::{anyhow, Context, Result};
+use boringtun::noise::handshake::HandshakeKeysListener;
+use boringtun::noise::keys_logger::{KeyLogger, KeysLogger};
 use boringtun::noise::{
     errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult,
 };
@@ -40,6 +42,15 @@ pub struct WireGuardConf {
     pub port: u16,
     pub private_key: StaticSecret,
     pub peer_public_keys: Vec<PublicKey>,
+    pub key_logger: Option<Box<dyn KeyLogger + Sync>>,
+}
+
+struct KeyLoggerWrapper(Box<dyn KeyLogger>);
+
+impl KeyLogger for KeyLoggerWrapper {
+    fn log_key(&self, name: &str, keymaterial: &str) {
+        self.0.log_key(name, keymaterial);
+    }
 }
 
 impl PacketSourceConf for WireGuardConf {
@@ -59,13 +70,17 @@ impl PacketSourceConf for WireGuardConf {
         let (network_task_handle, net_tx, net_rx) =
             add_network_layer(transport_events_tx, transport_commands_rx, shutdown);
 
+        let handshake_keys_listener = self
+            .key_logger
+            .map(|key_logger| Arc::new(KeysLogger::new(KeyLoggerWrapper(key_logger))));
+
         // initialize WireGuard server
         let mut peers_by_idx = HashMap::new();
         let mut peers_by_key = HashMap::new();
         for public_key in self.peer_public_keys {
             let index = peers_by_idx.len() as u32;
 
-            let tunnel = Tunn::new(
+            let mut tunnel = Tunn::new(
                 self.private_key.clone(),
                 public_key,
                 None,
@@ -74,6 +89,13 @@ impl PacketSourceConf for WireGuardConf {
                 None,
             )
             .map_err(|error| anyhow!(error))?;
+
+            // Set key logger, if any.
+            if let Some(keys_listener) = &handshake_keys_listener {
+                tunnel.set_handshake_keys_listener(
+                    Arc::clone(keys_listener) as Arc<dyn HandshakeKeysListener>
+                );
+            }
 
             let peer = Arc::new(Mutex::new(WireGuardPeer {
                 tunnel,
