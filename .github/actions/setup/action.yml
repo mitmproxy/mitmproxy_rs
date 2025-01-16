@@ -13,7 +13,7 @@ runs:
   using: "composite"
   steps:
     - uses: mhils/workflows/setup-python@v15  # PyO3 wants recent Python on Windows.
-    - run: which rustup || sudo DEBIAN_FRONTEND=noninteractive apt-get -y install rustup
+    - run: which rustup || sudo DEBIAN_FRONTEND=noninteractive apt-get -y install rustup  # https://github.com/actions/partner-runner-images/issues/26
       shell: bash
     - run: rustup toolchain install ${{ inputs.rust-version }} --profile minimal ${{ inputs.toolchain-args }}
       shell: bash
