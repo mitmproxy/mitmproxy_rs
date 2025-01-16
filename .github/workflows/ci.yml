@@ -205,6 +205,8 @@ jobs:
         uses: install-pinned/maturin-with-zig@68c027568b7d08df7bc3c52476ae28d1d2d787f5
 
       - run: ls -al /home/runner/work/mitmproxy_rs/mitmproxy_rs/mitmproxy-linux
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./mitmproxy-linux
 
