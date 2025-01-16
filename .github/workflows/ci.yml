@@ -75,9 +75,8 @@ jobs:
             os: ubuntu-latest
             args: --compatibility manylinux2014 --zig --sdist
           - name: linux-arm64
-            os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            args: --compatibility manylinux2014 --zig --target aarch64-unknown-linux-gnu -i 3.12
+            os: ubuntu-24.04-arm
+            args: --compatibility manylinux2014 --zig
           - name: macos-universal
             os: macos-latest
             target: aarch64-apple-darwin x86_64-apple-darwin
@@ -186,22 +185,22 @@ jobs:
       matrix:
         include:
           - name: linux-x86_64
+            os: ubuntu-latest
             args: --compatibility manylinux2014 --zig --sdist
           - name: linux-arm64
-            target: aarch64-unknown-linux-gnu
-            args: --compatibility manylinux2014 --zig --target aarch64-unknown-linux-gnu -i 3.12
+            os: ubuntu-24.04-arm
+            args: --compatibility manylinux2014 --zig
           # FIXME: extra wheels because of https://github.com/PyO3/maturin/issues/2423
           - name: linux-x86_64-py3.13
+            os: ubuntu-latest
             args: --compatibility manylinux2014 --zig -i 3.13
           - name: linux-arm64-py3.13
-            target: aarch64-unknown-linux-gnu
-            args: --compatibility manylinux2014 --zig --target aarch64-unknown-linux-gnu -i 3.13
-    runs-on: ubuntu-latest
+            os: ubuntu-24.04-arm
+            args: --compatibility manylinux2014 --zig -i 3.13
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: mhils/workflows/checkout@v15
       - uses: ./.github/actions/setup
-        with:
-          extra-targets: ${{ matrix.target }}
       - name: Install maturin[zig] from PyPI
         uses: install-pinned/maturin-with-zig@68c027568b7d08df7bc3c52476ae28d1d2d787f5
 
