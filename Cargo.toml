@@ -35,7 +35,7 @@ aya = { version = "0.13.0", default-features = false }
 aya-ebpf = { version = "0.1.1", default-features = false }
 aya-log = { version = "0.2.1", default-features = false }
 aya-log-ebpf = { version = "0.1.1", default-features = false }
-tun = { version = "0.7.10" }
+tun = { version = "0.7.11" }
 
 [workspace.lints.clippy]
 large_futures = "deny"
@@ -52,11 +52,11 @@ publish.workspace = true
 
 [dependencies]
 anyhow = { version = "1.0.93", features = ["backtrace"] }
-log = "0.4.22"
+log = "0.4.25"
 once_cell = "1"
 pretty-hex = "0.4.1"
 smoltcp = "0.12"
-tokio = { version = "1.41.1", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util", "process"] }
+tokio = { version = "1.43.0", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util", "process"] }
 boringtun = { version = "0.6", default-features = false }
 console-subscriber = { version = "0.4.1", optional = true }
 image = { version = "0.25.5", default-features = false, features = ["png", "tiff"] }
@@ -65,7 +65,7 @@ tokio-util = { version = "0.7.12", features = ["codec"] }
 futures-util = { version = "0.3.31", features = ["sink"] }
 lru_time_cache = "0.11.11"
 internet-packet = { version = "0.2.3", features = ["smoltcp"] }
-data-encoding = "2.4.0"
+data-encoding = "2.7.0"
 hickory-resolver = "0.24.1"
 socket2 = "0.5.8"
 
@@ -74,7 +74,7 @@ socket2 = "0.5.8"
 boringtun = { git = 'https://github.com/cloudflare/boringtun', rev = 'e3252d9c4f4c8fc628995330f45369effd4660a1' }
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.58.0"
+version = "0.59.0"
 features = [
     "Win32_Foundation",
     "Win32_Graphics_Dwm",
@@ -90,7 +90,7 @@ features = [
 ]
 
 [target.'cfg(target_os = "macos")'.dependencies]
-security-framework = "3.0.1"
+security-framework = "3.2.0"
 nix = { version = "0.29.0", default-features = false, features = ["fs"] }
 core-graphics = "0.24"
 core-foundation = "0.10"
@@ -100,12 +100,12 @@ sysinfo = "0.33.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tun = { workspace = true, features = ["async"] }
-tempfile = "3.14.0"
+tempfile = "3.16.0"
 sysinfo = "0.33.0"
 
 [dev-dependencies]
 env_logger = "0.11"
-rand = "0.8"
+rand = "0.9"
 criterion = "0.5.1"
 hickory-server = "0.24.1"
 
