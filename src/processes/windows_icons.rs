@@ -11,7 +11,7 @@ use std::{iter, mem};
 
 use anyhow::{bail, Result};
 use image::RgbaImage;
-use windows::Win32::Foundation::{HMODULE, HWND};
+use windows::Win32::Foundation::HMODULE;
 use windows::Win32::Graphics::Gdi::{
     DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFOHEADER, BI_RGB,
     DIB_RGB_COLORS, HDC,
