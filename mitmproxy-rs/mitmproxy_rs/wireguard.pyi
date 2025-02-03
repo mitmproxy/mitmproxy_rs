@@ -20,3 +20,10 @@ class WireGuardServer:
     def close(self) -> None: ...
     async def wait_closed(self) -> None: ...
     def __repr__(self) -> str: ...
+
+__all__ = [
+    "genkey",
+    "pubkey",
+    "start_wireguard_server",
+    "WireGuardServer",
+]

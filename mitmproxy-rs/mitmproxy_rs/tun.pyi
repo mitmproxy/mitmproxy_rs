@@ -5,9 +5,9 @@ from typing import final
 from . import Stream
 
 async def create_tun_interface(
-        handle_tcp_stream: Callable[[Stream], Awaitable[None]],
-        handle_udp_stream: Callable[[Stream], Awaitable[None]],
-        tun_name: str | None = None,
+    handle_tcp_stream: Callable[[Stream], Awaitable[None]],
+    handle_udp_stream: Callable[[Stream], Awaitable[None]],
+    tun_name: str | None = None,
 ) -> TunInterface: ...
 @final
 class TunInterface:
@@ -17,3 +17,8 @@ class TunInterface:
     def __repr__(self) -> str: ...
     @staticmethod
     def unavailable_reason() -> str | None: ...
+
+__all__ = [
+    "create_tun_interface",
+    "TunInterface",
+]
