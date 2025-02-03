@@ -14,3 +14,9 @@ class Process:
     def is_visible(self) -> bool: ...
     @property
     def is_system(self) -> bool: ...
+
+__all__ = [
+    "active_executables",
+    "executable_icon",
+    "Process",
+]

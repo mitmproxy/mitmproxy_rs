@@ -23,7 +23,7 @@ jobs:
       - uses: mhils/workflows/checkout@v16
       - uses: ./.github/actions/setup
       - uses: install-pinned/maturin-with-zig@68c027568b7d08df7bc3c52476ae28d1d2d787f5
-      - uses: install-pinned/mypy@2b552bed479e3f7065314667b670f7303619e989
+      - uses: install-pinned/mypy@75779f141592e4909d64e13f8a1861f06aa9cd8d
       - uses: install-pinned/pdoc@5a894a20c6b4e9db4d3fe07efd9680b0f753b0d1
 
       - run: maturin build --features docs,pyo3/extension-module

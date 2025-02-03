@@ -11,3 +11,8 @@ class DnsResolver:
     async def lookup_ipv6(self, host: str) -> list[str]: ...
 
 def get_system_dns_servers() -> list[str]: ...
+
+__all__ = [
+    "DnsResolver",
+    "get_system_dns_servers",
+]

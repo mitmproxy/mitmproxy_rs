@@ -17,3 +17,8 @@ class LocalRedirector:
     async def wait_closed(self) -> None: ...
     @staticmethod
     def unavailable_reason() -> str | None: ...
+
+__all__ = [
+    "start_local_redirector",
+    "LocalRedirector",
+]

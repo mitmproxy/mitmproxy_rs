@@ -22,3 +22,9 @@ async def open_udp_connection(
     *,
     local_addr: tuple[str, int] | None = None,
 ) -> Stream: ...
+
+__all__ = [
+    "start_udp_server",
+    "UdpServer",
+    "open_udp_connection",
+]
