@@ -117,7 +117,7 @@ pub fn get_display_name(executable: &Path) -> Result<String> {
         let mut version_info_buf = vec![0u8; version_info_size as usize];
         GetFileVersionInfoW(
             PCWSTR::from_raw(executable_path.as_ptr()),
-            0,
+            None,
             version_info_size,
             version_info_buf.as_mut_ptr() as _,
         )?;
