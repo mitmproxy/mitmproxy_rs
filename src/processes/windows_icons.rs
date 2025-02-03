@@ -11,7 +11,7 @@ use std::{iter, mem};
 
 use anyhow::{bail, Result};
 use image::RgbaImage;
-use windows::Win32::Foundation::{HMODULE, HWND};
+use windows::Win32::Foundation::HMODULE;
 use windows::Win32::Graphics::Gdi::{
     DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFOHEADER, BI_RGB,
     DIB_RGB_COLORS, HDC,
@@ -94,7 +94,7 @@ unsafe fn icon_for_executable(executable: &Path, hinst: HMODULE) -> Result<Pixel
         .unwrap();
     let mut icon_idx = 0;
     let icon = ExtractAssociatedIconW(
-        hinst,
+        Some(hinst.into()),
         &mut icon_path_u16, // XXX: [u16; 128] is weird.
         &mut icon_idx,
     );
@@ -116,11 +116,11 @@ unsafe fn icon_to_pixels(icon: HICON) -> PixelData {
     let mut info = MaybeUninit::uninit();
     GetIconInfo(icon, info.as_mut_ptr()).unwrap();
     let info = info.assume_init_ref();
-    DeleteObject(info.hbmMask).unwrap();
+    DeleteObject(info.hbmMask.into()).unwrap();
 
     let mut bitmap: MaybeUninit<BITMAP> = MaybeUninit::uninit();
     let result = GetObjectW(
-        info.hbmColor,
+        info.hbmColor.into(),
         bitmap_size_i32,
         Some(bitmap.as_mut_ptr().cast()),
     );
@@ -134,7 +134,7 @@ unsafe fn icon_to_pixels(icon: HICON) -> PixelData {
     let buf_size = width_usize.checked_mul(height_usize).unwrap();
     let mut buf: Vec<u32> = Vec::with_capacity(buf_size);
 
-    let dc = GetDC(HWND(std::ptr::null_mut()));
+    let dc = GetDC(None);
     assert!(dc != HDC(std::ptr::null_mut()));
 
     let mut bitmap_info = BITMAPINFOHEADER {
@@ -162,9 +162,9 @@ unsafe fn icon_to_pixels(icon: HICON) -> PixelData {
     assert!(result == bitmap.bmHeight);
     buf.set_len(buf.capacity());
 
-    let result = ReleaseDC(HWND(std::ptr::null_mut()), dc);
+    let result = ReleaseDC(None, dc);
     assert!(result == 1);
-    DeleteObject(info.hbmColor).unwrap();
+    DeleteObject(info.hbmColor.into()).unwrap();
 
     PixelData {
         bgra: buf,
