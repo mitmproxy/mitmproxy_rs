@@ -136,28 +136,7 @@ pub fn start_local_redirector(
     }
     #[cfg(target_os = "macos")]
     {
-        let mut copy_task = None;
-        let destination_path = std::path::Path::new("/Applications/Mitmproxy Redirector.app");
-        if destination_path.exists() {
-            log::info!("Using existing mitmproxy redirector app.");
-        } else {
-            let filename = py.import("mitmproxy_macos")?.filename()?;
-
-            let source_path = std::path::Path::new(filename.to_str()?)
-                .parent()
-                .ok_or_else(|| anyhow::anyhow!("invalid path"))?
-                .join("Mitmproxy Redirector.app.tar");
-
-            if !source_path.exists() {
-                return Err(anyhow::anyhow!("{} does not exist", source_path.display()).into());
-            }
-
-            copy_task = Some(move || {
-                let redirector_tar = std::fs::File::open(source_path)?;
-                let mut archive = tar::Archive::new(redirector_tar);
-                archive.unpack(destination_path.parent().unwrap())
-            });
-        }
+        let copy_task = macos::copy_redirector_app(&py)?;
         let conf = MacosConf;
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
             if let Some(copy_task) = copy_task {
@@ -174,4 +153,65 @@ pub fn start_local_redirector(
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
         LocalRedirector::unavailable_reason(),
     ))
+}
+
+#[cfg(target_os = "macos")]
+mod macos {
+    use super::*;
+    use anyhow::{Context, Result};
+    use std::path::Path;
+    use std::{env, fs};
+
+    /// Ensure "Mitmproxy Redirector.app" is installed into /Applications and up-to-date.
+    pub(super) fn copy_redirector_app(
+        py: &Python,
+    ) -> PyResult<Option<impl FnOnce() -> Result<()>>> {
+        if env::var_os("MITMPROXY_KEEP_REDIRECTOR").is_some_and(|x| x == "1") {
+            log::info!("Using existing mitmproxy redirector app.");
+            return Ok(None);
+        }
+
+        let info_plist = Path::new("/Applications/Mitmproxy Redirector.app/Contents/Info.plist");
+        let redirector_tar = {
+            let module_filename = py.import("mitmproxy_macos")?.filename()?;
+            let path = Path::new(module_filename.to_str()?)
+                .parent()
+                .ok_or_else(|| anyhow::anyhow!("invalid path"))?
+                .join("Mitmproxy Redirector.app.tar");
+            if !path.exists() {
+                return Err(anyhow::anyhow!("{} does not exist", path.display()).into());
+            }
+            path
+        };
+        let expected_mtime = fs::metadata(&redirector_tar)
+            .and_then(|x| x.modified())
+            .context("failed to get mtime for redirector")?;
+
+        if let Ok(actual_mtime) = fs::metadata(info_plist).and_then(|m| m.modified()) {
+            if actual_mtime == expected_mtime {
+                log::debug!("Existing mitmproxy redirector app is up-to-date.");
+                return Ok(None);
+            }
+            log::info!("Updating mitmproxy redirector app...");
+        } else {
+            log::info!("Installing mitmproxy redirector app...");
+        };
+
+        Ok(Some(move || {
+            let archive_file = fs::File::open(redirector_tar)?;
+            let mut archive = tar::Archive::new(archive_file);
+            let destination_path = Path::new("/Applications/Mitmproxy Redirector.app/");
+            if destination_path.exists() {
+                // archive.unpack with overwrite does not work, so we do this.
+                fs::remove_dir_all(destination_path)
+                    .context("failed to remove existing mitmproxy redirector app")?;
+            }
+            archive
+                .unpack(destination_path.parent().unwrap())
+                .context("failed to unpack redirector")?;
+            fs::File::open(info_plist)
+                .and_then(|f| f.set_modified(expected_mtime))
+                .context("failed to set redirector mtime")
+        }))
+    }
 }
