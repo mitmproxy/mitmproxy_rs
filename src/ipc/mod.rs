@@ -9,7 +9,9 @@ impl TryFrom<&Address> for SocketAddr {
     type Error = AddrParseError;
 
     fn try_from(address: &Address) -> Result<Self, Self::Error> {
-        let ip = IpAddr::from_str(&address.host)?;
+        // The macOS network system extension may return IP addresses with scope string.
+        let host = address.host.split('%').next().unwrap();
+        let ip = IpAddr::from_str(host)?;
         Ok(SocketAddr::from((ip, address.port as u16)))
     }
 }
@@ -36,4 +38,35 @@ impl TryFrom<InterceptConf> for intercept_conf::InterceptConf {
     fn try_from(conf: InterceptConf) -> Result<Self, Self::Error> {
         intercept_conf::InterceptConf::try_from(conf.actions)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_socketaddr_from_address() {
+        let a = Address {
+            host: "fe80::f0ff:88ff:febc:3df5".to_string(),
+            port: 8080,
+        };
+        assert!(SocketAddr::try_from(&a).is_ok());
+
+        let b = Address {
+            host: "invalid".to_string(),
+            port: 8080,
+        };
+        assert!(SocketAddr::try_from(&b).is_err());
+
+        let c = Address {
+            host: "fe80::f0ff:88ff:febc:3df5%awdl0".to_string(),
+            port: 8080,
+        };
+        assert!(SocketAddr::try_from(&c).is_ok());
+        assert_eq!(
+            SocketAddr::try_from(&a),
+            SocketAddr::try_from(&c)
+        );
+    }
+
 }
