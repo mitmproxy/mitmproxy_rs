@@ -158,12 +158,14 @@ pub fn start_local_redirector(
 #[cfg(target_os = "macos")]
 mod macos {
     use super::*;
-    use std::{env, fs};
-    use std::path::Path;
     use anyhow::{Context, Result};
+    use std::path::Path;
+    use std::{env, fs};
 
     /// Ensure "Mitmproxy Redirector.app" is installed into /Applications and up-to-date.
-    pub(super) fn copy_redirector_app(py: &Python, ) -> PyResult<Option<impl FnOnce() -> Result<()>>> {
+    pub(super) fn copy_redirector_app(
+        py: &Python,
+    ) -> PyResult<Option<impl FnOnce() -> Result<()>>> {
         if env::var_os("MITMPROXY_KEEP_REDIRECTOR").is_some_and(|x| x == "1") {
             log::info!("Using existing mitmproxy redirector app.");
             return Ok(None);
