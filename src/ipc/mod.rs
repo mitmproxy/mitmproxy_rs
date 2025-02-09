@@ -63,10 +63,6 @@ mod tests {
             port: 8080,
         };
         assert!(SocketAddr::try_from(&c).is_ok());
-        assert_eq!(
-            SocketAddr::try_from(&a),
-            SocketAddr::try_from(&c)
-        );
+        assert_eq!(SocketAddr::try_from(&a), SocketAddr::try_from(&c));
     }
-
 }
