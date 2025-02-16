@@ -112,6 +112,7 @@ struct MitmproxyIpc_FromProxy: Sendable {
 }
 
 /// Packet (macOS UDP Stream)
+/// ⚠️ Bump network extension version on changes, https://github.com/mitmproxy/mitmproxy_rs/pull/227.
 struct MitmproxyIpc_Packet: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -125,6 +126,7 @@ struct MitmproxyIpc_Packet: @unchecked Sendable {
 }
 
 /// Intercept conf (macOS Control Stream)
+/// ⚠️ Bump network extension version on changes, https://github.com/mitmproxy/mitmproxy_rs/pull/227.
 struct MitmproxyIpc_InterceptConf: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -138,6 +140,7 @@ struct MitmproxyIpc_InterceptConf: Sendable {
 }
 
 /// New flow (macOS TCP/UDP Stream)
+/// ⚠️ Bump network extension version on changes, https://github.com/mitmproxy/mitmproxy_rs/pull/227.
 struct MitmproxyIpc_NewFlow: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -172,6 +175,7 @@ struct MitmproxyIpc_NewFlow: Sendable {
   init() {}
 }
 
+/// ⚠️ Bump network extension version on changes, https://github.com/mitmproxy/mitmproxy_rs/pull/227.
 struct MitmproxyIpc_TcpFlow: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -203,6 +207,7 @@ struct MitmproxyIpc_TcpFlow: Sendable {
   fileprivate var _tunnelInfo: MitmproxyIpc_TunnelInfo? = nil
 }
 
+/// ⚠️ Bump network extension version on changes, https://github.com/mitmproxy/mitmproxy_rs/pull/227.
 struct MitmproxyIpc_UdpFlow: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
