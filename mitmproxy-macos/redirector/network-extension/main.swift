@@ -6,7 +6,8 @@ let log = Logger(subsystem: "org.mitmproxy.macos-redirector", category: "extensi
 let networkExtensionIdentifier = "org.mitmproxy.macos-redirector.network-extension"
 
 autoreleasepool {
-    log.error("starting system extension")
+    let version = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as! String
+    log.error("starting mitmproxy redirector \(version, privacy: .public) system extension")
     log.debug("debug-level logging active")
     NEProvider.startSystemExtensionMode()
 }
