@@ -109,18 +109,18 @@ async fn main() -> anyhow::Result<()> {
         std::process::exit(0);
     });
 
-    let mut ipc_buf = BytesMut::with_capacity(IPC_BUF_SIZE);
+    let mut ipc_buf = Vec::with_capacity(IPC_BUF_SIZE);
     let mut dev_buf = BytesMut::with_capacity(IPC_BUF_SIZE);
 
     loop {
+        ipc_buf.clear();
         select! {
             r = ipc.recv_buf(&mut ipc_buf) => {
                 match r {
                     Ok(len) if len > 0 => {
-                        let Ok(FromProxy { message: Some(message)}) = FromProxy::decode(&mut ipc_buf) else {
+                        let Ok(FromProxy { message: Some(message)}) = FromProxy::decode(ipc_buf.as_slice()) else {
                             return Err(anyhow!("Received invalid IPC message: {:?}", &ipc_buf[..len]));
                         };
-                        assert_eq!(ipc_buf.len(), 0);
                         // debug!("Received IPC message: {message:?}");
 
                         match message {
@@ -161,10 +161,12 @@ async fn main() -> anyhow::Result<()> {
                 };
 
                 packet.encode(&mut ipc_buf)?;
-                let encoded = ipc_buf.split();
-
                 // debug!("Sending packet to proxy: {} {:?}", encoded.len(), &encoded);
-                ipc.send(&encoded).await?;
+                ipc.send(ipc_buf.as_slice()).await?;
+
+                // Reclaim space in dev_buf.
+                drop(packet);
+                assert!(dev_buf.try_reclaim(IPC_BUF_SIZE));
             },
         }
     }

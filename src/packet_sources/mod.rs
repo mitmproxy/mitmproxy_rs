@@ -53,11 +53,12 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
     mut conf_rx: UnboundedReceiver<InterceptConf>,
     shutdown: shutdown::Receiver,
 ) -> Result<()> {
-    let mut buf = BytesMut::with_capacity(IPC_BUF_SIZE);
+    let mut buf = Vec::with_capacity(IPC_BUF_SIZE);
     let (mut network_task_handle, net_tx, mut net_rx) =
         add_network_layer(transport_events_tx, transport_commands_rx, shutdown);
 
     loop {
+        buf.clear();
         tokio::select! {
             // Monitor the network task for errors or planned shutdown.
             // This way we implicitly monitor the shutdown channel.
@@ -68,9 +69,7 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                     message: Some(ipc::from_proxy::Message::InterceptConf(conf.into())),
                 };
                 msg.encode(&mut buf)?;
-
-                // debug!("Sending IPC message to redirector: {} {:?}", buf.len(), buf);
-                channel.write_all_buf(&mut buf).await.context("failed to propagate interception config update")?;
+                channel.write_all(&buf).await.context("failed to propagate interception config update")?;
             },
             // read packets from the IPC pipe into our network stack.
             _ = channel.read_buf(&mut buf) => {
@@ -85,10 +84,9 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                     return Err(anyhow!("redirect daemon exited prematurely."));
                 }
 
-                let Ok(PacketWithMeta { data, tunnel_info}) = PacketWithMeta::decode(&mut buf) else {
+                let Ok(PacketWithMeta { data, tunnel_info}) = PacketWithMeta::decode(buf.as_slice()) else {
                     return Err(anyhow!("Received invalid IPC message from redirector: {:?}", &buf));
                 };
-                assert!(buf.is_empty());
 
                 // TODO: Use Bytes in SmolPacket to avoid copy
                 let data = data.to_vec();
@@ -121,10 +119,9 @@ async fn forward_packets<T: AsyncRead + AsyncWrite + Unpin>(
                 match e {
                     NetworkCommand::SendPacket(packet) => {
                         let packet = ipc::FromProxy { message: Some(ipc::from_proxy::Message::Packet( ipc::Packet { data: Bytes::from(packet.into_inner()) }))};
-                        assert!(buf.is_empty());
                         packet.encode(&mut buf)?;
                         // debug!("Sending packet: {} {:?}", buf.len(), &packet.message.as_ref().unwrap());
-                        channel.write_all_buf(&mut buf).await.context("failed to send packet")?;
+                        channel.write_all(&buf).await.context("failed to send packet")?;
                     }
                 }
             }
