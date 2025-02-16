@@ -37,18 +37,21 @@ pub mod from_proxy {
     }
 }
 /// Packet (macOS UDP Stream)
+/// ⚠️ Bump network extension version on changes, <https://github.com/mitmproxy/mitmproxy_rs/pull/227.>
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Packet {
     #[prost(bytes = "bytes", tag = "1")]
     pub data: ::prost::bytes::Bytes,
 }
 /// Intercept conf (macOS Control Stream)
+/// ⚠️ Bump network extension version on changes, <https://github.com/mitmproxy/mitmproxy_rs/pull/227.>
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InterceptConf {
     #[prost(string, repeated, tag = "1")]
     pub actions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// New flow (macOS TCP/UDP Stream)
+/// ⚠️ Bump network extension version on changes, <https://github.com/mitmproxy/mitmproxy_rs/pull/227.>
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct NewFlow {
     #[prost(oneof = "new_flow::Message", tags = "1, 2")]
@@ -64,6 +67,7 @@ pub mod new_flow {
         Udp(super::UdpFlow),
     }
 }
+/// ⚠️ Bump network extension version on changes, <https://github.com/mitmproxy/mitmproxy_rs/pull/227.>
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TcpFlow {
     #[prost(message, optional, tag = "1")]
@@ -71,6 +75,7 @@ pub struct TcpFlow {
     #[prost(message, optional, tag = "2")]
     pub tunnel_info: ::core::option::Option<TunnelInfo>,
 }
+/// ⚠️ Bump network extension version on changes, <https://github.com/mitmproxy/mitmproxy_rs/pull/227.>
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UdpFlow {
     #[prost(message, optional, tag = "1")]
