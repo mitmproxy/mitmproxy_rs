@@ -6,7 +6,7 @@ use crate::messages::{
 use crate::network::add_network_layer;
 use crate::{ipc, shutdown, MAX_PACKET_SIZE};
 use anyhow::{anyhow, Context, Result};
-use prost::bytes::{Bytes, BytesMut};
+use prost::bytes::Bytes;
 use prost::Message;
 use std::future::Future;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};

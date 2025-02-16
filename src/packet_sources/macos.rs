@@ -153,7 +153,7 @@ impl PacketSourceTask for MacOsTask {
                 // pipe through changes to the intercept list
                 Some(conf) = self.conf_rx.recv() => {
                     let msg = ipc::InterceptConf::from(conf).encode_to_vec();
-                    control_channel.send(msg).await.context("Failed to write to control channel")?;
+                    control_channel.send(Bytes::from(msg)).await.context("Failed to write to control channel")?;
                 },
             }
         }
