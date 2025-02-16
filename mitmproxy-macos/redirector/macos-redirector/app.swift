@@ -11,7 +11,8 @@ let networkExtensionIdentifier = "org.mitmproxy.macos-redirector.network-extensi
 @main
 struct App {
     static func main() async throws {
-        log.debug("app starting with \(CommandLine.arguments, privacy: .public)")
+        let version = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as! String
+        log.debug("starting mitmproxy redirector app \(version, privacy: .public) with \(CommandLine.arguments, privacy: .public)")
         
         if #unavailable(macOS 12.0) {
             exitModal("This application only works on macOS 12 or above.")
@@ -65,7 +66,7 @@ class SystemExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
         actionForReplacingExtension existing: OSSystemExtensionProperties,
         withExtension ext: OSSystemExtensionProperties
     ) -> OSSystemExtensionRequest.ReplacementAction {
-        log.debug("requesting to replace existing network extension")
+        log.debug("requesting to replace existing network extension \(existing.bundleShortVersion, privacy: .public) with \(ext.bundleShortVersion, privacy: .public)")
         return .replace
     }
 
@@ -74,7 +75,7 @@ class SystemExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
     }
 
     func request(_ request: OSSystemExtensionRequest, didFailWithError error: Error) {
-        log.debug("system extension install failed: \(error)")
+        log.debug("system extension install failed: \(error, privacy: .public)")
         continuation?.resume(throwing: error)
     }
     
@@ -82,7 +83,7 @@ class SystemExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
         _ request: OSSystemExtensionRequest,
         didFinishWithResult result: OSSystemExtensionRequest.Result
     ) {
-        log.debug("system extension install succeeded: {} \(result.rawValue)")
+        log.debug("system extension install succeeded: {} \(result.rawValue, privacy: .public)")
         continuation?.resume()
     }
 }
