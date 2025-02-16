@@ -25,24 +25,29 @@ message FromProxy {
   }
 }
 // Packet (macOS UDP Stream)
+// ⚠️ Bump network extension version on changes, https://github.com/mitmproxy/mitmproxy_rs/pull/227.
 message Packet {
   bytes data = 1;
 }
 // Intercept conf (macOS Control Stream)
+// ⚠️ Bump network extension version on changes, https://github.com/mitmproxy/mitmproxy_rs/pull/227.
 message InterceptConf {
   repeated string actions = 1;
 }
 // New flow (macOS TCP/UDP Stream)
+// ⚠️ Bump network extension version on changes, https://github.com/mitmproxy/mitmproxy_rs/pull/227.
 message NewFlow {
   oneof message {
     TcpFlow tcp = 1;
     UdpFlow udp = 2;
   }
 }
+// ⚠️ Bump network extension version on changes, https://github.com/mitmproxy/mitmproxy_rs/pull/227.
 message TcpFlow {
   Address remote_address = 1;
   TunnelInfo tunnel_info = 2;
 }
+// ⚠️ Bump network extension version on changes, https://github.com/mitmproxy/mitmproxy_rs/pull/227.
 message UdpFlow {
   optional Address local_address = 1;
   TunnelInfo tunnel_info = 3;
