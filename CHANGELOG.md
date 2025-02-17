@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+
+## 17 February 2025: mitmproxy_rs 0.11.5
+
 - Fix a bug where buffer space wasn't reclaimed correctly, leading to an error in local capture mode.
 - macOS: Make sure an existing network extension is replaced if a newer version is available.
 - macOS: Fix a bug where IPv6 addresses with scope ids were not parsed correctly.
