@@ -91,10 +91,10 @@ jobs:
 
       - if: runner.os == 'Linux'
         name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@68c027568b7d08df7bc3c52476ae28d1d2d787f5
+        uses: install-pinned/maturin-with-zig@caba41a16e619c003b5adb81920d21ee51dfad00
       - if: runner.os != 'Linux'
         name: Install maturin from PyPI
-        uses: install-pinned/maturin@1008b0b20e9cbc1b084334bd96f022734ce56e88
+        uses: install-pinned/maturin@18a9a3b28f101f1737ff0b83d09800c06c0685f7
 
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         run: python .github/scripts/pin-versions.py
@@ -202,7 +202,7 @@ jobs:
       - uses: mhils/workflows/checkout@v17
       - uses: ./.github/actions/setup
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@68c027568b7d08df7bc3c52476ae28d1d2d787f5
+        uses: install-pinned/maturin-with-zig@caba41a16e619c003b5adb81920d21ee51dfad00
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./mitmproxy-linux
         env:
