@@ -152,11 +152,8 @@ impl PacketSourceTask for MacOsTask {
                 },
                 // pipe through changes to the intercept list
                 Some(conf) = self.conf_rx.recv() => {
-                    let msg = ipc::InterceptConf::from(conf);
-                    let len = msg.encoded_len();
-                    let mut buf = BytesMut::with_capacity(len);
-                    msg.encode(&mut buf)?;
-                    control_channel.send(buf.freeze()).await.context("Failed to write to control channel")?;
+                    let msg = ipc::InterceptConf::from(conf).encode_to_vec();
+                    control_channel.send(Bytes::from(msg)).await.context("Failed to write to control channel")?;
                 },
             }
         }
@@ -191,12 +188,12 @@ impl ConnectionTask {
                 .read_u32()
                 .await
                 .context("Failed to read handshake.")? as usize;
-            let mut buf = BytesMut::zeroed(len);
+            let mut buf = vec![0; len];
             self.stream
                 .read_exact(&mut buf)
                 .await
                 .context("Failed to read handshake contents.")?;
-            NewFlow::decode(&buf[..]).context("Invalid handshake IPC")?
+            NewFlow::decode(buf.as_slice()).context("Invalid handshake IPC")?
         };
 
         match new_flow {
