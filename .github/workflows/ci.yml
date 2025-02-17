@@ -190,13 +190,6 @@ jobs:
           - name: linux-arm64
             os: ubuntu-24.04-arm
             args: --compatibility manylinux2014 --zig
-          # FIXME: extra wheels because of https://github.com/PyO3/maturin/issues/2423
-          - name: linux-x86_64-py3.13
-            os: ubuntu-latest
-            args: --compatibility manylinux2014 --zig -i 3.13
-          - name: linux-arm64-py3.13
-            os: ubuntu-24.04-arm
-            args: --compatibility manylinux2014 --zig -i 3.13
     runs-on: ${{ matrix.os }}
     steps:
       - uses: mhils/workflows/checkout@v17
@@ -205,8 +198,7 @@ jobs:
         uses: install-pinned/maturin-with-zig@caba41a16e619c003b5adb81920d21ee51dfad00
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./mitmproxy-linux
-        env:
-          XDG_CONFIG_HOME: ~/.config  # https://github.com/actions/partner-runner-images/issues/27
+      - run: test -f target/wheels/*-py3-none-*.whl  # ensure we have a universal wheel
 
       - uses: actions/upload-artifact@v4
         with:
