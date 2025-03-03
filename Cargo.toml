@@ -60,7 +60,7 @@ tokio = { version = "1.43.0", features = ["macros", "net", "rt-multi-thread", "s
 boringtun = { version = "0.6", default-features = false }
 console-subscriber = { version = "0.4.1", optional = true }
 image = { version = "0.25.5", default-features = false, features = ["png", "tiff"] }
-prost = "0.13.3"
+prost = "0.13.5"
 tokio-util = { version = "0.7.12", features = ["codec"] }
 futures-util = { version = "0.3.31", features = ["sink"] }
 lru_time_cache = "0.11.11"
