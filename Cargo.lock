@@ -1468,9 +1468,9 @@ dependencies = [
 
 [[package]]
 name = "hickory-server"
-version = "0.24.2"
+version = "0.24.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35e6d1c2df0614595224b32479c72dd6fc82c9bda85962907c45fdb95a691489"
+checksum = "090078aff4e305853f8ccfbc89e6a1eec8a189bcb842be46255a2b660dae9416"
 dependencies = [
  "async-trait",
  "bytes",
