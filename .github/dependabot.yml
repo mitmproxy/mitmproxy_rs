@@ -13,6 +13,8 @@ updates:
     schedule:
       interval: "monthly"
     groups:
-      dependencies:
+      # If a dependency matches more than one rule, it's included in the first group that it matches.
+      # Any outdated dependencies that do not match a rule are updated in individual pull requests.
+      windows:
         patterns:
-          - "*"
+          - "windows"
