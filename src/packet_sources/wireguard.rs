@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
-use std::sync::Arc;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
@@ -115,7 +115,10 @@ impl PacketSourceConf for WireGuardConf {
         let socket = UdpSocket::from_std(std_sock)?;
         let local_addr = socket.local_addr()?;
 
-        log::debug!("WireGuard server listening for UDP connections on {} ...", local_addr);
+        log::debug!(
+            "WireGuard server listening for UDP connections on {} ...",
+            local_addr
+        );
 
         let public_key = PublicKey::from(&self.private_key);
 
