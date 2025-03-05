@@ -50,6 +50,8 @@ impl PacketSourceConf for UdpConf {
         } else {
             Domain::IPV6
         };
+
+        // We use socket2::Socket to set IPV6_V6ONLY and convert back to std::net::UdpSocket
         let sock2 = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
 
         // Ensure that IPv6 sockets listen on IPv6 only
