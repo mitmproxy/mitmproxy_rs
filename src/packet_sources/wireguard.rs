@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
+use std::str::FromStr;
 
 use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
@@ -14,6 +15,7 @@ use boringtun::noise::{
 use boringtun::x25519::{PublicKey, StaticSecret};
 use pretty_hex::pretty_hex;
 use smoltcp::wire::{Ipv4Packet, Ipv6Packet};
+use socket2::{Domain, Protocol, Type};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{
     net::UdpSocket,
@@ -84,27 +86,36 @@ impl PacketSourceConf for WireGuardConf {
             peers_by_key.insert(public_key, peer);
         }
 
-        // bind to UDP socket(s)
-        let socket_addrs = if self.host.is_empty() {
-            vec![
-                SocketAddr::new("0.0.0.0".parse().unwrap(), self.port),
-                SocketAddr::new("::".parse().unwrap(), self.port),
-            ]
+        // bind to UDP socket
+        let addr = format!("{}:{}", self.host, self.port);
+        let sock_addr = SocketAddr::from_str(&addr).context("Invalid listen address specified")?;
+
+        let domain = if sock_addr.is_ipv4() {
+            Domain::IPV4
         } else {
-            vec![SocketAddr::new(self.host.parse()?, self.port)]
+            Domain::IPV6
         };
 
-        let socket = UdpSocket::bind(socket_addrs.as_slice()).await?;
+        // We use socket2::Socket to set IPV6_V6ONLY and convert back to std::net::UdpSocket
+        let sock2 = socket2::Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
+
+        // Ensure that IPv6 sockets listen on IPv6 only
+        if sock_addr.is_ipv6() {
+            sock2
+                .set_only_v6(true)
+                .context("Failed to set IPV6_V6ONLY flag")?;
+        }
+
+        sock2
+            .bind(&sock_addr.into())
+            .context(format!("Failed to bind UDP socket to {}", addr))?;
+
+        let std_sock: std::net::UdpSocket = sock2.into();
+        std_sock.set_nonblocking(true)?;
+        let socket = UdpSocket::from_std(std_sock)?;
         let local_addr = socket.local_addr()?;
 
-        log::debug!(
-            "WireGuard server listening for UDP connections on {} ...",
-            socket_addrs
-                .iter()
-                .map(|addr| addr.to_string())
-                .collect::<Vec<String>>()
-                .join(" and ")
-        );
+        log::debug!("WireGuard server listening for UDP connections on {} ...", local_addr);
 
         let public_key = PublicKey::from(&self.private_key);
 
