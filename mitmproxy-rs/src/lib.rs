@@ -5,6 +5,7 @@ use std::sync::RwLock;
 use once_cell::sync::Lazy;
 use pyo3::{exceptions::PyException, prelude::*};
 
+mod contentview;
 mod dns_resolver;
 mod process_info;
 mod server;
@@ -79,6 +80,18 @@ mod mitmproxy_rs {
         use crate::server::{start_wireguard_server, WireGuardServer};
         #[pymodule_export]
         use crate::util::{genkey, pubkey};
+    }
+
+    #[pymodule]
+    mod contentviews {
+        use super::*;
+        use crate::contentview::PyContentview;
+        use mitmproxy::contentviews::*;
+
+        #[pymodule_init]
+        fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
+            m.add("hex", PyContentview::new(m.py(), &HexStream())?)
+        }
     }
 
     #[pymodule_export]
