@@ -1,31 +1,65 @@
-use anyhow::Result;
-use mitmproxy::contentviews::Contentview;
+use anyhow::{anyhow, Result};
+use mitmproxy::contentviews::{Prettify, Reencode};
 use pyo3::prelude::*;
 
-#[pyclass]
-pub struct PyContentview(&'static dyn Contentview);
+#[pyclass(frozen, module = "mitmproxy_rs.contentviews", subclass)]
+pub struct Contentview(&'static dyn Prettify);
 
-impl PyContentview {
+impl Contentview {
     pub fn new<'py>(
         py: Python<'py>,
-        contentview: &'static dyn Contentview,
+        contentview: &'static dyn Prettify,
     ) -> PyResult<Bound<'py, Self>> {
-        PyContentview(contentview).into_pyobject(py)
+        Contentview(contentview).into_pyobject(py)
     }
 }
 
 #[pymethods]
-impl PyContentview {
+impl Contentview {
+    /// The name of this contentview.
     #[getter]
     pub fn name(&self) -> &str {
         self.0.name()
     }
 
+    /// Pretty-print an (encoded) message.
     pub fn deserialize<'py>(&self, data: Vec<u8>) -> Result<String> {
-        self.0.deserialize(data)
+        self.0.deserialize(data).map_err(|e| anyhow!("{e}"))
     }
 
     fn __repr__(&self) -> PyResult<String> {
-        Ok(format!("<{} Contentview>", self.0.name()))
+        Ok(format!(
+            "<mitmproxy_rs.contentview.Contentview: {}>",
+            self.0.name()
+        ))
+    }
+}
+
+#[pyclass(frozen, module = "mitmproxy_rs.contentviews", extends=Contentview)]
+pub struct InteractiveContentview(&'static dyn Reencode);
+
+impl InteractiveContentview {
+    /// Argument passed twice because of https://github.com/rust-lang/rust/issues/65991
+    pub fn new<'py, T: Prettify + Reencode>(
+        py: Python<'py>,
+        cv: &'static T,
+    ) -> PyResult<Bound<'py, Self>> {
+        let cls =
+            PyClassInitializer::from(Contentview(cv)).add_subclass(InteractiveContentview(cv));
+        Bound::new(py, cls)
+    }
+}
+
+#[pymethods]
+impl InteractiveContentview {
+    pub fn serialize<'py>(&self, data: String) -> Result<Vec<u8>> {
+        self.0.serialize(data).map_err(|e| anyhow!("{e}"))
+    }
+
+    fn __repr__(self_: PyRef<'_, Self>) -> PyResult<String> {
+        Ok(format!(
+            "<mitmproxy_rs.contentview.InteractiveContentview: {}>",
+            self_.as_super().name()
+        ))
     }
 }
