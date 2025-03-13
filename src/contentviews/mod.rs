@@ -1,81 +1,52 @@
+mod hex_dump;
+mod hex_stream;
+
 use anyhow::Result;
-use pretty_hex::{HexConfig, PrettyHex};
-use std::num::ParseIntError;
+use std::fmt::{Display, Formatter};
+
+pub use hex_dump::HexDump;
+pub use hex_stream::HexStream;
 
 #[derive(Debug)]
-pub enum SerializeError {
+pub enum ReencodeError {
     InvalidFormat(String),
 }
 
-pub trait Contentview: Send + Sync {
+impl Display for ReencodeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReencodeError::InvalidFormat(e) => {
+                write!(f, "invalid format: {}", e)
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum PrettifyError {
+    Generic(String),
+}
+
+impl Display for PrettifyError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PrettifyError::Generic(e) => {
+                write!(f, "deserialize error: {}", e)
+            }
+        }
+    }
+}
+
+pub trait Prettify: Send + Sync {
     fn name(&self) -> &str;
-    fn deserialize(&self, data: Vec<u8>) -> Result<String>;
+
+    fn instance_name(&self) -> String {
+        self.name().to_lowercase().replace(" ", "_")
+    }
+
+    fn deserialize(&self, data: Vec<u8>) -> Result<String, PrettifyError>;
 }
 
-pub trait SerializableContentview: Contentview {
-    fn serialize(&self, data: String) -> Result<Vec<u8>, SerializeError>;
-}
-
-#[derive(Default)]
-pub struct HexStream();
-
-impl Contentview for HexStream {
-    fn name(&self) -> &str {
-        "HexStream"
-    }
-
-    fn deserialize(&self, data: Vec<u8>) -> Result<String> {
-        Ok(data
-            .hex_conf(HexConfig {
-                title: false,
-                ascii: false,
-                width: 0,
-                group: 0,
-                chunk: 0,
-                max_bytes: usize::MAX,
-                display_offset: 0,
-            })
-            .to_string())
-    }
-}
-
-impl SerializableContentview for HexStream {
-    fn serialize(&self, data: String) -> Result<Vec<u8>, SerializeError> {
-        (0..data.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&data[i..i + 2], 16))
-            .collect::<Result<Vec<u8>, ParseIntError>>()
-            .map_err(|e| {
-                SerializeError::InvalidFormat(format!("Failed to parse hex string: {}", e))
-            })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_hexstream_deserialize() {
-        let hex_stream = HexStream::default();
-        let data = b"foo".to_vec();
-        let result = hex_stream.deserialize(data).unwrap();
-        assert_eq!(result, "666f6f");
-    }
-
-    #[test]
-    fn test_hexstream_deserialize_empty() {
-        let hex_stream = HexStream::default();
-        let data = vec![];
-        let result = hex_stream.deserialize(data).unwrap();
-        assert_eq!(result, "");
-    }
-
-    #[test]
-    fn test_hexstream_serialize() {
-        let hex_stream = HexStream::default();
-        let data = "666f6f".to_string();
-        let result = hex_stream.serialize(data).unwrap();
-        assert_eq!(result, b"foo");
-    }
+pub trait Reencode: Send + Sync {
+    fn serialize(&self, data: String) -> Result<Vec<u8>, ReencodeError>;
 }

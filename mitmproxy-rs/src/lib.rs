@@ -2,6 +2,8 @@ extern crate core;
 
 use std::sync::RwLock;
 
+use crate::contentview::{Contentview, InteractiveContentview};
+use mitmproxy::contentviews::{Prettify, Reencode};
 use once_cell::sync::Lazy;
 use pyo3::{exceptions::PyException, prelude::*};
 
@@ -85,12 +87,17 @@ mod mitmproxy_rs {
     #[pymodule]
     mod contentviews {
         use super::*;
-        use crate::contentview::PyContentview;
-        use mitmproxy::contentviews::*;
+        #[pymodule_export]
+        use crate::contentview::Contentview;
+        #[pymodule_export]
+        use crate::contentview::InteractiveContentview;
+        use mitmproxy::contentviews::{HexDump, HexStream};
 
         #[pymodule_init]
         fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
-            m.add("hex", PyContentview::new(m.py(), &HexStream())?)
+            m.add_contentview(&HexDump)?;
+            m.add_interactive_contentview(&HexStream)?;
+            Ok(())
         }
     }
 
@@ -116,5 +123,21 @@ mod mitmproxy_rs {
         m.py().import("mitmproxy_windows")?;
 
         Ok(())
+    }
+}
+
+trait AddContentview {
+    fn add_contentview<T: Prettify>(&self, cv: &'static T) -> PyResult<()>;
+    fn add_interactive_contentview<T: Prettify + Reencode>(&self, i: &'static T) -> PyResult<()>;
+}
+
+impl AddContentview for Bound<'_, PyModule> {
+    fn add_contentview<T: Prettify>(&self, cv: &'static T) -> PyResult<()> {
+        let view = Contentview::new(self.py(), cv)?;
+        self.add(cv.instance_name(), view)
+    }
+    fn add_interactive_contentview<T: Prettify + Reencode>(&self, cv: &'static T) -> PyResult<()> {
+        let view = InteractiveContentview::new(self.py(), cv)?;
+        self.add(cv.instance_name(), view)
     }
 }
