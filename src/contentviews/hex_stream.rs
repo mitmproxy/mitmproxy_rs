@@ -9,7 +9,7 @@ impl Prettify for HexStream {
         "Hex Stream"
     }
 
-    fn deserialize(&self, data: Vec<u8>) -> Result<String, PrettifyError> {
+    fn prettify(&self, data: Vec<u8>) -> Result<String, PrettifyError> {
         Ok(data
             .hex_conf(HexConfig {
                 title: false,
@@ -25,7 +25,7 @@ impl Prettify for HexStream {
 }
 
 impl Reencode for HexStream {
-    fn serialize(&self, data: String) -> anyhow::Result<Vec<u8>, ReencodeError> {
+    fn reencode(&self, data: String) -> anyhow::Result<Vec<u8>, ReencodeError> {
         (0..data.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&data[i..i + 2], 16))
@@ -41,21 +41,21 @@ mod tests {
     #[test]
     fn test_hexstream_deserialize() {
         let data = b"foo".to_vec();
-        let result = HexStream.deserialize(data).unwrap();
+        let result = HexStream.prettify(data).unwrap();
         assert_eq!(result, "666f6f");
     }
 
     #[test]
     fn test_hexstream_deserialize_empty() {
         let data = vec![];
-        let result = HexStream.deserialize(data).unwrap();
+        let result = HexStream.prettify(data).unwrap();
         assert_eq!(result, "");
     }
 
     #[test]
     fn test_hexstream_serialize() {
         let data = "666f6f".to_string();
-        let result = HexStream.serialize(data).unwrap();
+        let result = HexStream.reencode(data).unwrap();
         assert_eq!(result, b"foo");
     }
 }
