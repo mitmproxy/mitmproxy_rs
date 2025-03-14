@@ -1,11 +1,13 @@
 mod hex_dump;
 mod hex_stream;
+mod msgpack;
 
 use anyhow::Result;
 use std::fmt::{Display, Formatter};
 
 pub use hex_dump::HexDump;
 pub use hex_stream::HexStream;
+pub use msgpack::MsgPack;
 
 #[derive(Debug)]
 pub enum ReencodeError {
@@ -44,9 +46,9 @@ pub trait Prettify: Send + Sync {
         self.name().to_lowercase().replace(" ", "_")
     }
 
-    fn deserialize(&self, data: Vec<u8>) -> Result<String, PrettifyError>;
+    fn prettify(&self, data: Vec<u8>) -> Result<String, PrettifyError>;
 }
 
 pub trait Reencode: Send + Sync {
-    fn serialize(&self, data: String) -> Result<Vec<u8>, ReencodeError>;
+    fn reencode(&self, data: String) -> Result<Vec<u8>, ReencodeError>;
 }

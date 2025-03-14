@@ -91,12 +91,13 @@ mod mitmproxy_rs {
         use crate::contentview::Contentview;
         #[pymodule_export]
         use crate::contentview::InteractiveContentview;
-        use mitmproxy::contentviews::{HexDump, HexStream};
+        use mitmproxy::contentviews::{HexDump, HexStream, MsgPack};
 
         #[pymodule_init]
         fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
             m.add_contentview(&HexDump)?;
             m.add_interactive_contentview(&HexStream)?;
+            m.add_interactive_contentview(&MsgPack)?;
             Ok(())
         }
     }
