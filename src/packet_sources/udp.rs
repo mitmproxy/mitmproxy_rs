@@ -23,7 +23,7 @@ pub fn remote_host_closed_conn<T>(_res: &Result<T, std::io::Error>) -> bool {
     false
 }
 
-// Creates a UDP socket bound to the specified address, restricted to either IPv4 or IPv6.
+/// Creates a UDP socket bound to the specified address, restricted to either IPv4 or IPv6 only.
 pub fn create_udp_socket(host: &str, port: u16) -> Result<tokio::net::UdpSocket> {
     let addr = format!("{}:{}", host, port);
     let sock_addr = SocketAddr::from_str(&addr).context("Invalid listen address specified")?;
@@ -51,7 +51,7 @@ pub fn create_udp_socket(host: &str, port: u16) -> Result<tokio::net::UdpSocket>
     let std_sock: std::net::UdpSocket = sock2.into();
     std_sock
         .set_nonblocking(true)
-        .context("Failed to make socket non-blocking")?;
+        .context("Failed to make UDP socket non-blocking")?;
     let socket = UdpSocket::from_std(std_sock)?;
 
     Ok(socket)
