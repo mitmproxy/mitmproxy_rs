@@ -49,7 +49,9 @@ pub fn create_udp_socket(host: &str, port: u16) -> Result<tokio::net::UdpSocket>
         .context(format!("Failed to bind UDP socket to {}", addr))?;
 
     let std_sock: std::net::UdpSocket = sock2.into();
-    std_sock.set_nonblocking(true).context("Failed to make socket non-blocking")?;
+    std_sock
+        .set_nonblocking(true)
+        .context("Failed to make socket non-blocking")?;
     let socket = UdpSocket::from_std(std_sock)?;
 
     Ok(socket)
@@ -74,7 +76,6 @@ impl PacketSourceConf for UdpConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: shutdown::Receiver,
     ) -> Result<(Self::Task, Self::Data)> {
-
         let socket = create_udp_socket(&self.host, self.port)?;
         let local_addr: SocketAddr = socket.local_addr()?;
 
