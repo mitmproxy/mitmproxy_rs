@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
-use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::messages::{
@@ -15,7 +14,6 @@ use boringtun::noise::{
 use boringtun::x25519::{PublicKey, StaticSecret};
 use pretty_hex::pretty_hex;
 use smoltcp::wire::{Ipv4Packet, Ipv6Packet};
-use socket2::{Domain, Protocol, Type};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{
     net::UdpSocket,
@@ -25,7 +23,7 @@ use tokio::{
     },
 };
 
-use crate::packet_sources::udp::remote_host_closed_conn;
+use crate::packet_sources::udp::{create_udp_socket, remote_host_closed_conn};
 use crate::shutdown;
 
 // WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6
@@ -86,33 +84,7 @@ impl PacketSourceConf for WireGuardConf {
             peers_by_key.insert(public_key, peer);
         }
 
-        // bind to UDP socket
-        let addr = format!("{}:{}", self.host, self.port);
-        let sock_addr = SocketAddr::from_str(&addr).context("Invalid listen address specified")?;
-
-        let domain = if sock_addr.is_ipv4() {
-            Domain::IPV4
-        } else {
-            Domain::IPV6
-        };
-
-        // We use socket2::Socket to set IPV6_V6ONLY and convert back to std::net::UdpSocket
-        let sock2 = socket2::Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
-
-        // Ensure that IPv6 sockets listen on IPv6 only
-        if sock_addr.is_ipv6() {
-            sock2
-                .set_only_v6(true)
-                .context("Failed to set IPV6_V6ONLY flag")?;
-        }
-
-        sock2
-            .bind(&sock_addr.into())
-            .context(format!("Failed to bind UDP socket to {}", addr))?;
-
-        let std_sock: std::net::UdpSocket = sock2.into();
-        std_sock.set_nonblocking(true)?;
-        let socket = UdpSocket::from_std(std_sock)?;
+        let socket = create_udp_socket(&self.host, self.port)?;
         let local_addr = socket.local_addr()?;
 
         log::debug!(

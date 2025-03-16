@@ -23,6 +23,38 @@ pub fn remote_host_closed_conn<T>(_res: &Result<T, std::io::Error>) -> bool {
     false
 }
 
+// Creates a UDP socket bound to the specified address, restricted to either IPv4 or IPv6.
+pub fn create_udp_socket(host: &str, port: u16) -> Result<tokio::net::UdpSocket> {
+    let addr = format!("{}:{}", host, port);
+    let sock_addr = SocketAddr::from_str(&addr).context("Invalid listen address specified")?;
+
+    let domain = if sock_addr.is_ipv4() {
+        Domain::IPV4
+    } else {
+        Domain::IPV6
+    };
+
+    // We use socket2::Socket to set IPV6_V6ONLY and convert back to std::net::UdpSocket
+    let sock2 = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
+
+    // Ensure that IPv6 sockets listen on IPv6 only
+    if sock_addr.is_ipv6() {
+        sock2
+            .set_only_v6(true)
+            .context("Failed to set IPV6_V6ONLY flag")?;
+    }
+
+    sock2
+        .bind(&sock_addr.into())
+        .context(format!("Failed to bind UDP socket to {}", addr))?;
+
+    let std_sock: std::net::UdpSocket = sock2.into();
+    std_sock.set_nonblocking(true).context("Failed to make socket non-blocking")?;
+    let socket = UdpSocket::from_std(std_sock)?;
+
+    Ok(socket)
+}
+
 pub struct UdpConf {
     pub host: String,
     pub port: u16,
@@ -42,33 +74,9 @@ impl PacketSourceConf for UdpConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: shutdown::Receiver,
     ) -> Result<(Self::Task, Self::Data)> {
-        let addr = format!("{}:{}", self.host, self.port);
-        let sock_addr = SocketAddr::from_str(&addr).context("Invalid listen address specified")?;
 
-        let domain = if sock_addr.is_ipv4() {
-            Domain::IPV4
-        } else {
-            Domain::IPV6
-        };
-
-        // We use socket2::Socket to set IPV6_V6ONLY and convert back to std::net::UdpSocket
-        let sock2 = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
-
-        // Ensure that IPv6 sockets listen on IPv6 only
-        if sock_addr.is_ipv6() {
-            sock2
-                .set_only_v6(true)
-                .context("Failed to set IPV6_V6ONLY flag")?;
-        }
-
-        sock2
-            .bind(&sock_addr.into())
-            .context(format!("Failed to bind UDP socket to {}", addr))?;
-
-        let std_sock: std::net::UdpSocket = sock2.into();
-        std_sock.set_nonblocking(true)?;
-        let socket = UdpSocket::from_std(std_sock)?;
-        let local_addr = socket.local_addr()?;
+        let socket = create_udp_socket(&self.host, self.port)?;
+        let local_addr: SocketAddr = socket.local_addr()?;
 
         log::debug!("UDP server listening on {} ...", local_addr);
 
