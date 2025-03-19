@@ -52,7 +52,7 @@ impl InteractiveContentview {
 
 #[pymethods]
 impl InteractiveContentview {
-    pub fn reencode<'py>(&self, data: String) -> Result<Vec<u8>> {
+    pub fn reencode(&self, data: String) -> Result<Vec<u8>> {
         self.0.reencode(data).map_err(|e| anyhow!("{e}"))
     }
 

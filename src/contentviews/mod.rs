@@ -1,6 +1,7 @@
 mod hex_dump;
 mod hex_stream;
 mod msgpack;
+mod protobuf;
 
 use anyhow::Result;
 use std::fmt::{Display, Formatter};
@@ -8,6 +9,7 @@ use std::fmt::{Display, Formatter};
 pub use hex_dump::HexDump;
 pub use hex_stream::HexStream;
 pub use msgpack::MsgPack;
+pub use protobuf::Protobuf;
 
 #[derive(Debug)]
 pub enum ReencodeError {
