@@ -23,7 +23,9 @@ pub fn remote_host_closed_conn<T>(_res: &Result<T, std::io::Error>) -> bool {
 }
 
 /// Creates a nonblocking UDP socket bound to the specified address, restricted to either IPv4 or IPv6 only.
-pub(crate) fn create_and_bind_udp_socket<A: ToSocketAddrs>(addr: A) -> Result<tokio::net::UdpSocket> {
+pub(crate) fn create_and_bind_udp_socket<A: ToSocketAddrs>(
+    addr: A,
+) -> Result<tokio::net::UdpSocket> {
     let sock_addr = addr
         .to_socket_addrs()
         .context("Invalid listen address specified")?
