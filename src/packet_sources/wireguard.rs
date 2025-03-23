@@ -23,7 +23,7 @@ use tokio::{
     },
 };
 
-use crate::packet_sources::udp::{create_udp_socket, remote_host_closed_conn};
+use crate::packet_sources::udp::{create_and_bind_udp_socket, remote_host_closed_conn};
 use crate::shutdown;
 
 // WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6
@@ -84,7 +84,7 @@ impl PacketSourceConf for WireGuardConf {
             peers_by_key.insert(public_key, peer);
         }
 
-        let socket = create_udp_socket(&self.host, self.port)?;
+        let socket = create_and_bind_udp_socket(format!("{}:{}", &self.host, self.port))?;
         let local_addr = socket.local_addr()?;
 
         log::debug!(

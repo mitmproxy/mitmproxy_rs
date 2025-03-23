@@ -1,5 +1,4 @@
-use std::net::{Ipv4Addr, SocketAddr};
-use std::str::FromStr;
+use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
 
 use anyhow::{Context, Result};
 
@@ -23,10 +22,13 @@ pub fn remote_host_closed_conn<T>(_res: &Result<T, std::io::Error>) -> bool {
     false
 }
 
-/// Creates a UDP socket bound to the specified address, restricted to either IPv4 or IPv6 only.
-pub fn create_udp_socket(host: &str, port: u16) -> Result<tokio::net::UdpSocket> {
-    let addr = format!("{}:{}", host, port);
-    let sock_addr = SocketAddr::from_str(&addr).context("Invalid listen address specified")?;
+/// Creates a nonblocking UDP socket bound to the specified address, restricted to either IPv4 or IPv6 only.
+pub fn create_and_bind_udp_socket<A: ToSocketAddrs>(addr: A) -> Result<tokio::net::UdpSocket> {
+    let sock_addr = addr
+        .to_socket_addrs()
+        .context("Invalid listen address specified")?
+        .next()
+        .unwrap();
 
     let domain = if sock_addr.is_ipv4() {
         Domain::IPV4
@@ -46,7 +48,7 @@ pub fn create_udp_socket(host: &str, port: u16) -> Result<tokio::net::UdpSocket>
 
     sock2
         .bind(&sock_addr.into())
-        .context(format!("Failed to bind UDP socket to {}", addr))?;
+        .context(format!("Failed to bind UDP socket to {}", sock_addr))?;
 
     let std_sock: std::net::UdpSocket = sock2.into();
     std_sock
@@ -76,7 +78,7 @@ impl PacketSourceConf for UdpConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: shutdown::Receiver,
     ) -> Result<(Self::Task, Self::Data)> {
-        let socket = create_udp_socket(&self.host, self.port)?;
+        let socket = create_and_bind_udp_socket(format!("{}:{}", &self.host, self.port))?;
         let local_addr: SocketAddr = socket.local_addr()?;
 
         log::debug!("UDP server listening on {} ...", local_addr);
