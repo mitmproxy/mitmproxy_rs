@@ -36,8 +36,7 @@ pub struct WireGuardPeer {
 }
 
 pub struct WireGuardConf {
-    pub host: String,
-    pub port: u16,
+    pub listen_addr: SocketAddr,
     pub private_key: StaticSecret,
     pub peer_public_keys: Vec<PublicKey>,
 }
@@ -84,7 +83,7 @@ impl PacketSourceConf for WireGuardConf {
             peers_by_key.insert(public_key, peer);
         }
 
-        let socket = create_and_bind_udp_socket(format!("{}:{}", &self.host, self.port))?;
+        let socket = create_and_bind_udp_socket(self.listen_addr)?;
         let local_addr = socket.local_addr()?;
 
         log::debug!(

@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
 use crate::util::string_to_key;
 
@@ -63,7 +63,7 @@ impl WireGuardServer {
 #[pyfunction]
 pub fn start_wireguard_server(
     py: Python<'_>,
-    host: String,
+    host: IpAddr,
     port: u16,
     private_key: String,
     peer_public_keys: Vec<String>,
@@ -76,8 +76,7 @@ pub fn start_wireguard_server(
         .map(string_to_key)
         .collect::<PyResult<Vec<PublicKey>>>()?;
     let conf = WireGuardConf {
-        host,
-        port,
+        listen_addr: SocketAddr::from((host, port)),
         private_key,
         peer_public_keys,
     };

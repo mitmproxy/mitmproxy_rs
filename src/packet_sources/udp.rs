@@ -1,4 +1,4 @@
-use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
+use std::net::{Ipv4Addr, SocketAddr};
 
 use anyhow::{Context, Result};
 
@@ -23,16 +23,8 @@ pub fn remote_host_closed_conn<T>(_res: &Result<T, std::io::Error>) -> bool {
 }
 
 /// Creates a nonblocking UDP socket bound to the specified address, restricted to either IPv4 or IPv6 only.
-pub(crate) fn create_and_bind_udp_socket<A: ToSocketAddrs>(
-    addr: A,
-) -> Result<tokio::net::UdpSocket> {
-    let sock_addr = addr
-        .to_socket_addrs()
-        .context("Invalid listen address specified")?
-        .next()
-        .unwrap();
-
-    let domain = if sock_addr.is_ipv4() {
+pub(crate) fn create_and_bind_udp_socket(addr: SocketAddr) -> Result<UdpSocket> {
+    let domain = if addr.is_ipv4() {
         Domain::IPV4
     } else {
         Domain::IPV6
@@ -42,15 +34,15 @@ pub(crate) fn create_and_bind_udp_socket<A: ToSocketAddrs>(
     let sock2 = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
 
     // Ensure that IPv6 sockets listen on IPv6 only
-    if sock_addr.is_ipv6() {
+    if addr.is_ipv6() {
         sock2
             .set_only_v6(true)
             .context("Failed to set IPV6_V6ONLY flag")?;
     }
 
     sock2
-        .bind(&sock_addr.into())
-        .context(format!("Failed to bind UDP socket to {}", sock_addr))?;
+        .bind(&addr.into())
+        .context(format!("Failed to bind UDP socket to {}", addr))?;
 
     let std_sock: std::net::UdpSocket = sock2.into();
     std_sock
@@ -62,8 +54,7 @@ pub(crate) fn create_and_bind_udp_socket<A: ToSocketAddrs>(
 }
 
 pub struct UdpConf {
-    pub host: String,
-    pub port: u16,
+    pub listen_addr: SocketAddr,
 }
 
 impl PacketSourceConf for UdpConf {
@@ -80,7 +71,7 @@ impl PacketSourceConf for UdpConf {
         transport_commands_rx: UnboundedReceiver<TransportCommand>,
         shutdown: shutdown::Receiver,
     ) -> Result<(Self::Task, Self::Data)> {
-        let socket = create_and_bind_udp_socket(format!("{}:{}", &self.host, self.port))?;
+        let socket = create_and_bind_udp_socket(self.listen_addr)?;
         let local_addr: SocketAddr = socket.local_addr()?;
 
         log::debug!("UDP server listening on {} ...", local_addr);
