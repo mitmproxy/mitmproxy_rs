@@ -317,7 +317,7 @@ mod tests {
         let (events_tx, mut events_rx) = tokio::sync::mpsc::channel(1);
         let (shutdown_tx, shutdown_rx) = shutdown::channel();
         let (task, addr) = UdpConf {
-            listen_addr: SocketAddr::from_str("127.0.0.1:0").unwrap()
+            listen_addr: SocketAddr::from_str("127.0.0.1:0").unwrap(),
         }
         .build(events_tx, commands_rx, shutdown_rx)
         .await?;
