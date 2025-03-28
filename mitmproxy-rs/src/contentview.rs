@@ -23,7 +23,7 @@ impl Contentview {
     }
 
     /// Pretty-print an (encoded) message.
-    pub fn prettify<'py>(&self, data: Vec<u8>) -> Result<String> {
+    pub fn prettify(&self, data: Vec<u8>) -> Result<String> {
         self.0.prettify(data).map_err(|e| anyhow!("{e}"))
     }
 
@@ -52,8 +52,8 @@ impl InteractiveContentview {
 
 #[pymethods]
 impl InteractiveContentview {
-    pub fn reencode(&self, data: String) -> Result<Vec<u8>> {
-        self.0.reencode(data).map_err(|e| anyhow!("{e}"))
+    pub fn reencode(&self, data: &str) -> Result<Vec<u8>> {
+        self.0.reencode(data, &[]).map_err(|e| anyhow!("{e}"))
     }
 
     fn __repr__(self_: PyRef<'_, Self>) -> PyResult<String> {

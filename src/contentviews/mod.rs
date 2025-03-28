@@ -52,5 +52,5 @@ pub trait Prettify: Send + Sync {
 }
 
 pub trait Reencode: Send + Sync {
-    fn reencode(&self, data: String) -> Result<Vec<u8>, ReencodeError>;
+    fn reencode(&self, data: &str, original: &[u8]) -> Result<Vec<u8>, ReencodeError>;
 }
