@@ -21,9 +21,9 @@ impl Prettify for MsgPack {
 }
 
 impl Reencode for MsgPack {
-    fn reencode(&self, data: String) -> anyhow::Result<Vec<u8>, ReencodeError> {
+    fn reencode(&self, data: &str, original: &[u8]) -> anyhow::Result<Vec<u8>, ReencodeError> {
         // Parse the YAML string to a serde_yaml::Value
-        let value: serde_yaml::Value = serde_yaml::from_str(&data)
+        let value: serde_yaml::Value = serde_yaml::from_str(data)
             .map_err(|e| ReencodeError::InvalidFormat(format!("Invalid YAML: {}", e)))?;
 
         // Serialize the Value to MsgPack
@@ -74,9 +74,7 @@ tags:
 
     #[test]
     fn test_msgpack_serialize() {
-        let yaml_data = TEST_YAML.to_string();
-
-        let result = MsgPack.reencode(yaml_data).unwrap();
+        let result = MsgPack.reencode(TEST_YAML, &[]).unwrap();
 
         // Verify the MsgPack data contains the expected values
         let value: serde_yaml::Value = decode::from_slice(&result).unwrap();
@@ -115,7 +113,7 @@ tags:
         let yaml_result = MsgPack.prettify(msgpack_data).unwrap();
 
         // Serialize back to MsgPack
-        let result = MsgPack.reencode(yaml_result).unwrap();
+        let result = MsgPack.reencode(&yaml_result, &[]).unwrap();
 
         // Deserialize both the original and the result to Values for comparison
         let original_value: serde_yaml::Value = decode::from_slice(TEST_MSGPACK).unwrap();

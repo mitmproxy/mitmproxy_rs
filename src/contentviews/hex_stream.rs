@@ -25,7 +25,7 @@ impl Prettify for HexStream {
 }
 
 impl Reencode for HexStream {
-    fn reencode(&self, data: String) -> anyhow::Result<Vec<u8>, ReencodeError> {
+    fn reencode(&self, data: &str, original: &[u8]) -> anyhow::Result<Vec<u8>, ReencodeError> {
         (0..data.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&data[i..i + 2], 16))
@@ -54,8 +54,8 @@ mod tests {
 
     #[test]
     fn test_hexstream_serialize() {
-        let data = "666f6f".to_string();
-        let result = HexStream.reencode(data).unwrap();
+        let data = "666f6f";
+        let result = HexStream.reencode(data, &[]).unwrap();
         assert_eq!(result, b"foo");
     }
 }
