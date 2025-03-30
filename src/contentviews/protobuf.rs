@@ -1,5 +1,5 @@
-use crate::contentviews::{Prettify, PrettifyError, Reencode, ReencodeError};
-use once_cell::sync::Lazy;
+use crate::contentviews::{Prettify, Reencode};
+use anyhow::{bail, Context, Result};
 use protobuf::descriptor::field_descriptor_proto::Label::LABEL_REPEATED;
 use protobuf::descriptor::field_descriptor_proto::Type;
 use protobuf::descriptor::field_descriptor_proto::Type::{
@@ -14,8 +14,7 @@ use protobuf::well_known_types::empty::Empty;
 use protobuf::UnknownValueRef;
 use protobuf::{EnumOrUnknown, Message, MessageDyn, MessageFull, UnknownValue};
 use regex::Captures;
-use regex::Regex;
-use serde_yaml::value::{Tag, TaggedValue};
+use serde_yaml::value::TaggedValue;
 use serde_yaml::Value::Tagged;
 use serde_yaml::{Mapping, Number, Value};
 use std::collections::BTreeMap;
@@ -25,19 +24,21 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 mod tags {
-    use std::cell::LazyCell;
     use once_cell::sync::Lazy;
     use regex::Regex;
     use serde_yaml::value::Tag;
 
-    pub(super) const BINARY: LazyCell<Tag> = LazyCell::new(|| Tag::new("binary"));
-    pub(super) const VARINT: LazyCell<Tag> = LazyCell::new(|| Tag::new("varint"));
-    pub(super) const FIXED32: LazyCell<Tag> = LazyCell::new(|| Tag::new("fixed32"));
-    pub(super) const FIXED64: LazyCell<Tag> = LazyCell::new(|| Tag::new("fixed64"));
+    pub(super) static BINARY: Lazy<Tag> = Lazy::new(|| Tag::new("binary"));
+    pub(super) static VARINT: Lazy<Tag> = Lazy::new(|| Tag::new("varint"));
+    pub(super) static FIXED32: Lazy<Tag> = Lazy::new(|| Tag::new("fixed32"));
+    pub(super) static FIXED64: Lazy<Tag> = Lazy::new(|| Tag::new("fixed64"));
 
-    pub(super) const VARINT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!(r"{} (\d+)", *VARINT)).unwrap());
-    pub(super) const FIXED32_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!(r"{} (\d+)", *FIXED32)).unwrap());
-    pub(super) const FIXED64_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!(r"{} (\d+)", *FIXED64)).unwrap());
+    pub(super) static VARINT_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(&format!(r"{} (\d+)", *VARINT)).unwrap());
+    pub(super) static FIXED32_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(&format!(r"{} (\d+)", *FIXED32)).unwrap());
+    pub(super) static FIXED64_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(&format!(r"{} (\d+)", *FIXED64)).unwrap());
 }
 
 pub struct Protobuf;
@@ -53,25 +54,24 @@ impl Prettify for Protobuf {
         "Protocol Buffer"
     }
 
-    fn prettify(&self, data: &[u8]) -> Result<String, PrettifyError> {
+    fn prettify(&self, data: &[u8]) -> Result<String> {
         // Check if data is empty first
         if data.is_empty() {
-            return Err(PrettifyError::Generic("Empty protobuf data".to_string()));
+            bail!("Empty protobuf data");
         }
 
         let existing = Empty::descriptor();
-        let descriptor = Self::create_descriptor(&data, existing)?;
+        let descriptor = Self::create_descriptor(data, existing)?;
 
         let message = descriptor
-            .parse_from_bytes(&data)
-            .map_err(|e| PrettifyError::Generic(format!("Error parsing protobuf: {e}")))?;
+            .parse_from_bytes(data)
+            .context("Error parsing protobuf")?;
 
         // Parse protobuf and convert to YAML
         let yaml_value = Self::message_to_yaml(message.as_ref());
 
         // Convert the Value to prettified YAML
-        let yaml_str = serde_yaml::to_string(&yaml_value)
-            .map_err(|e| PrettifyError::Generic(format!("Failed to convert to YAML: {}", e)))?;
+        let yaml_str = serde_yaml::to_string(&yaml_value).context("Failed to convert to YAML")?;
 
         // Apply regex replacements to transform the YAML output
         Self::apply_replacements(&yaml_str)
@@ -79,14 +79,11 @@ impl Prettify for Protobuf {
 }
 
 impl Reencode for Protobuf {
-    fn reencode(&self, data: &str, original: &[u8]) -> Result<Vec<u8>, ReencodeError> {
+    fn reencode(&self, data: &str) -> Result<Vec<u8>> {
         let descriptor = Empty::descriptor();
-        //let descriptor = Self::create_descriptor(original, existing)
-        //    .map_err(|e| ReencodeError::InvalidFormat(format!("{e}")))?;
         let message = descriptor.new_instance();
 
-        let value: Value = serde_yaml::from_str(data)
-            .map_err(|e| ReencodeError::InvalidFormat(format!("invalid yaml: {e}")))?;
+        let value: Value = serde_yaml::from_str(data).context("Invalid YAML")?;
 
         Self::merge_yaml_into_message(value, message)
     }
@@ -146,14 +143,9 @@ fn int_value(n: Number, field: Option<&FieldDescriptor>) -> UnknownValue {
 }
 
 impl Protobuf {
-    fn merge_yaml_into_message(
-        value: Value,
-        mut message: Box<dyn MessageDyn>,
-    ) -> Result<Vec<u8>, ReencodeError> {
+    fn merge_yaml_into_message(value: Value, mut message: Box<dyn MessageDyn>) -> Result<Vec<u8>> {
         let Value::Mapping(mapping) = value else {
-            return Err(ReencodeError::InvalidFormat(
-                "yaml is not a mapping".to_string(),
-            ));
+            bail!("YAML is not a mapping");
         };
 
         for (key, value) in mapping.into_iter() {
@@ -164,23 +156,17 @@ impl Protobuf {
                     } else if let Ok(field_num) = i32::from_str(&key) {
                         field_num
                     } else {
-                        return Err(ReencodeError::InvalidFormat(format!(
-                            "unknown protobuf field key: {key}"
-                        )));
+                        bail!("Unknown protobuf field key: {key}");
                     }
                 }
                 Value::Number(key) => {
                     let Some(field_num) = key.as_i64() else {
-                        return Err(ReencodeError::InvalidFormat(format!(
-                            "invalid protobuf field number: {key}"
-                        )));
+                        bail!("Invalid protobuf field number: {key}");
                     };
                     field_num as i32
                 }
                 other => {
-                    return Err(ReencodeError::InvalidFormat(format!(
-                        "unexpected key: {other:?}"
-                    )))
+                    bail!("Unexpected key: {other:?}");
                 }
             } as u32;
 
@@ -189,14 +175,10 @@ impl Protobuf {
 
         message
             .write_to_bytes_dyn()
-            .map_err(|e| ReencodeError::InvalidFormat(format!("failed to serialize protobuf: {e}")))
+            .context("Failed to serialize protobuf")
     }
 
-    fn add_field(
-        message: &mut dyn MessageDyn,
-        field_num: u32,
-        value: Value,
-    ) -> Result<(), ReencodeError> {
+    fn add_field(message: &mut dyn MessageDyn, field_num: u32, value: Value) -> Result<()> {
         let value = match value {
             Value::Null => return Ok(()),
             Value::Sequence(seq) => {
@@ -210,31 +192,27 @@ impl Protobuf {
                 if t.tag == *tags::BINARY {
                     let value = match t.value {
                         Value::String(s) => s,
-                        _ => {
-                            return Err(ReencodeError::InvalidFormat(
-                                "binary data is not a string".to_string(),
-                            ))
-                        }
+                        _ => bail!("Binary data is not a string"),
                     };
                     let value = (0..value.len())
                         .step_by(2)
                         .map(|i| u8::from_str_radix(&value[i..i + 2], 16))
                         .collect::<Result<Vec<u8>, ParseIntError>>()
-                        .map_err(|e| ReencodeError::InvalidFormat(e.to_string()))?;
+                        .context("Invalid hex string")?;
                     UnknownValue::LengthDelimited(value)
                 } else if t.tag == *tags::FIXED32 {
                     let value = match t.value {
                         Value::Number(s) if s.as_u64().is_some() => s.as_u64().unwrap(),
-                        _ => return Err(ReencodeError::InvalidFormat("fixed32 data is not a u32".to_string()))
+                        _ => bail!("Fixed32 data is not a u32"),
                     };
                     UnknownValue::Fixed32(value as u32)
                 } else if t.tag == *tags::FIXED64 {
                     let value = match t.value {
                         Value::Number(s) if s.as_u64().is_some() => s.as_u64().unwrap(),
-                        _ => return Err(ReencodeError::InvalidFormat("fixed64 data is not a u64".to_string()))
+                        _ => bail!("Fixed64 data is not a u64"),
                     };
                     UnknownValue::Fixed64(value)
-                } else{
+                } else {
                     log::info!("Unexpected YAML tag {}, discarding.", t.tag);
                     return Self::add_field(message, field_num, t.value);
                 }
@@ -252,7 +230,7 @@ impl Protobuf {
                         field.runtime_field_type()
                     {
                         descriptor = md;
-                    } else if let RuntimeFieldType::Map(k, v) = field.runtime_field_type() {
+                    } else if let RuntimeFieldType::Map(_, _) = field.runtime_field_type() {
                         // TODO: handle maps.
                     }
                 }
@@ -330,10 +308,7 @@ impl Protobuf {
         Value::Mapping(ret)
     }
 
-    fn create_descriptor(
-        data: &[u8],
-        existing: MessageDescriptor,
-    ) -> Result<MessageDescriptor, PrettifyError> {
+    fn create_descriptor(data: &[u8], existing: MessageDescriptor) -> Result<MessageDescriptor> {
         let proto = Self::create_descriptor_proto(data, existing, "Unknown".to_string())?;
 
         let descriptor = {
@@ -355,10 +330,10 @@ impl Protobuf {
         data: &[u8],
         existing: MessageDescriptor,
         name: String,
-    ) -> Result<DescriptorProto, PrettifyError> {
+    ) -> Result<DescriptorProto> {
         let message = existing
             .parse_from_bytes(data)
-            .map_err(|e| PrettifyError::Generic(format!("failed to parse protobuf: {e}")))?;
+            .context("failed to parse protobuf")?;
 
         let mut descriptor = existing.proto().clone();
 
@@ -380,16 +355,14 @@ impl Protobuf {
                 UnknownValueRef::Fixed32(_) => add_int(TYPE_FIXED32),
                 UnknownValueRef::Fixed64(_) => add_int(TYPE_FIXED64),
                 UnknownValueRef::Varint(_) => add_int(TYPE_UINT64),
-                UnknownValueRef::LengthDelimited(data) => {
+                UnknownValueRef::LengthDelimited(_) => {
                     let field_values = field_values
                         .iter()
                         .map(|x| match x {
                             UnknownValueRef::LengthDelimited(data) => Ok(*data),
-                            _ => Err(PrettifyError::Generic(
-                                "varying types in protobuf".to_string(),
-                            )),
+                            _ => Err(anyhow::anyhow!("varying types in protobuf")),
                         })
-                        .collect::<Result<Vec<&[u8]>, PrettifyError>>()?;
+                        .collect::<Result<Vec<&[u8]>>>()?;
 
                     match Self::guess_field_type(&field_values, &name, field_index) {
                         GuessedFieldType::String => add_int(TYPE_STRING),
@@ -448,7 +421,7 @@ impl Protobuf {
     }
 
     // Helper method to apply regex replacements to the YAML output
-    fn apply_replacements(yaml_str: &str) -> Result<String, PrettifyError> {
+    fn apply_replacements(yaml_str: &str) -> Result<String> {
         // Replace !fixed32 tags with comments showing float and i32 interpretations
         let with_fixed32 = tags::FIXED32_RE.replace_all(yaml_str, |caps: &Captures| {
             let value = caps[1].parse::<u32>().unwrap_or_default();
@@ -456,7 +429,13 @@ impl Protobuf {
             let i32_value = value as i32;
 
             if !float_value.is_nan() && float_value < 0.0 {
-                format!("{} {} # float: {}, i32: {}", *tags::FIXED32, value, float_value, i32_value)
+                format!(
+                    "{} {} # float: {}, i32: {}",
+                    *tags::FIXED32,
+                    value,
+                    float_value,
+                    i32_value
+                )
             } else if !float_value.is_nan() {
                 format!("{} {} # float: {}", *tags::FIXED32, value, float_value)
             } else if i32_value < 0 {
@@ -473,7 +452,13 @@ impl Protobuf {
             let i64_value = value as i64;
 
             if !double_value.is_nan() && double_value < 0.0 {
-                format!("{} {} # double: {}, i64: {}", *tags::FIXED64, value, double_value, i64_value)
+                format!(
+                    "{} {} # double: {}, i64: {}",
+                    *tags::FIXED64,
+                    value,
+                    double_value,
+                    i64_value
+                )
             } else if !double_value.is_nan() {
                 format!("{} {} # double: {}", *tags::FIXED64, value, double_value)
             } else if i64_value < 0 {
@@ -534,46 +519,88 @@ mod tests {
 
                 #[test]
                 fn reencode() {
-                    let result = Protobuf.reencode(YAML, PROTO).unwrap();
+                    let result = Protobuf.reencode(YAML).unwrap();
                     assert_eq!(result, PROTO);
                 }
             }
         };
     }
 
-    test_roundtrip!(varint, b"\x08\x96\x01","1: 150\n");
-    test_roundtrip!(varint_negative, b"\x08\x0B","1: 11 # signed: -6\n");
-    test_roundtrip!(binary, b"\x32\x03\x01\x02\x03","6: !binary '010203'\n");
-    test_roundtrip!(string, b"\x0A\x05\x68\x65\x6C\x6C\x6F","1: hello\n");
-    test_roundtrip!(nested, b"\x2A\x02\x08\x2A","5:\n  1: 42\n");
-    test_roundtrip!(nested_twice, b"\x2A\x04\x2A\x02\x08\x2A","5:\n  5:\n    1: 42\n");
-    test_roundtrip!(fixed64, b"\x19\x00\x00\x00\x00\x00\x00\xF0\xBF","3: !fixed64 13830554455654793216 # double: -1, i64: -4616189618054758400\n");
-    test_roundtrip!(fixed64_positive, b"\x19\x6E\x86\x1B\xF0\xF9\x21\x09\x40","3: !fixed64 4614256650576692846 # double: 3.14159\n");
-    test_roundtrip!(fixed64_no_float, b"\x19\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF","3: !fixed64 18446744073709551615 # i64: -1\n");
-    test_roundtrip!(fixed64_positive_no_float, b"\x19\x01\x00\x00\x00\x00\x00\xF8\x7F","3: !fixed64 9221120237041090561\n");
-    test_roundtrip!(fixed32, b"\x15\x00\x00\x80\xBF","2: !fixed32 3212836864 # float: -1, i32: -1082130432\n");
-    test_roundtrip!(fixed32_positive, b"\x15\xD0\x0F\x49\x40","2: !fixed32 1078530000 # float: 3.14159\n");
-    test_roundtrip!(fixed32_no_float, b"\x15\xFF\xFF\xFF\xFF","2: !fixed32 4294967295 # i32: -1\n");
-    test_roundtrip!(fixed32_positive_no_float, b"\x15\x01\x00\xC0\x7F","2: !fixed32 2143289345\n");
+    test_roundtrip!(varint, b"\x08\x96\x01", "1: 150\n");
+    test_roundtrip!(varint_negative, b"\x08\x0B", "1: 11 # signed: -6\n");
+    test_roundtrip!(binary, b"\x32\x03\x01\x02\x03", "6: !binary '010203'\n");
+    test_roundtrip!(string, b"\x0A\x05\x68\x65\x6C\x6C\x6F", "1: hello\n");
+    test_roundtrip!(nested, b"\x2A\x02\x08\x2A", "5:\n  1: 42\n");
+    test_roundtrip!(
+        nested_twice,
+        b"\x2A\x04\x2A\x02\x08\x2A",
+        "5:\n  5:\n    1: 42\n"
+    );
+    test_roundtrip!(
+        fixed64,
+        b"\x19\x00\x00\x00\x00\x00\x00\xF0\xBF",
+        "3: !fixed64 13830554455654793216 # double: -1, i64: -4616189618054758400\n"
+    );
+    test_roundtrip!(
+        fixed64_positive,
+        b"\x19\x6E\x86\x1B\xF0\xF9\x21\x09\x40",
+        "3: !fixed64 4614256650576692846 # double: 3.14159\n"
+    );
+    test_roundtrip!(
+        fixed64_no_float,
+        b"\x19\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF",
+        "3: !fixed64 18446744073709551615 # i64: -1\n"
+    );
+    test_roundtrip!(
+        fixed64_positive_no_float,
+        b"\x19\x01\x00\x00\x00\x00\x00\xF8\x7F",
+        "3: !fixed64 9221120237041090561\n"
+    );
+    test_roundtrip!(
+        fixed32,
+        b"\x15\x00\x00\x80\xBF",
+        "2: !fixed32 3212836864 # float: -1, i32: -1082130432\n"
+    );
+    test_roundtrip!(
+        fixed32_positive,
+        b"\x15\xD0\x0F\x49\x40",
+        "2: !fixed32 1078530000 # float: 3.14159\n"
+    );
+    test_roundtrip!(
+        fixed32_no_float,
+        b"\x15\xFF\xFF\xFF\xFF",
+        "2: !fixed32 4294967295 # i32: -1\n"
+    );
+    test_roundtrip!(
+        fixed32_positive_no_float,
+        b"\x15\x01\x00\xC0\x7F",
+        "2: !fixed32 2143289345\n"
+    );
     // From docs: "message Test5 { repeated int32 f = 6 [packed=true]; }"
     // With values 3, 270, and 86942
-    test_roundtrip!(repeated_packed, b"\x32\x06\x03\x8E\x02\x9E\xA7\x05","6: !binary 038e029ea705\n");
-    test_roundtrip!(repeated_varint, b"\x08\x01\x08\x02\x08\x03","1:\n- 1 # signed: -1\n- 2\n- 3 # signed: -2\n");
+    test_roundtrip!(
+        repeated_packed,
+        b"\x32\x06\x03\x8E\x02\x9E\xA7\x05",
+        "6: !binary 038e029ea705\n"
+    );
+    test_roundtrip!(
+        repeated_varint,
+        b"\x08\x01\x08\x02\x08\x03",
+        "1:\n- 1 # signed: -1\n- 2\n- 3 # signed: -2\n"
+    );
 
     mod reencode {
         use super::*;
 
         #[test]
         fn reencode_new_nested_message() {
-            let result = Protobuf
-                .reencode(nested::YAML, fixed32::PROTO)
-                .unwrap();
+            let result = Protobuf.reencode(nested::YAML).unwrap();
             assert_eq!(result, nested::PROTO);
         }
 
         #[test]
         fn new_string_attr() {
-            let result = Protobuf.reencode(string::YAML, varint::PROTO).unwrap();
+            let result = Protobuf.reencode(string::YAML).unwrap();
             assert_eq!(result, string::PROTO);
         }
     }
