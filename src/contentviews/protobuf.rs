@@ -24,10 +24,21 @@ use std::num::ParseIntError;
 use std::ops::Deref;
 use std::str::FromStr;
 
-// Define static regular expressions for better performance
-static FIXED32_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"!fixed32 (\d+)").unwrap());
-static FIXED64_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"!fixed64 (\d+)").unwrap());
-static VARINT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"!varint (\d+)").unwrap());
+mod tags {
+    use std::cell::LazyCell;
+    use once_cell::sync::Lazy;
+    use regex::Regex;
+    use serde_yaml::value::Tag;
+
+    pub(super) const BINARY: LazyCell<Tag> = LazyCell::new(|| Tag::new("binary"));
+    pub(super) const VARINT: LazyCell<Tag> = LazyCell::new(|| Tag::new("varint"));
+    pub(super) const FIXED32: LazyCell<Tag> = LazyCell::new(|| Tag::new("fixed32"));
+    pub(super) const FIXED64: LazyCell<Tag> = LazyCell::new(|| Tag::new("fixed64"));
+
+    pub(super) const VARINT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!(r"{} (\d+)", *VARINT)).unwrap());
+    pub(super) const FIXED32_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!(r"{} (\d+)", *FIXED32)).unwrap());
+    pub(super) const FIXED64_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!(r"{} (\d+)", *FIXED64)).unwrap());
+}
 
 pub struct Protobuf;
 
@@ -42,7 +53,7 @@ impl Prettify for Protobuf {
         "Protocol Buffer"
     }
 
-    fn prettify(&self, data: Vec<u8>) -> Result<String, PrettifyError> {
+    fn prettify(&self, data: &[u8]) -> Result<String, PrettifyError> {
         // Check if data is empty first
         if data.is_empty() {
             return Err(PrettifyError::Generic("Empty protobuf data".to_string()));
@@ -69,9 +80,9 @@ impl Prettify for Protobuf {
 
 impl Reencode for Protobuf {
     fn reencode(&self, data: &str, original: &[u8]) -> Result<Vec<u8>, ReencodeError> {
-        let existing = Empty::descriptor();
-        let descriptor = Self::create_descriptor(original, existing)
-            .map_err(|e| ReencodeError::InvalidFormat(format!("{e}")))?;
+        let descriptor = Empty::descriptor();
+        //let descriptor = Self::create_descriptor(original, existing)
+        //    .map_err(|e| ReencodeError::InvalidFormat(format!("{e}")))?;
         let message = descriptor.new_instance();
 
         let value: Value = serde_yaml::from_str(data)
@@ -84,15 +95,15 @@ impl Reencode for Protobuf {
 fn tag_number(value: Value, field_type: Type) -> Value {
     match field_type {
         TYPE_UINT64 => Tagged(Box::new(TaggedValue {
-            tag: Tag::new("varint"),
+            tag: tags::VARINT.clone(),
             value,
         })),
         TYPE_FIXED64 => Tagged(Box::new(TaggedValue {
-            tag: Tag::new("fixed64"),
+            tag: tags::FIXED64.clone(),
             value,
         })),
         TYPE_FIXED32 => Tagged(Box::new(TaggedValue {
-            tag: Tag::new("fixed32"),
+            tag: tags::FIXED32.clone(),
             value,
         })),
         _ => value,
@@ -195,7 +206,8 @@ impl Protobuf {
                 return Ok(());
             }
             Tagged(t) => {
-                if t.tag == "!Binary" {
+                // t.tag doesn't work for Match statements
+                if t.tag == *tags::BINARY {
                     let value = match t.value {
                         Value::String(s) => s,
                         _ => {
@@ -210,7 +222,19 @@ impl Protobuf {
                         .collect::<Result<Vec<u8>, ParseIntError>>()
                         .map_err(|e| ReencodeError::InvalidFormat(e.to_string()))?;
                     UnknownValue::LengthDelimited(value)
-                } else {
+                } else if t.tag == *tags::FIXED32 {
+                    let value = match t.value {
+                        Value::Number(s) if s.as_u64().is_some() => s.as_u64().unwrap(),
+                        _ => return Err(ReencodeError::InvalidFormat("fixed32 data is not a u32".to_string()))
+                    };
+                    UnknownValue::Fixed32(value as u32)
+                } else if t.tag == *tags::FIXED64 {
+                    let value = match t.value {
+                        Value::Number(s) if s.as_u64().is_some() => s.as_u64().unwrap(),
+                        _ => return Err(ReencodeError::InvalidFormat("fixed64 data is not a u64".to_string()))
+                    };
+                    UnknownValue::Fixed64(value)
+                } else{
                     log::info!("Unexpected YAML tag {}, discarding.", t.tag);
                     return Self::add_field(message, field_num, t.value);
                 }
@@ -252,7 +276,7 @@ impl Protobuf {
             ReflectValueRef::Bool(x) => Value::from(x),
             ReflectValueRef::String(x) => Value::from(x),
             ReflectValueRef::Bytes(x) => Value::Tagged(Box::new(TaggedValue {
-                tag: Tag::new("Binary"),
+                tag: tags::BINARY.clone(),
                 value: Value::String(Self::bytes_to_hex_string(x)),
             })),
             ReflectValueRef::Enum(descriptor, i) => descriptor
@@ -426,41 +450,41 @@ impl Protobuf {
     // Helper method to apply regex replacements to the YAML output
     fn apply_replacements(yaml_str: &str) -> Result<String, PrettifyError> {
         // Replace !fixed32 tags with comments showing float and i32 interpretations
-        let with_fixed32 = FIXED32_RE.replace_all(yaml_str, |caps: &Captures| {
+        let with_fixed32 = tags::FIXED32_RE.replace_all(yaml_str, |caps: &Captures| {
             let value = caps[1].parse::<u32>().unwrap_or_default();
             let float_value = f32::from_bits(value);
             let i32_value = value as i32;
 
             if !float_value.is_nan() && float_value < 0.0 {
-                format!("{} # float: {}, i32: {}", value, float_value, i32_value)
+                format!("{} {} # float: {}, i32: {}", *tags::FIXED32, value, float_value, i32_value)
             } else if !float_value.is_nan() {
-                format!("{} # float: {}", value, float_value)
+                format!("{} {} # float: {}", *tags::FIXED32, value, float_value)
             } else if i32_value < 0 {
-                format!("{} # i32: {}", value, i32_value)
+                format!("{} {} # i32: {}", *tags::FIXED32, value, i32_value)
             } else {
-                value.to_string()
+                format!("{} {}", *tags::FIXED32, value)
             }
         });
 
         // Replace !fixed64 tags with comments showing double and i64 interpretations
-        let with_fixed64 = FIXED64_RE.replace_all(&with_fixed32, |caps: &Captures| {
+        let with_fixed64 = tags::FIXED64_RE.replace_all(&with_fixed32, |caps: &Captures| {
             let value = caps[1].parse::<u64>().unwrap_or_default();
             let double_value = f64::from_bits(value);
             let i64_value = value as i64;
 
             if !double_value.is_nan() && double_value < 0.0 {
-                format!("{} # double: {}, i64: {}", value, double_value, i64_value)
+                format!("{} {} # double: {}, i64: {}", *tags::FIXED64, value, double_value, i64_value)
             } else if !double_value.is_nan() {
-                format!("{} # double: {}", value, double_value)
+                format!("{} {} # double: {}", *tags::FIXED64, value, double_value)
             } else if i64_value < 0 {
-                format!("{} # i64: {}", value, i64_value)
+                format!("{} {} # i64: {}", *tags::FIXED64, value, i64_value)
             } else {
-                value.to_string()
+                format!("{} {}", *tags::FIXED64, value)
             }
         });
 
         // Replace !varint tags with comments showing signed interpretation if different
-        let with_varint = VARINT_RE.replace_all(&with_fixed64, |caps: &Captures| {
+        let with_varint = tags::VARINT_RE.replace_all(&with_fixed64, |caps: &Captures| {
             let unsigned_value = caps[1].parse::<u64>().unwrap_or_default();
             let i64_zigzag = Self::decode_zigzag64(unsigned_value);
 
@@ -494,232 +518,75 @@ impl Protobuf {
 mod tests {
     use super::*;
 
-    const VARINT_PROTO: &[u8] = &[0x08, 0x96, 0x01];
-    const VARINT_YAML: &str = "1: 150";
-    const VARINT_NEG_PROTO: &[u8] = &[0x08, 0x0B];
-    const VARINT_NEG_YAML: &str = "1: 11 # signed: -6\n";
-    const REPEATED_NUMERIC_PROTO: &[u8] = &[0x08, 0x01, 0x08, 0x02, 0x08, 0x03];
-    const REPEATED_NUMERIC_YAML: &str = "1:\n- 1 # signed: -1\n- 2\n- 3 # signed: -2\n";
-    const REPEATED_PACKED_PROTO: &[u8] = &[0x32, 0x06, 0x03, 0x8E, 0x02, 0x9E, 0xA7, 0x05];
-    const REPEATED_PACKED_YAML: &str = "6: !Binary 038e029ea705\n";
-    const FIXED32_PROTO: &[u8] = &[0x15, 0x00, 0x00, 0x80, 0xBF];
-    const FIXED32_YAML: &str = "2: 3212836864 # float: -1, i32: -1082130432\n";
-    const STRING_PROTO: &[u8] = &[0x22, 0x05, 0x68, 0x65, 0x6C, 0x6C, 0x6F];
-    const STRING_YAML: &str = "4: hello\n";
-    const NESTED_MESSAGE_PROTO: &[u8] = &[0x2A, 0x02, 0x08, 0x2A];
-    const NESTED_MESSAGE_YAML: &str = "5:\n  1: 42\n";
+    macro_rules! test_roundtrip {
+        ($name:ident,$proto:literal,$yaml:literal) => {
+            mod $name {
+                use super::*;
+
+                pub(super) const PROTO: &[u8] = $proto;
+                pub(super) const YAML: &str = $yaml;
+
+                #[test]
+                fn prettify() {
+                    let result = Protobuf.prettify(PROTO).unwrap();
+                    assert_eq!(result, YAML);
+                }
+
+                #[test]
+                fn reencode() {
+                    let result = Protobuf.reencode(YAML, PROTO).unwrap();
+                    assert_eq!(result, PROTO);
+                }
+            }
+        };
+    }
+
+    test_roundtrip!(varint, b"\x08\x96\x01","1: 150\n");
+    test_roundtrip!(varint_negative, b"\x08\x0B","1: 11 # signed: -6\n");
+    test_roundtrip!(binary, b"\x32\x03\x01\x02\x03","6: !binary '010203'\n");
+    test_roundtrip!(string, b"\x0A\x05\x68\x65\x6C\x6C\x6F","1: hello\n");
+    test_roundtrip!(nested, b"\x2A\x02\x08\x2A","5:\n  1: 42\n");
+    test_roundtrip!(nested_twice, b"\x2A\x04\x2A\x02\x08\x2A","5:\n  5:\n    1: 42\n");
+    test_roundtrip!(fixed64, b"\x19\x00\x00\x00\x00\x00\x00\xF0\xBF","3: !fixed64 13830554455654793216 # double: -1, i64: -4616189618054758400\n");
+    test_roundtrip!(fixed64_positive, b"\x19\x6E\x86\x1B\xF0\xF9\x21\x09\x40","3: !fixed64 4614256650576692846 # double: 3.14159\n");
+    test_roundtrip!(fixed64_no_float, b"\x19\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF","3: !fixed64 18446744073709551615 # i64: -1\n");
+    test_roundtrip!(fixed64_positive_no_float, b"\x19\x01\x00\x00\x00\x00\x00\xF8\x7F","3: !fixed64 9221120237041090561\n");
+    test_roundtrip!(fixed32, b"\x15\x00\x00\x80\xBF","2: !fixed32 3212836864 # float: -1, i32: -1082130432\n");
+    test_roundtrip!(fixed32_positive, b"\x15\xD0\x0F\x49\x40","2: !fixed32 1078530000 # float: 3.14159\n");
+    test_roundtrip!(fixed32_no_float, b"\x15\xFF\xFF\xFF\xFF","2: !fixed32 4294967295 # i32: -1\n");
+    test_roundtrip!(fixed32_positive_no_float, b"\x15\x01\x00\xC0\x7F","2: !fixed32 2143289345\n");
+    // From docs: "message Test5 { repeated int32 f = 6 [packed=true]; }"
+    // With values 3, 270, and 86942
+    test_roundtrip!(repeated_packed, b"\x32\x06\x03\x8E\x02\x9E\xA7\x05","6: !binary 038e029ea705\n");
+    test_roundtrip!(repeated_varint, b"\x08\x01\x08\x02\x08\x03","1:\n- 1 # signed: -1\n- 2\n- 3 # signed: -2\n");
 
     mod reencode {
         use super::*;
 
         #[test]
-        fn test_varint() {
-            let result = Protobuf.reencode(VARINT_YAML, VARINT_PROTO).unwrap();
-            assert_eq!(result, VARINT_PROTO);
-        }
-
-        #[test]
-        fn test_varint_signed() {
+        fn reencode_new_nested_message() {
             let result = Protobuf
-                .reencode(VARINT_NEG_YAML, VARINT_NEG_PROTO)
+                .reencode(nested::YAML, fixed32::PROTO)
                 .unwrap();
-            assert_eq!(result, VARINT_NEG_PROTO);
+            assert_eq!(result, nested::PROTO);
         }
 
         #[test]
-        fn test_repeated_numeric() {
-            let result = Protobuf
-                .reencode(REPEATED_NUMERIC_YAML, REPEATED_NUMERIC_PROTO)
-                .unwrap();
-            assert_eq!(result, REPEATED_NUMERIC_PROTO);
-        }
-
-        #[test]
-        fn test_packed_repeated() {
-            let result = Protobuf
-                .reencode(REPEATED_PACKED_YAML, REPEATED_PACKED_PROTO)
-                .unwrap();
-            assert_eq!(result, REPEATED_PACKED_PROTO);
-        }
-
-        // Fixed32 tests
-        #[test]
-        fn test_fixed32() {
-            let result = Protobuf.reencode(FIXED32_YAML, FIXED32_PROTO).unwrap();
-            assert_eq!(result, FIXED32_PROTO);
-        }
-
-        // String field test
-        #[test]
-        fn test_string_field() {
-            let result = Protobuf.reencode(STRING_YAML, STRING_PROTO).unwrap();
-            assert_eq!(result, STRING_PROTO);
-        }
-
-        #[test]
-        fn test_nested_message() {
-            let result = Protobuf
-                .reencode(NESTED_MESSAGE_YAML, NESTED_MESSAGE_PROTO)
-                .unwrap();
-            assert_eq!(result, NESTED_MESSAGE_PROTO);
-        }
-
-        #[test]
-        fn test_new_nested_message() {
-            let result = Protobuf
-                .reencode(NESTED_MESSAGE_YAML, FIXED32_PROTO)
-                .unwrap();
-            assert_eq!(result, NESTED_MESSAGE_PROTO);
-        }
-
-        #[test]
-        fn test_new_string() {
-            let result = Protobuf.reencode(STRING_YAML, FIXED32_PROTO).unwrap();
-            assert_eq!(result, STRING_PROTO);
+        fn new_string_attr() {
+            let result = Protobuf.reencode(string::YAML, varint::PROTO).unwrap();
+            assert_eq!(result, string::PROTO);
         }
     }
 
-    mod prettify {
-        use super::*;
+    #[test]
+    fn test_invalid_protobuf() {
+        let result = Protobuf.prettify(b"\xFF\xFF");
+        assert!(result.is_err());
+    }
 
-        // Varint tests
-        #[test]
-        fn test_varint() {
-            // From docs: field 1: varint 150
-            const PROTO: &[u8] = &[0x08, 0x96, 0x01];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "1: 150\n");
-        }
-
-        #[test]
-        fn test_varint_signed() {
-            // field 1: varint 11 (zigzag encoded: -6)
-            const PROTO: &[u8] = &[0x08, 0x0B];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "1: 11 # signed: -6\n");
-        }
-
-        #[test]
-        fn test_repeated_numeric() {
-            // Example based on docs: repeated field 1 with values 1, 2, 3
-            const PROTO: &[u8] = &[0x08, 0x01, 0x08, 0x02, 0x08, 0x03];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "1:\n- 1 # signed: -1\n- 2\n- 3 # signed: -2\n");
-        }
-
-        #[test]
-        fn test_packed_repeated() {
-            // From docs: "message Test5 { repeated int32 f = 6 [packed=true]; }"
-            // With values 3, 270, and 86942
-            const PROTO: &[u8] = &[0x32, 0x06, 0x03, 0x8E, 0x02, 0x9E, 0xA7, 0x05];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            // Our implementation shows this as binary data as we don't have schema info
-            assert_eq!(result, "6: !Binary 038e029ea705\n");
-        }
-
-        // Fixed32 tests
-        #[test]
-        fn test_fixed32() {
-            const PROTO: &[u8] = &[0x15, 0x00, 0x00, 0x80, 0xBF];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "2: 3212836864 # float: -1, i32: -1082130432\n");
-        }
-
-        #[test]
-        fn test_fixed32_positive() {
-            const PROTO: &[u8] = &[0x15, 0xD0, 0x0F, 0x49, 0x40];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "2: 1078530000 # float: 3.14159\n");
-        }
-
-        #[test]
-        fn test_fixed32_no_float() {
-            const PROTO: &[u8] = &[0x15, 0xFF, 0xFF, 0xFF, 0xFF];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "2: 4294967295 # i32: -1\n");
-        }
-
-        #[test]
-        fn test_fixed32_positive_no_float() {
-            const PROTO: &[u8] = &[0x15, 0x01, 0x00, 0xC0, 0x7F];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "2: 2143289345\n");
-        }
-
-        // Fixed64 tests
-        #[test]
-        fn test_fixed64() {
-            const PROTO: &[u8] = &[0x19, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0xBF];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(
-                result,
-                "3: 13830554455654793216 # double: -1, i64: -4616189618054758400\n"
-            );
-        }
-
-        #[test]
-        fn test_fixed64_positive() {
-            const PROTO: &[u8] = &[0x19, 0x6E, 0x86, 0x1B, 0xF0, 0xF9, 0x21, 0x09, 0x40];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "3: 4614256650576692846 # double: 3.14159\n");
-        }
-
-        #[test]
-        fn test_fixed64_no_float() {
-            const PROTO: &[u8] = &[0x19, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "3: 18446744073709551615 # i64: -1\n");
-        }
-
-        #[test]
-        fn test_fixed64_positive_no_float() {
-            const PROTO: &[u8] = &[0x19, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF8, 0x7F];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "3: 9221120237041090561\n");
-        }
-
-        // String field test
-        #[test]
-        fn test_string_field() {
-            // field 4: string "hello" (LEN type field from docs)
-            const PROTO: &[u8] = &[0x22, 0x05, 0x68, 0x65, 0x6C, 0x6C, 0x6F];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "4: hello\n");
-        }
-
-        #[test]
-        fn test_nested_message() {
-            // From docs about nested messages: field 5 with a nested message containing field 1: varint 42
-            const PROTO: &[u8] = &[0x2A, 0x02, 0x08, 0x2A];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "5:\n  1: 42\n");
-        }
-
-        #[test]
-        fn test_nested_twice() {
-            const PROTO: &[u8] = &[0x2A, 0x04, 0x2A, 0x02, 0x08, 0x2A];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "5:\n  5:\n    1: 42\n");
-        }
-
-        #[test]
-        fn test_binary_data() {
-            // Binary data example: field 6: binary data [0x01, 0x02, 0x03]
-            const PROTO: &[u8] = &[0x32, 0x03, 0x01, 0x02, 0x03];
-            let result = Protobuf.prettify(PROTO.to_vec()).unwrap();
-            assert_eq!(result, "6: !Binary '010203'\n");
-        }
-
-        #[test]
-        fn test_invalid_protobuf() {
-            let result = Protobuf.prettify(vec![0xFF, 0xFF]);
-            assert!(result.is_err());
-        }
-
-        #[test]
-        fn test_empty_protobuf() {
-            let result = Protobuf.prettify(vec![]);
-            assert!(result.is_err());
-        }
+    #[test]
+    fn test_empty_protobuf() {
+        let result = Protobuf.prettify(b"");
+        assert!(result.is_err());
     }
 }

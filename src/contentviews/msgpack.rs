@@ -9,7 +9,7 @@ impl Prettify for MsgPack {
         "MsgPack"
     }
 
-    fn prettify(&self, data: Vec<u8>) -> Result<String, PrettifyError> {
+    fn prettify(&self, data: &[u8]) -> Result<String, PrettifyError> {
         // Deserialize MsgPack to a serde_yaml::Value
         let value: serde_yaml::Value = decode::from_slice(&data)
             .map_err(|e| PrettifyError::Generic(format!("Failed to deserialize MsgPack: {}", e)))?;
@@ -68,7 +68,7 @@ tags:
 
     #[test]
     fn test_msgpack_deserialize() {
-        let result = MsgPack.prettify(TEST_MSGPACK.to_vec()).unwrap();
+        let result = MsgPack.prettify(TEST_MSGPACK).unwrap();
         assert_eq!(result, TEST_YAML);
     }
 
@@ -106,11 +106,8 @@ tags:
 
     #[test]
     fn test_msgpack_roundtrip() {
-        // Start with the hardcoded MsgPack data
-        let msgpack_data = TEST_MSGPACK.to_vec();
-
         // Deserialize to YAML
-        let yaml_result = MsgPack.prettify(msgpack_data).unwrap();
+        let yaml_result = MsgPack.prettify(TEST_MSGPACK).unwrap();
 
         // Serialize back to MsgPack
         let result = MsgPack.reencode(&yaml_result, &[]).unwrap();

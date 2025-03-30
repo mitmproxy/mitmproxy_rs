@@ -48,7 +48,7 @@ pub trait Prettify: Send + Sync {
         self.name().to_lowercase().replace(" ", "_")
     }
 
-    fn prettify(&self, data: Vec<u8>) -> Result<String, PrettifyError>;
+    fn prettify(&self, data: &[u8]) -> Result<String, PrettifyError>;
 }
 
 pub trait Reencode: Send + Sync {

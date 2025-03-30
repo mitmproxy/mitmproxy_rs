@@ -9,7 +9,7 @@ impl Prettify for HexStream {
         "Hex Stream"
     }
 
-    fn prettify(&self, data: Vec<u8>) -> Result<String, PrettifyError> {
+    fn prettify(&self, data: &[u8]) -> Result<String, PrettifyError> {
         Ok(data
             .hex_conf(HexConfig {
                 title: false,
@@ -40,15 +40,13 @@ mod tests {
 
     #[test]
     fn test_hexstream_deserialize() {
-        let data = b"foo".to_vec();
-        let result = HexStream.prettify(data).unwrap();
+        let result = HexStream.prettify(b"foo").unwrap();
         assert_eq!(result, "666f6f");
     }
 
     #[test]
     fn test_hexstream_deserialize_empty() {
-        let data = vec![];
-        let result = HexStream.prettify(data).unwrap();
+        let result = HexStream.prettify(b"").unwrap();
         assert_eq!(result, "");
     }
 

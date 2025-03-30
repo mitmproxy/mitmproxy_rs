@@ -8,7 +8,7 @@ impl Prettify for HexDump {
         "Hex Dump"
     }
 
-    fn prettify(&self, data: Vec<u8>) -> Result<String, PrettifyError> {
+    fn prettify(&self, data: &[u8]) -> Result<String, PrettifyError> {
         Ok(format!(
             "{:?}",
             data.hex_conf(HexConfig {
@@ -30,8 +30,7 @@ mod tests {
 
     #[test]
     fn test_hexdump_deserialize() {
-        let data = b"abcd".to_vec();
-        let result = HexDump.prettify(data).unwrap();
+        let result = HexDump.prettify(b"abcd").unwrap();
         assert_eq!(
             result,
             "0000:   61 62 63 64                                          abcd"
@@ -40,8 +39,7 @@ mod tests {
 
     #[test]
     fn test_hexdump_deserialize_empty() {
-        let data = vec![];
-        let result = HexDump.prettify(data).unwrap();
+        let result = HexDump.prettify(b"").unwrap();
         assert_eq!(result, "");
     }
 }
