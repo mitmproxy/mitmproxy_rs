@@ -1,4 +1,4 @@
-use crate::contentviews::{Prettify, Reencode};
+use crate::contentviews::{Metadata, Prettify, Reencode};
 use anyhow::{Context, Result};
 use rmp_serde::{decode, encode};
 use serde_yaml;
@@ -10,7 +10,7 @@ impl Prettify for MsgPack {
         "MsgPack"
     }
 
-    fn prettify(&self, data: &[u8]) -> Result<String> {
+    fn prettify(&self, data: &[u8], _metadata: &dyn Metadata) -> Result<String> {
         // Deserialize MsgPack to a serde_yaml::Value
         let value: serde_yaml::Value =
             decode::from_slice(data).context("Failed to deserialize MsgPack")?;
@@ -21,7 +21,7 @@ impl Prettify for MsgPack {
 }
 
 impl Reencode for MsgPack {
-    fn reencode(&self, data: &str) -> Result<Vec<u8>> {
+    fn reencode(&self, data: &str, _metadata: &dyn Metadata) -> Result<Vec<u8>> {
         // Parse the YAML string to a serde_yaml::Value
         let value: serde_yaml::Value = serde_yaml::from_str(data).context("Invalid YAML")?;
 
@@ -36,6 +36,7 @@ impl Reencode for MsgPack {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contentviews::TestMetadata;
 
     // Hardcoded MsgPack data for a simple object:
     // {
@@ -65,13 +66,17 @@ tags:
 
     #[test]
     fn test_msgpack_deserialize() {
-        let result = MsgPack.prettify(TEST_MSGPACK).unwrap();
+        let result = MsgPack
+            .prettify(TEST_MSGPACK, &TestMetadata::default())
+            .unwrap();
         assert_eq!(result, TEST_YAML);
     }
 
     #[test]
     fn test_msgpack_serialize() {
-        let result = MsgPack.reencode(TEST_YAML).unwrap();
+        let result = MsgPack
+            .reencode(TEST_YAML, &TestMetadata::default())
+            .unwrap();
 
         // Verify the MsgPack data contains the expected values
         let value: serde_yaml::Value = decode::from_slice(&result).unwrap();
@@ -104,10 +109,14 @@ tags:
     #[test]
     fn test_msgpack_roundtrip() {
         // Deserialize to YAML
-        let yaml_result = MsgPack.prettify(TEST_MSGPACK).unwrap();
+        let yaml_result = MsgPack
+            .prettify(TEST_MSGPACK, &TestMetadata::default())
+            .unwrap();
 
         // Serialize back to MsgPack
-        let result = MsgPack.reencode(&yaml_result).unwrap();
+        let result = MsgPack
+            .reencode(&yaml_result, &TestMetadata::default())
+            .unwrap();
 
         // Deserialize both the original and the result to Values for comparison
         let original_value: serde_yaml::Value = decode::from_slice(TEST_MSGPACK).unwrap();

@@ -1,5 +1,19 @@
-use mitmproxy::contentviews::{Prettify, Reencode};
+use mitmproxy::contentviews::{Metadata, Prettify, Reencode, SyntaxHighlight};
 use pyo3::{exceptions::PyValueError, prelude::*};
+
+struct PythonMetadata(PyObject);
+
+impl Metadata for PythonMetadata {
+    fn content_type(&self) -> Option<String> {
+        Python::with_gil(|py| {
+            self.0
+                .getattr(py, "content_type")
+                .ok()?
+                .extract::<String>(py)
+                .ok()
+        })
+    }
+}
 
 #[pyclass(frozen, module = "mitmproxy_rs.contentviews", subclass)]
 pub struct Contentview(&'static dyn Prettify);
@@ -22,10 +36,31 @@ impl Contentview {
     }
 
     /// Pretty-print an (encoded) message.
-    pub fn prettify(&self, data: Vec<u8>) -> PyResult<String> {
+    pub fn prettify(&self, data: Vec<u8>, metadata: PyObject) -> PyResult<String> {
+        let metadata = PythonMetadata(metadata);
+
         self.0
-            .prettify(&data)
+            .prettify(&data, &metadata)
             .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Return the priority of this view for rendering data.
+    pub fn render_priority(&self, data: Vec<u8>, metadata: PyObject) -> PyResult<f64> {
+        let metadata = PythonMetadata(metadata);
+        Ok(self.0.render_priority(&data, &metadata))
+    }
+
+    /// Optional syntax highlighting that should be applied to the prettified output.
+    #[getter]
+    pub fn syntax_highlight(&self) -> &str {
+        match self.0.syntax_highlight() {
+            SyntaxHighlight::None => "none",
+            SyntaxHighlight::Yaml => "yaml",
+        }
+    }
+
+    fn __lt__(&self, py: Python<'_>, other: PyObject) -> PyResult<bool> {
+        Ok(self.name() < other.getattr(py, "name")?.extract::<String>(py)?.as_str())
     }
 
     fn __repr__(&self) -> PyResult<String> {
@@ -53,9 +88,11 @@ impl InteractiveContentview {
 
 #[pymethods]
 impl InteractiveContentview {
-    pub fn reencode(&self, data: &str) -> PyResult<Vec<u8>> {
+    pub fn reencode(&self, data: &str, metadata: PyObject) -> PyResult<Vec<u8>> {
+        let metadata = PythonMetadata(metadata);
+
         self.0
-            .reencode(data)
+            .reencode(data, &metadata)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 

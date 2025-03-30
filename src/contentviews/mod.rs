@@ -10,6 +10,15 @@ pub use hex_stream::HexStream;
 pub use msgpack::MsgPack;
 pub use protobuf::Protobuf;
 
+pub enum SyntaxHighlight {
+    None,
+    Yaml,
+}
+
+pub trait Metadata {
+    fn content_type(&self) -> Option<String>;
+}
+
 pub trait Prettify: Send + Sync {
     fn name(&self) -> &str;
 
@@ -17,9 +26,30 @@ pub trait Prettify: Send + Sync {
         self.name().to_lowercase().replace(" ", "_")
     }
 
-    fn prettify(&self, data: &[u8]) -> Result<String>;
+    fn prettify(&self, data: &[u8], metadata: &dyn Metadata) -> Result<String>;
+
+    fn render_priority(&self, _data: &[u8], _metadata: &dyn Metadata) -> f64 {
+        0.0
+    }
+
+    fn syntax_highlight(&self) -> SyntaxHighlight {
+        SyntaxHighlight::None
+    }
 }
 
 pub trait Reencode: Send + Sync {
-    fn reencode(&self, data: &str) -> Result<Vec<u8>>;
+    fn reencode(&self, data: &str, metadata: &dyn Metadata) -> Result<Vec<u8>>;
+}
+
+#[cfg(test)]
+#[derive(Default)]
+pub struct TestMetadata {
+    pub content_type: Option<String>,
+}
+
+#[cfg(test)]
+impl Metadata for TestMetadata {
+    fn content_type(&self) -> Option<String> {
+        self.content_type.clone()
+    }
 }
