@@ -87,10 +87,10 @@ mod mitmproxy_rs {
     #[pymodule]
     mod contentviews {
         use super::*;
-        #[pymodule_export]
-        use crate::contentview::Contentview;
-        #[pymodule_export]
-        use crate::contentview::InteractiveContentview;
+        //#[pymodule_export]
+        //use crate::contentview::Contentview;
+        //#[pymodule_export]
+        //use crate::contentview::InteractiveContentview;
         use mitmproxy::contentviews::{HexDump, HexStream, MsgPack, Protobuf};
 
         #[pymodule_init]

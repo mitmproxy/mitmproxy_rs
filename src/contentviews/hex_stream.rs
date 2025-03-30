@@ -1,4 +1,4 @@
-use crate::contentviews::{Prettify, Reencode};
+use crate::contentviews::{Metadata, Prettify, Reencode};
 use anyhow::{Context, Result};
 use pretty_hex::{HexConfig, PrettyHex};
 use std::num::ParseIntError;
@@ -10,7 +10,7 @@ impl Prettify for HexStream {
         "Hex Stream"
     }
 
-    fn prettify(&self, data: &[u8]) -> Result<String> {
+    fn prettify(&self, data: &[u8], _metadata: &dyn Metadata) -> Result<String> {
         Ok(data
             .hex_conf(HexConfig {
                 title: false,
@@ -23,10 +23,27 @@ impl Prettify for HexStream {
             })
             .to_string())
     }
+
+    fn render_priority(&self, data: &[u8], _metadata: &dyn Metadata) -> f64 {
+        if data.is_empty() {
+            return 0.0;
+        }
+        let ratio = data
+            .iter()
+            .take(100)
+            .filter(|&&b| b < 9 || (13 < b && b < 32) || b > 126)
+            .count() as f64
+            / data.len().min(100) as f64;
+        if ratio > 0.3 {
+            1.0
+        } else {
+            0.0
+        }
+    }
 }
 
 impl Reencode for HexStream {
-    fn reencode(&self, data: &str) -> Result<Vec<u8>> {
+    fn reencode(&self, data: &str, _metadata: &dyn Metadata) -> Result<Vec<u8>> {
         (0..data.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&data[i..i + 2], 16))
@@ -38,23 +55,26 @@ impl Reencode for HexStream {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contentviews::TestMetadata;
 
     #[test]
-    fn test_hexstream_deserialize() {
-        let result = HexStream.prettify(b"foo").unwrap();
+    fn test_hex_stream() {
+        let result = HexStream
+            .prettify(b"foo", &TestMetadata::default())
+            .unwrap();
         assert_eq!(result, "666f6f");
     }
 
     #[test]
-    fn test_hexstream_deserialize_empty() {
-        let result = HexStream.prettify(b"").unwrap();
+    fn test_hex_stream_empty() {
+        let result = HexStream.prettify(b"", &TestMetadata::default()).unwrap();
         assert_eq!(result, "");
     }
 
     #[test]
-    fn test_hexstream_serialize() {
+    fn test_hex_stream_reencode() {
         let data = "666f6f";
-        let result = HexStream.reencode(data).unwrap();
+        let result = HexStream.reencode(data, &TestMetadata::default()).unwrap();
         assert_eq!(result, b"foo");
     }
 }

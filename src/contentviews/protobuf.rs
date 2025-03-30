@@ -1,4 +1,4 @@
-use crate::contentviews::{Prettify, Reencode};
+use crate::contentviews::{Metadata, Prettify, Reencode};
 use anyhow::{bail, Context, Result};
 use protobuf::descriptor::field_descriptor_proto::Label::LABEL_REPEATED;
 use protobuf::descriptor::field_descriptor_proto::Type;
@@ -12,7 +12,7 @@ use protobuf::reflect::{
 };
 use protobuf::well_known_types::empty::Empty;
 use protobuf::UnknownValueRef;
-use protobuf::{EnumOrUnknown, Message, MessageDyn, MessageFull, UnknownValue};
+use protobuf::{EnumOrUnknown, MessageDyn, MessageFull, UnknownValue};
 use regex::Captures;
 use serde_yaml::value::TaggedValue;
 use serde_yaml::Value::Tagged;
@@ -54,7 +54,7 @@ impl Prettify for Protobuf {
         "Protocol Buffer"
     }
 
-    fn prettify(&self, data: &[u8]) -> Result<String> {
+    fn prettify(&self, data: &[u8], _metadata: &dyn Metadata) -> Result<String> {
         // Check if data is empty first
         if data.is_empty() {
             bail!("Empty protobuf data");
@@ -79,7 +79,7 @@ impl Prettify for Protobuf {
 }
 
 impl Reencode for Protobuf {
-    fn reencode(&self, data: &str) -> Result<Vec<u8>> {
+    fn reencode(&self, data: &str, _metadata: &dyn Metadata) -> Result<Vec<u8>> {
         let descriptor = Empty::descriptor();
         let message = descriptor.new_instance();
 
@@ -502,6 +502,7 @@ impl Protobuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contentviews::TestMetadata;
 
     macro_rules! test_roundtrip {
         ($name:ident,$proto:literal,$yaml:literal) => {
@@ -513,13 +514,13 @@ mod tests {
 
                 #[test]
                 fn prettify() {
-                    let result = Protobuf.prettify(PROTO).unwrap();
+                    let result = Protobuf.prettify(PROTO, &TestMetadata::default()).unwrap();
                     assert_eq!(result, YAML);
                 }
 
                 #[test]
                 fn reencode() {
-                    let result = Protobuf.reencode(YAML).unwrap();
+                    let result = Protobuf.reencode(YAML, &TestMetadata::default()).unwrap();
                     assert_eq!(result, PROTO);
                 }
             }
@@ -594,26 +595,30 @@ mod tests {
 
         #[test]
         fn reencode_new_nested_message() {
-            let result = Protobuf.reencode(nested::YAML).unwrap();
+            let result = Protobuf
+                .reencode(nested::YAML, &TestMetadata::default())
+                .unwrap();
             assert_eq!(result, nested::PROTO);
         }
 
         #[test]
         fn new_string_attr() {
-            let result = Protobuf.reencode(string::YAML).unwrap();
+            let result = Protobuf
+                .reencode(string::YAML, &TestMetadata::default())
+                .unwrap();
             assert_eq!(result, string::PROTO);
         }
     }
 
     #[test]
     fn test_invalid_protobuf() {
-        let result = Protobuf.prettify(b"\xFF\xFF");
+        let result = Protobuf.prettify(b"\xFF\xFF", &TestMetadata::default());
         assert!(result.is_err());
     }
 
     #[test]
     fn test_empty_protobuf() {
-        let result = Protobuf.prettify(b"");
+        let result = Protobuf.prettify(b"", &TestMetadata::default());
         assert!(result.is_err());
     }
 }

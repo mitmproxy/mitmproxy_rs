@@ -3,12 +3,12 @@ from typing import ClassVar, final
 class Contentview:
     name: ClassVar[str]
 
-    def prettify(self, data: bytes) -> str:
+    def prettify(self, data: bytes, metadata) -> str:
         pass
 
 @final
 class InteractiveContentview(Contentview):
-    def reencode(self, data: str) -> bytes:
+    def reencode(self, data: str, metadata) -> bytes:
         pass
 
 hex_dump: Contentview
