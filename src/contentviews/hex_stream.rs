@@ -1,4 +1,5 @@
-use crate::contentviews::{Prettify, PrettifyError, Reencode, ReencodeError};
+use crate::contentviews::{Prettify, Reencode};
+use anyhow::{Context, Result};
 use pretty_hex::{HexConfig, PrettyHex};
 use std::num::ParseIntError;
 
@@ -9,7 +10,7 @@ impl Prettify for HexStream {
         "Hex Stream"
     }
 
-    fn prettify(&self, data: &[u8]) -> Result<String, PrettifyError> {
+    fn prettify(&self, data: &[u8]) -> Result<String> {
         Ok(data
             .hex_conf(HexConfig {
                 title: false,
@@ -25,12 +26,12 @@ impl Prettify for HexStream {
 }
 
 impl Reencode for HexStream {
-    fn reencode(&self, data: &str, original: &[u8]) -> anyhow::Result<Vec<u8>, ReencodeError> {
+    fn reencode(&self, data: &str) -> Result<Vec<u8>> {
         (0..data.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&data[i..i + 2], 16))
-            .collect::<anyhow::Result<Vec<u8>, ParseIntError>>()
-            .map_err(|e| ReencodeError::InvalidFormat(e.to_string()))
+            .collect::<Result<Vec<u8>, ParseIntError>>()
+            .context("Invalid hex string")
     }
 }
 
@@ -53,7 +54,7 @@ mod tests {
     #[test]
     fn test_hexstream_serialize() {
         let data = "666f6f";
-        let result = HexStream.reencode(data, &[]).unwrap();
+        let result = HexStream.reencode(data).unwrap();
         assert_eq!(result, b"foo");
     }
 }

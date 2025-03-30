@@ -1,4 +1,5 @@
-use crate::contentviews::{Prettify, PrettifyError, Reencode, ReencodeError};
+use crate::contentviews::{Prettify, Reencode};
+use anyhow::{Context, Result};
 use rmp_serde::{decode, encode};
 use serde_yaml;
 
@@ -9,28 +10,24 @@ impl Prettify for MsgPack {
         "MsgPack"
     }
 
-    fn prettify(&self, data: &[u8]) -> Result<String, PrettifyError> {
+    fn prettify(&self, data: &[u8]) -> Result<String> {
         // Deserialize MsgPack to a serde_yaml::Value
-        let value: serde_yaml::Value = decode::from_slice(&data)
-            .map_err(|e| PrettifyError::Generic(format!("Failed to deserialize MsgPack: {}", e)))?;
+        let value: serde_yaml::Value =
+            decode::from_slice(data).context("Failed to deserialize MsgPack")?;
 
         // Convert the Value to prettified YAML
-        serde_yaml::to_string(&value)
-            .map_err(|e| PrettifyError::Generic(format!("Failed to convert to YAML: {}", e)))
+        serde_yaml::to_string(&value).context("Failed to convert to YAML")
     }
 }
 
 impl Reencode for MsgPack {
-    fn reencode(&self, data: &str, original: &[u8]) -> anyhow::Result<Vec<u8>, ReencodeError> {
+    fn reencode(&self, data: &str) -> Result<Vec<u8>> {
         // Parse the YAML string to a serde_yaml::Value
-        let value: serde_yaml::Value = serde_yaml::from_str(data)
-            .map_err(|e| ReencodeError::InvalidFormat(format!("Invalid YAML: {}", e)))?;
+        let value: serde_yaml::Value = serde_yaml::from_str(data).context("Invalid YAML")?;
 
         // Serialize the Value to MsgPack
         let mut buf = Vec::new();
-        encode::write_named(&mut buf, &value).map_err(|e| {
-            ReencodeError::InvalidFormat(format!("Failed to encode to MsgPack: {}", e))
-        })?;
+        encode::write_named(&mut buf, &value).context("Failed to encode to MsgPack")?;
 
         Ok(buf)
     }
@@ -74,7 +71,7 @@ tags:
 
     #[test]
     fn test_msgpack_serialize() {
-        let result = MsgPack.reencode(TEST_YAML, &[]).unwrap();
+        let result = MsgPack.reencode(TEST_YAML).unwrap();
 
         // Verify the MsgPack data contains the expected values
         let value: serde_yaml::Value = decode::from_slice(&result).unwrap();
@@ -110,7 +107,7 @@ tags:
         let yaml_result = MsgPack.prettify(TEST_MSGPACK).unwrap();
 
         // Serialize back to MsgPack
-        let result = MsgPack.reencode(&yaml_result, &[]).unwrap();
+        let result = MsgPack.reencode(&yaml_result).unwrap();
 
         // Deserialize both the original and the result to Values for comparison
         let original_value: serde_yaml::Value = decode::from_slice(TEST_MSGPACK).unwrap();

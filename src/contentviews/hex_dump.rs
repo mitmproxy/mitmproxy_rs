@@ -1,4 +1,4 @@
-use crate::contentviews::{Prettify, PrettifyError};
+use crate::contentviews::Prettify;
 use pretty_hex::{HexConfig, PrettyHex};
 
 pub struct HexDump;
@@ -8,7 +8,7 @@ impl Prettify for HexDump {
         "Hex Dump"
     }
 
-    fn prettify(&self, data: &[u8]) -> Result<String, PrettifyError> {
+    fn prettify(&self, data: &[u8]) -> anyhow::Result<String> {
         Ok(format!(
             "{:?}",
             data.hex_conf(HexConfig {

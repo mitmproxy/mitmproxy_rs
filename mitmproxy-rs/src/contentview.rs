@@ -1,6 +1,5 @@
-use anyhow::{anyhow, Result};
 use mitmproxy::contentviews::{Prettify, Reencode};
-use pyo3::prelude::*;
+use pyo3::{exceptions::PyValueError, prelude::*};
 
 #[pyclass(frozen, module = "mitmproxy_rs.contentviews", subclass)]
 pub struct Contentview(&'static dyn Prettify);
@@ -23,8 +22,10 @@ impl Contentview {
     }
 
     /// Pretty-print an (encoded) message.
-    pub fn prettify(&self, data: Vec<u8>) -> Result<String> {
-        self.0.prettify(data).map_err(|e| anyhow!("{e}"))
+    pub fn prettify(&self, data: Vec<u8>) -> PyResult<String> {
+        self.0
+            .prettify(&data)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn __repr__(&self) -> PyResult<String> {
@@ -52,8 +53,10 @@ impl InteractiveContentview {
 
 #[pymethods]
 impl InteractiveContentview {
-    pub fn reencode(&self, data: &str) -> Result<Vec<u8>> {
-        self.0.reencode(data, &[]).map_err(|e| anyhow!("{e}"))
+    pub fn reencode(&self, data: &str) -> PyResult<Vec<u8>> {
+        self.0
+            .reencode(data)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn __repr__(self_: PyRef<'_, Self>) -> PyResult<String> {
