@@ -268,7 +268,7 @@ impl Protobuf {
         let mut ret = Mapping::new();
 
         for field in message.descriptor_dyn().fields() {
-            let key = if field.name().is_empty() {
+            let key = if field.name().is_empty() || field.name().starts_with("@unknown_field_") {
                 Value::from(field.number())
             } else {
                 Value::from(field.name())
@@ -346,6 +346,7 @@ impl Protobuf {
             let mut add_int = |typ: Type| {
                 descriptor.field.push(FieldDescriptorProto {
                     number: Some(field_index as i32),
+                    name: Some(format!("@unknown_field_{}", field_index)),
                     type_: Some(EnumOrUnknown::from(typ)),
                     ..Default::default()
                 });
@@ -370,6 +371,7 @@ impl Protobuf {
                         GuessedFieldType::Message(m) => {
                             descriptor.field.push(FieldDescriptorProto {
                                 number: Some(field_index as i32),
+                                name: Some(format!("@unknown_field_{}", field_index)),
                                 type_name: Some(format!(".{}.{}", name, m.name())),
                                 type_: Some(EnumOrUnknown::from(Type::TYPE_MESSAGE)),
                                 ..Default::default()
@@ -614,6 +616,14 @@ mod tests {
     fn test_invalid_protobuf() {
         let result = Protobuf.prettify(b"\xFF\xFF", &TestMetadata::default());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_no_crash() {
+        let result = Protobuf.prettify(
+            b"\n\x13gRPC testing server\x12\x07\n\x05Index\x12\x07\n\x05Empty\x12\x0c\n\nDummyUnary\x12\x0f\n\rSpecificError\x12\r\n\x0bRandomError\x12\x0e\n\x0cHeadersUnary\x12\x11\n\x0fNoResponseUnary",
+            &TestMetadata::default()).unwrap();
+        assert_eq!(result,  "1: gRPC testing server\n2:\n- 1: Index\n- 1: Empty\n- 1: DummyUnary\n- 1: SpecificError\n- 1: RandomError\n- 1: HeadersUnary\n- 1: NoResponseUnary\n");
     }
 
     #[test]

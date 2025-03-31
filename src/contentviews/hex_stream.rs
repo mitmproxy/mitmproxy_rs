@@ -44,6 +44,10 @@ impl Prettify for HexStream {
 
 impl Reencode for HexStream {
     fn reencode(&self, data: &str, _metadata: &dyn Metadata) -> Result<Vec<u8>> {
+        let data = data.trim_end_matches(['\n', '\r']);
+        if data.len() % 2 != 0 {
+            anyhow::bail!("Invalid hex string: uneven number of characters");
+        }
         (0..data.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&data[i..i + 2], 16))
@@ -76,5 +80,19 @@ mod tests {
         let data = "666f6f";
         let result = HexStream.reencode(data, &TestMetadata::default()).unwrap();
         assert_eq!(result, b"foo");
+    }
+
+    #[test]
+    fn test_hex_stream_reencode_with_newlines() {
+        let data = "666f6f\r\n";
+        let result = HexStream.reencode(data, &TestMetadata::default()).unwrap();
+        assert_eq!(result, b"foo");
+    }
+
+    #[test]
+    fn test_hex_stream_reencode_uneven_chars() {
+        let data = "666f6";
+        let result = HexStream.reencode(data, &TestMetadata::default());
+        assert!(result.is_err());
     }
 }
