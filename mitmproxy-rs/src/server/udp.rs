@@ -1,10 +1,9 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
 use mitmproxy::packet_sources::udp::UdpConf;
 
-use pyo3::prelude::*;
-
 use crate::server::base::Server;
+use pyo3::prelude::*;
 
 /// A running UDP server.
 ///
@@ -50,17 +49,19 @@ impl UdpServer {
 
 /// Start a UDP server that is configured with the given parameters:
 ///
-/// - `host`: The host address.
+/// - `host`: The host IP address.
 /// - `port`: The listen port.
 /// - `handle_udp_stream`: An async function that will be called for each new UDP `Stream`.
 #[pyfunction]
 pub fn start_udp_server(
     py: Python<'_>,
-    host: String,
+    host: IpAddr,
     port: u16,
     handle_udp_stream: PyObject,
 ) -> PyResult<Bound<PyAny>> {
-    let conf = UdpConf { host, port };
+    let conf = UdpConf {
+        listen_addr: SocketAddr::from((host, port)),
+    };
     let handle_tcp_stream = py.None();
     pyo3_async_runtimes::tokio::future_into_py(py, async move {
         let (server, local_addr) = Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;

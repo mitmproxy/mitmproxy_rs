@@ -264,6 +264,7 @@ mod tests {
     use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
     use crate::shutdown;
     use std::net::{IpAddr, Ipv4Addr};
+    use std::str::FromStr;
     use tokio::net::UdpSocket;
 
     #[test]
@@ -316,8 +317,7 @@ mod tests {
         let (events_tx, mut events_rx) = tokio::sync::mpsc::channel(1);
         let (shutdown_tx, shutdown_rx) = shutdown::channel();
         let (task, addr) = UdpConf {
-            host: "127.0.0.1".to_string(),
-            port: 0,
+            listen_addr: SocketAddr::from_str("127.0.0.1:0").unwrap(),
         }
         .build(events_tx, commands_rx, shutdown_rx)
         .await?;

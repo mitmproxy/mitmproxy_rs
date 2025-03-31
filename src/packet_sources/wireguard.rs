@@ -23,7 +23,7 @@ use tokio::{
     },
 };
 
-use crate::packet_sources::udp::remote_host_closed_conn;
+use crate::packet_sources::udp::{create_and_bind_udp_socket, remote_host_closed_conn};
 use crate::shutdown;
 
 // WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6
@@ -36,8 +36,7 @@ pub struct WireGuardPeer {
 }
 
 pub struct WireGuardConf {
-    pub host: String,
-    pub port: u16,
+    pub listen_addr: SocketAddr,
     pub private_key: StaticSecret,
     pub peer_public_keys: Vec<PublicKey>,
 }
@@ -84,26 +83,12 @@ impl PacketSourceConf for WireGuardConf {
             peers_by_key.insert(public_key, peer);
         }
 
-        // bind to UDP socket(s)
-        let socket_addrs = if self.host.is_empty() {
-            vec![
-                SocketAddr::new("0.0.0.0".parse().unwrap(), self.port),
-                SocketAddr::new("::".parse().unwrap(), self.port),
-            ]
-        } else {
-            vec![SocketAddr::new(self.host.parse()?, self.port)]
-        };
-
-        let socket = UdpSocket::bind(socket_addrs.as_slice()).await?;
+        let socket = create_and_bind_udp_socket(self.listen_addr)?;
         let local_addr = socket.local_addr()?;
 
         log::debug!(
             "WireGuard server listening for UDP connections on {} ...",
-            socket_addrs
-                .iter()
-                .map(|addr| addr.to_string())
-                .collect::<Vec<String>>()
-                .join(" and ")
+            local_addr
         );
 
         let public_key = PublicKey::from(&self.private_key);
