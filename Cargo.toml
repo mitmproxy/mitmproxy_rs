@@ -74,7 +74,7 @@ socket2 = "0.5.8"
 boringtun = { git = 'https://github.com/cloudflare/boringtun', rev = 'e3252d9c4f4c8fc628995330f45369effd4660a1' }
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.60.0"
+version = "0.61.1"
 features = [
     "Win32_Foundation",
     "Win32_Graphics_Dwm",
