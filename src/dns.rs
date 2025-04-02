@@ -1,21 +1,21 @@
-use hickory_resolver::config::LookupIpStrategy;
-use hickory_resolver::error::ResolveError;
+use hickory_resolver::config::{LookupIpStrategy, ResolveHosts};
 use hickory_resolver::lookup_ip::LookupIp;
 use hickory_resolver::system_conf::read_system_conf;
-use hickory_resolver::TokioAsyncResolver;
+use hickory_resolver::{TokioResolver};
 use once_cell::sync::Lazy;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 
 use hickory_resolver::config::NameServerConfig;
-use hickory_resolver::config::Protocol;
 use hickory_resolver::config::ResolverConfig;
-pub use hickory_resolver::error::ResolveErrorKind;
-pub use hickory_resolver::error::ResolveResult;
+use hickory_resolver::name_server::TokioConnectionProvider;
 pub use hickory_resolver::proto::op::Query;
 pub use hickory_resolver::proto::op::ResponseCode;
+pub use hickory_resolver::ResolveError;
+use hickory_resolver::proto::xfer::Protocol;
+use hickory_resolver::proto::ProtoError;
 
-pub static DNS_SERVERS: Lazy<ResolveResult<Vec<String>>> = Lazy::new(|| {
+pub static DNS_SERVERS: Lazy<Result<Vec<String>, ResolveError>> = Lazy::new(|| {
     let (config, _opts) = read_system_conf()?;
     Ok(config
         .name_servers()
@@ -25,10 +25,10 @@ pub static DNS_SERVERS: Lazy<ResolveResult<Vec<String>>> = Lazy::new(|| {
         .collect::<Vec<String>>())
 });
 
-pub struct DnsResolver(TokioAsyncResolver);
+pub struct DnsResolver(TokioResolver);
 
 impl DnsResolver {
-    pub fn new(name_servers: Option<Vec<SocketAddr>>, use_hosts_file: bool) -> ResolveResult<Self> {
+    pub fn new(name_servers: Option<Vec<SocketAddr>>, use_hosts_file: bool) -> Result<Self, ResolveError> {
         let (config, mut opts) = if let Some(ns) = name_servers {
             // Try to get opts from system, but fall back gracefully if that is unavailable.
             let opts = read_system_conf().map(|r| r.1).unwrap_or_default();
@@ -42,12 +42,17 @@ impl DnsResolver {
         } else {
             read_system_conf()?
         };
-        opts.use_hosts_file = use_hosts_file;
+        opts.use_hosts_file = if use_hosts_file { ResolveHosts::Always } else { ResolveHosts::Never };
         opts.ip_strategy = LookupIpStrategy::Ipv4AndIpv6;
-        Ok(Self(TokioAsyncResolver::tokio(config, opts)))
+        let mut builder = TokioResolver::builder_with_config(
+            config,
+            TokioConnectionProvider::default(),
+        );
+        *builder.options_mut() = opts;
+        Ok(Self(builder.build()))
     }
 
-    pub async fn lookup_ip(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
+    pub async fn lookup_ip(&self, host: String) -> Result<Vec<IpAddr>, ResolveError> {
         self.0.lookup_ip(host).await.map(_interleave_addrinfos)
     }
 
@@ -55,15 +60,15 @@ impl DnsResolver {
     // so we instead filter addresses returned from lookup_ip for now
     //
     // https://github.com/hickory-dns/hickory-dns/pull/2149
-    pub async fn lookup_ipv4(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
+    pub async fn lookup_ipv4(&self, host: String) -> Result<Vec<IpAddr>, ResolveError> {
         self.lookup_ipvx(host, IpAddr::is_ipv4).await
     }
 
-    pub async fn lookup_ipv6(&self, host: String) -> ResolveResult<Vec<IpAddr>> {
+    pub async fn lookup_ipv6(&self, host: String) -> Result<Vec<IpAddr>, ResolveError> {
         self.lookup_ipvx(host, IpAddr::is_ipv6).await
     }
 
-    async fn lookup_ipvx<F>(&self, host: String, filter: F) -> ResolveResult<Vec<IpAddr>>
+    async fn lookup_ipvx<F>(&self, host: String, filter: F) -> Result<Vec<IpAddr>, ResolveError>
     where
         F: FnMut(&IpAddr) -> bool,
     {
@@ -71,13 +76,17 @@ impl DnsResolver {
         let addrs: Vec<IpAddr> = lookup.iter().filter(filter).collect();
 
         if addrs.is_empty() {
-            Err(ResolveError::from(ResolveErrorKind::NoRecordsFound {
-                query: Box::new(lookup.query().clone()),
-                response_code: ResponseCode::NoError,
-                soa: None,
-                negative_ttl: None,
-                trusted: true,
-            }))
+            Err(
+                ProtoError::nx_error(
+                   Box::new(lookup.query().clone()),
+                   None,
+                   None,
+                   None,
+                   ResponseCode::NoError,
+                   true,
+                   None,
+                ).into()
+            )
         } else {
             Ok(addrs)
         }
@@ -176,7 +185,7 @@ mod tests {
         );
 
         let mut catalog = hickory_server::authority::Catalog::new();
-        catalog.upsert(Name::root().into(), Box::new(Arc::new(records)));
+        catalog.upsert(Name::root().into(), vec![Arc::new(records)]);
 
         let mut server = hickory_server::ServerFuture::new(catalog);
         server.register_socket(sock);

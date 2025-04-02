@@ -39,7 +39,7 @@ pub async fn shutdown_task(mut tasks: JoinSet<Result<()>>, shutdown_done: watch:
                 log::error!(
                     "Task failed: {:?}\n{}",
                     error,
-                    error.backtrace().to_string()
+                    error.backtrace()
                 );
                 tasks.shutdown().await;
             }
