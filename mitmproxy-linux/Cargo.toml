@@ -21,9 +21,9 @@ mitmproxy-linux-ebpf-common = { path = "../mitmproxy-linux-ebpf-common"}
 tun = { workspace = true, features = ["async"] }
 aya = { workspace = true }
 aya-log = { workspace = true }
-tokio = { version = "1.43", features = ["macros", "net", "rt-multi-thread", "sync", "io-util", "signal"] }
+tokio = { version = "1.44", features = ["macros", "net", "rt-multi-thread", "sync", "io-util", "signal"] }
 anyhow = { version = "1.0.97", features = ["backtrace"] }
-log = "0.4.26"
+log = "0.4.27"
 env_logger = "0.11.5"
 prost = "0.13.5"
 internet-packet = { version = "0.2.0", features = ["checksums"] }
