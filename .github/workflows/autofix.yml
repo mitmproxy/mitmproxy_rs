@@ -17,7 +17,7 @@ jobs:
   protobuf:
     runs-on: macos-latest
     steps:
-      - uses: mhils/workflows/checkout@v17
+      - uses: mhils/workflows/checkout@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
       - run: brew install swift-protobuf
       - run: cargo install protoc-gen-prost
       - run: protoc --proto_path=./src/ipc/ mitmproxy_ipc.proto
@@ -36,7 +36,7 @@ jobs:
           - os: macos-latest
           - os: ubuntu-latest
     steps:
-      - uses: mhils/workflows/checkout@v17
+      - uses: mhils/workflows/checkout@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
       - uses: ./.github/actions/setup
         with:
           rust-version: ${{ env.MSRV }}
