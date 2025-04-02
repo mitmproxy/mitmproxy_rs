@@ -36,11 +36,7 @@ pub async fn shutdown_task(mut tasks: JoinSet<Result<()>>, shutdown_done: watch:
         match task {
             Ok(Ok(())) => (),
             Ok(Err(error)) => {
-                log::error!(
-                    "Task failed: {:?}\n{}",
-                    error,
-                    error.backtrace()
-                );
+                log::error!("Task failed: {:?}\n{}", error, error.backtrace());
                 tasks.shutdown().await;
             }
             Err(error) => {

@@ -1,7 +1,7 @@
 use hickory_resolver::config::{LookupIpStrategy, ResolveHosts};
 use hickory_resolver::lookup_ip::LookupIp;
 use hickory_resolver::system_conf::read_system_conf;
-use hickory_resolver::{TokioResolver};
+use hickory_resolver::TokioResolver;
 use once_cell::sync::Lazy;
 use std::net::IpAddr;
 use std::net::SocketAddr;
@@ -11,9 +11,9 @@ use hickory_resolver::config::ResolverConfig;
 use hickory_resolver::name_server::TokioConnectionProvider;
 pub use hickory_resolver::proto::op::Query;
 pub use hickory_resolver::proto::op::ResponseCode;
-pub use hickory_resolver::ResolveError;
 use hickory_resolver::proto::xfer::Protocol;
 use hickory_resolver::proto::ProtoError;
+pub use hickory_resolver::ResolveError;
 
 pub static DNS_SERVERS: Lazy<Result<Vec<String>, ResolveError>> = Lazy::new(|| {
     let (config, _opts) = read_system_conf()?;
@@ -28,7 +28,10 @@ pub static DNS_SERVERS: Lazy<Result<Vec<String>, ResolveError>> = Lazy::new(|| {
 pub struct DnsResolver(TokioResolver);
 
 impl DnsResolver {
-    pub fn new(name_servers: Option<Vec<SocketAddr>>, use_hosts_file: bool) -> Result<Self, ResolveError> {
+    pub fn new(
+        name_servers: Option<Vec<SocketAddr>>,
+        use_hosts_file: bool,
+    ) -> Result<Self, ResolveError> {
         let (config, mut opts) = if let Some(ns) = name_servers {
             // Try to get opts from system, but fall back gracefully if that is unavailable.
             let opts = read_system_conf().map(|r| r.1).unwrap_or_default();
@@ -42,12 +45,14 @@ impl DnsResolver {
         } else {
             read_system_conf()?
         };
-        opts.use_hosts_file = if use_hosts_file { ResolveHosts::Always } else { ResolveHosts::Never };
+        opts.use_hosts_file = if use_hosts_file {
+            ResolveHosts::Always
+        } else {
+            ResolveHosts::Never
+        };
         opts.ip_strategy = LookupIpStrategy::Ipv4AndIpv6;
-        let mut builder = TokioResolver::builder_with_config(
-            config,
-            TokioConnectionProvider::default(),
-        );
+        let mut builder =
+            TokioResolver::builder_with_config(config, TokioConnectionProvider::default());
         *builder.options_mut() = opts;
         Ok(Self(builder.build()))
     }
@@ -76,17 +81,16 @@ impl DnsResolver {
         let addrs: Vec<IpAddr> = lookup.iter().filter(filter).collect();
 
         if addrs.is_empty() {
-            Err(
-                ProtoError::nx_error(
-                   Box::new(lookup.query().clone()),
-                   None,
-                   None,
-                   None,
-                   ResponseCode::NoError,
-                   true,
-                   None,
-                ).into()
+            Err(ProtoError::nx_error(
+                Box::new(lookup.query().clone()),
+                None,
+                None,
+                None,
+                ResponseCode::NoError,
+                true,
+                None,
             )
+            .into())
         } else {
             Ok(addrs)
         }
