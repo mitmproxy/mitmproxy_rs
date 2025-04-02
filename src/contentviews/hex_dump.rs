@@ -1,5 +1,6 @@
 use crate::contentviews::{Metadata, Prettify};
 use pretty_hex::{HexConfig, PrettyHex};
+use crate::contentviews::hex_stream::is_binary;
 
 pub struct HexDump;
 
@@ -21,6 +22,14 @@ impl Prettify for HexDump {
                 display_offset: 0,
             })
         ))
+    }
+
+    fn render_priority(&self, data: &[u8], _metadata: &dyn Metadata) -> f64 {
+        if is_binary(data) {
+            0.95
+        } else {
+            0.0
+        }
     }
 }
 
