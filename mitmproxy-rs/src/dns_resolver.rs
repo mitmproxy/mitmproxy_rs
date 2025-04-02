@@ -1,4 +1,4 @@
-use mitmproxy::dns::{ResolveErrorKind, ResolveResult, ResponseCode, DNS_SERVERS};
+use mitmproxy::dns::{ResolveError, DNS_SERVERS};
 use once_cell::sync::OnceCell;
 use pyo3::exceptions::socket::gaierror;
 use pyo3::prelude::*;
@@ -102,22 +102,14 @@ static EAI_AGAIN: AddrInfoErrorConst = AddrInfoErrorConst::new("EAI_AGAIN");
 static EAI_NONAME: AddrInfoErrorConst = AddrInfoErrorConst::new("EAI_NONAME");
 static EAI_NODATA: AddrInfoErrorConst = AddrInfoErrorConst::new("EAI_NODATA");
 
-fn resolve_result_to_py(resolved: ResolveResult<Vec<IpAddr>>) -> Result<Vec<String>, PyErr> {
+fn resolve_result_to_py(resolved: Result<Vec<IpAddr>, ResolveError>) -> Result<Vec<String>, PyErr> {
     match resolved {
         Ok(resp) => Ok(resp
             .into_iter()
             .map(|ip| ip.to_string())
             .collect::<Vec<String>>()),
-        Err(e) => match *e.kind() {
-            ResolveErrorKind::NoRecordsFound {
-                response_code: ResponseCode::NXDomain,
-                ..
-            } => Err(gaierror::new_err((EAI_NONAME.get(), "NXDOMAIN"))),
-            ResolveErrorKind::NoRecordsFound {
-                response_code: ResponseCode::NoError,
-                ..
-            } => Err(gaierror::new_err((EAI_NODATA.get(), "NOERROR"))),
-            _ => Err(gaierror::new_err((EAI_AGAIN.get(), e.to_string()))),
-        },
+        Err(e) if e.is_nx_domain() => Err(gaierror::new_err((EAI_NONAME.get(), "NXDOMAIN"))),
+        Err(e) if e.is_no_records_found() => Err(gaierror::new_err((EAI_NODATA.get(), "NOERROR"))),
+        Err(e) => Err(gaierror::new_err((EAI_AGAIN.get(), e.to_string()))),
     }
 }
