@@ -5,6 +5,20 @@ use std::num::ParseIntError;
 
 pub struct HexStream;
 
+pub(crate) fn is_binary(data: &[u8]) -> bool {
+    if data.is_empty() {
+        return false;
+    }
+    let ratio = data
+        .iter()
+        .take(100)
+        .filter(|&&b| b < 9 || (13 < b && b < 32) || b > 126)
+        .count() as f64
+        / data.len().min(100) as f64;
+
+    ratio > 0.3
+}
+
 impl Prettify for HexStream {
     fn name(&self) -> &'static str {
         "Hex Stream"
@@ -25,17 +39,8 @@ impl Prettify for HexStream {
     }
 
     fn render_priority(&self, data: &[u8], _metadata: &dyn Metadata) -> f64 {
-        if data.is_empty() {
-            return 0.0;
-        }
-        let ratio = data
-            .iter()
-            .take(100)
-            .filter(|&&b| b < 9 || (13 < b && b < 32) || b > 126)
-            .count() as f64
-            / data.len().min(100) as f64;
-        if ratio > 0.3 {
-            1.0
+        if is_binary(data) {
+            0.95
         } else {
             0.0
         }
