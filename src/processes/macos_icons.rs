@@ -65,14 +65,19 @@ pub fn tiff_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
             if executable == path.to_path_buf() {
                 let pid = pid.as_u32();
                 unsafe {
+                    #[allow(unexpected_cfgs)]
                     let app: id = msg_send![
                         class!(NSRunningApplication),
                         runningApplicationWithProcessIdentifier: pid
                     ];
                     if !app.is_null() {
+                        #[allow(unexpected_cfgs)]
                         let img: id = msg_send![app, icon];
+                        #[allow(unexpected_cfgs)]
                         let tiff: id = msg_send![img, TIFFRepresentation];
+                        #[allow(unexpected_cfgs)]
                         let length: usize = msg_send![tiff, length];
+                        #[allow(unexpected_cfgs)]
                         let bytes: *const u8 = msg_send![tiff, bytes];
                         let data = std::slice::from_raw_parts(bytes, length).to_vec();
                         return Ok(data);
