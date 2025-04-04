@@ -12,6 +12,7 @@ mod dns_resolver;
 mod process_info;
 mod server;
 mod stream;
+mod syntax_highlight;
 pub mod task;
 mod udp_client;
 mod util;
@@ -125,6 +126,14 @@ mod mitmproxy_rs {
         m.py().import("mitmproxy_windows")?;
 
         Ok(())
+    }
+
+    #[pymodule]
+    mod syntax_highlight {
+        #[pymodule_export]
+        use crate::syntax_highlight::highlight;
+        #[pymodule_export]
+        use crate::syntax_highlight::all_tags;
     }
 }
 
