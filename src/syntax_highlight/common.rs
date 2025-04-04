@@ -1,46 +1,43 @@
-use super::Chunk;
+use super::{Chunk, Tag};
 use anyhow::{Context, Result};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter};
 
 pub fn highlight(
     language: tree_sitter::Language,
     highlights_query: &str,
-    tags: &[&'static str],
+    names: &[&str],
+    tags: &[Tag],
     input: &[u8],
 ) -> Result<Vec<Chunk>> {
     let mut highlighter = Highlighter::new();
     let mut config = HighlightConfiguration::new(language, "", highlights_query, "", "")
         .context("failed to create highlight configuration")?;
-    config.configure(tags);
+    config.configure(names);
 
     let highlights = highlighter
         .highlight(&config, input, None, |_| None)
         .context("failed to highlight")?;
 
     let mut chunks: Vec<Chunk> = Vec::new();
-    let mut tag: Option<&'static str> = None;
+    let mut tag: Tag = Tag::Text;
 
     for event in highlights {
         let event = event.context("highlighter failure")?;
         match event {
             HighlightEvent::Source { start, end } => {
-                let contents = &input[start..end];
-                let tag_str = tag.unwrap_or("");
-                
+                let contents = String::from_utf8_lossy(&input[start..end]);
                 match chunks.last_mut() {
-                    Some(x) if x.0 == tag_str => {
-                        x.1.push_str(&String::from_utf8_lossy(contents));
+                    Some(x) if x.0 == tag || contents.trim_ascii().is_empty() => {
+                        x.1.push_str(&contents);
                     }
-                    _ => chunks.push(
-                        (tag_str, String::from_utf8_lossy(contents).to_string())
-                    ),
+                    _ => chunks.push((tag, contents.to_string())),
                 }
             }
             HighlightEvent::HighlightStart(s) => {
-                tag = Some(tags[s.0]);
+                tag = tags[s.0];
             }
             HighlightEvent::HighlightEnd => {
-                tag = None;
+                tag = Tag::Text;
             }
         }
     }
@@ -48,18 +45,56 @@ pub fn highlight(
 }
 
 #[cfg(test)]
-pub(super) fn test_tags_ok(
+pub(super) fn test_names_ok(
     language: tree_sitter::Language,
     highlights_query: &str,
-    tags: &[&'static str],
+    names: &[&str],
+    tags: &[Tag],
 ) {
+    assert_eq!(names.len(), tags.len());
     let config = HighlightConfiguration::new(language, "", highlights_query, "", "").unwrap();
-    for &tag in tags {
+    for &tag in names {
         assert!(
             config.names().iter().any(|name| name.contains(tag)),
             "Invalid tag: {},\nAllowed tags: {:?}",
             tag,
             config.names()
         );
+    }
+}
+
+#[allow(unused)]
+#[cfg(test)]
+pub(super) fn debug(language: tree_sitter::Language, highlights_query: &str, input: &[u8]) {
+    let mut highlighter = Highlighter::new();
+    let mut config = HighlightConfiguration::new(language, "", highlights_query, "", "").unwrap();
+    let names = config
+        .names()
+        .iter()
+        .map(|name| name.to_string())
+        .collect::<Vec<_>>();
+    config.configure(&names);
+    let highlights = highlighter
+        .highlight(&config, input, None, |_| None)
+        .unwrap();
+
+    let mut tag: &str = "";
+    for event in highlights {
+        match event.unwrap() {
+            HighlightEvent::Source { start, end } => {
+                let contents = &input[start..end];
+                println!(
+                    "{}: {:?}",
+                    tag,
+                    String::from_utf8_lossy(contents).to_string().as_str()
+                );
+            }
+            HighlightEvent::HighlightStart(s) => {
+                tag = &names[s.0];
+            }
+            HighlightEvent::HighlightEnd => {
+                tag = "";
+            }
+        }
     }
 }

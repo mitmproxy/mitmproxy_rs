@@ -1,4 +1,4 @@
-use mitmproxy::contentviews::{Metadata, Prettify, Reencode, SyntaxHighlight};
+use mitmproxy::contentviews::{Metadata, Prettify, Reencode};
 use pyo3::{exceptions::PyValueError, prelude::*};
 
 struct PythonMetadata(PyObject);
@@ -52,11 +52,8 @@ impl Contentview {
 
     /// Optional syntax highlighting that should be applied to the prettified output.
     #[getter]
-    pub fn syntax_highlight(&self) -> &str {
-        match self.0.syntax_highlight() {
-            SyntaxHighlight::None => "none",
-            SyntaxHighlight::Yaml => "yaml",
-        }
+    pub fn syntax_highlight(&self) -> String {
+        self.0.syntax_highlight().to_string()
     }
 
     fn __lt__(&self, py: Python<'_>, other: PyObject) -> PyResult<bool> {
