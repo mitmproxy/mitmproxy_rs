@@ -5,15 +5,11 @@ mod protobuf;
 
 use anyhow::Result;
 
+use crate::syntax_highlight;
 pub use hex_dump::HexDump;
 pub use hex_stream::HexStream;
 pub use msgpack::MsgPack;
 pub use protobuf::Protobuf;
-
-pub enum SyntaxHighlight {
-    None,
-    Yaml,
-}
 
 pub trait Metadata {
     fn content_type(&self) -> Option<String>;
@@ -32,8 +28,8 @@ pub trait Prettify: Send + Sync {
         0.0
     }
 
-    fn syntax_highlight(&self) -> SyntaxHighlight {
-        SyntaxHighlight::None
+    fn syntax_highlight(&self) -> syntax_highlight::Language {
+        syntax_highlight::Language::None
     }
 }
 

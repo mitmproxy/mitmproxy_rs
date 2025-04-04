@@ -1,18 +1,30 @@
 use super::common::highlight;
-use super::Chunk;
+use super::{Chunk, Tag};
 use anyhow::Result;
 
-pub(crate) const YAML_TAGS: &[&str] = &[
-    "boolean", "string", "number", "comment",  // # comment
+const NAMES: &[&str] = &[
+    "boolean",  // YAML booleans
+    "string",   // YAML strings
+    "number",   // YAML numbers
+    "comment",  // # comment
     "type",     // !fixed32 type annotations
     "property", // key:
+];
+const TAGS: &[Tag] = &[
+    Tag::Boolean,
+    Tag::String,
+    Tag::Number,
+    Tag::Comment,
+    Tag::Name,
+    Tag::Name,
 ];
 
 pub fn highlight_yaml(input: &[u8]) -> Result<Vec<Chunk>> {
     highlight(
         tree_sitter_yaml::LANGUAGE.into(),
         tree_sitter_yaml::HIGHLIGHTS_QUERY,
-        YAML_TAGS,
+        NAMES,
+        TAGS,
         input,
     )
 }
@@ -24,10 +36,11 @@ mod tests {
 
     #[test]
     fn test_tags_ok() {
-        common::test_tags_ok(
+        common::test_names_ok(
             tree_sitter_yaml::LANGUAGE.into(),
             tree_sitter_yaml::HIGHLIGHTS_QUERY,
-            YAML_TAGS,
+            NAMES,
+            TAGS,
         );
     }
 
@@ -42,22 +55,17 @@ mod tests {
         assert_eq!(
             chunks,
             vec![
-                ("property", "string".to_string()),
-                ("", ": ".to_string()),
-                ("string", "\"value\"".to_string()),
-                ("", "\n".to_string()),
-                ("property", "bool".to_string()),
-                ("", ": ".to_string()),
-                ("boolean", "true".to_string()),
-                ("", "\n".to_string()),
-                ("property", "number".to_string()),
-                ("", ": ".to_string()),
-                ("type", "!fixed32".to_string()),
-                ("", " ".to_string()),
-                ("number", "42".to_string()),
-                ("", "  ".to_string()),
-                ("comment", "# comment".to_string()),
-                ("", "\n".to_string())
+                (Tag::Name, "string".to_string()),
+                (Tag::Text, ": ".to_string()),
+                (Tag::String, "\"value\"\n".to_string()),
+                (Tag::Name, "bool".to_string()),
+                (Tag::Text, ": ".to_string()),
+                (Tag::Boolean, "true\n".to_string()),
+                (Tag::Name, "number".to_string()),
+                (Tag::Text, ": ".to_string()),
+                (Tag::Name, "!fixed32 ".to_string()),
+                (Tag::Number, "42  ".to_string()),
+                (Tag::Comment, "# comment\n".to_string()),
             ]
         );
     }

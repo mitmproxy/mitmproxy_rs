@@ -1,13 +1,22 @@
 use super::common::highlight;
-use super::Chunk;
+use super::{Chunk, Tag};
 use anyhow::Result;
 
-pub(crate) const XML_TAGS: &[&str] = &[
+const NAMES: &[&str] = &[
     "tag",      // <div>
     "property", // class or style
+    "operator", // equal sign between class and value
     "comment",  // <!-- comment -->
     "punctuation",
     "markup",
+];
+const TAGS: &[Tag] = &[
+    Tag::Name,    // <div>
+    Tag::Name,    // class or style
+    Tag::Name,    // equal sign between class and value
+    Tag::Comment, // <!-- comment -->
+    Tag::Name,    // punctuation
+    Tag::Text,    // markup
 ];
 
 pub fn highlight_xml(input: &[u8]) -> Result<Vec<Chunk>> {
@@ -15,7 +24,8 @@ pub fn highlight_xml(input: &[u8]) -> Result<Vec<Chunk>> {
     highlight(
         tree_sitter_xml::LANGUAGE_XML.into(),
         tree_sitter_xml::XML_HIGHLIGHT_QUERY,
-        XML_TAGS,
+        NAMES,
+        TAGS,
         input,
     )
 }
@@ -25,12 +35,23 @@ mod tests {
     use super::*;
     use crate::syntax_highlight::common;
 
+    #[ignore]
     #[test]
-    fn test_tags_ok() {
-        common::test_tags_ok(
+    fn debug() {
+        common::debug(
             tree_sitter_xml::LANGUAGE_XML.into(),
             tree_sitter_xml::XML_HIGHLIGHT_QUERY,
-            XML_TAGS,
+            b"<div class=\"test\">Hello</div><!-- comment -->",
+        );
+    }
+
+    #[test]
+    fn test_tags_ok() {
+        common::test_names_ok(
+            tree_sitter_xml::LANGUAGE_XML.into(),
+            tree_sitter_xml::XML_HIGHLIGHT_QUERY,
+            NAMES,
+            TAGS,
         );
     }
 
@@ -41,19 +62,12 @@ mod tests {
         assert_eq!(
             chunks,
             vec![
-                ("punctuation", "<".to_string()),
-                ("tag", "div".to_string()),
-                ("", " ".to_string()),
-                ("property", "class".to_string()),
-                ("", "=".to_string()),
-                ("punctuation", "\"".to_string()),
-                ("", "test".to_string()),
-                ("punctuation", "\">".to_string()),
-                ("markup", "Hello".to_string()),
-                ("punctuation", "</".to_string()),
-                ("tag", "div".to_string()),
-                ("punctuation", ">".to_string()),
-                ("comment", "<!-- comment -->".to_string())
+                (Tag::Name, "<div class=\"".to_string()),
+                (Tag::Text, "test".to_string()),
+                (Tag::Name, "\">".to_string()),
+                (Tag::Text, "Hello".to_string()),
+                (Tag::Name, "</div>".to_string()),
+                (Tag::Comment, "<!-- comment -->".to_string())
             ]
         );
     }
