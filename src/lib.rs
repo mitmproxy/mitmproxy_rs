@@ -10,5 +10,6 @@ pub mod network;
 pub mod packet_sources;
 pub mod processes;
 pub mod shutdown;
+pub mod syntax_highlight;
 #[cfg(windows)]
 pub mod windows;

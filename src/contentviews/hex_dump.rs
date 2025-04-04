@@ -1,6 +1,6 @@
+use crate::contentviews::hex_stream::is_binary;
 use crate::contentviews::{Metadata, Prettify};
 use pretty_hex::{HexConfig, PrettyHex};
-use crate::contentviews::hex_stream::is_binary;
 
 pub struct HexDump;
 
