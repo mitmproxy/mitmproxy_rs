@@ -3,19 +3,13 @@ use anyhow::{Context, Result};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter};
 
 pub fn highlight(
-    language: tree_sitter::Language,
-    highlights_query: &str,
-    names: &[&str],
+    config: &HighlightConfiguration,
     tags: &[Tag],
     input: &[u8],
 ) -> Result<Vec<Chunk>> {
     let mut highlighter = Highlighter::new();
-    let mut config = HighlightConfiguration::new(language, "", highlights_query, "", "")
-        .context("failed to create highlight configuration")?;
-    config.configure(names);
-
     let highlights = highlighter
-        .highlight(&config, input, None, |_| None)
+        .highlight(config, input, None, |_| None)
         .context("failed to highlight")?;
 
     let mut chunks: Vec<Chunk> = Vec::new();

@@ -123,6 +123,14 @@ hickory-server = "0.25.1"
 name = "process"
 harness = false
 
+[[bench]]
+name = "contentviews"
+harness = false
+
+[[bench]]
+name = "syntax_highlight"
+harness = false
+
 [profile.release]
 codegen-units = 1
 lto = true

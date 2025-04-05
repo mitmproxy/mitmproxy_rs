@@ -1,4 +1,5 @@
 use crate::contentviews::{Metadata, Prettify, Reencode};
+use crate::syntax_highlight::Language;
 use anyhow::{Context, Result};
 use rmp_serde::{decode, encode};
 use serde_yaml;
@@ -8,6 +9,10 @@ pub struct MsgPack;
 impl Prettify for MsgPack {
     fn name(&self) -> &'static str {
         "MsgPack"
+    }
+
+    fn syntax_highlight(&self) -> Language {
+        Language::Yaml
     }
 
     fn prettify(&self, data: &[u8], _metadata: &dyn Metadata) -> Result<String> {
