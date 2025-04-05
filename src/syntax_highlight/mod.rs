@@ -3,7 +3,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::str::FromStr;
 
-mod common;
+pub mod common;
 mod xml;
 mod yaml;
 

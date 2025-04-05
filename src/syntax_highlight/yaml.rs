@@ -1,6 +1,8 @@
 use super::common::highlight;
 use super::{Chunk, Tag};
 use anyhow::Result;
+use std::sync::LazyLock;
+use tree_sitter_highlight::HighlightConfiguration;
 
 const NAMES: &[&str] = &[
     "boolean",  // YAML booleans
@@ -19,14 +21,21 @@ const TAGS: &[Tag] = &[
     Tag::Name,
 ];
 
-pub fn highlight_yaml(input: &[u8]) -> Result<Vec<Chunk>> {
-    highlight(
+static YAML_CONFIG: LazyLock<HighlightConfiguration> = LazyLock::new(|| {
+    let mut config = HighlightConfiguration::new(
         tree_sitter_yaml::LANGUAGE.into(),
+        "",
         tree_sitter_yaml::HIGHLIGHTS_QUERY,
-        NAMES,
-        TAGS,
-        input,
+        "",
+        "",
     )
+    .expect("failed to build YAML syntax highlighter");
+    config.configure(NAMES);
+    config
+});
+
+pub fn highlight_yaml(input: &[u8]) -> Result<Vec<Chunk>> {
+    highlight(&YAML_CONFIG, TAGS, input)
 }
 
 #[cfg(test)]

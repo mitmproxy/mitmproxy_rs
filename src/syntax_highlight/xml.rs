@@ -1,6 +1,8 @@
 use super::common::highlight;
 use super::{Chunk, Tag};
 use anyhow::Result;
+use std::sync::LazyLock;
+use tree_sitter_highlight::HighlightConfiguration;
 
 const NAMES: &[&str] = &[
     "tag",      // <div>
@@ -19,15 +21,21 @@ const TAGS: &[Tag] = &[
     Tag::Text,    // markup
 ];
 
-pub fn highlight_xml(input: &[u8]) -> Result<Vec<Chunk>> {
-    // There also is tree_sitter_xml, but tree_sitter_html produces slightly nicer output for us.
-    highlight(
+static XML_CONFIG: LazyLock<HighlightConfiguration> = LazyLock::new(|| {
+    let mut config = HighlightConfiguration::new(
         tree_sitter_xml::LANGUAGE_XML.into(),
+        "",
         tree_sitter_xml::XML_HIGHLIGHT_QUERY,
-        NAMES,
-        TAGS,
-        input,
+        "",
+        "",
     )
+    .expect("failed to build XML syntax highlighter");
+    config.configure(NAMES);
+    config
+});
+
+pub fn highlight_xml(input: &[u8]) -> Result<Vec<Chunk>> {
+    highlight(&XML_CONFIG, TAGS, input)
 }
 
 #[cfg(test)]

@@ -39,13 +39,11 @@ pub trait Reencode: Send + Sync {
     fn reencode(&self, data: &str, metadata: &dyn Metadata) -> Result<Vec<u8>>;
 }
 
-#[cfg(test)]
 #[derive(Default)]
 pub struct TestMetadata {
     pub content_type: Option<String>,
 }
 
-#[cfg(test)]
 impl Metadata for TestMetadata {
     fn content_type(&self) -> Option<String> {
         self.content_type.clone()
