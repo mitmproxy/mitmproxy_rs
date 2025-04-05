@@ -1,9 +1,16 @@
-from typing import ClassVar, final
+from __future__ import annotations
+
+from typing import ClassVar, final, Literal
 
 class Contentview:
     name: ClassVar[str]
 
+    syntax_highlight: ClassVar[Literal["xml", "yaml", "none", "error"]]
+
     def prettify(self, data: bytes, metadata) -> str:
+        pass
+
+    def render_priority(self, data: bytes, metadata) -> float:
         pass
 
 @final

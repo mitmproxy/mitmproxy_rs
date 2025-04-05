@@ -52,7 +52,7 @@ enum GuessedFieldType {
 
 impl Prettify for Protobuf {
     fn name(&self) -> &str {
-        "Protocol Buffer"
+        "Protobuf"
     }
 
     fn syntax_highlight(&self) -> Language {
