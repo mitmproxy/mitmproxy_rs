@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 from typing import final, overload, TypeVar
-from . import certs, dns, local, process_info, tun, udp, wireguard
+from . import certs, contentviews, dns, local, process_info, tun, udp, wireguard, syntax_highlight
 
 T = TypeVar("T")
 
@@ -57,9 +57,11 @@ class Stream:
 
 __all__ = [
     "certs",
+    "contentviews",
     "dns",
     "local",
     "process_info",
+    "syntax_highlight",
     "tun",
     "udp",
     "wireguard",

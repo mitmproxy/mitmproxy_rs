@@ -2,13 +2,17 @@ extern crate core;
 
 use std::sync::RwLock;
 
+use crate::contentview::{Contentview, InteractiveContentview};
+use mitmproxy::contentviews::{Prettify, Reencode};
 use once_cell::sync::Lazy;
 use pyo3::{exceptions::PyException, prelude::*};
 
+mod contentview;
 mod dns_resolver;
 mod process_info;
 mod server;
 mod stream;
+mod syntax_highlight;
 pub mod task;
 mod udp_client;
 mod util;
@@ -81,6 +85,26 @@ mod mitmproxy_rs {
         use crate::util::{genkey, pubkey};
     }
 
+    #[pymodule]
+    mod contentviews {
+        use super::*;
+        #[pymodule_export]
+        use crate::contentview::Contentview;
+        #[pymodule_export]
+        use crate::contentview::InteractiveContentview;
+        use mitmproxy::contentviews::{HexDump, HexStream, MsgPack, Protobuf, GRPC};
+
+        #[pymodule_init]
+        fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
+            m.add_contentview(&HexDump)?;
+            m.add_interactive_contentview(&HexStream)?;
+            m.add_interactive_contentview(&MsgPack)?;
+            m.add_interactive_contentview(&Protobuf)?;
+            m.add_interactive_contentview(&GRPC)?;
+            Ok(())
+        }
+    }
+
     #[pymodule_export]
     use crate::stream::Stream;
 
@@ -103,5 +127,29 @@ mod mitmproxy_rs {
         m.py().import("mitmproxy_windows")?;
 
         Ok(())
+    }
+
+    #[pymodule]
+    mod syntax_highlight {
+        #[pymodule_export]
+        use crate::syntax_highlight::highlight;
+        #[pymodule_export]
+        use crate::syntax_highlight::tags;
+    }
+}
+
+trait AddContentview {
+    fn add_contentview<T: Prettify>(&self, cv: &'static T) -> PyResult<()>;
+    fn add_interactive_contentview<T: Prettify + Reencode>(&self, i: &'static T) -> PyResult<()>;
+}
+
+impl AddContentview for Bound<'_, PyModule> {
+    fn add_contentview<T: Prettify>(&self, cv: &'static T) -> PyResult<()> {
+        let view = Contentview::new(self.py(), cv)?;
+        self.add(cv.instance_name(), view)
+    }
+    fn add_interactive_contentview<T: Prettify + Reencode>(&self, cv: &'static T) -> PyResult<()> {
+        let view = InteractiveContentview::new(self.py(), cv)?;
+        self.add(cv.instance_name(), view)
     }
 }

@@ -186,7 +186,7 @@ impl Stream {
                 }
                 _ => (),
             },
-            TunnelInfo::None {} => (),
+            TunnelInfo::None => (),
         }
         match default {
             Some(x) => Ok(x),
