@@ -130,4 +130,12 @@ tags:
         // Compare the values
         assert_eq!(original_value, result_value);
     }
+
+    #[test]
+    fn test_invalid_yaml() {
+        let err = MsgPack
+            .reencode("@invalid_yaml", &TestMetadata::default())
+            .unwrap_err();
+        assert_eq!(format!("{err}"), "Invalid YAML");
+    }
 }
