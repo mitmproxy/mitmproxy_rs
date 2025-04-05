@@ -16,7 +16,6 @@ use protobuf::UnknownValueRef;
 use protobuf::{EnumOrUnknown, MessageDyn, MessageFull, UnknownValue};
 use regex::Captures;
 use serde_yaml::value::TaggedValue;
-use serde_yaml::Value::Tagged;
 use serde_yaml::{Mapping, Number, Value};
 use std::collections::BTreeMap;
 use std::fmt::Write;
@@ -66,257 +65,36 @@ impl Prettify for Protobuf {
         }
 
         let existing = Empty::descriptor();
-        let descriptor = Self::create_descriptor(data, existing)?;
+        let descriptor = raw_to_proto::merge_proto_and_descriptor(data, existing)?;
 
+        // Parse protobuf and convert to YAML
         let message = descriptor
             .parse_from_bytes(data)
             .context("Error parsing protobuf")?;
+        let yaml_value = proto_to_yaml::message_to_yaml(message.as_ref());
 
-        // Parse protobuf and convert to YAML
-        let yaml_value = Self::message_to_yaml(message.as_ref());
-
-        // Convert the Value to prettified YAML
         let yaml_str = serde_yaml::to_string(&yaml_value).context("Failed to convert to YAML")?;
-
-        // Apply regex replacements to transform the YAML output
-        Self::apply_replacements(&yaml_str)
+        yaml_to_pretty::apply_replacements(&yaml_str)
     }
 }
 
 impl Reencode for Protobuf {
     fn reencode(&self, data: &str, metadata: &dyn Metadata) -> Result<Vec<u8>> {
         let value: Value = serde_yaml::from_str(data).context("Invalid YAML")?;
-        Self::reencode_yaml(value, metadata)
+        reencode::reencode_yaml(value, metadata)
     }
 }
 
-fn tag_number(value: Value, field_type: Type) -> Value {
-    match field_type {
-        TYPE_UINT64 => Tagged(Box::new(TaggedValue {
-            tag: tags::VARINT.clone(),
-            value,
-        })),
-        TYPE_FIXED64 => Tagged(Box::new(TaggedValue {
-            tag: tags::FIXED64.clone(),
-            value,
-        })),
-        TYPE_FIXED32 => Tagged(Box::new(TaggedValue {
-            tag: tags::FIXED32.clone(),
-            value,
-        })),
-        _ => value,
-    }
-}
+/// Existing protobuf definition + raw data => merged protobuf definition
+mod raw_to_proto {
+    use super::*;
 
-fn int_value(n: Number, field: Option<&FieldDescriptor>) -> UnknownValue {
-    if let Some(field) = field {
-        if let Some(typ) = field.proto().type_.and_then(|t| t.enum_value().ok()) {
-            match typ {
-                TYPE_FIXED64 | Type::TYPE_SFIXED64 | Type::TYPE_DOUBLE => {
-                    return if let Some(n) = n.as_u64() {
-                        UnknownValue::Fixed64(n)
-                    } else if let Some(n) = n.as_i64() {
-                        UnknownValue::sfixed64(n)
-                    } else {
-                        UnknownValue::double(n.as_f64().expect("as_f64 never fails"))
-                    }
-                }
-                TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => {
-                    return if let Some(n) = n.as_u64() {
-                        UnknownValue::Fixed32(n as u32)
-                    } else if let Some(n) = n.as_i64() {
-                        UnknownValue::sfixed32(n as i32)
-                    } else {
-                        UnknownValue::float(n.as_f64().expect("as_f64 never fails") as f32)
-                    }
-                }
-                _ => (),
-            }
-        }
-    }
-    if let Some(n) = n.as_u64() {
-        UnknownValue::Varint(n)
-    } else if let Some(n) = n.as_i64() {
-        UnknownValue::int64(n)
-    } else {
-        UnknownValue::double(n.as_f64().expect("as_f64 never fails"))
-    }
-}
-
-impl Protobuf {
-    pub(super) fn reencode_yaml(value: Value, _metadata: &dyn Metadata) -> Result<Vec<u8>> {
-        let descriptor = Empty::descriptor();
-        let message = descriptor.new_instance();
-        Self::merge_yaml_into_message(value, message)
-    }
-
-    fn merge_yaml_into_message(value: Value, mut message: Box<dyn MessageDyn>) -> Result<Vec<u8>> {
-        let Value::Mapping(mapping) = value else {
-            bail!("YAML is not a mapping");
-        };
-
-        for (key, value) in mapping.into_iter() {
-            let field_num = match key {
-                Value::String(key) => {
-                    if let Some(field) = message.descriptor_dyn().field_by_name(&key) {
-                        field.number()
-                    } else if let Ok(field_num) = i32::from_str(&key) {
-                        field_num
-                    } else {
-                        bail!("Unknown protobuf field key: {key}");
-                    }
-                }
-                Value::Number(key) => {
-                    let Some(field_num) = key.as_i64() else {
-                        bail!("Invalid protobuf field number: {key}");
-                    };
-                    field_num as i32
-                }
-                other => {
-                    bail!("Unexpected key: {other:?}");
-                }
-            } as u32;
-
-            Self::add_field(message.as_mut(), field_num, value)?;
-        }
-
-        message
-            .write_to_bytes_dyn()
-            .context("Failed to serialize protobuf")
-    }
-
-    fn add_field(message: &mut dyn MessageDyn, field_num: u32, value: Value) -> Result<()> {
-        let value = match value {
-            Value::Null => return Ok(()),
-            Value::Sequence(seq) => {
-                for s in seq.into_iter() {
-                    Self::add_field(message, field_num, s)?;
-                }
-                return Ok(());
-            }
-            Tagged(t) => {
-                // t.tag doesn't work for Match statements
-                if t.tag == *tags::BINARY {
-                    let value = match t.value {
-                        Value::String(s) => s,
-                        _ => bail!("Binary data is not a string"),
-                    };
-                    let value = (0..value.len())
-                        .step_by(2)
-                        .map(|i| u8::from_str_radix(&value[i..i + 2], 16))
-                        .collect::<Result<Vec<u8>, ParseIntError>>()
-                        .context("Invalid hex string")?;
-                    UnknownValue::LengthDelimited(value)
-                } else if t.tag == *tags::FIXED32 {
-                    let value = match t.value {
-                        Value::Number(s) if s.as_u64().is_some() => s.as_u64().unwrap(),
-                        _ => bail!("Fixed32 data is not a u32"),
-                    };
-                    UnknownValue::Fixed32(value as u32)
-                } else if t.tag == *tags::FIXED64 {
-                    let value = match t.value {
-                        Value::Number(s) if s.as_u64().is_some() => s.as_u64().unwrap(),
-                        _ => bail!("Fixed64 data is not a u64"),
-                    };
-                    UnknownValue::Fixed64(value)
-                } else {
-                    log::info!("Unexpected YAML tag {}, discarding.", t.tag);
-                    return Self::add_field(message, field_num, t.value);
-                }
-            }
-            Value::Bool(b) => UnknownValue::Varint(b as u64),
-            Value::Number(n) => {
-                let field = message.descriptor_dyn().field_by_number(field_num);
-                int_value(n, field.as_ref())
-            }
-            Value::String(s) => UnknownValue::LengthDelimited(s.into_bytes()),
-            Value::Mapping(m) => {
-                let mut descriptor = Empty::descriptor();
-                if let Some(field) = message.descriptor_dyn().field_by_number(field_num) {
-                    if let RuntimeFieldType::Singular(RuntimeType::Message(md)) =
-                        field.runtime_field_type()
-                    {
-                        descriptor = md;
-                    } else if let RuntimeFieldType::Map(_, _) = field.runtime_field_type() {
-                        // TODO: handle maps.
-                    }
-                }
-                let child_message = descriptor.new_instance();
-                let val = Self::merge_yaml_into_message(Value::Mapping(m), child_message)?;
-                UnknownValue::LengthDelimited(val)
-            }
-        };
-        message.mut_unknown_fields_dyn().add_value(field_num, value);
-        Ok(())
-    }
-
-    fn primitive_type_to_yaml(x: ReflectValueRef, field_type: Type) -> Value {
-        match x {
-            ReflectValueRef::U32(x) => tag_number(Value::Number(Number::from(x)), field_type),
-            ReflectValueRef::U64(x) => tag_number(Value::Number(Number::from(x)), field_type),
-            ReflectValueRef::I32(x) => Value::Number(Number::from(x)),
-            ReflectValueRef::I64(x) => Value::Number(Number::from(x)),
-            ReflectValueRef::F32(x) => Value::Number(Number::from(x)),
-            ReflectValueRef::F64(x) => Value::Number(Number::from(x)),
-            ReflectValueRef::Bool(x) => Value::from(x),
-            ReflectValueRef::String(x) => Value::from(x),
-            ReflectValueRef::Bytes(x) => Value::Tagged(Box::new(TaggedValue {
-                tag: tags::BINARY.clone(),
-                value: Value::String(Self::bytes_to_hex_string(x)),
-            })),
-            ReflectValueRef::Enum(descriptor, i) => descriptor
-                .value_by_number(i)
-                .map(|v| Value::String(v.name().to_string()))
-                .unwrap_or_else(|| Value::Number(Number::from(i))),
-            ReflectValueRef::Message(m) => Self::message_to_yaml(m.deref()),
-        }
-    }
-    pub(crate) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
-        let mut ret = Mapping::new();
-
-        for field in message.descriptor_dyn().fields() {
-            let key = if field.name().is_empty() || field.name().starts_with("@unknown_field_") {
-                Value::from(field.number())
-            } else {
-                Value::from(field.name())
-            };
-            let field_type = field
-                .proto()
-                .type_
-                .map(|t| t.enum_value_or(TYPE_BYTES))
-                .unwrap_or(TYPE_BYTES);
-
-            let value = match field.get_reflect(message) {
-                ReflectFieldRef::Optional(x) => {
-                    if let Some(x) = x.value() {
-                        Self::primitive_type_to_yaml(x, field_type)
-                    } else {
-                        Value::Null
-                    }
-                }
-                ReflectFieldRef::Repeated(x) => Value::Sequence(
-                    x.into_iter()
-                        .map(|x| Self::primitive_type_to_yaml(x, field_type))
-                        .collect(),
-                ),
-                ReflectFieldRef::Map(x) => Value::Mapping(
-                    x.into_iter()
-                        .map(|(k, v)| {
-                            (
-                                Self::primitive_type_to_yaml(k, field_type),
-                                Self::primitive_type_to_yaml(v, field_type),
-                            )
-                        })
-                        .collect(),
-                ),
-            };
-            ret.insert(key, value);
-        }
-        Value::Mapping(ret)
-    }
-
-    fn create_descriptor(data: &[u8], existing: MessageDescriptor) -> Result<MessageDescriptor> {
-        let proto = Self::create_descriptor_proto(data, existing, "Unknown".to_string())?;
+    /// Create a "merged" MessageDescriptor. Mostly a wrapper around `create_descriptor_proto`.
+    pub(super) fn merge_proto_and_descriptor(
+        data: &[u8],
+        existing: MessageDescriptor,
+    ) -> anyhow::Result<MessageDescriptor> {
+        let proto = create_descriptor_proto(data, existing, "Unknown".to_string())?;
 
         let descriptor = {
             let mut proto_file = FileDescriptorProto::new();
@@ -333,6 +111,8 @@ impl Protobuf {
         Ok(descriptor)
     }
 
+    /// Create a DescriptorProto that combines the `existing` MessageDescriptor with (guessed)
+    /// metadata for all unknown fields in the protobuf `data`.
     fn create_descriptor_proto(
         data: &[u8],
         existing: MessageDescriptor,
@@ -353,7 +133,7 @@ impl Protobuf {
             let mut add_int = |typ: Type| {
                 descriptor.field.push(FieldDescriptorProto {
                     number: Some(field_index as i32),
-                    name: Some(format!("@unknown_field_{}", field_index)),
+                    name: Some(format!("unknown_field_{}", field_index)),
                     type_: Some(EnumOrUnknown::from(typ)),
                     ..Default::default()
                 });
@@ -370,15 +150,15 @@ impl Protobuf {
                             UnknownValueRef::LengthDelimited(data) => Ok(*data),
                             _ => Err(anyhow::anyhow!("varying types in protobuf")),
                         })
-                        .collect::<Result<Vec<&[u8]>>>()?;
+                        .collect::<anyhow::Result<Vec<&[u8]>>>()?;
 
-                    match Self::guess_field_type(&field_values, &name, field_index) {
+                    match guess_field_type(&field_values, &name, field_index) {
                         GuessedFieldType::String => add_int(TYPE_STRING),
                         GuessedFieldType::Unknown => add_int(TYPE_BYTES),
                         GuessedFieldType::Message(m) => {
                             descriptor.field.push(FieldDescriptorProto {
                                 number: Some(field_index as i32),
-                                name: Some(format!("@unknown_field_{}", field_index)),
+                                name: Some(format!("unknown_field_{}", field_index)),
                                 type_name: Some(format!(".{}.{}", name, m.name())),
                                 type_: Some(EnumOrUnknown::from(Type::TYPE_MESSAGE)),
                                 ..Default::default()
@@ -401,6 +181,7 @@ impl Protobuf {
         Ok(descriptor)
     }
 
+    /// Given all `values` of a field, guess its type.
     fn guess_field_type(values: &[&[u8]], name: &str, field_index: u32) -> GuessedFieldType {
         if values.iter().all(|data| {
             std::str::from_utf8(data).is_ok_and(|s| {
@@ -414,7 +195,7 @@ impl Protobuf {
         // Try to parse as a nested message
         let name = format!("{name}.unknown_field_{field_index}");
         if let Ok(mut descriptor) =
-            { Self::create_descriptor_proto(values[0], Empty::descriptor(), name) }
+            { create_descriptor_proto(values[0], Empty::descriptor(), name) }
         {
             if values
                 .iter()
@@ -428,9 +209,111 @@ impl Protobuf {
 
         GuessedFieldType::Unknown
     }
+}
 
+/// Parsed protobuf message => YAML value
+mod proto_to_yaml {
+    use super::*;
+
+    pub(super) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
+        let mut ret = Mapping::new();
+
+        for field in message.descriptor_dyn().fields() {
+            let key = if field.name().starts_with("unknown_field_") {
+                Value::from(field.number())
+            } else {
+                Value::from(field.name())
+            };
+            let field_type = field
+                .proto()
+                .type_
+                .map(|t| t.enum_value_or(TYPE_BYTES))
+                .unwrap_or(TYPE_BYTES);
+
+            let value = match field.get_reflect(message) {
+                ReflectFieldRef::Optional(x) => {
+                    if let Some(x) = x.value() {
+                        primitive_type_to_yaml(x, field_type)
+                    } else {
+                        Value::Null
+                    }
+                }
+                ReflectFieldRef::Repeated(x) => Value::Sequence(
+                    x.into_iter()
+                        .map(|x| primitive_type_to_yaml(x, field_type))
+                        .collect(),
+                ),
+                ReflectFieldRef::Map(x) => Value::Mapping(
+                    x.into_iter()
+                        .map(|(k, v)| {
+                            (
+                                primitive_type_to_yaml(k, field_type),
+                                primitive_type_to_yaml(v, field_type),
+                            )
+                        })
+                        .collect(),
+                ),
+            };
+            ret.insert(key, value);
+        }
+        Value::Mapping(ret)
+    }
+
+    fn primitive_type_to_yaml(x: ReflectValueRef, field_type: Type) -> Value {
+        match x {
+            ReflectValueRef::U32(x) => tag_number(Value::Number(Number::from(x)), field_type),
+            ReflectValueRef::U64(x) => tag_number(Value::Number(Number::from(x)), field_type),
+            ReflectValueRef::I32(x) => Value::Number(Number::from(x)),
+            ReflectValueRef::I64(x) => Value::Number(Number::from(x)),
+            ReflectValueRef::F32(x) => Value::Number(Number::from(x)),
+            ReflectValueRef::F64(x) => Value::Number(Number::from(x)),
+            ReflectValueRef::Bool(x) => Value::from(x),
+            ReflectValueRef::String(x) => Value::from(x),
+            ReflectValueRef::Bytes(x) => Value::Tagged(Box::new(TaggedValue {
+                tag: tags::BINARY.clone(),
+                value: Value::String(bytes_to_hex_string(x)),
+            })),
+            ReflectValueRef::Enum(descriptor, i) => descriptor
+                .value_by_number(i)
+                .map(|v| Value::String(v.name().to_string()))
+                .unwrap_or_else(|| Value::Number(Number::from(i))),
+            ReflectValueRef::Message(m) => message_to_yaml(m.deref()),
+        }
+    }
+
+    fn tag_number(value: Value, field_type: Type) -> Value {
+        match field_type {
+            TYPE_UINT64 => Value::Tagged(Box::new(TaggedValue {
+                tag: tags::VARINT.clone(),
+                value,
+            })),
+            TYPE_FIXED64 => Value::Tagged(Box::new(TaggedValue {
+                tag: tags::FIXED64.clone(),
+                value,
+            })),
+            TYPE_FIXED32 => Value::Tagged(Box::new(TaggedValue {
+                tag: tags::FIXED32.clone(),
+                value,
+            })),
+            _ => value,
+        }
+    }
+
+    // Convert length-delimited protobuf data to a hex string
+    fn bytes_to_hex_string(bytes: &[u8]) -> String {
+        let mut result = String::with_capacity(bytes.len() * 2);
+        for b in bytes {
+            let _ = write!(result, "{:02x}", b);
+        }
+        result
+    }
+}
+
+/// YAML value => prettified text
+mod yaml_to_pretty {
+    use super::*;
     // Helper method to apply regex replacements to the YAML output
-    fn apply_replacements(yaml_str: &str) -> Result<String> {
+    pub(super) fn apply_replacements(yaml_str: &str) -> Result<String> {
         // Replace !fixed32 tags with comments showing float and i32 interpretations
         let with_fixed32 = tags::FIXED32_RE.replace_all(yaml_str, |caps: &Captures| {
             let value = caps[1].parse::<u32>().unwrap_or_default();
@@ -480,7 +363,7 @@ impl Protobuf {
         // Replace !varint tags with comments showing signed interpretation if different
         let with_varint = tags::VARINT_RE.replace_all(&with_fixed64, |caps: &Captures| {
             let unsigned_value = caps[1].parse::<u64>().unwrap_or_default();
-            let i64_zigzag = Self::decode_zigzag64(unsigned_value);
+            let i64_zigzag = decode_zigzag64(unsigned_value);
 
             // Only show signed value if it's different from unsigned
             if i64_zigzag < 0 {
@@ -497,14 +380,150 @@ impl Protobuf {
     fn decode_zigzag64(n: u64) -> i64 {
         ((n >> 1) as i64) ^ (-((n & 1) as i64))
     }
+}
 
-    // Convert length-delimited protobuf data to a hex string
-    fn bytes_to_hex_string(bytes: &[u8]) -> String {
-        let mut result = String::with_capacity(bytes.len() * 2);
-        for b in bytes {
-            let _ = write!(result, "{:02x}", b);
+pub(super) mod reencode {
+    use super::*;
+
+    pub(crate) fn reencode_yaml(value: Value, _metadata: &dyn Metadata) -> Result<Vec<u8>> {
+        let descriptor = Empty::descriptor();
+        let message = descriptor.new_instance();
+        merge_yaml_into_message(value, message)
+    }
+
+    fn merge_yaml_into_message(value: Value, mut message: Box<dyn MessageDyn>) -> Result<Vec<u8>> {
+        let Value::Mapping(mapping) = value else {
+            bail!("YAML is not a mapping");
+        };
+
+        for (key, value) in mapping.into_iter() {
+            let field_num = match key {
+                Value::String(key) => {
+                    if let Some(field) = message.descriptor_dyn().field_by_name(&key) {
+                        field.number()
+                    } else if let Ok(field_num) = i32::from_str(&key) {
+                        field_num
+                    } else {
+                        bail!("Unknown protobuf field key: {key}");
+                    }
+                }
+                Value::Number(key) => {
+                    let Some(field_num) = key.as_i64() else {
+                        bail!("Invalid protobuf field number: {key}");
+                    };
+                    field_num as i32
+                }
+                other => {
+                    bail!("Unexpected key: {other:?}");
+                }
+            } as u32;
+
+            add_field(message.as_mut(), field_num, value)?;
         }
-        result
+
+        message
+            .write_to_bytes_dyn()
+            .context("Failed to serialize protobuf")
+    }
+
+    fn add_field(message: &mut dyn MessageDyn, field_num: u32, value: Value) -> Result<()> {
+        let value = match value {
+            Value::Null => return Ok(()),
+            Value::Sequence(seq) => {
+                for s in seq.into_iter() {
+                    add_field(message, field_num, s)?;
+                }
+                return Ok(());
+            }
+            Value::Tagged(t) => {
+                // t.tag doesn't work for Match statements
+                if t.tag == *tags::BINARY {
+                    let value = match t.value {
+                        Value::String(s) => s,
+                        _ => bail!("Binary data is not a string"),
+                    };
+                    let value = (0..value.len())
+                        .step_by(2)
+                        .map(|i| u8::from_str_radix(&value[i..i + 2], 16))
+                        .collect::<Result<Vec<u8>, ParseIntError>>()
+                        .context("Invalid hex string")?;
+                    UnknownValue::LengthDelimited(value)
+                } else if t.tag == *tags::FIXED32 {
+                    let value = match t.value {
+                        Value::Number(s) if s.as_u64().is_some() => s.as_u64().unwrap(),
+                        _ => bail!("Fixed32 data is not a u32"),
+                    };
+                    UnknownValue::Fixed32(value as u32)
+                } else if t.tag == *tags::FIXED64 {
+                    let value = match t.value {
+                        Value::Number(s) if s.as_u64().is_some() => s.as_u64().unwrap(),
+                        _ => bail!("Fixed64 data is not a u64"),
+                    };
+                    UnknownValue::Fixed64(value)
+                } else {
+                    log::info!("Unexpected YAML tag {}, discarding.", t.tag);
+                    return add_field(message, field_num, t.value);
+                }
+            }
+            Value::Bool(b) => UnknownValue::Varint(b as u64),
+            Value::Number(n) => {
+                let field = message.descriptor_dyn().field_by_number(field_num);
+                int_value(n, field.as_ref())
+            }
+            Value::String(s) => UnknownValue::LengthDelimited(s.into_bytes()),
+            Value::Mapping(m) => {
+                let mut descriptor = Empty::descriptor();
+                if let Some(field) = message.descriptor_dyn().field_by_number(field_num) {
+                    if let RuntimeFieldType::Singular(RuntimeType::Message(md)) =
+                        field.runtime_field_type()
+                    {
+                        descriptor = md;
+                    } else if let RuntimeFieldType::Map(_, _) = field.runtime_field_type() {
+                        // TODO: handle maps.
+                    }
+                }
+                let child_message = descriptor.new_instance();
+                let val = merge_yaml_into_message(Value::Mapping(m), child_message)?;
+                UnknownValue::LengthDelimited(val)
+            }
+        };
+        message.mut_unknown_fields_dyn().add_value(field_num, value);
+        Ok(())
+    }
+
+    fn int_value(n: Number, field: Option<&FieldDescriptor>) -> UnknownValue {
+        if let Some(field) = field {
+            if let Some(typ) = field.proto().type_.and_then(|t| t.enum_value().ok()) {
+                match typ {
+                    TYPE_FIXED64 | Type::TYPE_SFIXED64 | Type::TYPE_DOUBLE => {
+                        return if let Some(n) = n.as_u64() {
+                            UnknownValue::Fixed64(n)
+                        } else if let Some(n) = n.as_i64() {
+                            UnknownValue::sfixed64(n)
+                        } else {
+                            UnknownValue::double(n.as_f64().expect("as_f64 never fails"))
+                        }
+                    }
+                    TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => {
+                        return if let Some(n) = n.as_u64() {
+                            UnknownValue::Fixed32(n as u32)
+                        } else if let Some(n) = n.as_i64() {
+                            UnknownValue::sfixed32(n as i32)
+                        } else {
+                            UnknownValue::float(n.as_f64().expect("as_f64 never fails") as f32)
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+        if let Some(n) = n.as_u64() {
+            UnknownValue::Varint(n)
+        } else if let Some(n) = n.as_i64() {
+            UnknownValue::int64(n)
+        } else {
+            UnknownValue::double(n.as_f64().expect("as_f64 never fails"))
+        }
     }
 }
 
@@ -635,7 +654,7 @@ mod tests {
 
     #[test]
     fn test_empty_protobuf() {
-        let result = Protobuf.prettify(b"", &TestMetadata::default());
-        assert!(result.is_err());
+        let result = Protobuf.prettify(b"", &TestMetadata::default()).unwrap();
+        assert_eq!(result, "{}  # empty protobuf message");
     }
 }

@@ -24,14 +24,14 @@ pub trait Prettify: Send + Sync {
         self.name().to_lowercase().replace(" ", "_")
     }
 
+    fn syntax_highlight(&self) -> syntax_highlight::Language {
+        syntax_highlight::Language::None
+    }
+
     fn prettify(&self, data: &[u8], metadata: &dyn Metadata) -> Result<String>;
 
     fn render_priority(&self, _data: &[u8], _metadata: &dyn Metadata) -> f64 {
         0.0
-    }
-
-    fn syntax_highlight(&self) -> syntax_highlight::Language {
-        syntax_highlight::Language::None
     }
 }
 
