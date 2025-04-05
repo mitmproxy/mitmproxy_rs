@@ -1,17 +1,21 @@
 use mitmproxy::contentviews::{Metadata, Prettify, Reencode};
 use pyo3::{exceptions::PyValueError, prelude::*};
 
-struct PythonMetadata(PyObject);
+pub struct PythonMetadata<'py>(Bound<'py, PyAny>);
 
-impl Metadata for PythonMetadata {
+impl Metadata for PythonMetadata<'_> {
     fn content_type(&self) -> Option<String> {
-        Python::with_gil(|py| {
-            self.0
-                .getattr(py, "content_type")
-                .ok()?
-                .extract::<String>(py)
-                .ok()
-        })
+        self.0
+            .getattr("content_type")
+            .ok()?
+            .extract::<String>()
+            .ok()
+    }
+}
+
+impl<'py> FromPyObject<'py> for PythonMetadata<'py> {
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        Ok(PythonMetadata(ob.clone()))
     }
 }
 
@@ -36,17 +40,14 @@ impl Contentview {
     }
 
     /// Pretty-print an (encoded) message.
-    pub fn prettify(&self, data: Vec<u8>, metadata: PyObject) -> PyResult<String> {
-        let metadata = PythonMetadata(metadata);
-
+    pub fn prettify(&self, data: Vec<u8>, metadata: PythonMetadata) -> PyResult<String> {
         self.0
             .prettify(&data, &metadata)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Return the priority of this view for rendering data.
-    pub fn render_priority(&self, data: Vec<u8>, metadata: PyObject) -> PyResult<f64> {
-        let metadata = PythonMetadata(metadata);
+    pub fn render_priority(&self, data: Vec<u8>, metadata: PythonMetadata) -> PyResult<f64> {
         Ok(self.0.render_priority(&data, &metadata))
     }
 
@@ -85,9 +86,7 @@ impl InteractiveContentview {
 
 #[pymethods]
 impl InteractiveContentview {
-    pub fn reencode(&self, data: &str, metadata: PyObject) -> PyResult<Vec<u8>> {
-        let metadata = PythonMetadata(metadata);
-
+    pub fn reencode(&self, data: &str, metadata: PythonMetadata) -> PyResult<Vec<u8>> {
         self.0
             .reencode(data, &metadata)
             .map_err(|e| PyValueError::new_err(e.to_string()))

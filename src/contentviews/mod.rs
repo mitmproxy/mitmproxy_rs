@@ -1,3 +1,4 @@
+mod grpc;
 mod hex_dump;
 mod hex_stream;
 mod msgpack;
@@ -6,6 +7,7 @@ mod protobuf;
 use anyhow::Result;
 
 use crate::syntax_highlight;
+pub use grpc::GRPC;
 pub use hex_dump::HexDump;
 pub use hex_stream::HexStream;
 pub use msgpack::MsgPack;
