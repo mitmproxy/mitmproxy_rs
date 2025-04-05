@@ -14,7 +14,8 @@ class InteractiveContentview(Contentview):
 hex_dump: Contentview
 hex_stream: InteractiveContentview
 msgpack: InteractiveContentview
-protobuf: Contentview
+protobuf: InteractiveContentview
+grpc: InteractiveContentview
 
 __all__ = [
     "Contentview",
@@ -23,4 +24,5 @@ __all__ = [
     "hex_stream",
     "msgpack",
     "protobuf",
+    "grpc",
 ]

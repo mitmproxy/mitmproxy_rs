@@ -88,18 +88,19 @@ mod mitmproxy_rs {
     #[pymodule]
     mod contentviews {
         use super::*;
-        //#[pymodule_export]
-        //use crate::contentview::Contentview;
-        //#[pymodule_export]
-        //use crate::contentview::InteractiveContentview;
-        use mitmproxy::contentviews::{HexDump, HexStream, MsgPack, Protobuf};
+        #[pymodule_export]
+        use crate::contentview::Contentview;
+        #[pymodule_export]
+        use crate::contentview::InteractiveContentview;
+        use mitmproxy::contentviews::{HexDump, HexStream, MsgPack, Protobuf, GRPC};
 
         #[pymodule_init]
         fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
             m.add_contentview(&HexDump)?;
             m.add_interactive_contentview(&HexStream)?;
             m.add_interactive_contentview(&MsgPack)?;
-            m.add_contentview(&Protobuf)?;
+            m.add_interactive_contentview(&Protobuf)?;
+            m.add_interactive_contentview(&GRPC)?;
             Ok(())
         }
     }

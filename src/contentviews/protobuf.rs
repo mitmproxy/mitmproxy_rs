@@ -1,4 +1,5 @@
 use crate::contentviews::{Metadata, Prettify, Reencode};
+use crate::syntax_highlight::Language;
 use anyhow::{bail, Context, Result};
 use protobuf::descriptor::field_descriptor_proto::Label::LABEL_REPEATED;
 use protobuf::descriptor::field_descriptor_proto::Type;
@@ -54,10 +55,14 @@ impl Prettify for Protobuf {
         "Protocol Buffer"
     }
 
+    fn syntax_highlight(&self) -> Language {
+        Language::Yaml
+    }
+
     fn prettify(&self, data: &[u8], _metadata: &dyn Metadata) -> Result<String> {
         // Check if data is empty first
         if data.is_empty() {
-            bail!("Empty protobuf data");
+            return Ok("{}  # empty protobuf message".to_string());
         }
 
         let existing = Empty::descriptor();
@@ -79,13 +84,9 @@ impl Prettify for Protobuf {
 }
 
 impl Reencode for Protobuf {
-    fn reencode(&self, data: &str, _metadata: &dyn Metadata) -> Result<Vec<u8>> {
-        let descriptor = Empty::descriptor();
-        let message = descriptor.new_instance();
-
+    fn reencode(&self, data: &str, metadata: &dyn Metadata) -> Result<Vec<u8>> {
         let value: Value = serde_yaml::from_str(data).context("Invalid YAML")?;
-
-        Self::merge_yaml_into_message(value, message)
+        Self::reencode_yaml(value, metadata)
     }
 }
 
@@ -143,6 +144,12 @@ fn int_value(n: Number, field: Option<&FieldDescriptor>) -> UnknownValue {
 }
 
 impl Protobuf {
+    pub(super) fn reencode_yaml(value: Value, _metadata: &dyn Metadata) -> Result<Vec<u8>> {
+        let descriptor = Empty::descriptor();
+        let message = descriptor.new_instance();
+        Self::merge_yaml_into_message(value, message)
+    }
+
     fn merge_yaml_into_message(value: Value, mut message: Box<dyn MessageDyn>) -> Result<Vec<u8>> {
         let Value::Mapping(mapping) = value else {
             bail!("YAML is not a mapping");
