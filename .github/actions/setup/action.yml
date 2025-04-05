@@ -23,7 +23,9 @@ runs:
     - if: inputs.extra-targets
       run: rustup target add ${{ inputs.extra-targets }}
       shell: bash
-    - uses: mhils/workflows/rust-cache@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
+    - uses: mhils/workflows/rust-cache@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v19.0
+      with:
+        key: ${{ inputs.rust-version }} # proxy value for glibc version
     - if: runner.os == 'Linux'
       run: cargo install --locked bpf-linker
       shell: bash
