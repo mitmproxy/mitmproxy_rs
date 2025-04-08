@@ -1,6 +1,5 @@
 pub use image;
 use std::path::PathBuf;
-use std::sync::LazyLock;
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod nix_list;

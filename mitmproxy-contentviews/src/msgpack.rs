@@ -22,6 +22,14 @@ impl Prettify for MsgPack {
         // Convert the Value to prettified YAML
         serde_yaml::to_string(&value).context("Failed to convert to YAML")
     }
+
+    fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f64 {
+        match metadata.content_type() {
+            Some("application/msgpack") => 1.0,
+            Some("application/x-msgpack") => 1.0,
+            _ => 0.0,
+        }
+    }
 }
 
 impl Reencode for MsgPack {

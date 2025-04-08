@@ -1,21 +1,39 @@
 use mitmproxy_contentviews::{Metadata, Prettify, Reencode};
 use pyo3::{exceptions::PyValueError, prelude::*};
+use std::cell::OnceCell;
 
-pub struct PythonMetadata<'py>(Bound<'py, PyAny>);
+pub struct PythonMetadata<'py> {
+    inner: Bound<'py, PyAny>,
+    content_type: OnceCell<Option<String>>,
+}
+
+impl<'py> PythonMetadata<'py> {
+    pub fn new(inner: Bound<'py, PyAny>) -> Self {
+        PythonMetadata {
+            inner,
+            content_type: OnceCell::new(),
+        }
+    }
+}
 
 impl Metadata for PythonMetadata<'_> {
-    fn content_type(&self) -> Option<String> {
-        self.0
-            .getattr("content_type")
-            .ok()?
-            .extract::<String>()
-            .ok()
+    fn content_type(&self) -> Option<&str> {
+        self.content_type
+            .get_or_init(|| {
+                self.inner
+                    .getattr("content_type")
+                    .ok()?
+                    .extract::<String>()
+                    .ok()
+            })
+            .as_ref()
+            .map(|ct| ct.as_str())
     }
 }
 
 impl<'py> FromPyObject<'py> for PythonMetadata<'py> {
     fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        Ok(PythonMetadata(ob.clone()))
+        Ok(PythonMetadata::new(ob.clone()))
     }
 }
 

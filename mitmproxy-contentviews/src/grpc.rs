@@ -46,13 +46,10 @@ impl Prettify for GRPC {
     }
 
     fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f64 {
-        let Some(ct) = metadata.content_type() else {
-            return 0.0;
-        };
-        match ct.as_str() {
-            "application/grpc" => 2.0,
-            "application/grpc+proto" => 2.0,
-            "application/prpc" => 2.0,
+        match metadata.content_type() {
+            Some("application/grpc") => 1.0,
+            Some("application/grpc+proto") => 1.0,
+            Some("application/prpc") => 1.0,
             _ => 0.0,
         }
     }

@@ -76,6 +76,14 @@ impl Prettify for Protobuf {
         let yaml_str = serde_yaml::to_string(&yaml_value).context("Failed to convert to YAML")?;
         yaml_to_pretty::apply_replacements(&yaml_str)
     }
+
+    fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f64 {
+        match metadata.content_type() {
+            Some("application/x-protobuf") => 1.0,
+            Some("application/x-protobuffer") => 1.0,
+            _ => 0.0,
+        }
+    }
 }
 
 impl Reencode for Protobuf {
