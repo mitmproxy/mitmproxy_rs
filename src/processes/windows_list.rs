@@ -5,10 +5,9 @@ use std::iter;
 use std::mem::size_of;
 use std::os::windows::prelude::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
 use anyhow::{anyhow, Result};
-use once_cell::sync::Lazy;
 use windows::core::w;
 use windows::core::{BOOL, PCWSTR, PWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, LPARAM, MAX_PATH};
@@ -85,8 +84,8 @@ pub fn enumerate_pids() -> Result<Vec<PID>> {
     Ok(pids)
 }
 
-pub static DISPLAY_NAME_CACHE: Lazy<Mutex<DisplayNameCache>> =
-    Lazy::new(|| Mutex::new(DisplayNameCache::default()));
+pub static DISPLAY_NAME_CACHE: LazyLock<Mutex<DisplayNameCache>> =
+    LazyLock::new(|| Mutex::new(DisplayNameCache::default()));
 
 #[derive(Default)]
 pub struct DisplayNameCache(HashMap<PathBuf, Result<String>>);

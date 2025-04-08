@@ -1,10 +1,9 @@
 extern crate core;
 
-use std::sync::RwLock;
+use std::sync::{LazyLock, Mutex};
 
 use crate::contentview::{Contentview, InteractiveContentview};
 use mitmproxy_contentviews::{Prettify, Reencode};
-use once_cell::sync::Lazy;
 use pyo3::{exceptions::PyException, prelude::*};
 
 mod contentview;
@@ -17,15 +16,15 @@ pub mod task;
 mod udp_client;
 mod util;
 
-static LOGGER_INITIALIZED: Lazy<RwLock<bool>> = Lazy::new(|| RwLock::new(false));
+static LOGGER_INITIALIZED: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
 
 fn init_logger() -> PyResult<()> {
-    if *LOGGER_INITIALIZED.read().unwrap() {
+    if *LOGGER_INITIALIZED.lock().unwrap() {
         // logger already initialized
         Ok(())
     } else if pyo3_log::try_init().is_ok() {
         // logger successfully initialized
-        *LOGGER_INITIALIZED.write().unwrap() = true;
+        *LOGGER_INITIALIZED.lock().unwrap() = true;
         Ok(())
     } else {
         // logger was not initialized and could not be initialized

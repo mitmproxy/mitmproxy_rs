@@ -6,10 +6,10 @@ mod protobuf;
 
 use anyhow::Result;
 
-use mitmproxy_highlight::Language;
 pub use grpc::GRPC;
 pub use hex_dump::HexDump;
 pub use hex_stream::HexStream;
+use mitmproxy_highlight::Language;
 pub use msgpack::MsgPack;
 pub use protobuf::Protobuf;
 

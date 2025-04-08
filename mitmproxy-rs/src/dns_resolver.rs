@@ -1,8 +1,8 @@
 use mitmproxy::dns::{ResolveError, DNS_SERVERS};
-use once_cell::sync::OnceCell;
 use pyo3::exceptions::socket::gaierror;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
+use std::sync::OnceLock;
 use std::{net::IpAddr, net::SocketAddr, sync::Arc};
 
 /// A DNS resolver backed by [hickory-dns](https://github.com/hickory-dns/hickory-dns).
@@ -78,10 +78,10 @@ pub fn get_system_dns_servers() -> PyResult<Vec<String>> {
     })
 }
 
-struct AddrInfoErrorConst(&'static str, OnceCell<isize>);
+struct AddrInfoErrorConst(&'static str, OnceLock<isize>);
 impl AddrInfoErrorConst {
     const fn new(identifier: &'static str) -> Self {
-        AddrInfoErrorConst(identifier, OnceCell::new())
+        AddrInfoErrorConst(identifier, OnceLock::new())
     }
     fn get(&self) -> isize {
         *self.1.get_or_init(|| {

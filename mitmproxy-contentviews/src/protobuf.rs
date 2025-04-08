@@ -1,6 +1,6 @@
 use crate::{Metadata, Prettify, Reencode};
-use mitmproxy_highlight::Language;
 use anyhow::{bail, Context, Result};
+use mitmproxy_highlight::Language;
 use protobuf::descriptor::field_descriptor_proto::Label::LABEL_REPEATED;
 use protobuf::descriptor::field_descriptor_proto::Type;
 use protobuf::descriptor::field_descriptor_proto::Type::{
@@ -24,9 +24,9 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 mod tags {
-    use std::sync::LazyLock;
     use regex::Regex;
     use serde_yaml::value::Tag;
+    use std::sync::LazyLock;
 
     pub(super) static BINARY: LazyLock<Tag> = LazyLock::new(|| Tag::new("binary"));
     pub(super) static VARINT: LazyLock<Tag> = LazyLock::new(|| Tag::new("varint"));
