@@ -6,7 +6,7 @@ mod protobuf;
 
 use anyhow::Result;
 
-use crate::syntax_highlight;
+use mitmproxy_highlight::Language;
 pub use grpc::GRPC;
 pub use hex_dump::HexDump;
 pub use hex_stream::HexStream;
@@ -24,8 +24,8 @@ pub trait Prettify: Send + Sync {
         self.name().to_lowercase().replace(" ", "_")
     }
 
-    fn syntax_highlight(&self) -> syntax_highlight::Language {
-        syntax_highlight::Language::None
+    fn syntax_highlight(&self) -> Language {
+        Language::None
     }
 
     fn prettify(&self, data: &[u8], metadata: &dyn Metadata) -> Result<String>;

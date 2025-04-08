@@ -1,17 +1,16 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use mitmproxy::contentviews;
-use mitmproxy::contentviews::{Prettify, Reencode, TestMetadata};
+use mitmproxy_contentviews::{MsgPack, Prettify, Protobuf, Reencode, TestMetadata};
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("protobuf-prettify", |b| {
         b.iter(|| {
-            contentviews::Protobuf.prettify(black_box(b"\n\x13gRPC testing server\x12\x07\n\x05Index\x12\x07\n\x05Empty\x12\x0c\n\nDummyUnary\x12\x0f\n\rSpecificError\x12\r\n\x0bRandomError\x12\x0e\n\x0cHeadersUnary\x12\x11\n\x0fNoResponseUnary"), &TestMetadata::default()).unwrap()
+            Protobuf.prettify(black_box(b"\n\x13gRPC testing server\x12\x07\n\x05Index\x12\x07\n\x05Empty\x12\x0c\n\nDummyUnary\x12\x0f\n\rSpecificError\x12\r\n\x0bRandomError\x12\x0e\n\x0cHeadersUnary\x12\x11\n\x0fNoResponseUnary"), &TestMetadata::default()).unwrap()
         })
     });
 
     c.bench_function("protobuf-reencode", |b| {
         b.iter(|| {
-            contentviews::Protobuf.reencode(
+            Protobuf.reencode(
                 black_box("1: gRPC testing server\n2:\n- 1: Index\n- 1: Empty\n- 1: DummyUnary\n- 1: SpecificError\n- 1: RandomError\n- 1: HeadersUnary\n- 1: NoResponseUnary\n"),
                 &TestMetadata::default()
             ).unwrap()
@@ -31,7 +30,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     ];
     c.bench_function("msgpack-prettify", |b| {
         b.iter(|| {
-            contentviews::MsgPack
+            MsgPack
                 .prettify(black_box(TEST_MSGPACK), &TestMetadata::default())
                 .unwrap()
         })
@@ -39,7 +38,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("msgpack-reencode", |b| {
         b.iter(|| {
-            contentviews::MsgPack
+            MsgPack
                 .reencode(
                     black_box(
                         "\

@@ -1,5 +1,5 @@
-use crate::contentviews::{Metadata, Prettify, Reencode};
-use crate::syntax_highlight::Language;
+use crate::{Metadata, Prettify, Reencode};
+use mitmproxy_highlight::Language;
 use anyhow::{bail, Context, Result};
 use protobuf::descriptor::field_descriptor_proto::Label::LABEL_REPEATED;
 use protobuf::descriptor::field_descriptor_proto::Type;
@@ -24,21 +24,21 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 mod tags {
-    use once_cell::sync::Lazy;
+    use std::sync::LazyLock;
     use regex::Regex;
     use serde_yaml::value::Tag;
 
-    pub(super) static BINARY: Lazy<Tag> = Lazy::new(|| Tag::new("binary"));
-    pub(super) static VARINT: Lazy<Tag> = Lazy::new(|| Tag::new("varint"));
-    pub(super) static FIXED32: Lazy<Tag> = Lazy::new(|| Tag::new("fixed32"));
-    pub(super) static FIXED64: Lazy<Tag> = Lazy::new(|| Tag::new("fixed64"));
+    pub(super) static BINARY: LazyLock<Tag> = LazyLock::new(|| Tag::new("binary"));
+    pub(super) static VARINT: LazyLock<Tag> = LazyLock::new(|| Tag::new("varint"));
+    pub(super) static FIXED32: LazyLock<Tag> = LazyLock::new(|| Tag::new("fixed32"));
+    pub(super) static FIXED64: LazyLock<Tag> = LazyLock::new(|| Tag::new("fixed64"));
 
-    pub(super) static VARINT_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(&format!(r"{} (\d+)", *VARINT)).unwrap());
-    pub(super) static FIXED32_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(&format!(r"{} (\d+)", *FIXED32)).unwrap());
-    pub(super) static FIXED64_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(&format!(r"{} (\d+)", *FIXED64)).unwrap());
+    pub(super) static VARINT_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(&format!(r"{} (\d+)", *VARINT)).unwrap());
+    pub(super) static FIXED32_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(&format!(r"{} (\d+)", *FIXED32)).unwrap());
+    pub(super) static FIXED64_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(&format!(r"{} (\d+)", *FIXED64)).unwrap());
 }
 
 pub struct Protobuf;
@@ -530,7 +530,7 @@ pub(super) mod reencode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contentviews::TestMetadata;
+    use crate::TestMetadata;
 
     macro_rules! test_roundtrip {
         ($name:ident,$proto:literal,$yaml:literal) => {

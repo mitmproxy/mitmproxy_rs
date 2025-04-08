@@ -2202,25 +2202,44 @@ dependencies = [
  "once_cell",
  "pretty-hex",
  "prost",
- "protobuf",
  "rand 0.9.0",
- "regex",
- "rmp-serde",
  "security-framework",
- "serde",
- "serde_yaml",
  "smoltcp",
  "socket2",
  "sysinfo",
  "tempfile",
  "tokio",
  "tokio-util",
+ "tun",
+ "windows 0.61.1",
+]
+
+[[package]]
+name = "mitmproxy-contentviews"
+version = "0.12.0-dev"
+dependencies = [
+ "anyhow",
+ "criterion",
+ "log",
+ "mitmproxy-highlight",
+ "pretty-hex",
+ "protobuf",
+ "regex",
+ "rmp-serde",
+ "serde",
+ "serde_yaml",
+]
+
+[[package]]
+name = "mitmproxy-highlight"
+version = "0.12.0-dev"
+dependencies = [
+ "anyhow",
+ "criterion",
  "tree-sitter",
  "tree-sitter-highlight",
  "tree-sitter-xml",
  "tree-sitter-yaml",
- "tun",
- "windows 0.61.1",
 ]
 
 [[package]]
@@ -2273,6 +2292,8 @@ dependencies = [
  "env_logger",
  "log",
  "mitmproxy",
+ "mitmproxy-contentviews",
+ "mitmproxy-highlight",
  "nix 0.29.0",
  "once_cell",
  "pyo3",

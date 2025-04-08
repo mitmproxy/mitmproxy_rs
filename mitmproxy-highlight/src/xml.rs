@@ -41,7 +41,7 @@ pub fn highlight_xml(input: &[u8]) -> Result<Vec<Chunk>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::syntax_highlight::common;
+    use crate::common;
 
     #[ignore]
     #[test]

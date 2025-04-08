@@ -1,8 +1,7 @@
-use crate::contentviews::{Metadata, Prettify, Reencode};
-use crate::syntax_highlight::Language;
+use super::{Metadata, Prettify, Reencode};
+use mitmproxy_highlight::Language;
 use anyhow::{Context, Result};
 use rmp_serde::{decode, encode};
-use serde_yaml;
 
 pub struct MsgPack;
 
@@ -41,7 +40,7 @@ impl Reencode for MsgPack {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contentviews::TestMetadata;
+    use crate::TestMetadata;
 
     // Hardcoded MsgPack data for a simple object:
     // {

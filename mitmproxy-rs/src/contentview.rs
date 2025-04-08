@@ -1,4 +1,4 @@
-use mitmproxy::contentviews::{Metadata, Prettify, Reencode};
+use mitmproxy_contentviews::{Metadata, Prettify, Reencode};
 use pyo3::{exceptions::PyValueError, prelude::*};
 
 pub struct PythonMetadata<'py>(Bound<'py, PyAny>);

@@ -1,5 +1,5 @@
-use crate::contentviews::hex_stream::is_binary;
-use crate::contentviews::{Metadata, Prettify};
+use crate::hex_stream::is_binary;
+use crate::{Metadata, Prettify};
 use pretty_hex::{HexConfig, PrettyHex};
 
 pub struct HexDump;
@@ -36,7 +36,7 @@ impl Prettify for HexDump {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contentviews::TestMetadata;
+    use crate::TestMetadata;
 
     #[test]
     fn prettify_simple() {

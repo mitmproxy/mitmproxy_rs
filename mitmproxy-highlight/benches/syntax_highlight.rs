@@ -1,9 +1,10 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use mitmproxy::syntax_highlight;
+use mitmproxy_highlight::Language;
+
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("syntax_highlight small", |b| {
         b.iter(|| {
-            syntax_highlight::Language::Xml
+            Language::Xml
                 .highlight(black_box(
                     br#"
             <!doctype html>
@@ -25,7 +26,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let data = "<a>x".repeat(8096);
     c.bench_function("syntax_highlight xml", |b| {
         b.iter(|| {
-            syntax_highlight::Language::Xml
+            Language::Xml
                 .highlight(black_box(data.as_bytes()))
                 .unwrap()
         })

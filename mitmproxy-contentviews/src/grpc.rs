@@ -1,5 +1,5 @@
-use crate::contentviews::{Metadata, Prettify, Protobuf, Reencode};
-use crate::syntax_highlight::Language;
+use crate::{Metadata, Prettify, Protobuf, Reencode};
+use mitmproxy_highlight::Language;
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use serde_yaml::Value;
