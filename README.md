@@ -21,6 +21,10 @@ This repository contains mitmproxy's Rust bits, most notably:
 ### Structure
 
 - [`src/`](./src): The `mitmproxy` crate containing most of the "meat".
+- [`mitmproxy-contentviews/`](./mitmproxy-contentviews): 
+  Pretty-printers for (HTTP) message bodies.
+- [`mitmproxy-highlight/`](./mitmproxy-highlight):
+  Syntax highlighting backend for mitmproxy and mitmdump.
 - [`mitmproxy-rs/`](./mitmproxy-rs): The `mitmproxy-rs` Python package,
   which provides Python bindings for the Rust crate using [PyO3](https://pyo3.rs/).  
   Source and binary distributions are available [on PyPI](https://pypi.org/project/mitmproxy-rs/).

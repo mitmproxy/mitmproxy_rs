@@ -1,4 +1,4 @@
-use crate::contentviews::{Metadata, Prettify, Reencode};
+use crate::{Metadata, Prettify, Reencode};
 use anyhow::{Context, Result};
 use pretty_hex::{HexConfig, PrettyHex};
 use std::num::ParseIntError;
@@ -64,7 +64,7 @@ impl Reencode for HexStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contentviews::TestMetadata;
+    use crate::TestMetadata;
 
     #[test]
     fn test_hex_stream() {

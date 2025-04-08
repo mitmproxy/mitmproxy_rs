@@ -17,6 +17,8 @@ crate-type = ["lib", "cdylib"]
 
 [dependencies]
 mitmproxy = { path = "../" }
+mitmproxy-highlight = { path = "../mitmproxy-highlight" }
+mitmproxy-contentviews = { path = "../mitmproxy-contentviews" }
 anyhow = { version = "1.0.97", features = ["backtrace"] }
 data-encoding = "2.8.0"
 log = "0.4.27"

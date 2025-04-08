@@ -3,7 +3,7 @@ extern crate core;
 use std::sync::RwLock;
 
 use crate::contentview::{Contentview, InteractiveContentview};
-use mitmproxy::contentviews::{Prettify, Reencode};
+use mitmproxy_contentviews::{Prettify, Reencode};
 use once_cell::sync::Lazy;
 use pyo3::{exceptions::PyException, prelude::*};
 
@@ -92,7 +92,7 @@ mod mitmproxy_rs {
         use crate::contentview::Contentview;
         #[pymodule_export]
         use crate::contentview::InteractiveContentview;
-        use mitmproxy::contentviews::{HexDump, HexStream, MsgPack, Protobuf, GRPC};
+        use mitmproxy_contentviews::{HexDump, HexStream, MsgPack, Protobuf, GRPC};
 
         #[pymodule_init]
         fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {

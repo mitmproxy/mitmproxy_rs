@@ -2,7 +2,7 @@
 use anyhow::{anyhow, Result};
 use std::str::FromStr;
 
-use mitmproxy::syntax_highlight::{Language, Tag};
+use mitmproxy_highlight::{Language, Tag};
 use pyo3::{exceptions::PyValueError, prelude::*};
 
 /// Transform text into a list of tagged chunks.

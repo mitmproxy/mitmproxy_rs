@@ -1,6 +1,8 @@
 [workspace]
 members = [
     ".",
+    "mitmproxy-contentviews",
+    "mitmproxy-highlight",
     "mitmproxy-rs",
     "mitmproxy-linux",
     "mitmproxy-linux-ebpf",
@@ -11,6 +13,8 @@ members = [
 ]
 default-members = [
     ".",
+    "mitmproxy-contentviews",
+    "mitmproxy-highlight",
     "mitmproxy-rs",
     "mitmproxy-linux",
     "mitmproxy-linux-ebpf-common",
@@ -68,15 +72,6 @@ internet-packet = { version = "0.2.3", features = ["smoltcp"] }
 data-encoding = "2.8.0"
 hickory-resolver = "0.25.1"
 socket2 = "0.5.9"
-serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9"
-rmp-serde = "1.1"
-protobuf = "3.7.2"
-regex = "1.10.3"
-tree-sitter-highlight = "0.25.3"
-tree-sitter-yaml = "0.7.0"
-tree-sitter-xml = "0.7.0"
-tree-sitter = "0.25.3"
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
@@ -118,17 +113,8 @@ rand = "0.9"
 criterion = "0.5.1"
 hickory-server = "0.25.1"
 
-
 [[bench]]
 name = "process"
-harness = false
-
-[[bench]]
-name = "contentviews"
-harness = false
-
-[[bench]]
-name = "syntax_highlight"
 harness = false
 
 [profile.release]

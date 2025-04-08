@@ -1,0 +1,30 @@
+[package]
+name = "mitmproxy-contentviews"
+license = "MIT"
+authors.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { version = "1.0.97", features = ["backtrace"] }
+log = "0.4.27"
+pretty-hex = "0.4.1"
+mitmproxy-highlight = { path = "../mitmproxy-highlight" }
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+rmp-serde = "1.1"
+protobuf = "3.7.2"
+regex = "1.10.3"
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "contentviews"
+harness = false

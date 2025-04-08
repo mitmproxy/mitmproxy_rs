@@ -1,0 +1,26 @@
+[package]
+name = "mitmproxy-highlight"
+license = "MIT"
+authors.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { version = "1.0.97", features = ["backtrace"] }
+tree-sitter-highlight = "0.25.3"
+tree-sitter-yaml = "0.7.0"
+tree-sitter-xml = "0.7.0"
+tree-sitter = "0.25.3"
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "syntax_highlight"
+harness = false
