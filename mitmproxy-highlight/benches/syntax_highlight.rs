@@ -25,11 +25,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let data = "<a>x".repeat(8096);
     c.bench_function("syntax_highlight xml", |b| {
-        b.iter(|| {
-            Language::Xml
-                .highlight(black_box(data.as_bytes()))
-                .unwrap()
-        })
+        b.iter(|| Language::Xml.highlight(black_box(data.as_bytes())).unwrap())
     });
 
     // tree_sitter_html is faster, but not by orders of magnitude.

@@ -1,6 +1,6 @@
 use super::{Metadata, Prettify, Reencode};
-use mitmproxy_highlight::Language;
 use anyhow::{Context, Result};
+use mitmproxy_highlight::Language;
 use rmp_serde::{decode, encode};
 
 pub struct MsgPack;

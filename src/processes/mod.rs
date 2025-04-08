@@ -1,5 +1,6 @@
 pub use image;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod nix_list;
@@ -34,8 +35,8 @@ pub struct ProcessInfo {
 pub type ProcessList = Vec<ProcessInfo>;
 
 #[cfg(any(windows, target_os = "macos"))]
-pub static ICON_CACHE: once_cell::sync::Lazy<std::sync::Mutex<IconCache>> =
-    once_cell::sync::Lazy::new(|| std::sync::Mutex::new(IconCache::default()));
+pub static ICON_CACHE: std::sync::LazyLock<std::sync::Mutex<IconCache>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(IconCache::default()));
 
 pub mod bench {
     #[cfg(target_os = "macos")]

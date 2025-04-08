@@ -1,21 +1,20 @@
-use hickory_resolver::config::{LookupIpStrategy, ResolveHosts};
-use hickory_resolver::lookup_ip::LookupIp;
-use hickory_resolver::system_conf::read_system_conf;
-use hickory_resolver::TokioResolver;
-use once_cell::sync::Lazy;
-use std::net::IpAddr;
-use std::net::SocketAddr;
-
 use hickory_resolver::config::NameServerConfig;
 use hickory_resolver::config::ResolverConfig;
+use hickory_resolver::config::{LookupIpStrategy, ResolveHosts};
+use hickory_resolver::lookup_ip::LookupIp;
 use hickory_resolver::name_server::TokioConnectionProvider;
 pub use hickory_resolver::proto::op::Query;
 pub use hickory_resolver::proto::op::ResponseCode;
 use hickory_resolver::proto::xfer::Protocol;
 use hickory_resolver::proto::ProtoError;
+use hickory_resolver::system_conf::read_system_conf;
 pub use hickory_resolver::ResolveError;
+use hickory_resolver::TokioResolver;
+use std::net::IpAddr;
+use std::net::SocketAddr;
+use std::sync::LazyLock;
 
-pub static DNS_SERVERS: Lazy<Result<Vec<String>, ResolveError>> = Lazy::new(|| {
+pub static DNS_SERVERS: LazyLock<Result<Vec<String>, ResolveError>> = LazyLock::new(|| {
     let (config, _opts) = read_system_conf()?;
     Ok(config
         .name_servers()

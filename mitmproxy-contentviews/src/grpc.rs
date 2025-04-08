@@ -1,6 +1,6 @@
 use crate::{Metadata, Prettify, Protobuf, Reencode};
-use mitmproxy_highlight::Language;
 use anyhow::{bail, Context, Result};
+use mitmproxy_highlight::Language;
 use serde::Deserialize;
 use serde_yaml::Value;
 
