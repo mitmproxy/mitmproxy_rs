@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use mitmproxy_contentviews::{MsgPack, Prettify, Protobuf, Reencode, TestMetadata};
+use mitmproxy_contentviews::{test::TestMetadata, MsgPack, Prettify, Protobuf, Reencode};
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("protobuf-prettify", |b| {

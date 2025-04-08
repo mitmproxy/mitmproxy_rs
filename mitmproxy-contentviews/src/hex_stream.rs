@@ -50,7 +50,7 @@ impl Reencode for HexStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::TestMetadata;
+    use crate::test::TestMetadata;
 
     #[test]
     fn test_hex_stream() {

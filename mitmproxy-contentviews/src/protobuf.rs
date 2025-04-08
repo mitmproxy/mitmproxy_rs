@@ -538,7 +538,7 @@ pub(super) mod reencode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::TestMetadata;
+    use crate::test::TestMetadata;
 
     macro_rules! test_roundtrip {
         ($name:ident,$proto:literal,$yaml:literal) => {

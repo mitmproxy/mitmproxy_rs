@@ -48,7 +48,7 @@ impl Reencode for MsgPack {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::TestMetadata;
+    use crate::test::TestMetadata;
 
     // Hardcoded MsgPack data for a simple object:
     // {
