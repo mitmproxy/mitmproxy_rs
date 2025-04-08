@@ -4,17 +4,17 @@ mod hex_stream;
 mod msgpack;
 mod protobuf;
 
-use anyhow::Result;
-
 pub use grpc::GRPC;
 pub use hex_dump::HexDump;
 pub use hex_stream::HexStream;
-use mitmproxy_highlight::Language;
 pub use msgpack::MsgPack;
 pub use protobuf::Protobuf;
 
+use anyhow::Result;
+use mitmproxy_highlight::Language;
+
 pub trait Metadata {
-    fn content_type(&self) -> Option<String>;
+    fn content_type(&self) -> Option<&str>;
 }
 
 pub trait Prettify: Send + Sync {
@@ -30,7 +30,8 @@ pub trait Prettify: Send + Sync {
 
     fn prettify(&self, data: &[u8], metadata: &dyn Metadata) -> Result<String>;
 
-    fn render_priority(&self, _data: &[u8], _metadata: &dyn Metadata) -> f64 {
+    #[allow(unused_variables)]
+    fn render_priority(&self, data: &[u8], metadata: &dyn Metadata) -> f64 {
         0.0
     }
 }
@@ -45,7 +46,7 @@ pub struct TestMetadata {
 }
 
 impl Metadata for TestMetadata {
-    fn content_type(&self) -> Option<String> {
-        self.content_type.clone()
+    fn content_type(&self) -> Option<&str> {
+        self.content_type.as_deref()
     }
 }
