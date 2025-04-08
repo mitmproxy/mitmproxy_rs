@@ -1,7 +1,5 @@
 use crate::{Metadata, Prettify, Reencode};
 use anyhow::{Context, Result};
-use pretty_hex::{HexConfig, PrettyHex};
-use std::num::ParseIntError;
 
 pub struct HexStream;
 
@@ -25,17 +23,7 @@ impl Prettify for HexStream {
     }
 
     fn prettify(&self, data: &[u8], _metadata: &dyn Metadata) -> Result<String> {
-        Ok(data
-            .hex_conf(HexConfig {
-                title: false,
-                ascii: false,
-                width: 0,
-                group: 0,
-                chunk: 0,
-                max_bytes: usize::MAX,
-                display_offset: 0,
-            })
-            .to_string())
+        Ok(data_encoding::HEXLOWER.encode(data))
     }
 
     fn render_priority(&self, data: &[u8], _metadata: &dyn Metadata) -> f64 {
@@ -53,10 +41,8 @@ impl Reencode for HexStream {
         if data.len() % 2 != 0 {
             anyhow::bail!("Invalid hex string: uneven number of characters");
         }
-        (0..data.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&data[i..i + 2], 16))
-            .collect::<Result<Vec<u8>, ParseIntError>>()
+        data_encoding::HEXLOWER_PERMISSIVE
+            .decode(data.as_bytes())
             .context("Invalid hex string")
     }
 }
