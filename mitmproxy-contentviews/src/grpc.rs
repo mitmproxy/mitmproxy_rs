@@ -71,9 +71,36 @@ impl Reencode for GRPC {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::test::TestMetadata;
+
+    const TEST_YAML: &str = "1: 150\n\n---\n\n1: 150\n";
+    const TEST_GRPC: &[u8] = &[
+        0, 0, 0, 0, 3, 8, 150, 1,  // first message
+        0, 0, 0, 0, 3, 8, 150, 1,  // second message
+    ];
 
     #[test]
-    fn test_grpc() {
-        // FIXME
+    fn test_empty() {
+        let res = GRPC.prettify(&vec![], &TestMetadata::default()).unwrap();
+        assert_eq!(res, "");
+    }
+
+    #[test]
+    fn test_prettify_two_messages() {
+        let res = GRPC.prettify(TEST_GRPC, &TestMetadata::default()).unwrap();
+        assert_eq!(res, TEST_YAML);
+    }
+
+    #[test]
+    fn test_reencode_two_messages() {
+        let res = GRPC.reencode(TEST_YAML, &TestMetadata::default()).unwrap();
+        assert_eq!(res, TEST_GRPC);
+    }
+
+    #[test]
+    fn test_render_priority() {
+        assert_eq!(GRPC.render_priority(b"", &TestMetadata::default().with_content_type("application/grpc")), 1.0);
+        assert_eq!(GRPC.render_priority(b"", &TestMetadata::default().with_content_type("text/plain")), 0.0);
     }
 }

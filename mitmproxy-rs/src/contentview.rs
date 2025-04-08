@@ -26,8 +26,7 @@ impl Metadata for PythonMetadata<'_> {
                     .extract::<String>()
                     .ok()
             })
-            .as_ref()
-            .map(|ct| ct.as_str())
+            .as_deref()
     }
 }
 

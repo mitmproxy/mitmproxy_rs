@@ -36,7 +36,7 @@ impl Prettify for HexDump {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::TestMetadata;
+    use crate::test::TestMetadata;
 
     #[test]
     fn prettify_simple() {
