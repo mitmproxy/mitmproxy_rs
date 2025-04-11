@@ -1,8 +1,10 @@
 use crate::{Metadata, Prettify, Protobuf, Reencode};
 use anyhow::{bail, Context, Result};
+use flate2::read::{DeflateDecoder, GzDecoder};
 use mitmproxy_highlight::Language;
 use serde::Deserialize;
 use serde_yaml::Value;
+use std::io::Read;
 
 pub struct GRPC;
 
@@ -29,20 +31,34 @@ impl Prettify for GRPC {
                 _ => bail!("invalid gRPC: first byte is not a boolean"),
             };
             let Some(proto) = data.get(5..5 + len) else {
-                bail!("Invald gRPC: not enough data")
+                bail!("Invalid gRPC: not enough data")
             };
-            if compressed {
-                todo!();
-            }
-            protos.push(proto);
+
+            let mut decompressed = Vec::new();
+            let proto = if compressed {
+                let encoding = metadata.get_header("grpc-encoding").unwrap_or_default();
+                match encoding.as_str() {
+                    "deflate" => {
+                        let mut decoder = DeflateDecoder::new(proto);
+                        decoder.read_to_end(&mut decompressed)?;
+                        &decompressed
+                    }
+                    "gzip" => {
+                        let mut decoder = GzDecoder::new(proto);
+                        decoder.read_to_end(&mut decompressed)?;
+                        &decompressed
+                    }
+                    "identity" => proto,
+                    _ => bail!("unsupported compression: {}", encoding),
+                }
+            } else {
+                proto
+            };
+            protos.push(Protobuf.prettify(proto, metadata)?);
             data = &data[5 + len..];
         }
 
-        let prettified = protos
-            .into_iter()
-            .map(|proto| Protobuf.prettify(proto, metadata))
-            .collect::<Result<Vec<String>>>()?;
-        Ok(prettified.join("\n---\n\n"))
+        Ok(protos.join("\n---\n\n"))
     }
 
     fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f64 {
@@ -61,7 +77,7 @@ impl Reencode for GRPC {
         for document in serde_yaml::Deserializer::from_str(data) {
             let value = Value::deserialize(document).context("Invalid YAML")?;
             let proto = super::protobuf::reencode::reencode_yaml(value, metadata)?;
-            ret.push(0); // compressed
+            ret.push(0); // uncompressed
             ret.extend(u32::to_be_bytes(proto.len() as u32));
             ret.extend(proto);
         }
@@ -76,13 +92,24 @@ mod tests {
 
     const TEST_YAML: &str = "1: 150\n\n---\n\n1: 150\n";
     const TEST_GRPC: &[u8] = &[
-        0, 0, 0, 0, 3, 8, 150, 1,  // first message
-        0, 0, 0, 0, 3, 8, 150, 1,  // second message
+        0, 0, 0, 0, 3, 8, 150, 1, // first message
+        0, 0, 0, 0, 3, 8, 150, 1, // second message
+    ];
+
+    const TEST_GZIP: &[u8] = &[
+        1, 0, 0, 0, 23, // compressed flag and length
+        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 227, 152, 198, 8, 0, 160, 149, 78, 161, 3, 0, 0,
+        0, // gzip data
+    ];
+
+    const TEST_DEFLATE: &[u8] = &[
+        1, 0, 0, 0, 5, // compressed flag and length
+        227, 152, 198, 8, 0, // deflate data
     ];
 
     #[test]
     fn test_empty() {
-        let res = GRPC.prettify(&vec![], &TestMetadata::default()).unwrap();
+        let res = GRPC.prettify(&[], &TestMetadata::default()).unwrap();
         assert_eq!(res, "");
     }
 
@@ -93,6 +120,20 @@ mod tests {
     }
 
     #[test]
+    fn test_prettify_gzip() {
+        let metadata = TestMetadata::default().with_header("grpc-encoding", "gzip");
+        let res = GRPC.prettify(TEST_GZIP, &metadata).unwrap();
+        assert_eq!(res, "1: 150\n");
+    }
+
+    #[test]
+    fn test_prettify_deflate() {
+        let metadata = TestMetadata::default().with_header("grpc-encoding", "deflate");
+        let res = GRPC.prettify(TEST_DEFLATE, &metadata).unwrap();
+        assert_eq!(res, "1: 150\n");
+    }
+
+    #[test]
     fn test_reencode_two_messages() {
         let res = GRPC.reencode(TEST_YAML, &TestMetadata::default()).unwrap();
         assert_eq!(res, TEST_GRPC);
@@ -100,7 +141,19 @@ mod tests {
 
     #[test]
     fn test_render_priority() {
-        assert_eq!(GRPC.render_priority(b"", &TestMetadata::default().with_content_type("application/grpc")), 1.0);
-        assert_eq!(GRPC.render_priority(b"", &TestMetadata::default().with_content_type("text/plain")), 0.0);
+        assert_eq!(
+            GRPC.render_priority(
+                b"",
+                &TestMetadata::default().with_content_type("application/grpc")
+            ),
+            1.0
+        );
+        assert_eq!(
+            GRPC.render_priority(
+                b"",
+                &TestMetadata::default().with_content_type("text/plain")
+            ),
+            0.0
+        );
     }
 }
