@@ -2220,6 +2220,7 @@ dependencies = [
  "anyhow",
  "criterion",
  "data-encoding",
+ "flate2",
  "log",
  "mitmproxy-highlight",
  "pretty-hex",

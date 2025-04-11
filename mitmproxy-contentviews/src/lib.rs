@@ -16,6 +16,9 @@ use mitmproxy_highlight::Language;
 pub trait Metadata {
     /// The HTTP `content-type` of this message.
     fn content_type(&self) -> Option<&str>;
+    /// Get an HTTP header value by name.
+    /// `name` is case-insensitive.
+    fn get_header(&self, name: &str) -> Option<String>;
 }
 
 /// See https://docs.mitmproxy.org/dev/api/mitmproxy/contentviews.html
@@ -56,11 +59,17 @@ pub mod test {
     #[derive(Default)]
     pub struct TestMetadata {
         pub content_type: Option<String>,
+        pub headers: std::collections::HashMap<String, String>,
     }
 
     impl TestMetadata {
         pub fn with_content_type(mut self, content_type: &str) -> Self {
             self.content_type = Some(content_type.to_string());
+            self
+        }
+
+        pub fn with_header(mut self, name: &str, value: &str) -> Self {
+            self.headers.insert(name.to_lowercase(), value.to_string());
             self
         }
     }
@@ -69,7 +78,9 @@ pub mod test {
         fn content_type(&self) -> Option<&str> {
             self.content_type.as_deref()
         }
+
+        fn get_header(&self, name: &str) -> Option<String> {
+            self.headers.get(&name.to_lowercase()).cloned()
+        }
     }
-
-
 }

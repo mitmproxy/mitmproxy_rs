@@ -28,6 +28,12 @@ impl Metadata for PythonMetadata<'_> {
             })
             .as_deref()
     }
+
+    fn get_header(&self, name: &str) -> Option<String> {
+        let http_message = self.inner.getattr("http_message").ok()?;
+        let headers = http_message.getattr("headers").ok()?;
+        headers.get_item(name).ok()?.extract::<String>().ok()
+    }
 }
 
 impl<'py> FromPyObject<'py> for PythonMetadata<'py> {
