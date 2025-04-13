@@ -37,7 +37,7 @@ pub(crate) fn merge_proto_and_descriptor(
         file_descriptor_proto.message_type[message_idx] = new_proto;
 
         /*
-        XXX: Not sure if this would be the right thing to do here
+        XXX: Skipping this as it doesn't seem to bring any immediate benefits.
         let dependencies = dependencies
             .iter()
             .cloned()
@@ -89,7 +89,7 @@ fn create_descriptor_proto(
 ) -> anyhow::Result<DescriptorProto> {
     let message = existing
         .parse_from_bytes(data)
-        .context("failed to parse protobuf")?;
+        .with_context(|| format!("failed to parse protobuf: {}", existing.full_name()))?;
 
     let mut descriptor = existing.proto().clone();
 

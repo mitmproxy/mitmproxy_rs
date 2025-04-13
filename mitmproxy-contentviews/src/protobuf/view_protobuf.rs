@@ -1,5 +1,7 @@
 use crate::protobuf::raw_to_proto::new_empty_descriptor;
-use crate::protobuf::{proto_to_yaml, raw_to_proto, reencode, yaml_to_pretty};
+use crate::protobuf::{
+    existing_proto_definitions, proto_to_yaml, raw_to_proto, reencode, yaml_to_pretty,
+};
 use crate::{Metadata, Prettify, Reencode};
 use anyhow::{Context, Result};
 use mitmproxy_highlight::Language;
@@ -35,9 +37,10 @@ impl Prettify for Protobuf {
         Language::Yaml
     }
 
-    fn prettify(&self, data: &[u8], _metadata: &dyn Metadata) -> Result<String> {
-        // FIXME use new create_new
-        self.prettify_with_descriptor(data, &new_empty_descriptor(None, "Unknown"), &[])
+    fn prettify(&self, data: &[u8], metadata: &dyn Metadata) -> Result<String> {
+        let (descriptor, dependencies) = existing_proto_definitions::find_best_match(metadata)?
+            .unwrap_or_else(|| (new_empty_descriptor(None, "Unknown"), vec![]));
+        self.prettify_with_descriptor(data, &descriptor, &dependencies)
     }
 
     fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f64 {
@@ -210,5 +213,25 @@ mod tests {
     fn test_empty_protobuf() {
         let result = Protobuf.prettify(b"", &TestMetadata::default()).unwrap();
         assert_eq!(result, "{}  # empty protobuf message");
+    }
+
+    #[test]
+    fn test_existing() {
+        let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/protobuf/simple.proto"
+        ));
+        let result = Protobuf.prettify(varint::PROTO, &metadata).unwrap();
+        assert_eq!(result, "example: 150\n");
+    }
+
+    #[test]
+    fn test_existing_mismatch() {
+        let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/protobuf/simple.proto"
+        ));
+        let result = Protobuf.prettify(string::PROTO, &metadata);
+        assert!(result.is_err());
     }
 }
