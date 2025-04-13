@@ -1,3 +1,5 @@
+use super::{existing_proto_definitions, reencode};
+use crate::protobuf::raw_to_proto::new_empty_descriptor;
 use crate::{Metadata, Prettify, Protobuf, Reencode};
 use anyhow::{bail, Context, Result};
 use flate2::read::{DeflateDecoder, GzDecoder};
@@ -19,6 +21,9 @@ impl Prettify for GRPC {
 
     fn prettify(&self, mut data: &[u8], metadata: &dyn Metadata) -> Result<String> {
         let mut protos = vec![];
+
+        let (descriptor, dependencies) = existing_proto_definitions::find_best_match(metadata)?
+            .unwrap_or_else(|| (new_empty_descriptor(None, "Unknown"), vec![]));
 
         while !data.is_empty() {
             let compressed = match data[0] {
@@ -54,7 +59,7 @@ impl Prettify for GRPC {
             } else {
                 proto
             };
-            protos.push(Protobuf.prettify(proto, metadata)?);
+            protos.push(Protobuf.prettify_with_descriptor(proto, &descriptor, &dependencies)?);
             data = &data[5 + len..];
         }
 
@@ -76,7 +81,7 @@ impl Reencode for GRPC {
         let mut ret = vec![];
         for document in serde_yaml::Deserializer::from_str(data) {
             let value = Value::deserialize(document).context("Invalid YAML")?;
-            let proto = super::protobuf::reencode::reencode_yaml(value, metadata)?;
+            let proto = reencode::reencode_yaml(value, metadata)?;
             ret.push(0); // uncompressed
             ret.extend(u32::to_be_bytes(proto.len() as u32));
             ret.extend(proto);
@@ -91,6 +96,7 @@ mod tests {
     use crate::test::TestMetadata;
 
     const TEST_YAML: &str = "1: 150\n\n---\n\n1: 150\n";
+    const TEST_YAML_KNOWN: &str = "example: 150\n\n---\n\nexample: 150\n";
     const TEST_GRPC: &[u8] = &[
         0, 0, 0, 0, 3, 8, 150, 1, // first message
         0, 0, 0, 0, 3, 8, 150, 1, // second message
@@ -155,5 +161,65 @@ mod tests {
             ),
             0.0
         );
+    }
+
+    #[test]
+    fn test_existing_proto() {
+        let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/protobuf/simple.proto"
+        ));
+        let res = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
+        assert_eq!(res, TEST_YAML_KNOWN);
+    }
+
+    #[test]
+    fn test_existing_service_request() {
+        let metadata = TestMetadata::default()
+            .with_is_http_request(true)
+            .with_path("/Service/Method")
+            .with_protobuf_definitions(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/testdata/protobuf/simple_service.proto"
+            ));
+        let req = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
+        assert_eq!(req, TEST_YAML);
+    }
+
+    #[test]
+    fn test_existing_service_response() {
+        let metadata = TestMetadata::default()
+            .with_is_http_request(false)
+            .with_path("/Service/Method")
+            .with_protobuf_definitions(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/testdata/protobuf/simple_service.proto"
+            ));
+        let req = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
+        assert_eq!(req, TEST_YAML_KNOWN);
+    }
+
+    #[test]
+    fn test_existing_package() {
+        let metadata = TestMetadata::default()
+            .with_path("/example.simple.Service/Method")
+            .with_protobuf_definitions(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/testdata/protobuf/simple_package.proto"
+            ));
+        let req = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
+        assert_eq!(req, TEST_YAML_KNOWN);
+    }
+
+    #[test]
+    fn test_existing_nested() {
+        let metadata = TestMetadata::default()
+            .with_path("/example.nested.Service/Method")
+            .with_protobuf_definitions(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/testdata/protobuf/nested.proto"
+            ));
+        let req = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
+        assert_eq!(req, TEST_YAML_KNOWN);
     }
 }

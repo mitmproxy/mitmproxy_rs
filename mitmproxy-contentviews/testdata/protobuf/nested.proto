@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package example.nested;
+
+service Service {
+  rpc Method(Empty) returns (Response) {}
+}
+
+message Empty {}
+
+message Response {
+  message Nested {
+    int32 example = 1;
+  }
+  int32 example = 1;
+  Nested nested = 2;
+}

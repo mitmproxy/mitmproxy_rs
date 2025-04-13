@@ -1,10 +1,13 @@
 use mitmproxy_contentviews::{Metadata, Prettify, Reencode};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use std::cell::OnceCell;
+use std::path::Path;
 
 pub struct PythonMetadata<'py> {
     inner: Bound<'py, PyAny>,
     content_type: OnceCell<Option<String>>,
+    protobuf_definitions: OnceCell<Option<std::path::PathBuf>>,
+    path: OnceCell<Option<String>>,
 }
 
 impl<'py> PythonMetadata<'py> {
@@ -12,6 +15,8 @@ impl<'py> PythonMetadata<'py> {
         PythonMetadata {
             inner,
             content_type: OnceCell::new(),
+            protobuf_definitions: OnceCell::new(),
+            path: OnceCell::new(),
         }
     }
 }
@@ -33,6 +38,46 @@ impl Metadata for PythonMetadata<'_> {
         let http_message = self.inner.getattr("http_message").ok()?;
         let headers = http_message.getattr("headers").ok()?;
         headers.get_item(name).ok()?.extract::<String>().ok()
+    }
+
+    fn get_path(&self) -> Option<&str> {
+        self.path
+            .get_or_init(|| {
+                let flow = self.inner.getattr("flow").ok()?;
+                let request = flow.getattr("request").ok()?;
+                request.getattr("path").ok()?.extract::<String>().ok()
+            })
+            .as_deref()
+    }
+
+    fn protobuf_definitions(&self) -> Option<&Path> {
+        self.protobuf_definitions
+            .get_or_init(|| {
+                self.inner
+                    .getattr("protobuf_definitions")
+                    .ok()?
+                    .extract::<String>()
+                    .ok()
+                    .map(std::path::PathBuf::from)
+            })
+            .as_deref()
+    }
+
+    fn is_http_request(&self) -> bool {
+        let Ok(http_message) = self.inner.getattr("http_message") else {
+            return false;
+        };
+        let Ok(flow) = self
+            .inner
+            .getattr("flow")
+            .and_then(|flow| flow.getattr("request"))
+        else {
+            return false;
+        };
+        let Ok(request) = flow.getattr("request") else {
+            return false;
+        };
+        http_message.is(&request)
     }
 }
 
@@ -66,7 +111,7 @@ impl Contentview {
     pub fn prettify(&self, data: Vec<u8>, metadata: PythonMetadata) -> PyResult<String> {
         self.0
             .prettify(&data, &metadata)
-            .map_err(|e| PyValueError::new_err(e.to_string()))
+            .map_err(|e| PyValueError::new_err(format!("{:?}", e)))
     }
 
     /// Return the priority of this view for rendering data.
@@ -112,7 +157,7 @@ impl InteractiveContentview {
     pub fn reencode(&self, data: &str, metadata: PythonMetadata) -> PyResult<Vec<u8>> {
         self.0
             .reencode(data, &metadata)
-            .map_err(|e| PyValueError::new_err(e.to_string()))
+            .map_err(|e| PyValueError::new_err(format!("{:?}", e)))
     }
 
     fn __repr__(self_: PyRef<'_, Self>) -> PyResult<String> {

@@ -1,17 +1,17 @@
-mod grpc;
 mod hex_dump;
 mod hex_stream;
 mod msgpack;
 mod protobuf;
 
-pub use grpc::GRPC;
 pub use hex_dump::HexDump;
 pub use hex_stream::HexStream;
 pub use msgpack::MsgPack;
 pub use protobuf::Protobuf;
+pub use protobuf::GRPC;
 
 use anyhow::Result;
 use mitmproxy_highlight::Language;
+use std::path::Path;
 
 pub trait Metadata {
     /// The HTTP `content-type` of this message.
@@ -19,6 +19,18 @@ pub trait Metadata {
     /// Get an HTTP header value by name.
     /// `name` is case-insensitive.
     fn get_header(&self, name: &str) -> Option<String>;
+    /// Get the path from the flow's request.
+    fn get_path(&self) -> Option<&str> {
+        None
+    }
+    /// Check if this is an HTTP request.
+    fn is_http_request(&self) -> bool {
+        false
+    }
+    /// Get the protobuf definitions for this message.
+    fn protobuf_definitions(&self) -> Option<&Path> {
+        None
+    }
 }
 
 /// See https://docs.mitmproxy.org/dev/api/mitmproxy/contentviews.html
@@ -55,11 +67,15 @@ pub trait Reencode: Send + Sync {
 // no cfg(test) gate because it's used in benchmarks as well
 pub mod test {
     use crate::Metadata;
+    use std::path::Path;
 
     #[derive(Default)]
     pub struct TestMetadata {
         pub content_type: Option<String>,
         pub headers: std::collections::HashMap<String, String>,
+        pub protobuf_definitions: Option<std::path::PathBuf>,
+        pub path: Option<String>,
+        pub is_http_request: bool,
     }
 
     impl TestMetadata {
@@ -72,6 +88,21 @@ pub mod test {
             self.headers.insert(name.to_lowercase(), value.to_string());
             self
         }
+
+        pub fn with_path(mut self, path: &str) -> Self {
+            self.path = Some(path.to_string());
+            self
+        }
+
+        pub fn with_protobuf_definitions<P: AsRef<Path>>(mut self, definitions: P) -> Self {
+            self.protobuf_definitions = Some(definitions.as_ref().to_path_buf());
+            self
+        }
+
+        pub fn with_is_http_request(mut self, is_http_request: bool) -> Self {
+            self.is_http_request = is_http_request;
+            self
+        }
     }
 
     impl Metadata for TestMetadata {
@@ -80,7 +111,19 @@ pub mod test {
         }
 
         fn get_header(&self, name: &str) -> Option<String> {
-            self.headers.get(&name.to_lowercase()).cloned()
+            self.headers.get(name).cloned()
+        }
+
+        fn get_path(&self) -> Option<&str> {
+            self.path.as_deref()
+        }
+
+        fn protobuf_definitions(&self) -> Option<&Path> {
+            self.protobuf_definitions.as_deref()
+        }
+
+        fn is_http_request(&self) -> bool {
+            self.is_http_request
         }
     }
 }
