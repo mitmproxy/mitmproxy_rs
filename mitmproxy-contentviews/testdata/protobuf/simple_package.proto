@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package example.simple;
+
+service Other {
+  rpc Method(Empty) returns (Response) {}
+}
+
+service Service {
+  // This endpoint
+  rpc Method(Empty) returns (Response) {}
+}
+
+message Empty {}
+
+message Response {
+  int32 example = 1;
+}

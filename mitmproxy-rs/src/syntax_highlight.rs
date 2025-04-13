@@ -25,7 +25,7 @@ pub fn highlight(text: String, language: &str) -> PyResult<Vec<(&'static str, St
                 .map(|(tag, text)| (tag.to_str(), text))
                 .collect()
         })
-        .map_err(|e| PyValueError::new_err(e.to_string()))
+        .map_err(|e| PyValueError::new_err(format!("{:?}", e)))
 }
 
 /// Return the list of all possible tag names for a given language.
