@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+- Add `mitmproxy_rs.contentviews` module with MsgPack, Protobuf, and gRPC views.
+- Add `mitmproxy_rs.syntax_highlight` module with YAML and HTML support.
+- Wireguard: Bind server to specified address only.
 
 ## 17 February 2025: mitmproxy_rs 0.11.5
 
