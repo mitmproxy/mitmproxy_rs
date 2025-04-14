@@ -1,30 +1,49 @@
+use crate::protobuf::raw_to_proto::new_empty_descriptor;
 use crate::Metadata;
 use anyhow::Context;
 use protobuf::reflect::{FileDescriptor, MessageDescriptor};
 use protobuf_parse::Parser;
 use std::path::Path;
 
+pub(super) struct DescriptorWithDeps {
+    pub descriptor: MessageDescriptor,
+    pub dependencies: Vec<FileDescriptor>,
+}
+
+impl Default for DescriptorWithDeps {
+    fn default() -> Self {
+        Self {
+            descriptor: new_empty_descriptor(None, "Unknown"),
+            dependencies: vec![],
+        }
+    }
+}
+
 pub(super) fn find_best_match(
     metadata: &dyn Metadata,
-) -> anyhow::Result<Option<(MessageDescriptor, Vec<FileDescriptor>)>> {
+) -> anyhow::Result<Option<DescriptorWithDeps>> {
     // Parse existing protobuf definitions if available
-    let file_descriptors = metadata
+    let Some(file_descriptors) = metadata
         .protobuf_definitions()
         .map(parse_file_descriptor_set)
         .transpose()
-        .context("failed to parse proto file(s)")?;
-    let Some(file_descriptors) = file_descriptors else {
+        .context("failed to parse proto file(s)")?
+    else {
         return Ok(None);
     };
 
     // Find MessageDescriptor for the RPC.
     let rpc_info = RpcInfo::from_metadata(metadata);
-    let Some(message) = find_best_message(&file_descriptors, rpc_info, metadata.is_http_request())
+    let Some(descriptor) =
+        find_best_message(&file_descriptors, rpc_info, metadata.is_http_request())
     else {
         return Ok(None);
     };
 
-    Ok(Some((message, file_descriptors)))
+    Ok(Some(DescriptorWithDeps {
+        descriptor,
+        dependencies: file_descriptors,
+    }))
 }
 
 fn find_best_message(

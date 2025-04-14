@@ -1,11 +1,10 @@
-use crate::protobuf::raw_to_proto::new_empty_descriptor;
+use crate::protobuf::existing_proto_definitions::DescriptorWithDeps;
 use crate::protobuf::{
     existing_proto_definitions, proto_to_yaml, raw_to_proto, reencode, yaml_to_pretty,
 };
 use crate::{Metadata, Prettify, Reencode};
 use anyhow::{Context, Result};
 use mitmproxy_highlight::Language;
-use protobuf::reflect::{FileDescriptor, MessageDescriptor};
 use serde_yaml::Value;
 
 pub(super) mod tags {
@@ -38,9 +37,8 @@ impl Prettify for Protobuf {
     }
 
     fn prettify(&self, data: &[u8], metadata: &dyn Metadata) -> Result<String> {
-        let (descriptor, dependencies) = existing_proto_definitions::find_best_match(metadata)?
-            .unwrap_or_else(|| (new_empty_descriptor(None, "Unknown"), vec![]));
-        self.prettify_with_descriptor(data, &descriptor, &dependencies)
+        let descriptor = existing_proto_definitions::find_best_match(metadata)?.unwrap_or_default();
+        self.prettify_with_descriptor(data, &descriptor)
     }
 
     fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f64 {
@@ -52,19 +50,28 @@ impl Prettify for Protobuf {
     }
 }
 
+impl Reencode for Protobuf {
+    fn reencode(&self, data: &str, metadata: &dyn Metadata) -> Result<Vec<u8>> {
+        let descriptor = existing_proto_definitions::find_best_match(metadata)?
+            .unwrap_or_default()
+            .descriptor;
+        let value: Value = serde_yaml::from_str(data).context("Invalid YAML")?;
+        reencode::reencode_yaml(value, &descriptor)
+    }
+}
+
 impl Protobuf {
     pub(super) fn prettify_with_descriptor(
         &self,
         data: &[u8],
-        descriptor: &MessageDescriptor,
-        dependencies: &[FileDescriptor],
+        descriptor: &DescriptorWithDeps,
     ) -> Result<String> {
         // Check if data is empty first
         if data.is_empty() {
             return Ok("{}  # empty protobuf message".to_string());
         }
 
-        let descriptor = raw_to_proto::merge_proto_and_descriptor(data, descriptor, dependencies)?;
+        let descriptor = raw_to_proto::merge_proto_and_descriptor(data, descriptor)?;
 
         // Parse protobuf and convert to YAML
         let message = descriptor
@@ -74,13 +81,6 @@ impl Protobuf {
 
         let yaml_str = serde_yaml::to_string(&yaml_value).context("Failed to convert to YAML")?;
         yaml_to_pretty::apply_replacements(&yaml_str)
-    }
-}
-
-impl Reencode for Protobuf {
-    fn reencode(&self, data: &str, metadata: &dyn Metadata) -> Result<Vec<u8>> {
-        let value: Value = serde_yaml::from_str(data).context("Invalid YAML")?;
-        reencode::reencode_yaml(value, metadata)
     }
 }
 
@@ -175,26 +175,6 @@ mod tests {
         "1:\n- 1 # signed: -1\n- 2\n- 3 # signed: -2\n"
     );
 
-    mod reencode {
-        use super::*;
-
-        #[test]
-        fn reencode_new_nested_message() {
-            let result = Protobuf
-                .reencode(nested::YAML, &TestMetadata::default())
-                .unwrap();
-            assert_eq!(result, nested::PROTO);
-        }
-
-        #[test]
-        fn new_string_attr() {
-            let result = Protobuf
-                .reencode(string::YAML, &TestMetadata::default())
-                .unwrap();
-            assert_eq!(result, string::PROTO);
-        }
-    }
-
     #[test]
     fn test_invalid_protobuf() {
         let result = Protobuf.prettify(b"\xFF\xFF", &TestMetadata::default());
@@ -215,23 +195,49 @@ mod tests {
         assert_eq!(result, "{}  # empty protobuf message");
     }
 
-    #[test]
-    fn test_existing() {
-        let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/testdata/protobuf/simple.proto"
-        ));
-        let result = Protobuf.prettify(varint::PROTO, &metadata).unwrap();
-        assert_eq!(result, "example: 150\n");
-    }
+    mod existing_definition {
+        use super::*;
 
-    #[test]
-    fn test_existing_mismatch() {
-        let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/testdata/protobuf/simple.proto"
-        ));
-        let result = Protobuf.prettify(string::PROTO, &metadata);
-        assert!(result.is_err());
+        const VARINT_PRETTY_YAML: &str = "example: 150\n";
+
+        #[test]
+        fn prettify() {
+            let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/testdata/protobuf/simple.proto"
+            ));
+            let result = Protobuf.prettify(varint::PROTO, &metadata).unwrap();
+            assert_eq!(result, VARINT_PRETTY_YAML);
+        }
+
+        #[test]
+        fn prettify_mismatch() {
+            let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/testdata/protobuf/simple.proto"
+            ));
+            let result = Protobuf.prettify(string::PROTO, &metadata);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn reencode() {
+            let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/testdata/protobuf/simple.proto"
+            ));
+            let result = Protobuf.reencode(VARINT_PRETTY_YAML, &metadata).unwrap();
+            assert_eq!(result, varint::PROTO);
+        }
+
+        #[test]
+        fn reencode_mismatch() {
+            let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/testdata/protobuf/simple.proto"
+            ));
+            let result = Protobuf.reencode("example: hello", &metadata).unwrap();
+            assert_eq!(result, string::PROTO);
+        }
     }
 }

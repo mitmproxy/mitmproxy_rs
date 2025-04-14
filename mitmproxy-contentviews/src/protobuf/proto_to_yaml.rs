@@ -1,3 +1,4 @@
+use crate::protobuf::view_protobuf::tags;
 /// Parsed protobuf message => YAML value
 use protobuf::descriptor::field_descriptor_proto::Type;
 use protobuf::descriptor::field_descriptor_proto::Type::{
@@ -7,10 +8,9 @@ use protobuf::reflect::{ReflectFieldRef, ReflectValueRef};
 use protobuf::MessageDyn;
 use serde_yaml::value::TaggedValue;
 use serde_yaml::{Mapping, Number, Value};
-use std::fmt::Write;
 use std::ops::Deref;
 
-pub(crate) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
+pub(super) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
     let mut ret = Mapping::new();
 
     for field in message.descriptor_dyn().fields() {
@@ -28,7 +28,7 @@ pub(crate) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
         let value = match field.get_reflect(message) {
             ReflectFieldRef::Optional(x) => {
                 if let Some(x) = x.value() {
-                    primitive_type_to_yaml(x, field_type)
+                    value_to_yaml(x, field_type)
                 } else {
                     continue;
                 }
@@ -39,7 +39,7 @@ pub(crate) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
                 }
                 Value::Sequence(
                     x.into_iter()
-                        .map(|x| primitive_type_to_yaml(x, field_type))
+                        .map(|x| value_to_yaml(x, field_type))
                         .collect(),
                 )
             }
@@ -49,12 +49,7 @@ pub(crate) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
                 }
                 Value::Mapping(
                     x.into_iter()
-                        .map(|(k, v)| {
-                            (
-                                primitive_type_to_yaml(k, field_type),
-                                primitive_type_to_yaml(v, field_type),
-                            )
-                        })
+                        .map(|(k, v)| (value_to_yaml(k, field_type), value_to_yaml(v, field_type)))
                         .collect(),
                 )
             }
@@ -64,7 +59,7 @@ pub(crate) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
     Value::Mapping(ret)
 }
 
-fn primitive_type_to_yaml(x: ReflectValueRef, field_type: Type) -> Value {
+fn value_to_yaml(x: ReflectValueRef, field_type: Type) -> Value {
     match x {
         ReflectValueRef::U32(x) => tag_number(Value::Number(Number::from(x)), field_type),
         ReflectValueRef::U64(x) => tag_number(Value::Number(Number::from(x)), field_type),
@@ -75,8 +70,8 @@ fn primitive_type_to_yaml(x: ReflectValueRef, field_type: Type) -> Value {
         ReflectValueRef::Bool(x) => Value::from(x),
         ReflectValueRef::String(x) => Value::from(x),
         ReflectValueRef::Bytes(x) => Value::Tagged(Box::new(TaggedValue {
-            tag: crate::protobuf::view_protobuf::tags::BINARY.clone(),
-            value: Value::String(bytes_to_hex_string(x)),
+            tag: tags::BINARY.clone(),
+            value: Value::String(data_encoding::HEXLOWER.encode(x)),
         })),
         ReflectValueRef::Enum(descriptor, i) => descriptor
             .value_by_number(i)
@@ -89,26 +84,17 @@ fn primitive_type_to_yaml(x: ReflectValueRef, field_type: Type) -> Value {
 fn tag_number(value: Value, field_type: Type) -> Value {
     match field_type {
         TYPE_UINT64 => Value::Tagged(Box::new(TaggedValue {
-            tag: crate::protobuf::view_protobuf::tags::VARINT.clone(),
+            tag: tags::VARINT.clone(),
             value,
         })),
         TYPE_FIXED64 => Value::Tagged(Box::new(TaggedValue {
-            tag: crate::protobuf::view_protobuf::tags::FIXED64.clone(),
+            tag: tags::FIXED64.clone(),
             value,
         })),
         TYPE_FIXED32 => Value::Tagged(Box::new(TaggedValue {
-            tag: crate::protobuf::view_protobuf::tags::FIXED32.clone(),
+            tag: tags::FIXED32.clone(),
             value,
         })),
         _ => value,
     }
-}
-
-// Convert length-delimited protobuf data to a hex string
-fn bytes_to_hex_string(bytes: &[u8]) -> String {
-    let mut result = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        let _ = write!(result, "{:02x}", b);
-    }
-    result
 }
