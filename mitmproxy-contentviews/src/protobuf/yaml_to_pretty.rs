@@ -3,7 +3,7 @@ use crate::protobuf::view_protobuf::tags;
 use regex::Captures;
 
 // Helper method to apply regex replacements to the YAML output
-pub(crate) fn apply_replacements(yaml_str: &str) -> anyhow::Result<String> {
+pub(super) fn apply_replacements(yaml_str: &str) -> anyhow::Result<String> {
     // Replace !fixed32 tags with comments showing float and i32 interpretations
     let with_fixed32 = tags::FIXED32_RE.replace_all(yaml_str, |caps: &Captures| {
         let value = caps[1].parse::<u32>().unwrap_or_default();

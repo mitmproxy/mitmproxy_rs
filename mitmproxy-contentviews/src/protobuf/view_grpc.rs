@@ -1,5 +1,4 @@
 use super::{existing_proto_definitions, reencode};
-use crate::protobuf::raw_to_proto::new_empty_descriptor;
 use crate::{Metadata, Prettify, Protobuf, Reencode};
 use anyhow::{bail, Context, Result};
 use flate2::read::{DeflateDecoder, GzDecoder};
@@ -22,8 +21,7 @@ impl Prettify for GRPC {
     fn prettify(&self, mut data: &[u8], metadata: &dyn Metadata) -> Result<String> {
         let mut protos = vec![];
 
-        let (descriptor, dependencies) = existing_proto_definitions::find_best_match(metadata)?
-            .unwrap_or_else(|| (new_empty_descriptor(None, "Unknown"), vec![]));
+        let descriptor = existing_proto_definitions::find_best_match(metadata)?.unwrap_or_default();
 
         while !data.is_empty() {
             let compressed = match data[0] {
@@ -59,7 +57,7 @@ impl Prettify for GRPC {
             } else {
                 proto
             };
-            protos.push(Protobuf.prettify_with_descriptor(proto, &descriptor, &dependencies)?);
+            protos.push(Protobuf.prettify_with_descriptor(proto, &descriptor)?);
             data = &data[5 + len..];
         }
 
@@ -78,10 +76,13 @@ impl Prettify for GRPC {
 
 impl Reencode for GRPC {
     fn reencode(&self, data: &str, metadata: &dyn Metadata) -> Result<Vec<u8>> {
+        let descriptor = existing_proto_definitions::find_best_match(metadata)?
+            .unwrap_or_default()
+            .descriptor;
         let mut ret = vec![];
         for document in serde_yaml::Deserializer::from_str(data) {
             let value = Value::deserialize(document).context("Invalid YAML")?;
-            let proto = reencode::reencode_yaml(value, metadata)?;
+            let proto = reencode::reencode_yaml(value, &descriptor)?;
             ret.push(0); // uncompressed
             ret.extend(u32::to_be_bytes(proto.len() as u32));
             ret.extend(proto);

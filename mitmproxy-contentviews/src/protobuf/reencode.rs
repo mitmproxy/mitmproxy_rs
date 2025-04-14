@@ -1,17 +1,18 @@
 use crate::protobuf::view_protobuf::tags;
-use crate::Metadata;
 use anyhow::{bail, Context};
 use protobuf::descriptor::field_descriptor_proto::Type;
 use protobuf::descriptor::field_descriptor_proto::Type::{TYPE_FIXED32, TYPE_FIXED64};
-use protobuf::reflect::{FieldDescriptor, RuntimeFieldType, RuntimeType};
+use protobuf::reflect::{FieldDescriptor, MessageDescriptor, RuntimeFieldType, RuntimeType};
 use protobuf::well_known_types::empty::Empty;
 use protobuf::{MessageDyn, MessageFull, UnknownValue};
 use serde_yaml::{Number, Value};
 use std::num::ParseIntError;
 use std::str::FromStr;
 
-pub(crate) fn reencode_yaml(value: Value, _metadata: &dyn Metadata) -> anyhow::Result<Vec<u8>> {
-    let descriptor = Empty::descriptor();
+pub(super) fn reencode_yaml(
+    value: Value,
+    descriptor: &MessageDescriptor,
+) -> anyhow::Result<Vec<u8>> {
     let message = descriptor.new_instance();
     merge_yaml_into_message(value, message)
 }

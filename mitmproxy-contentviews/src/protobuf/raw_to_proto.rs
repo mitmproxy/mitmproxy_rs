@@ -1,3 +1,4 @@
+use crate::protobuf::existing_proto_definitions::DescriptorWithDeps;
 use anyhow::Context;
 use protobuf::descriptor::field_descriptor_proto::Label::LABEL_REPEATED;
 use protobuf::descriptor::field_descriptor_proto::Type;
@@ -17,21 +18,20 @@ enum GuessedFieldType {
 }
 
 /// Create a "merged" MessageDescriptor. Mostly a wrapper around `create_descriptor_proto`.
-pub(crate) fn merge_proto_and_descriptor(
+pub(super) fn merge_proto_and_descriptor(
     data: &[u8],
-    existing: &MessageDescriptor,
-    dependencies: &[FileDescriptor],
+    desc: &DescriptorWithDeps,
 ) -> anyhow::Result<MessageDescriptor> {
-    let new_proto = create_descriptor_proto(data, existing)?;
+    let new_proto = create_descriptor_proto(data, &desc.descriptor)?;
 
     let descriptor = {
-        let mut file_descriptor_proto = existing.file_descriptor_proto().clone();
+        let mut file_descriptor_proto = desc.descriptor.file_descriptor_proto().clone();
 
         let message_idx = file_descriptor_proto
             .message_type
             .iter()
             .enumerate()
-            .filter_map(|(i, d)| (d.name() == existing.name_to_package()).then_some(i))
+            .filter_map(|(i, d)| (d.name() == desc.descriptor.name_to_package()).then_some(i))
             .next()
             .context("failed to find existing message descriptor index")?;
         file_descriptor_proto.message_type[message_idx] = new_proto;
@@ -45,10 +45,15 @@ pub(crate) fn merge_proto_and_descriptor(
             .collect::<Vec<_>>();
          */
 
-        FileDescriptor::new_dynamic(file_descriptor_proto, dependencies)
+        FileDescriptor::new_dynamic(file_descriptor_proto, &desc.dependencies)
             .context("failed to create new dynamic file descriptor")?
-            .message_by_package_relative_name(existing.name_to_package())
-            .with_context(|| format!("did not find {} in descriptor", existing.name_to_package()))?
+            .message_by_package_relative_name(desc.descriptor.name_to_package())
+            .with_context(|| {
+                format!(
+                    "did not find {} in descriptor",
+                    desc.descriptor.name_to_package()
+                )
+            })?
     };
 
     Ok(descriptor)
@@ -56,6 +61,9 @@ pub(crate) fn merge_proto_and_descriptor(
 
 /// Create a new (empty) MessageDescriptor for the given package and name.
 pub(super) fn new_empty_descriptor(package: Option<String>, name: &str) -> MessageDescriptor {
+    // Create nested descriptor protos. For example, if the name is OuterMessage.InnerMessage,
+    // we create a descriptor for InnerMessage and set it as a nested type of OuterMessage.
+    // This is a bit of a hack, but the best way to get type_name right.
     let mut parts = name.rsplit(".");
     let mut head = {
         let mut descriptor = DescriptorProto::new();
