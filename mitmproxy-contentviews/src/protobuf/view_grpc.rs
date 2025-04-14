@@ -31,7 +31,7 @@ impl Prettify for GRPC {
             };
             let len = match data.get(1..5) {
                 Some(x) => u32::from_be_bytes(x.try_into()?) as usize,
-                _ => bail!("invalid gRPC: first byte is not a boolean"),
+                _ => bail!("invalid gRPC: not enough bytes"),
             };
             let Some(proto) = data.get(5..5 + len) else {
                 bail!("Invalid gRPC: not enough data")
