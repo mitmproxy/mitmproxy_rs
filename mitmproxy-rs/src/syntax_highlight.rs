@@ -12,7 +12,7 @@ use pyo3::{exceptions::PyValueError, prelude::*};
 /// ```python
 /// from mitmproxy_rs.syntax_highlight import highlight
 /// highlighted = highlight("key: 42", "yaml")
-/// print(highlighted)  # [('property', 'key'), ('', ': '), ('number', '42')]
+/// print(highlighted)  # [('name', 'key'), ('', ': '), ('number', '42')]
 /// ```
 #[pyfunction]
 pub fn highlight(text: String, language: &str) -> PyResult<Vec<(&'static str, String)>> {
