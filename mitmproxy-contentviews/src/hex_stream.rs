@@ -26,7 +26,7 @@ impl Prettify for HexStream {
         Ok(data_encoding::HEXLOWER.encode(data))
     }
 
-    fn render_priority(&self, data: &[u8], _metadata: &dyn Metadata) -> f64 {
+    fn render_priority(&self, data: &[u8], _metadata: &dyn Metadata) -> f32 {
         if is_binary(data) {
             0.4
         } else {

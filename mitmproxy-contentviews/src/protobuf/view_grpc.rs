@@ -64,7 +64,7 @@ impl Prettify for GRPC {
         Ok(protos.join("\n---\n\n"))
     }
 
-    fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f64 {
+    fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f32 {
         match metadata.content_type() {
             Some("application/grpc") => 1.0,
             Some("application/grpc+proto") => 1.0,

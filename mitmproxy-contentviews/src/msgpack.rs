@@ -23,7 +23,7 @@ impl Prettify for MsgPack {
         serde_yaml::to_string(&value).context("Failed to convert to YAML")
     }
 
-    fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f64 {
+    fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f32 {
         match metadata.content_type() {
             Some("application/msgpack") => 1.0,
             Some("application/x-msgpack") => 1.0,
