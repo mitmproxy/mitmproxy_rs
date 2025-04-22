@@ -115,7 +115,7 @@ impl Contentview {
     }
 
     /// Return the priority of this view for rendering data.
-    pub fn render_priority(&self, data: Vec<u8>, metadata: PythonMetadata) -> PyResult<f64> {
+    pub fn render_priority(&self, data: Vec<u8>, metadata: PythonMetadata) -> PyResult<f32> {
         Ok(self.0.render_priority(&data, &metadata))
     }
 

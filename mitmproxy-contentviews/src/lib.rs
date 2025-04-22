@@ -55,7 +55,7 @@ pub trait Prettify: Send + Sync {
 
     /// Render priority - typically a float between 0 and 1 for builtin views.
     #[allow(unused_variables)]
-    fn render_priority(&self, data: &[u8], metadata: &dyn Metadata) -> f64 {
+    fn render_priority(&self, data: &[u8], metadata: &dyn Metadata) -> f32 {
         0.0
     }
 }

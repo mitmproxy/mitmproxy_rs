@@ -41,7 +41,7 @@ impl Prettify for Protobuf {
         self.prettify_with_descriptor(data, &descriptor)
     }
 
-    fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f64 {
+    fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f32 {
         match metadata.content_type() {
             Some("application/x-protobuf") => 1.0,
             Some("application/x-protobuffer") => 1.0,
