@@ -335,7 +335,9 @@ impl ConnectionTask {
             tokio::select! {
                 _ = self.shutdown.recv() => break,
                 Ok(()) = self.stream.writable(), if !write_buf.is_empty() => {
-                    self.stream.write_buf(&mut write_buf).await.context("failed to write to socket from buf")?;
+                    let Ok(_) = self.stream.write_buf(&mut write_buf).await else {
+                        break;  // Client has disconnected.
+                    };
                     if write_buf.is_empty() {
                         if let Some(tx) = drain_tx.take() {
                             tx.send(()).ok();
