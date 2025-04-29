@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+
+## 29 April 2025: mitmproxy_rs 0.12.3
+
 - Various fixes for Protobuf number encoding.
 
 ## 29 April 2025: mitmproxy_rs 0.12.2
