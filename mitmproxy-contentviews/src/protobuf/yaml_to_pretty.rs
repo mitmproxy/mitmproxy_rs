@@ -1,66 +1,101 @@
 /// YAML value => prettified text
 use crate::protobuf::view_protobuf::tags;
 use regex::Captures;
+use std::fmt::{Display, Formatter};
+
+/// Collect all representations of a number and output the "best" one as the YAML value
+/// and the rest as comments.
+struct NumReprs(Vec<(&'static str, String)>);
+
+impl NumReprs {
+    fn new(k: &'static str, v: impl ToString) -> Self {
+        let mut inst = Self(Vec::with_capacity(3));
+        inst.push(k, v);
+        inst
+    }
+    fn push(&mut self, k: &'static str, v: impl ToString) {
+        self.0.push((k, v.to_string()));
+    }
+}
+
+impl Display for NumReprs {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        // We first sort by t.len(), which is a hack to make sure that sint is not used
+        // as the main representation.
+        let (min_typ, min_val) = self
+            .0
+            .iter()
+            .min_by_key(|(t, v)| (t.len(), v.len()))
+            .unwrap();
+        let mut i = self.0.iter().filter(|(t, _)| t != min_typ);
+
+        write!(f, "{}", min_val)?;
+        if let Some((t, v)) = i.next() {
+            write!(f, "  # {}: {}", t, v)?;
+        }
+        for (t, v) in i {
+            write!(f, ", {}: {}", t, v)?;
+        }
+        Ok(())
+    }
+}
 
 // Helper method to apply regex replacements to the YAML output
 pub(super) fn apply_replacements(yaml_str: &str) -> anyhow::Result<String> {
     // Replace !fixed32 tags with comments showing float and i32 interpretations
     let with_fixed32 = tags::FIXED32_RE.replace_all(yaml_str, |caps: &Captures| {
         let value = caps[1].parse::<u32>().unwrap_or_default();
-        let float_value = f32::from_bits(value);
-        let i32_value = value as i32;
+        let mut repr = NumReprs::new("u32", value);
 
-        if !float_value.is_nan() && float_value < 0.0 {
-            format!(
-                "{} {} # float: {}, i32: {}",
-                *tags::FIXED32,
-                value,
-                float_value,
-                i32_value
-            )
-        } else if !float_value.is_nan() {
-            format!("{} {} # float: {}", *tags::FIXED32, value, float_value)
-        } else if i32_value < 0 {
-            format!("{} {} # i32: {}", *tags::FIXED32, value, i32_value)
-        } else {
-            format!("{} {}", *tags::FIXED32, value)
+        let float_value = f32::from_bits(value);
+        if !float_value.is_nan() {
+            let mut float = format!("{}", float_value);
+            if !float.contains(".") {
+                float.push_str(".0");
+            }
+            repr.push("f32", float);
         }
+
+        if value.leading_zeros() == 0 {
+            repr.push("i32", value as i32);
+        }
+        format!("{} {}", *tags::FIXED32, repr)
     });
 
     // Replace !fixed64 tags with comments showing double and i64 interpretations
     let with_fixed64 = tags::FIXED64_RE.replace_all(&with_fixed32, |caps: &Captures| {
         let value = caps[1].parse::<u64>().unwrap_or_default();
-        let double_value = f64::from_bits(value);
-        let i64_value = value as i64;
+        let mut repr = NumReprs::new("u64", value);
 
-        if !double_value.is_nan() && double_value < 0.0 {
-            format!(
-                "{} {} # double: {}, i64: {}",
-                *tags::FIXED64,
-                value,
-                double_value,
-                i64_value
-            )
-        } else if !double_value.is_nan() {
-            format!("{} {} # double: {}", *tags::FIXED64, value, double_value)
-        } else if i64_value < 0 {
-            format!("{} {} # i64: {}", *tags::FIXED64, value, i64_value)
-        } else {
-            format!("{} {}", *tags::FIXED64, value)
+        let double_value = f64::from_bits(value);
+        if !double_value.is_nan() {
+            let mut double = format!("{}", double_value);
+            if !double.contains(".") {
+                double.push_str(".0");
+            }
+            repr.push("f64", double);
         }
+
+        if value.leading_zeros() == 0 {
+            repr.push("i64", value as i64);
+        }
+        format!("{} {}", *tags::FIXED64, repr)
     });
 
     // Replace !varint tags with comments showing signed interpretation if different
     let with_varint = tags::VARINT_RE.replace_all(&with_fixed64, |caps: &Captures| {
-        let unsigned_value = caps[1].parse::<u64>().unwrap_or_default();
-        let i64_zigzag = decode_zigzag64(unsigned_value);
+        let value = caps[1].parse::<u64>().unwrap_or_default();
+        let mut repr = NumReprs::new("u64", value);
 
-        // Only show signed value if it's different from unsigned
-        if i64_zigzag < 0 {
-            format!("{} # signed: {}", unsigned_value, i64_zigzag)
+        if value.leading_zeros() == 0 {
+            repr.push("i64", value as i64);
+            // We only show u64 and i64 reprs if the leading bit is a 1.
+            // It could technically be zigzag, but the odds are quite low.
         } else {
-            unsigned_value.to_string()
+            repr.push("!sint", decode_zigzag64(value));
         }
+
+        repr.to_string()
     });
 
     Ok(with_varint.to_string())

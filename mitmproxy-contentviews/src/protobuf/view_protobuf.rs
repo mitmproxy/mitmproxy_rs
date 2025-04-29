@@ -15,6 +15,7 @@ pub(super) mod tags {
 
     pub static BINARY: LazyLock<Tag> = LazyLock::new(|| Tag::new("binary"));
     pub static VARINT: LazyLock<Tag> = LazyLock::new(|| Tag::new("varint"));
+    pub static ZIGZAG: LazyLock<Tag> = LazyLock::new(|| Tag::new("sint"));
     pub static FIXED32: LazyLock<Tag> = LazyLock::new(|| Tag::new("fixed32"));
     pub static FIXED64: LazyLock<Tag> = LazyLock::new(|| Tag::new("fixed64"));
 
@@ -122,30 +123,35 @@ mod tests {
         };
     }
 
-    test_roundtrip!(varint, b"\x08\x96\x01", "1: 150\n");
-    test_roundtrip!(varint_negative, b"\x08\x0B", "1: 11 # signed: -6\n");
+    test_roundtrip!(varint, b"\x08\x96\x01", "1: 150  # !sint: 75\n");
+    test_roundtrip!(varint_zigzag_negative, b"\x08\x0B", "1: 11  # !sint: -6\n");
+    test_roundtrip!(
+        varint_int64_negative,
+        b"\x08\xfe\xff\xff\xff\xff\xff\xff\xff\xff\x01",
+        "1: -2  # u64: 18446744073709551614\n"
+    );
     test_roundtrip!(binary, b"\x32\x03\x01\x02\x03", "6: !binary '010203'\n");
     test_roundtrip!(string, b"\x0A\x05\x68\x65\x6C\x6C\x6F", "1: hello\n");
-    test_roundtrip!(nested, b"\x2A\x02\x08\x2A", "5:\n  1: 42\n");
+    test_roundtrip!(nested, b"\x2A\x02\x08\x2A", "5:\n  1: 42  # !sint: 21\n");
     test_roundtrip!(
         nested_twice,
         b"\x2A\x04\x2A\x02\x08\x2A",
-        "5:\n  5:\n    1: 42\n"
+        "5:\n  5:\n    1: 42  # !sint: 21\n"
     );
     test_roundtrip!(
         fixed64,
         b"\x19\x00\x00\x00\x00\x00\x00\xF0\xBF",
-        "3: !fixed64 13830554455654793216 # double: -1, i64: -4616189618054758400\n"
+        "3: !fixed64 -1.0  # u64: 13830554455654793216, i64: -4616189618054758400\n"
     );
     test_roundtrip!(
         fixed64_positive,
         b"\x19\x6E\x86\x1B\xF0\xF9\x21\x09\x40",
-        "3: !fixed64 4614256650576692846 # double: 3.14159\n"
+        "3: !fixed64 3.14159  # u64: 4614256650576692846\n"
     );
     test_roundtrip!(
         fixed64_no_float,
         b"\x19\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF",
-        "3: !fixed64 18446744073709551615 # i64: -1\n"
+        "3: !fixed64 -1  # u64: 18446744073709551615\n"
     );
     test_roundtrip!(
         fixed64_positive_no_float,
@@ -155,17 +161,17 @@ mod tests {
     test_roundtrip!(
         fixed32,
         b"\x15\x00\x00\x80\xBF",
-        "2: !fixed32 3212836864 # float: -1, i32: -1082130432\n"
+        "2: !fixed32 -1.0  # u32: 3212836864, i32: -1082130432\n"
     );
     test_roundtrip!(
         fixed32_positive,
         b"\x15\xD0\x0F\x49\x40",
-        "2: !fixed32 1078530000 # float: 3.14159\n"
+        "2: !fixed32 3.14159  # u32: 1078530000\n"
     );
     test_roundtrip!(
         fixed32_no_float,
         b"\x15\xFF\xFF\xFF\xFF",
-        "2: !fixed32 4294967295 # i32: -1\n"
+        "2: !fixed32 -1  # u32: 4294967295\n"
     );
     test_roundtrip!(
         fixed32_positive_no_float,
@@ -182,7 +188,7 @@ mod tests {
     test_roundtrip!(
         repeated_varint,
         b"\x08\x01\x08\x02\x08\x03",
-        "1:\n- 1 # signed: -1\n- 2\n- 3 # signed: -2\n"
+        "1:\n- 1  # !sint: -1\n- 2  # !sint: 1\n- 3  # !sint: -2\n"
     );
 
     #[test]
