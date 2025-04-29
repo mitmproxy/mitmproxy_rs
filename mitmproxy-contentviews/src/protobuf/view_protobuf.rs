@@ -4,6 +4,7 @@ use crate::protobuf::{
 };
 use crate::{Metadata, Prettify, Reencode};
 use anyhow::{Context, Result};
+use log::info;
 use mitmproxy_highlight::Language;
 use serde_yaml::Value;
 
@@ -37,8 +38,17 @@ impl Prettify for Protobuf {
     }
 
     fn prettify(&self, data: &[u8], metadata: &dyn Metadata) -> Result<String> {
-        let descriptor = existing_proto_definitions::find_best_match(metadata)?.unwrap_or_default();
-        self.prettify_with_descriptor(data, &descriptor)
+        let proto_def = existing_proto_definitions::find_best_match(metadata)?;
+        if let Some(descriptor) = &proto_def {
+            if let Ok(ret) = self.prettify_with_descriptor(data, descriptor) {
+                return Ok(ret);
+            }
+        }
+        let ret = self.prettify_with_descriptor(data, &DescriptorWithDeps::default())?;
+        if proto_def.is_some() {
+            info!("Existing protobuf definition does not match, parsing as unknown proto.");
+        }
+        Ok(ret)
     }
 
     fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f32 {
@@ -210,14 +220,16 @@ mod tests {
             assert_eq!(result, VARINT_PRETTY_YAML);
         }
 
+        /// When the existing proto definition does not match the wire data,
+        /// but the wire data is still valid Protobuf, parse it raw.
         #[test]
         fn prettify_mismatch() {
             let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
                 env!("CARGO_MANIFEST_DIR"),
                 "/testdata/protobuf/simple.proto"
             ));
-            let result = Protobuf.prettify(string::PROTO, &metadata);
-            assert!(result.is_err());
+            let result = Protobuf.prettify(string::PROTO, &metadata).unwrap();
+            assert_eq!(result, string::YAML);
         }
 
         #[test]
