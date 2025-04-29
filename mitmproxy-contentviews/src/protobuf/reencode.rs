@@ -85,7 +85,8 @@ fn add_field(message: &mut dyn MessageDyn, field_num: u32, value: Value) -> anyh
                     .as_u64()
                     .map(|n| n as u32)
                     .or_else(|| n.as_i64().map(|s| s as u32))
-                    .unwrap_or_else(|| (n.as_f64().unwrap() as f32).to_bits());
+                    .or_else(|| n.as_f64().map(|f| (f as f32).to_bits()))
+                    .context("Failed to convert !fixed32 value to a valid number")?;
                 UnknownValue::Fixed32(value)
             } else if t.tag == *tags::FIXED64 {
                 let Value::Number(n) = t.value else {
@@ -94,7 +95,8 @@ fn add_field(message: &mut dyn MessageDyn, field_num: u32, value: Value) -> anyh
                 let value = n
                     .as_u64()
                     .or_else(|| n.as_i64().map(|s| s as u64))
-                    .unwrap_or_else(|| n.as_f64().unwrap().to_bits());
+                    .or_else(|| n.as_f64().map(|f| f.to_bits()))
+                    .context("Failed to convert !fixed64 value to a valid number")?;
                 UnknownValue::Fixed64(value)
             } else if t.tag == *tags::ZIGZAG {
                 let Value::Number(n) = t.value else {
