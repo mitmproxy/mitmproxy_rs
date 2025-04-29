@@ -64,7 +64,7 @@ pub(super) fn apply_replacements(yaml_str: &str) -> anyhow::Result<String> {
         let mut repr = NumReprs::new("u64", value);
 
         let double_value = f64::from_bits(value);
-        if !double_value.is_nan() && double_value.abs() > 0.0000001  {
+        if !double_value.is_nan() && double_value.abs() > 0.0000001 {
             repr.push("f64", format_float(double_value));
         }
 
