@@ -2,15 +2,19 @@ mod hex_dump;
 mod hex_stream;
 mod msgpack;
 mod protobuf;
+mod test_inspect_metadata;
 
 pub use hex_dump::HexDump;
 pub use hex_stream::HexStream;
 pub use msgpack::MsgPack;
 pub use protobuf::Protobuf;
 pub use protobuf::GRPC;
+pub use test_inspect_metadata::TestInspectMetadata;
 
 use anyhow::Result;
 use mitmproxy_highlight::Language;
+
+use serde::Serialize;
 use std::path::Path;
 
 pub trait Metadata {
@@ -66,10 +70,9 @@ pub trait Reencode: Send + Sync {
 
 // no cfg(test) gate because it's used in benchmarks as well
 pub mod test {
-    use crate::Metadata;
-    use std::path::Path;
+    use super::*;
 
-    #[derive(Default)]
+    #[derive(Default, Serialize)]
     pub struct TestMetadata {
         pub content_type: Option<String>,
         pub headers: std::collections::HashMap<String, String>,

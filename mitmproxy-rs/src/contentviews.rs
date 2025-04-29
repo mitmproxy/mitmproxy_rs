@@ -1,7 +1,7 @@
 use mitmproxy_contentviews::{Metadata, Prettify, Reencode};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use std::cell::OnceCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct PythonMetadata<'py> {
     inner: Bound<'py, PyAny>,
@@ -56,9 +56,8 @@ impl Metadata for PythonMetadata<'_> {
                 self.inner
                     .getattr("protobuf_definitions")
                     .ok()?
-                    .extract::<String>()
+                    .extract::<PathBuf>()
                     .ok()
-                    .map(std::path::PathBuf::from)
             })
             .as_deref()
     }
@@ -67,14 +66,11 @@ impl Metadata for PythonMetadata<'_> {
         let Ok(http_message) = self.inner.getattr("http_message") else {
             return false;
         };
-        let Ok(flow) = self
+        let Ok(request) = self
             .inner
             .getattr("flow")
             .and_then(|flow| flow.getattr("request"))
         else {
-            return false;
-        };
-        let Ok(request) = flow.getattr("request") else {
             return false;
         };
         http_message.is(&request)
