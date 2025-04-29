@@ -91,7 +91,9 @@ mod mitmproxy_rs {
         use crate::contentviews::Contentview;
         #[pymodule_export]
         use crate::contentviews::InteractiveContentview;
-        use mitmproxy_contentviews::{HexDump, HexStream, MsgPack, Protobuf, GRPC};
+        use mitmproxy_contentviews::{
+            HexDump, HexStream, MsgPack, Protobuf, TestInspectMetadata, GRPC,
+        };
 
         #[pymodule_init]
         fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -100,6 +102,7 @@ mod mitmproxy_rs {
             m.add_interactive_contentview(&MsgPack)?;
             m.add_interactive_contentview(&Protobuf)?;
             m.add_interactive_contentview(&GRPC)?;
+            m.add_contentview(&TestInspectMetadata)?;
             Ok(())
         }
     }

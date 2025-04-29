@@ -18,6 +18,7 @@ class InteractiveContentview(Contentview):
     def reencode(self, data: str, metadata) -> bytes:
         pass
 
+_test_inspect_metadata: Contentview
 hex_dump: Contentview
 hex_stream: InteractiveContentview
 msgpack: InteractiveContentview
@@ -32,4 +33,5 @@ __all__ = [
     "msgpack",
     "protobuf",
     "grpc",
+    "_test_inspect_metadata",
 ]
