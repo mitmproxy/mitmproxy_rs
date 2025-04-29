@@ -1,7 +1,9 @@
 use super::{existing_proto_definitions, reencode};
+use crate::protobuf::existing_proto_definitions::DescriptorWithDeps;
 use crate::{Metadata, Prettify, Protobuf, Reencode};
 use anyhow::{bail, Context, Result};
 use flate2::read::{DeflateDecoder, GzDecoder};
+use log::info;
 use mitmproxy_highlight::Language;
 use serde::Deserialize;
 use serde_yaml::Value;
@@ -18,11 +20,39 @@ impl Prettify for GRPC {
         Language::Yaml
     }
 
-    fn prettify(&self, mut data: &[u8], metadata: &dyn Metadata) -> Result<String> {
+    fn prettify(&self, data: &[u8], metadata: &dyn Metadata) -> Result<String> {
+        let encoding = metadata.get_header("grpc-encoding").unwrap_or_default();
+        let proto_def = existing_proto_definitions::find_best_match(metadata)?;
+        if let Some(descriptor) = &proto_def {
+            if let Ok(ret) = self.prettify_with_descriptor(data, &encoding, descriptor) {
+                return Ok(ret);
+            }
+        }
+        let ret = self.prettify_with_descriptor(data, &encoding, &DescriptorWithDeps::default())?;
+        if proto_def.is_some() {
+            info!("Existing gRPC definition does not match, parsing as unknown proto.");
+        }
+        Ok(ret)
+    }
+
+    fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f32 {
+        match metadata.content_type() {
+            Some("application/grpc") => 1.0,
+            Some("application/grpc+proto") => 1.0,
+            Some("application/prpc") => 1.0,
+            _ => 0.0,
+        }
+    }
+}
+
+impl GRPC {
+    fn prettify_with_descriptor(
+        &self,
+        mut data: &[u8],
+        encoding: &str,
+        descriptor: &DescriptorWithDeps,
+    ) -> Result<String> {
         let mut protos = vec![];
-
-        let descriptor = existing_proto_definitions::find_best_match(metadata)?.unwrap_or_default();
-
         while !data.is_empty() {
             let compressed = match data[0] {
                 0 => false,
@@ -39,8 +69,7 @@ impl Prettify for GRPC {
 
             let mut decompressed = Vec::new();
             let proto = if compressed {
-                let encoding = metadata.get_header("grpc-encoding").unwrap_or_default();
-                match encoding.as_str() {
+                match encoding {
                     "deflate" => {
                         let mut decoder = DeflateDecoder::new(proto);
                         decoder.read_to_end(&mut decompressed)?;
@@ -57,20 +86,11 @@ impl Prettify for GRPC {
             } else {
                 proto
             };
-            protos.push(Protobuf.prettify_with_descriptor(proto, &descriptor)?);
+            protos.push(Protobuf.prettify_with_descriptor(proto, descriptor)?);
             data = &data[5 + len..];
         }
 
         Ok(protos.join("\n---\n\n"))
-    }
-
-    fn render_priority(&self, _data: &[u8], metadata: &dyn Metadata) -> f32 {
-        match metadata.content_type() {
-            Some("application/grpc") => 1.0,
-            Some("application/grpc+proto") => 1.0,
-            Some("application/prpc") => 1.0,
-            _ => 0.0,
-        }
     }
 }
 
@@ -97,7 +117,6 @@ mod tests {
     use crate::test::TestMetadata;
 
     const TEST_YAML: &str = "1: 150\n\n---\n\n1: 150\n";
-    const TEST_YAML_KNOWN: &str = "example: 150\n\n---\n\nexample: 150\n";
     const TEST_GRPC: &[u8] = &[
         0, 0, 0, 0, 3, 8, 150, 1, // first message
         0, 0, 0, 0, 3, 8, 150, 1, // second message
@@ -164,63 +183,81 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_existing_proto() {
-        let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/testdata/protobuf/simple.proto"
-        ));
-        let res = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
-        assert_eq!(res, TEST_YAML_KNOWN);
-    }
+    mod existing_definition {
+        use super::*;
 
-    #[test]
-    fn test_existing_service_request() {
-        let metadata = TestMetadata::default()
-            .with_is_http_request(true)
-            .with_path("/Service/Method")
-            .with_protobuf_definitions(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/testdata/protobuf/simple_service.proto"
-            ));
-        let req = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
-        assert_eq!(req, TEST_YAML);
-    }
+        const TEST_YAML_KNOWN: &str = "example: 150\n\n---\n\nexample: 150\n";
 
-    #[test]
-    fn test_existing_service_response() {
-        let metadata = TestMetadata::default()
-            .with_is_http_request(false)
-            .with_path("/Service/Method")
-            .with_protobuf_definitions(concat!(
+        #[test]
+        fn existing_proto() {
+            let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/testdata/protobuf/simple_service.proto"
+                "/testdata/protobuf/simple.proto"
             ));
-        let req = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
-        assert_eq!(req, TEST_YAML_KNOWN);
-    }
+            let res = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
+            assert_eq!(res, TEST_YAML_KNOWN);
+        }
 
-    #[test]
-    fn test_existing_package() {
-        let metadata = TestMetadata::default()
-            .with_path("/example.simple.Service/Method")
-            .with_protobuf_definitions(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/testdata/protobuf/simple_package.proto"
-            ));
-        let req = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
-        assert_eq!(req, TEST_YAML_KNOWN);
-    }
+        #[test]
+        fn existing_service_request() {
+            let metadata = TestMetadata::default()
+                .with_is_http_request(true)
+                .with_path("/Service/Method")
+                .with_protobuf_definitions(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/testdata/protobuf/simple_service.proto"
+                ));
+            let req = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
+            assert_eq!(req, TEST_YAML);
+        }
 
-    #[test]
-    fn test_existing_nested() {
-        let metadata = TestMetadata::default()
-            .with_path("/example.nested.Service/Method")
-            .with_protobuf_definitions(concat!(
+        #[test]
+        fn existing_service_response() {
+            let metadata = TestMetadata::default()
+                .with_is_http_request(false)
+                .with_path("/Service/Method")
+                .with_protobuf_definitions(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/testdata/protobuf/simple_service.proto"
+                ));
+            let req = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
+            assert_eq!(req, TEST_YAML_KNOWN);
+        }
+
+        #[test]
+        fn existing_package() {
+            let metadata = TestMetadata::default()
+                .with_path("/example.simple.Service/Method")
+                .with_protobuf_definitions(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/testdata/protobuf/simple_package.proto"
+                ));
+            let req = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
+            assert_eq!(req, TEST_YAML_KNOWN);
+        }
+
+        #[test]
+        fn existing_nested() {
+            let metadata = TestMetadata::default()
+                .with_path("/example.nested.Service/Method")
+                .with_protobuf_definitions(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/testdata/protobuf/nested.proto"
+                ));
+            let req = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
+            assert_eq!(req, TEST_YAML_KNOWN);
+        }
+
+        /// When the existing proto definition does not match the wire data,
+        /// but the wire data is still valid Protobuf, parse it raw.
+        #[test]
+        fn existing_mismatch() {
+            let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/testdata/protobuf/nested.proto"
+                "/testdata/protobuf/mismatch.proto"
             ));
-        let req = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
-        assert_eq!(req, TEST_YAML_KNOWN);
+            let res = GRPC.prettify(TEST_GRPC, &metadata).unwrap();
+            assert_eq!(res, TEST_YAML);
+        }
     }
 }

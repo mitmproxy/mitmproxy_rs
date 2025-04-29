@@ -1,5 +1,6 @@
 ## Unreleased: mitmproxy_rs next
 
+- Make gRPC and Protobuf parsing more forgiving.
 
 ## 29 April 2025: mitmproxy_rs 0.12.1
 
