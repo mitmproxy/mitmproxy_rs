@@ -116,7 +116,7 @@ mod tests {
     use super::*;
     use crate::test::TestMetadata;
 
-    const TEST_YAML: &str = "1: 150\n\n---\n\n1: 150\n";
+    const TEST_YAML: &str = "1: 150  # !sint: 75\n\n---\n\n1: 150  # !sint: 75\n";
     const TEST_GRPC: &[u8] = &[
         0, 0, 0, 0, 3, 8, 150, 1, // first message
         0, 0, 0, 0, 3, 8, 150, 1, // second message
@@ -149,14 +149,14 @@ mod tests {
     fn test_prettify_gzip() {
         let metadata = TestMetadata::default().with_header("grpc-encoding", "gzip");
         let res = GRPC.prettify(TEST_GZIP, &metadata).unwrap();
-        assert_eq!(res, "1: 150\n");
+        assert_eq!(res, "1: 150  # !sint: 75\n");
     }
 
     #[test]
     fn test_prettify_deflate() {
         let metadata = TestMetadata::default().with_header("grpc-encoding", "deflate");
         let res = GRPC.prettify(TEST_DEFLATE, &metadata).unwrap();
-        assert_eq!(res, "1: 150\n");
+        assert_eq!(res, "1: 150  # !sint: 75\n");
     }
 
     #[test]

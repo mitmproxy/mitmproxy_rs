@@ -14,7 +14,8 @@ pub(super) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
     let mut ret = Mapping::new();
 
     for field in message.descriptor_dyn().fields() {
-        let key = if field.name().starts_with("unknown_field_") {
+        let is_unknown_field = field.name().starts_with("unknown_field_");
+        let key = if is_unknown_field {
             Value::from(field.number())
         } else {
             Value::from(field.name())
@@ -28,7 +29,7 @@ pub(super) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
         let value = match field.get_reflect(message) {
             ReflectFieldRef::Optional(x) => {
                 if let Some(x) = x.value() {
-                    value_to_yaml(x, field_type)
+                    value_to_yaml(x, field_type, is_unknown_field)
                 } else {
                     continue;
                 }
@@ -39,7 +40,7 @@ pub(super) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
                 }
                 Value::Sequence(
                     x.into_iter()
-                        .map(|x| value_to_yaml(x, field_type))
+                        .map(|x| value_to_yaml(x, field_type, is_unknown_field))
                         .collect(),
                 )
             }
@@ -49,7 +50,12 @@ pub(super) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
                 }
                 Value::Mapping(
                     x.into_iter()
-                        .map(|(k, v)| (value_to_yaml(k, field_type), value_to_yaml(v, field_type)))
+                        .map(|(k, v)| {
+                            (
+                                value_to_yaml(k, field_type, is_unknown_field),
+                                value_to_yaml(v, field_type, is_unknown_field),
+                            )
+                        })
                         .collect(),
                 )
             }
@@ -59,10 +65,10 @@ pub(super) fn message_to_yaml(message: &dyn MessageDyn) -> Value {
     Value::Mapping(ret)
 }
 
-fn value_to_yaml(x: ReflectValueRef, field_type: Type) -> Value {
+fn value_to_yaml(x: ReflectValueRef, field_type: Type, is_unknown: bool) -> Value {
     match x {
-        ReflectValueRef::U32(x) => tag_number(Value::Number(Number::from(x)), field_type),
-        ReflectValueRef::U64(x) => tag_number(Value::Number(Number::from(x)), field_type),
+        ReflectValueRef::U32(x) => tag_number(Number::from(x), field_type, is_unknown),
+        ReflectValueRef::U64(x) => tag_number(Number::from(x), field_type, is_unknown),
         ReflectValueRef::I32(x) => Value::Number(Number::from(x)),
         ReflectValueRef::I64(x) => Value::Number(Number::from(x)),
         ReflectValueRef::F32(x) => Value::Number(Number::from(x)),
@@ -81,20 +87,23 @@ fn value_to_yaml(x: ReflectValueRef, field_type: Type) -> Value {
     }
 }
 
-fn tag_number(value: Value, field_type: Type) -> Value {
+fn tag_number(number: Number, field_type: Type, is_unknown: bool) -> Value {
+    if !is_unknown {
+        return Value::Number(number);
+    }
     match field_type {
         TYPE_UINT64 => Value::Tagged(Box::new(TaggedValue {
             tag: tags::VARINT.clone(),
-            value,
+            value: Value::Number(number),
         })),
         TYPE_FIXED64 => Value::Tagged(Box::new(TaggedValue {
             tag: tags::FIXED64.clone(),
-            value,
+            value: Value::Number(number),
         })),
         TYPE_FIXED32 => Value::Tagged(Box::new(TaggedValue {
             tag: tags::FIXED32.clone(),
-            value,
+            value: Value::Number(number),
         })),
-        _ => value,
+        _ => Value::Number(number),
     }
 }
