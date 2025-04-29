@@ -176,3 +176,18 @@ fn int_value(n: Number, field: Option<&FieldDescriptor>) -> UnknownValue {
 fn encode_zigzag64(n: i64) -> u64 {
     ((n << 1) ^ (n >> 63)) as u64
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_decode_zigzag64() {
+        assert_eq!(encode_zigzag64(0), 0);
+        assert_eq!(encode_zigzag64(-1), 1);
+        assert_eq!(encode_zigzag64(1), 2);
+        assert_eq!(encode_zigzag64(-2), 3);
+        assert_eq!(encode_zigzag64(0x7fffffff), 0xfffffffe);
+        assert_eq!(encode_zigzag64(-0x80000000), 0xffffffff);
+    }
+}

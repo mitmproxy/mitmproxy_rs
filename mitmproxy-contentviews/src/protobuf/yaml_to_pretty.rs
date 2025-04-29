@@ -48,12 +48,8 @@ pub(super) fn apply_replacements(yaml_str: &str) -> anyhow::Result<String> {
         let mut repr = NumReprs::new("u32", value);
 
         let float_value = f32::from_bits(value);
-        if !float_value.is_nan() {
-            let mut float = format!("{}", float_value);
-            if !float.contains(".") {
-                float.push_str(".0");
-            }
-            repr.push("f32", float);
+        if !float_value.is_nan() && float_value.abs() > 0.0000001 {
+            repr.push("f32", format_float(float_value));
         }
 
         if value.leading_zeros() == 0 {
@@ -68,12 +64,8 @@ pub(super) fn apply_replacements(yaml_str: &str) -> anyhow::Result<String> {
         let mut repr = NumReprs::new("u64", value);
 
         let double_value = f64::from_bits(value);
-        if !double_value.is_nan() {
-            let mut double = format!("{}", double_value);
-            if !double.contains(".") {
-                double.push_str(".0");
-            }
-            repr.push("f64", double);
+        if !double_value.is_nan() && double_value.abs() > 0.0000001 {
+            repr.push("f64", format_float(double_value));
         }
 
         if value.leading_zeros() == 0 {
@@ -101,7 +93,38 @@ pub(super) fn apply_replacements(yaml_str: &str) -> anyhow::Result<String> {
     Ok(with_varint.to_string())
 }
 
+/// Ensure that floating point numbers have a ".0" component so that we roundtrip.
+fn format_float<T: Display>(val: T) -> String {
+    let mut ret = format!("{:.}", val);
+    if !ret.contains(".") {
+        ret.push_str(".0");
+    }
+    ret
+}
+
 // Decode a zigzag-encoded 64-bit integer
 fn decode_zigzag64(n: u64) -> i64 {
     ((n >> 1) as i64) ^ (-((n & 1) as i64))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_float() {
+        assert_eq!(format_float(1.2345), "1.2345");
+        assert_eq!(format_float(0f32), "0.0");
+        assert_eq!(format_float(-1f64), "-1.0");
+    }
+
+    #[test]
+    fn test_decode_zigzag64() {
+        assert_eq!(decode_zigzag64(0), 0);
+        assert_eq!(decode_zigzag64(1), -1);
+        assert_eq!(decode_zigzag64(2), 1);
+        assert_eq!(decode_zigzag64(3), -2);
+        assert_eq!(decode_zigzag64(0xfffffffe), 0x7fffffff);
+        assert_eq!(decode_zigzag64(0xffffffff), -0x80000000);
+    }
 }
