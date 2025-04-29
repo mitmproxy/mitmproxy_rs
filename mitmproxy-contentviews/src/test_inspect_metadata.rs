@@ -29,7 +29,7 @@ impl Prettify for TestInspectMetadata {
             is_http_request: metadata.is_http_request(),
             protobuf_definitions: metadata.protobuf_definitions().map(Path::to_path_buf),
         };
-        // JSON would be nicer to consume on the Python side, 
+        // JSON would be nicer to consume on the Python side,
         // but let's not add dependencies for this.
         serde_yaml::to_string(&meta).context("Failed to convert to YAML")
     }
