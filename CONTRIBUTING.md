@@ -10,6 +10,10 @@ virtualenv activated and then run the following:
 ```shell
 git clone https://github.com/mitmproxy/mitmproxy_rs.git
 cd mitmproxy_rs/mitmproxy-rs
+
+python3 -m venv venv
+source venv/bin/activate
+
 maturin develop
 ```
 
