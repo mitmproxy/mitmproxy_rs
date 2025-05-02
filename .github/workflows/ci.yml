@@ -39,7 +39,7 @@ jobs:
     env:
       RUSTFLAGS: ${{ matrix.rust == 'nightly' && '-Zpanic_abort_tests -C panic=abort' || '' }}
     steps:
-      - uses: mhils/workflows/checkout@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
+      - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
       - uses: ./.github/actions/setup
         with:
           rust-version: ${{ matrix.rust }}
@@ -84,7 +84,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: build mitmproxy-rs (${{ matrix.name }})
     steps:
-      - uses: mhils/workflows/checkout@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
+      - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
       - uses: ./.github/actions/setup
         with:
           extra-targets: ${{ matrix.target }}
@@ -115,7 +115,7 @@ jobs:
   build-macos-app:
     runs-on: macos-latest
     steps:
-      - uses: mhils/workflows/checkout@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
+      - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
       - if: ${{ !startsWith(github.ref, 'refs/tags/') }}  # harden against cache poisoning
         uses: actions/cache@v4
         id: cache-app
@@ -141,7 +141,7 @@ jobs:
     runs-on: windows-latest
     name: build mitmproxy-windows
     steps:
-      - uses: mhils/workflows/checkout@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
+      - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
       - uses: ./.github/actions/setup
       - uses: install-pinned/build@80919007c59a8977ba4eedf1f3234e73f674aa2e
 
@@ -158,7 +158,7 @@ jobs:
     needs: build-macos-app
     runs-on: macos-latest
     steps:
-      - uses: mhils/workflows/checkout@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
+      - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
       - uses: ./.github/actions/setup
         with:
           extra-targets: aarch64-apple-darwin x86_64-apple-darwin
@@ -192,7 +192,7 @@ jobs:
             args: --compatibility manylinux2014 --zig
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: mhils/workflows/checkout@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
+      - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
       - uses: ./.github/actions/setup
       - name: Install maturin[zig] from PyPI
         uses: install-pinned/maturin-with-zig@b1490b711b58bce2e99c1b49957651fefa9ed6b1
@@ -209,7 +209,7 @@ jobs:
     needs: build-linux-wheel
     runs-on: ubuntu-latest
     steps:
-      - uses: mhils/workflows/checkout@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
+      - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
       - uses: ./.github/actions/setup
       - uses: actions/download-artifact@v4
         with:
@@ -226,12 +226,12 @@ jobs:
       - build-windows-wheel
       - build-linux-wheel
       - build-macos-wheel
-    uses: mhils/workflows/.github/workflows/alls-green.yml@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
+    uses: mhils/workflows/.github/workflows/alls-green.yml@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
     with:
       jobs: ${{ toJSON(needs) }}
 
   deploy:
-    uses: mhils/workflows/.github/workflows/python-deploy.yml@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
+    uses: mhils/workflows/.github/workflows/python-deploy.yml@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
     needs: check
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     with:

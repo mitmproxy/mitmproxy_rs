@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # TODO: This should ideally just reuse the main CI artifacts.
-      - uses: mhils/workflows/checkout@3c9fc8f5b40cb8f3f1b81163f3f195cad843b09a  # v18.0
+      - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
       - uses: ./.github/actions/setup
       - uses: install-pinned/maturin-with-zig@b1490b711b58bce2e99c1b49957651fefa9ed6b1
       - uses: install-pinned/mypy@75779f141592e4909d64e13f8a1861f06aa9cd8d
