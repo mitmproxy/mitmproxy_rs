@@ -39,7 +39,7 @@ aya = { version = "0.13.0", default-features = false }
 aya-ebpf = { version = "0.1.1", default-features = false }
 aya-log = { version = "0.2.1", default-features = false }
 aya-log-ebpf = { version = "0.1.1", default-features = false }
-tun = { version = "0.7.17" }
+tun = { version = "0.7.19" }
 
 [workspace.lints.clippy]
 large_futures = "deny"
@@ -94,17 +94,17 @@ features = [
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3.2.0"
-nix = { version = "0.29.0", default-features = false, features = ["fs"] }
+nix = { version = "0.30.0", default-features = false, features = ["fs"] }
 core-graphics = "0.24"
 core-foundation = "0.10"
 cocoa = "0.26"
 objc = "0.2"
-sysinfo = "0.34.2"
+sysinfo = "0.35.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tun = { workspace = true, features = ["async"] }
 tempfile = "3.19.1"
-sysinfo = "0.34.2"
+sysinfo = "0.35.0"
 
 [dev-dependencies]
 env_logger = "0.11"
