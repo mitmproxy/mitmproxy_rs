@@ -32,9 +32,11 @@ class TransparentProxyProvider: NETransparentProxyProvider {
             switch state {
             case .failed(.posix(.ENETDOWN)):
                 log.debug("control channel closed, stopping proxy.")
+                control.forceCancel()
                 self.cancelProxyWithError(.none)
             case .failed(let err):
                 log.error("control channel failed: \(err, privacy: .public)")
+                control.forceCancel()
                 self.cancelProxyWithError(err)
             default:
                 break
@@ -48,6 +50,7 @@ class TransparentProxyProvider: NETransparentProxyProvider {
                 }
             } catch {
                 log.error("Error on control channel: \(String(describing: error), privacy: .public)")
+                control.forceCancel()
                 self.cancelProxyWithError(error)
             }
         }

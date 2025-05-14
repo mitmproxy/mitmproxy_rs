@@ -17,6 +17,7 @@ extension NEAppProxyTCPFlow {
                             self.outboundCopier(conn)
                         } else {
                             // log.debug("outbound copier: error copying: \(String(describing: error), privacy: .public)")
+                            self.closeConnection(conn, error)
                         }
                     }))
             } else {
@@ -24,10 +25,9 @@ extension NEAppProxyTCPFlow {
                     "outbound copier end: \(String(describing: data), privacy: .public) \(String(describing: error), privacy: .public)"
                 )
                 conn.send(content: nil, isComplete: true, completion: .contentProcessed({ error in
-                    conn.cancel()
                     // log.debug("outbound copier: sent end.")
+                    self.closeConnection(conn, error)
                 }))
-                self.closeWriteWithError(error)
             }
         }
     }
@@ -40,12 +40,14 @@ extension NEAppProxyTCPFlow {
                 self.write(data) { error in
                     if error == nil {
                         self.inboundCopier(conn)
+                    } else {
+                        self.closeConnection(conn, error)
                     }
                 }
             case (_, true, _):
-                self.closeReadWithError(error)
+                self.closeConnection(conn, error)
             default:
-                self.closeReadWithError(error)
+                self.closeConnection(conn, error)
                 log.info(
                     "inbound copier error=\(String(describing: error), privacy: .public) isComplete=\(String(describing: isComplete), privacy: .public)"
                 )
@@ -61,8 +63,9 @@ extension NEAppProxyUDPFlow {
     func readDatagrams() async throws -> ([Data], [NetworkExtension.NWEndpoint]) {
         return try await withCheckedThrowingContinuation { continuation in
             readDatagrams { datagrams, endpoints, error in
-                if let error = error {
+                if let error {
                     continuation.resume(throwing: error)
+                    return
                 }
                 guard let datagrams = datagrams, let endpoints = endpoints else {
                     fatalError("No error, but also no datagrams")
@@ -94,10 +97,10 @@ extension NEAppProxyUDPFlow {
                         try await conn.send(ipc: message)
                     }
                 }
+                self.closeConnection(conn, nil)
             } catch {
                 log.error("Error in outbound UDP copier: \(String(describing: error), privacy: .public)")
-                self.closeWriteWithError(error)
-                conn.cancel()
+                self.closeConnection(conn, error)
             }
         }
     }
@@ -108,18 +111,25 @@ extension NEAppProxyUDPFlow {
                 while true {
                     // log.debug("UDP inbound: receiving...")
                     guard let packet = try await conn.receive(ipc: MitmproxyIpc_UdpPacket.self) else {
-                        self.closeReadWithError(nil)
                         break
                     }
                     // log.debug("UDP inbound: received packet.: \(String(describing: packet), privacy: .public)")
                     let endpoint = NWHostEndpoint(address: packet.remoteAddress)
                     try await self.writeDatagrams([packet.data], sentBy: [endpoint])
                 }
+                self.closeConnection(conn, nil)
             } catch {
                 log.error("Error in inbound UDP copier: \(String(describing: error), privacy: .public)")
-                self.closeReadWithError(error)
-                conn.cancel()
+                self.closeConnection(conn, error)
             }
         }
+    }
+}
+
+extension NEAppProxyFlow {
+    func closeConnection(_ conn: NWConnection, _ error: Error?) {
+        conn.cancel()
+        self.closeReadWithError(error)
+        self.closeWriteWithError(error)
     }
 }
