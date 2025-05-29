@@ -4,7 +4,7 @@ use crate::messages::{
 use crate::network::{add_network_layer, MAX_PACKET_SIZE};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use crate::shutdown;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use std::cmp::max;
 use std::{fs, io::ErrorKind};
 use tokio::sync::mpsc::Sender;
@@ -87,7 +87,7 @@ pub fn create_tun_device(tun_name: Option<String>) -> Result<(tun::AsyncDevice, 
 }
 
 fn configure_device(tun_name: &str) {
-    if let Err(e) = disable_rp_filter(&tun_name) {
+    if let Err(e) = disable_rp_filter(tun_name) {
         log::error!("failed to set rp_filter: {e}");
     }
     if let Err(e) = fs::write(
