@@ -1,5 +1,7 @@
 ## Unreleased: mitmproxy_rs next
 
+- Fix a bug where macOS local capture mode wouldn't clean up connections and stop working after a while.
+  The changes may break half-closed TCP streams.
 - tun mode: allow using a pre-configured persistent tun interface, to avoid requiring CAP_NET_ADMIN.
 
 ## 29 April 2025: mitmproxy_rs 0.12.3
