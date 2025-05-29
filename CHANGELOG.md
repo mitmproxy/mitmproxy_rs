@@ -1,5 +1,6 @@
 ## Unreleased: mitmproxy_rs next
 
+- tun mode: allow using a pre-configured persistent tun interface, to avoid requiring CAP_NET_ADMIN.
 
 ## 29 April 2025: mitmproxy_rs 0.12.3
 

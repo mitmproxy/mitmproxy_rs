@@ -6,7 +6,7 @@ use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use crate::shutdown;
 use anyhow::{Context, Result};
 use std::cmp::max;
-use std::fs;
+use std::{fs, io::ErrorKind};
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::{Permit, Receiver, UnboundedReceiver};
 use tun::AbstractDevice;
@@ -54,14 +54,40 @@ pub fn create_tun_device(tun_name: Option<String>) -> Result<(tun::AsyncDevice, 
     // config.netmask("0.0.0.0");
     // config.destination("169.254.0.1");
     config.up();
-    if let Some(tun_name) = tun_name {
-        config.tun_name(&tun_name);
+    if let Some(tun_name) = &tun_name {
+        config.tun_name(tun_name);
     }
 
-    let device = tun::create_as_async(&config).context("Failed to create TUN device")?;
-    let tun_name = device.tun_name().context("Failed to get TUN name")?;
+    match tun::create_as_async(&config) {
+        Ok(device) => {
+            let tun_name = device.tun_name().context("Failed to get TUN name")?;
+            configure_device(&tun_name);
+            Ok((device, tun_name))
+        }
+        Err(tun::Error::Io(e)) if e.kind() == ErrorKind::PermissionDenied => {
+            // If we are instructed to create a tun device with a specific name, it is possible that the
+            // user wants us to reuse an existing persistent tun interface. A persistent tun interface
+            // is usually pre-configured, so that mitmproxy does not need to perform configuration, and
+            // therefore does not need CAP_NET_ADMIN or sudo.
+            //
+            // The default `config` will set MTU and address etc which *do* require CAP_NET_ADMIN, which
+            // will result in PermissionDenied in the non-privileged context. To deal with the case of
+            // pre-configured persistent interface, we retry `create_as_async` without the MTU/address
+            // settings.
+            if let Some(tun_name) = tun_name {
+                tun::create_as_async(tun::Configuration::default().tun_name(&tun_name))
+                    .map(|d| (d, tun_name))
+            } else {
+                Err(tun::Error::Io(e))
+            }
+        }
+        Err(e) => Err(e),
+    }
+    .context("Failed to create TUN device")
+}
 
-    if let Err(e) = disable_rp_filter(&tun_name) {
+fn configure_device(tun_name: &str) {
+    if let Err(e) = disable_rp_filter(tun_name) {
         log::error!("failed to set rp_filter: {e}");
     }
     if let Err(e) = fs::write(
@@ -78,7 +104,6 @@ pub fn create_tun_device(tun_name: Option<String>) -> Result<(tun::AsyncDevice, 
     ) {
         log::error!("Failed to enable accept_local: {e}");
     }
-    Ok((device, tun_name))
 }
 
 pub struct TunTask {
