@@ -26,13 +26,13 @@ pyo3 = { version = "0.24", features = ["abi3", "abi3-py312", "anyhow"] }
 pyo3-async-runtimes = { version = "0.24", features = ["tokio-runtime", "testing", "attributes"] }
 pyo3-log = "0.12"
 rand_core = { version = "0.6.4", features = ["getrandom"] }  # https://github.com/dalek-cryptography/curve25519-dalek/issues/731
-tokio = { version = "1.44", features = ["macros", "net", "rt-multi-thread", "sync"] }
+tokio = { version = "1.45", features = ["macros", "net", "rt-multi-thread", "sync"] }
 boringtun = "0.6"
 tar = "0.4.44"
 console-subscriber = { version = "0.4.1", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-nix = { version = "0.30.0", features = ["user"] }
+nix = { version = "0.30.1", features = ["user"] }
 
 [dev-dependencies]
 env_logger = "0.11"

@@ -39,7 +39,7 @@ aya = { version = "0.13.0", default-features = false }
 aya-ebpf = { version = "0.1.1", default-features = false }
 aya-log = { version = "0.2.1", default-features = false }
 aya-log-ebpf = { version = "0.1.1", default-features = false }
-tun = { version = "0.7.19" }
+tun = { version = "0.7.21" }
 
 [workspace.lints.clippy]
 large_futures = "deny"
@@ -59,7 +59,7 @@ anyhow = { version = "1.0.97", features = ["backtrace"] }
 log = "0.4.27"
 pretty-hex = "0.4.1"
 smoltcp = "0.12"
-tokio = { version = "1.44.1", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util", "process"] }
+tokio = { version = "1.45.1", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util", "process"] }
 boringtun = { version = "0.6", default-features = false }
 console-subscriber = { version = "0.4.1", optional = true }
 image = { version = "0.25.6", default-features = false, features = ["png", "tiff"] }
@@ -69,8 +69,8 @@ futures-util = { version = "0.3.31", features = ["sink"] }
 lru_time_cache = "0.11.11"
 internet-packet = { version = "0.2.3", features = ["smoltcp"] }
 data-encoding = "2.8.0"
-hickory-resolver = "0.25.1"
-socket2 = "0.5.9"
+hickory-resolver = "0.25.2"
+socket2 = "0.5.10"
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
@@ -94,23 +94,23 @@ features = [
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3.2.0"
-nix = { version = "0.30.0", default-features = false, features = ["fs"] }
-core-graphics = "0.24"
+nix = { version = "0.30.1", default-features = false, features = ["fs"] }
+core-graphics = "0.25"
 core-foundation = "0.10"
 cocoa = "0.26"
 objc = "0.2"
-sysinfo = "0.35.0"
+sysinfo = "0.35.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tun = { workspace = true, features = ["async"] }
-tempfile = "3.19.1"
-sysinfo = "0.35.0"
+tempfile = "3.20.0"
+sysinfo = "0.35.1"
 
 [dev-dependencies]
 env_logger = "0.11"
 rand = "0.9"
-criterion = "0.5.1"
-hickory-server = "0.25.1"
+criterion = "0.6.0"
+hickory-server = "0.25.2"
 
 [[bench]]
 name = "process"

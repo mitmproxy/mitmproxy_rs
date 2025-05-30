@@ -26,7 +26,7 @@ flate2 = "1.0"
 protobuf-parse = "3.7"
 
 [dev-dependencies]
-criterion = "0.5.1"
+criterion = "0.6.0"
 
 [[bench]]
 name = "contentviews"

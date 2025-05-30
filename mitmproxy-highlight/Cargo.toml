@@ -13,13 +13,13 @@ workspace = true
 
 [dependencies]
 anyhow = { version = "1.0.97", features = ["backtrace"] }
-tree-sitter-highlight = "0.25.3"
-tree-sitter-yaml = "0.7.0"
+tree-sitter-highlight = "0.25.5"
+tree-sitter-yaml = "0.7.1"
 tree-sitter-xml = "0.7.0"
-tree-sitter = "0.25.3"
+tree-sitter = "0.25.5"
 
 [dev-dependencies]
-criterion = "0.5.1"
+criterion = "0.6.0"
 
 [[bench]]
 name = "syntax_highlight"
