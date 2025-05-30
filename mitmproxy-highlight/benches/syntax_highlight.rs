@@ -1,5 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use mitmproxy_highlight::Language;
+use std::hint::black_box;
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("syntax_highlight small", |b| {

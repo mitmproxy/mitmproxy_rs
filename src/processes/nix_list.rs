@@ -91,9 +91,11 @@ mod macos_visible_windows {
     use cocoa::foundation::NSString;
     use core_foundation::number::{kCFNumberSInt32Type, CFNumberGetValue, CFNumberRef};
     use core_graphics::display::{
-        kCGNullWindowID, kCGWindowListExcludeDesktopElements, kCGWindowListOptionOnScreenOnly,
         CFArrayGetCount, CFArrayGetValueAtIndex, CFDictionaryGetValueIfPresent, CFDictionaryRef,
         CGWindowListCopyWindowInfo,
+    };
+    use core_graphics::window::{
+        kCGNullWindowID, kCGWindowListExcludeDesktopElements, kCGWindowListOptionOnScreenOnly,
     };
     use std::collections::HashSet;
     use std::ffi::c_void;
