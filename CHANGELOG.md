@@ -1,5 +1,6 @@
 ## Unreleased: mitmproxy_rs next
 
+- Add `mitmproxz_rs.syntax_highlight.languages()`.
 
 ## 30 May 2025: mitmproxy_rs 0.12.4
 
