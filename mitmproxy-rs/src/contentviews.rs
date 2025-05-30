@@ -117,8 +117,8 @@ impl Contentview {
 
     /// Optional syntax highlighting that should be applied to the prettified output.
     #[getter]
-    pub fn syntax_highlight(&self) -> String {
-        self.0.syntax_highlight().to_string()
+    pub fn syntax_highlight(&self) -> &'static str {
+        self.0.syntax_highlight().as_str()
     }
 
     fn __lt__(&self, py: Python<'_>, other: PyObject) -> PyResult<bool> {
