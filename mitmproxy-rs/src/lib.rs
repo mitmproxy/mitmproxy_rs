@@ -137,6 +137,8 @@ mod mitmproxy_rs {
         use crate::syntax_highlight::highlight;
         #[pymodule_export]
         use crate::syntax_highlight::tags;
+        #[pymodule_export]
+        use crate::syntax_highlight::languages;
     }
 }
 

@@ -22,18 +22,24 @@ pub fn highlight(text: String, language: &str) -> PyResult<Vec<(&'static str, St
         .map(|chunks| {
             chunks
                 .into_iter()
-                .map(|(tag, text)| (tag.to_str(), text))
+                .map(|(tag, text)| (tag.as_str(), text))
                 .collect()
         })
         .map_err(|e| PyValueError::new_err(format!("{:?}", e)))
 }
 
-/// Return the list of all possible tag names for a given language.
+/// Return the list of all possible syntax highlight tags.
 #[pyfunction]
 pub fn tags() -> PyResult<Vec<&'static str>> {
     Ok(Tag::VALUES
         .iter()
-        .map(|tag| tag.to_str())
+        .map(|tag| tag.as_str())
         .filter(|&x| !x.is_empty())
         .collect())
+}
+
+/// Return the list of all supported languages for syntax highlighting.
+#[pyfunction]
+pub fn languages() -> PyResult<Vec<&'static str>> {
+    Ok(Language::VALUES.iter().map(|lang| lang.as_str()).collect())
 }

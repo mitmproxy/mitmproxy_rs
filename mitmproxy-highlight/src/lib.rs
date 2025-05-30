@@ -1,6 +1,4 @@
 use anyhow::bail;
-use std::fmt;
-use std::fmt::Formatter;
 use std::str::FromStr;
 
 pub mod common;
@@ -31,6 +29,17 @@ impl Language {
             )]),
         }
     }
+
+    pub const VALUES: [Self; 4] = [Self::Xml, Self::Yaml, Self::Error, Self::None];
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Xml => "xml",
+            Self::Yaml => "yaml",
+            Self::Error => "error",
+            Self::None => "none",
+        }
+    }
 }
 
 impl FromStr for Language {
@@ -44,21 +53,6 @@ impl FromStr for Language {
             "error" => Language::Error,
             other => bail!("Unsupported language: {other}"),
         })
-    }
-}
-
-impl fmt::Display for Language {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Language::Xml => "xml",
-                Language::Yaml => "yaml",
-                Language::Error => "error",
-                Language::None => "none",
-            }
-        )
     }
 }
 
@@ -84,7 +78,7 @@ impl Tag {
         Self::Error,
     ];
 
-    pub fn to_str(self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Tag::Text => "",
             Tag::Name => "name",
