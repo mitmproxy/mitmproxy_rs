@@ -1,8 +1,9 @@
-use super::common::highlight;
+use super::common;
 use super::{Chunk, Tag};
 use anyhow::Result;
 use std::sync::LazyLock;
 use tree_sitter_highlight::HighlightConfiguration;
+use tree_sitter_xml::{LANGUAGE_XML as LANGUAGE, XML_HIGHLIGHT_QUERY as HIGHLIGHTS_QUERY};
 
 const NAMES: &[&str] = &[
     "tag",      // <div>
@@ -21,52 +22,40 @@ const TAGS: &[Tag] = &[
     Tag::Text,    // markup
 ];
 
-static XML_CONFIG: LazyLock<HighlightConfiguration> = LazyLock::new(|| {
-    let mut config = HighlightConfiguration::new(
-        tree_sitter_xml::LANGUAGE_XML.into(),
-        "",
-        tree_sitter_xml::XML_HIGHLIGHT_QUERY,
-        "",
-        "",
-    )
-    .expect("failed to build XML syntax highlighter");
+static CONFIG: LazyLock<HighlightConfiguration> = LazyLock::new(|| {
+    let mut config = HighlightConfiguration::new(LANGUAGE.into(), "", HIGHLIGHTS_QUERY, "", "")
+        .expect("failed to build syntax highlighter");
     config.configure(NAMES);
     config
 });
 
-pub fn highlight_xml(input: &[u8]) -> Result<Vec<Chunk>> {
-    highlight(&XML_CONFIG, TAGS, input)
+pub fn highlight(input: &[u8]) -> Result<Vec<Chunk>> {
+    common::highlight(&CONFIG, TAGS, input)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common;
 
     #[ignore]
     #[test]
     fn debug() {
         common::debug(
-            tree_sitter_xml::LANGUAGE_XML.into(),
-            tree_sitter_xml::XML_HIGHLIGHT_QUERY,
+            LANGUAGE.into(),
+            HIGHLIGHTS_QUERY,
             b"<div class=\"test\">Hello</div><!-- comment -->",
         );
     }
 
     #[test]
     fn test_tags_ok() {
-        common::test_names_ok(
-            tree_sitter_xml::LANGUAGE_XML.into(),
-            tree_sitter_xml::XML_HIGHLIGHT_QUERY,
-            NAMES,
-            TAGS,
-        );
+        common::test_tags_ok(LANGUAGE.into(), HIGHLIGHTS_QUERY, NAMES, TAGS);
     }
 
     #[test]
-    fn test_highlight_xml() {
+    fn test_highlight() {
         let input = b"<div class=\"test\">Hello</div><!-- comment -->";
-        let chunks = highlight_xml(input).unwrap();
+        let chunks = highlight(input).unwrap();
         assert_eq!(
             chunks,
             vec![

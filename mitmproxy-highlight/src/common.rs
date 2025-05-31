@@ -39,7 +39,7 @@ pub fn highlight(
 }
 
 #[cfg(test)]
-pub(super) fn test_names_ok(
+pub(super) fn test_tags_ok(
     language: tree_sitter::Language,
     highlights_query: &str,
     names: &[&str],

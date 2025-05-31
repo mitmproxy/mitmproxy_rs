@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Literal
 
 
-def highlight(text: str, language: Literal["xml", "yaml", "error", "none"]) -> list[tuple[str, str]]:
+def highlight(text: str, language: Literal["css", "javascript", "xml", "yaml", "none", "error"]) -> list[tuple[str, str]]:
     pass
 
 def languages() -> list[str]:
