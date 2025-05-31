@@ -2,6 +2,7 @@ use anyhow::bail;
 use std::str::FromStr;
 
 pub mod common;
+mod css;
 mod javascript;
 mod xml;
 mod yaml;
@@ -9,6 +10,7 @@ mod yaml;
 pub type Chunk = (Tag, String);
 
 pub enum Language {
+    Css,
     JavaScript,
     Xml,
     Yaml,
@@ -19,6 +21,7 @@ pub enum Language {
 impl Language {
     pub fn highlight(&self, input: &[u8]) -> anyhow::Result<Vec<Chunk>> {
         match self {
+            Language::Css => css::highlight(input),
             Language::JavaScript => javascript::highlight(input),
             Language::Xml => xml::highlight(input),
             Language::Yaml => yaml::highlight(input),
@@ -33,7 +36,8 @@ impl Language {
         }
     }
 
-    pub const VALUES: [Self; 5] = [
+    pub const VALUES: [Self; 6] = [
+        Self::Css,
         Self::JavaScript,
         Self::Xml,
         Self::Yaml,
@@ -41,8 +45,9 @@ impl Language {
         Self::Error,
     ];
 
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
+            Self::Css => "css",
             Self::JavaScript => "javascript",
             Self::Xml => "xml",
             Self::Yaml => "yaml",
@@ -57,6 +62,7 @@ impl FromStr for Language {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
+            "css" => Language::Css,
             "javascript" => Language::JavaScript,
             "xml" => Language::Xml,
             "yaml" => Language::Yaml,
