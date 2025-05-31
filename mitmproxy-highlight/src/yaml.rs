@@ -1,8 +1,9 @@
-use super::common::highlight;
+use super::common;
 use super::{Chunk, Tag};
 use anyhow::Result;
 use std::sync::LazyLock;
 use tree_sitter_highlight::HighlightConfiguration;
+use tree_sitter_yaml::{HIGHLIGHTS_QUERY, LANGUAGE};
 
 const NAMES: &[&str] = &[
     "boolean",  // YAML booleans
@@ -21,46 +22,34 @@ const TAGS: &[Tag] = &[
     Tag::Name,
 ];
 
-static YAML_CONFIG: LazyLock<HighlightConfiguration> = LazyLock::new(|| {
-    let mut config = HighlightConfiguration::new(
-        tree_sitter_yaml::LANGUAGE.into(),
-        "",
-        tree_sitter_yaml::HIGHLIGHTS_QUERY,
-        "",
-        "",
-    )
-    .expect("failed to build YAML syntax highlighter");
+static CONFIG: LazyLock<HighlightConfiguration> = LazyLock::new(|| {
+    let mut config = HighlightConfiguration::new(LANGUAGE.into(), "", HIGHLIGHTS_QUERY, "", "")
+        .expect("failed to build syntax highlighter");
     config.configure(NAMES);
     config
 });
 
-pub fn highlight_yaml(input: &[u8]) -> Result<Vec<Chunk>> {
-    highlight(&YAML_CONFIG, TAGS, input)
+pub fn highlight(input: &[u8]) -> Result<Vec<Chunk>> {
+    common::highlight(&CONFIG, TAGS, input)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common;
 
     #[test]
     fn test_tags_ok() {
-        common::test_names_ok(
-            tree_sitter_yaml::LANGUAGE.into(),
-            tree_sitter_yaml::HIGHLIGHTS_QUERY,
-            NAMES,
-            TAGS,
-        );
+        common::test_tags_ok(LANGUAGE.into(), HIGHLIGHTS_QUERY, NAMES, TAGS);
     }
 
     #[test]
-    fn test_highlight_yaml() {
+    fn test_highlight() {
         let input = b"\
         string: \"value\"\n\
         bool: true\n\
         number: !fixed32 42  # comment\n\
         ";
-        let chunks = highlight_yaml(input).unwrap();
+        let chunks = highlight(input).unwrap();
         assert_eq!(
             chunks,
             vec![

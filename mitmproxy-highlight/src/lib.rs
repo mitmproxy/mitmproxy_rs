@@ -2,23 +2,26 @@ use anyhow::bail;
 use std::str::FromStr;
 
 pub mod common;
+mod javascript;
 mod xml;
 mod yaml;
 
 pub type Chunk = (Tag, String);
 
 pub enum Language {
+    JavaScript,
     Xml,
     Yaml,
-    Error,
     None,
+    Error,
 }
 
 impl Language {
     pub fn highlight(&self, input: &[u8]) -> anyhow::Result<Vec<Chunk>> {
         match self {
-            Language::Yaml => yaml::highlight_yaml(input),
-            Language::Xml => xml::highlight_xml(input),
+            Language::JavaScript => javascript::highlight(input),
+            Language::Xml => xml::highlight(input),
+            Language::Yaml => yaml::highlight(input),
             Language::None => Ok(vec![(
                 Tag::Text,
                 String::from_utf8_lossy(input).to_string(),
@@ -30,14 +33,21 @@ impl Language {
         }
     }
 
-    pub const VALUES: [Self; 4] = [Self::Xml, Self::Yaml, Self::Error, Self::None];
+    pub const VALUES: [Self; 5] = [
+        Self::JavaScript,
+        Self::Xml,
+        Self::Yaml,
+        Self::None,
+        Self::Error,
+    ];
 
     pub fn as_str(&self) -> &'static str {
         match self {
+            Self::JavaScript => "javascript",
             Self::Xml => "xml",
             Self::Yaml => "yaml",
-            Self::Error => "error",
             Self::None => "none",
+            Self::Error => "error",
         }
     }
 }
@@ -47,6 +57,7 @@ impl FromStr for Language {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
+            "javascript" => Language::JavaScript,
             "xml" => Language::Xml,
             "yaml" => Language::Yaml,
             "none" => Language::None,
