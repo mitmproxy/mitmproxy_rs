@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+
+## 31 May 2025: mitmproxy_rs 0.12.6
+
 - Add JS syntax highlighting.
 - Add CSS syntax highlighting.
 
