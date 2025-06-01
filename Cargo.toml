@@ -39,7 +39,7 @@ aya = { version = "0.13.0", default-features = false }
 aya-ebpf = { version = "0.1.1", default-features = false }
 aya-log = { version = "0.2.1", default-features = false }
 aya-log-ebpf = { version = "0.1.1", default-features = false }
-tun = { version = "0.7.21" }
+tun = { version = "0.7.22" }
 
 [workspace.lints.clippy]
 large_futures = "deny"
