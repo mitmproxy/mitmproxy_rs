@@ -95,9 +95,13 @@ fn create_descriptor_proto(
     data: &[u8],
     existing: &MessageDescriptor,
 ) -> anyhow::Result<DescriptorProto> {
-    let message = existing
-        .parse_from_bytes(data)
-        .with_context(|| format!("failed to parse protobuf: {}", existing.full_name()))?;
+    let message = existing.parse_from_bytes(data).with_context(|| {
+        if existing.full_name().starts_with("Unknown") {
+            "invalid format".to_string()
+        } else {
+            format!("failed to parse {}", existing.full_name())
+        }
+    })?;
 
     let mut descriptor = existing.proto().clone();
 
