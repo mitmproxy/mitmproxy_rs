@@ -23,7 +23,7 @@ fn main() -> Result<()> {
         <[u8; 32]>::try_from(BASE64.decode(b"mitmV5Wo7pRJrHNAKhZEI0nzqqeO8u4fXG+zUbZEXA0=")?)
             .unwrap(),
     );
-    let mut tunn = Tunn::new(static_private, peer_static_public, None, None, 0, None).unwrap();
+    let mut tunn = Tunn::new(static_private, peer_static_public, None, None, 0, None);
 
     let socket = UdpSocket::bind("127.0.0.1:0")?;
     socket.set_read_timeout(Some(Duration::from_secs(1)))?;
