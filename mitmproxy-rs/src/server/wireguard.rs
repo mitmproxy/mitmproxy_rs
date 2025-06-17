@@ -6,7 +6,7 @@ use mitmproxy::packet_sources::wireguard::WireGuardConf;
 
 use pyo3::prelude::*;
 
-use boringtun::x25519::PublicKey;
+use boringtun::{noise::keys_logger::KeyLogger, x25519::PublicKey};
 
 use crate::server::base::Server;
 
@@ -60,7 +60,9 @@ impl WireGuardServer {
 /// - `peer_public_keys`: List of public X25519 keys for WireGuard peers as base64-encoded strings.
 /// - `handle_tcp_stream`: An async function that will be called for each new TCP `Stream`.
 /// - `handle_udp_stream`: An async function that will be called for each new UDP `Stream`.
+/// - `key_logger`: An optional function that will be called for each key when handshake is completed.
 #[pyfunction]
+#[pyo3(signature = (host, port, private_key, peer_public_keys, handle_tcp_stream, handle_udp_stream, key_logger=None))]
 pub fn start_wireguard_server(
     py: Python<'_>,
     host: IpAddr,
@@ -69,19 +71,36 @@ pub fn start_wireguard_server(
     peer_public_keys: Vec<String>,
     handle_tcp_stream: PyObject,
     handle_udp_stream: PyObject,
+    key_logger: Option<PyObject>,
 ) -> PyResult<Bound<PyAny>> {
     let private_key = string_to_key(private_key)?;
     let peer_public_keys = peer_public_keys
         .into_iter()
         .map(string_to_key)
         .collect::<PyResult<Vec<PublicKey>>>()?;
+
+    let key_logger = key_logger
+        .map(|key_logger| Box::new(PythonKeyLogger(key_logger)) as Box<dyn KeyLogger + Sync>);
+
     let conf = WireGuardConf {
         listen_addr: SocketAddr::from((host, port)),
         private_key,
         peer_public_keys,
+        key_logger,
     };
     pyo3_async_runtimes::tokio::future_into_py(py, async move {
         let (server, local_addr) = Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
         Ok(WireGuardServer { server, local_addr })
     })
+}
+
+struct PythonKeyLogger(PyObject);
+
+impl KeyLogger for PythonKeyLogger {
+    fn log_key(&self, name: &str, keymaterial: &str) {
+        Python::with_gil(|py| {
+            // The error is intentionally ignored.
+            let _ = self.0.call1(py, (name, keymaterial));
+        });
+    }
 }
