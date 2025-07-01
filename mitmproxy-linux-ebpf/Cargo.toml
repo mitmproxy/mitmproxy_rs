@@ -15,7 +15,7 @@ aya-ebpf = { workspace = true }
 aya-log-ebpf = { workspace = true }
 
 [build-dependencies]
-which = "7.0.2"
+which = "8.0.0"
 
 [[bin]]
 name = "mitmproxy-linux"

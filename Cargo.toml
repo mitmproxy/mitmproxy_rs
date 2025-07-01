@@ -63,7 +63,7 @@ tokio = { version = "1.45.1", features = ["macros", "net", "rt-multi-thread", "s
 boringtun = { version = "0.6", default-features = false }
 console-subscriber = { version = "0.4.1", optional = true }
 image = { version = "0.25.6", default-features = false, features = ["png", "tiff"] }
-prost = "0.13.5"
+prost = "0.14.1"
 tokio-util = { version = "0.7.14", features = ["codec"] }
 futures-util = { version = "0.3.31", features = ["sink"] }
 lru_time_cache = "0.11.11"
@@ -99,12 +99,12 @@ core-graphics = "0.25"
 core-foundation = "0.10"
 cocoa = "0.26"
 objc = "0.2"
-sysinfo = "0.35.1"
+sysinfo = "0.35.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tun = { workspace = true, features = ["async"] }
 tempfile = "3.20.0"
-sysinfo = "0.35.1"
+sysinfo = "0.35.2"
 
 [dev-dependencies]
 env_logger = "0.11"
