@@ -22,7 +22,7 @@ jobs:
       # TODO: This should ideally just reuse the main CI artifacts.
       - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
       - uses: ./.github/actions/setup
-      - uses: install-pinned/maturin-with-zig@42dc7eb111721cfc7d889e6588c18f72f6ea3dc0
+      - uses: install-pinned/maturin-with-zig@ce5035a1ee962b01d62945e5c66e1ca9a8bafd44
       - uses: install-pinned/mypy@75779f141592e4909d64e13f8a1861f06aa9cd8d
       - uses: install-pinned/pdoc@69ba59f9699df21e1026110af4ec6b10a98cf5cd
 
