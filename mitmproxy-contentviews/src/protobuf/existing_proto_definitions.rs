@@ -166,7 +166,10 @@ fn parse_file_descriptor_set(definitions_path: &Path) -> anyhow::Result<Vec<File
 
 fn walk_proto_directory(definitions_path: &Path, parser: &mut Parser) {
     parser.include(definitions_path);
-    for entry in definitions_path.read_dir().expect("failed to read protobuf directory") {
+    for entry in definitions_path
+        .read_dir()
+        .expect("failed to read protobuf directory")
+    {
         if let Ok(entry) = entry {
             if entry.metadata().unwrap().is_dir() {
                 walk_proto_directory(entry.path().as_path(), parser);
