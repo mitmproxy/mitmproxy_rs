@@ -13,9 +13,9 @@ workspace = true
 
 [dependencies]
 anyhow = { version = "1.0.97", features = ["backtrace"] }
-tree-sitter = "0.25.5"
+tree-sitter = "0.25.6"
 tree-sitter-css = "0.23.2"
-tree-sitter-highlight = "0.25.5"
+tree-sitter-highlight = "0.25.6"
 tree-sitter-javascript = "0.23.1"
 tree-sitter-xml = "0.7.0"
 tree-sitter-yaml = "0.7.1"
