@@ -151,11 +151,28 @@ impl std::fmt::Display for RpcInfo {
 fn parse_file_descriptor_set(definitions_path: &Path) -> anyhow::Result<Vec<FileDescriptor>> {
     let mut parser = Parser::new();
     parser.pure();
-    if let Some(parent) = definitions_path.parent() {
-        parser.include(parent);
+    if definitions_path.is_dir() {
+        walk_proto_directory(definitions_path, &mut parser)
+    } else {
+        if let Some(parent) = definitions_path.parent() {
+            parser.include(parent);
+        }
+        parser.input(definitions_path);
     }
-    parser.input(definitions_path);
     let fds = parser.file_descriptor_set()?;
     FileDescriptor::new_dynamic_fds(fds.file, &[])
         .context("failed to create dynamic file descriptors")
+}
+
+fn walk_proto_directory(definitions_path: &Path, parser: &mut Parser) {
+    parser.include(definitions_path);
+    for entry in definitions_path.read_dir().expect("failed to read protobuf directory") {
+        if let Ok(entry) = entry {
+            if entry.metadata().unwrap().is_dir() {
+                walk_proto_directory(entry.path().as_path(), parser);
+            } else if entry.file_name().to_str().unwrap().ends_with(".proto") {
+                parser.input(entry.path());
+            }
+        }
+    }
 }
