@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+
+## 15 July 2025: mitmproxy_rs 0.12.7
+
 - Add folder support for protobuf parser.
 - Update dependencies.
 
