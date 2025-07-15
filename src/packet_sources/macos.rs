@@ -147,7 +147,7 @@ impl PacketSourceTask for MacOsTask {
                             );
                             self.connections.spawn(task.run());
                         },
-                        Err(e) => log::error!("Error accepting connection from macos-redirector: {}", e)
+                        Err(e) => log::error!("Error accepting connection from macos-redirector: {e}")
                     }
                 },
                 // pipe through changes to the intercept list
@@ -234,7 +234,7 @@ impl ConnectionTask {
                 bail!("no local address")
             };
             SocketAddr::try_from(addr)
-                .with_context(|| format!("invalid local_address: {:?}", addr))?
+                .with_context(|| format!("invalid local_address: {addr:?}"))?
         };
         let mut remote_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
         let (command_tx, mut command_rx) = unbounded_channel();
@@ -252,7 +252,7 @@ impl ConnectionTask {
                     ).context("invalid IPC message")?;
                     let dst_addr = {
                         let Some(dst_addr) = &packet.remote_address else { bail!("no remote addr") };
-                        SocketAddr::try_from(dst_addr).with_context(|| format!("invalid remote_address: {:?}", dst_addr))?
+                        SocketAddr::try_from(dst_addr).with_context(|| format!("invalid remote_address: {dst_addr:?}"))?
                     };
 
                     // We can only send ConnectionEstablished once we know the destination address.

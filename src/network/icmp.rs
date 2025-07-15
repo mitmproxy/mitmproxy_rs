@@ -15,7 +15,7 @@ pub(super) fn handle_icmpv4_echo_request(
     let mut input_icmpv4_packet = match Icmpv4Packet::new_checked(input_packet.payload_mut()) {
         Ok(p) => p,
         Err(e) => {
-            log::debug!("Received invalid ICMPv4 packet: {}", e);
+            log::debug!("Received invalid ICMPv4 packet: {e}");
             return None;
         }
     };
@@ -64,7 +64,7 @@ pub(super) fn handle_icmpv6_echo_request(
     let mut input_icmpv6_packet = match Icmpv6Packet::new_checked(input_packet.payload_mut()) {
         Ok(p) => p,
         Err(e) => {
-            log::debug!("Received invalid ICMPv6 packet: {}", e);
+            log::debug!("Received invalid ICMPv6 packet: {e}");
             return None;
         }
     };

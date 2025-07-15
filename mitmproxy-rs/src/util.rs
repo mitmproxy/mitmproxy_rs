@@ -70,8 +70,7 @@ pub fn add_cert(py: Python<'_>, pem: String) -> PyResult<()> {
         match certificates::add_cert(der, executable_path.to_str().unwrap()) {
             Ok(_) => Ok(()),
             Err(e) => Err(PyErr::new::<PyOSError, _>(format!(
-                "Failed to add certificate: {:?}",
-                e
+                "Failed to add certificate: {e:?}"
             ))),
         }
     }
@@ -89,8 +88,7 @@ pub fn remove_cert() -> PyResult<()> {
         match certificates::remove_cert() {
             Ok(_) => Ok(()),
             Err(e) => Err(PyErr::new::<PyOSError, _>(format!(
-                "Failed to remove certificate: {:?}",
-                e
+                "Failed to remove certificate: {e:?}"
             ))),
         }
     }

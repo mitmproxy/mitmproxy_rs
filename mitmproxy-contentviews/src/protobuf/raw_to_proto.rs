@@ -111,7 +111,7 @@ fn create_descriptor_proto(
     }
 
     for (field_index, field_values) in field_groups.into_iter() {
-        let name = Some(format!("unknown_field_{}", field_index));
+        let name = Some(format!("unknown_field_{field_index}"));
         let mut add_int = |name: Option<String>, typ: Type| {
             descriptor.field.push(FieldDescriptorProto {
                 number: Some(field_index as i32),

@@ -45,7 +45,7 @@ impl Server {
         T: PacketSourceConf,
     {
         let typ = packet_source_conf.name();
-        log::debug!("Initializing {} ...", typ);
+        log::debug!("Initializing {typ} ...");
 
         // Channel used to notify Python land of incoming connections.
         let (transport_events_tx, transport_events_rx) = mpsc::channel(256);
@@ -80,7 +80,7 @@ impl Server {
         let (shutdown_done_tx, shutdown_done_rx) = shutdown::channel();
         tokio::spawn(shutdown_task(tasks, shutdown_done_tx));
 
-        log::debug!("{} successfully initialized.", typ);
+        log::debug!("{typ} successfully initialized.");
 
         Ok((
             Server {

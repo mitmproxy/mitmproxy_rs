@@ -85,10 +85,7 @@ impl PacketSourceConf for WireGuardConf {
         let socket = create_and_bind_udp_socket(self.listen_addr)?;
         let local_addr = socket.local_addr()?;
 
-        log::debug!(
-            "WireGuard server listening for UDP connections on {} ...",
-            local_addr
-        );
+        log::debug!("WireGuard server listening for UDP connections on {local_addr} ...");
 
         let public_key = PublicKey::from(&self.private_key);
 
@@ -177,7 +174,7 @@ impl WireGuardTask {
         let packet = match Tunn::parse_incoming_packet(data) {
             Ok(p) => p,
             Err(error) => {
-                log::error!("Received invalid WireGuard packet: {:?}", error);
+                log::error!("Received invalid WireGuard packet: {error:?}");
                 return None;
             }
         };
@@ -189,10 +186,7 @@ impl WireGuardTask {
                 let handshake = match parsed {
                     Ok(hs) => hs,
                     Err(error) => {
-                        log::info!(
-                            "Failed to process a WireGuard handshake packet: {:?}",
-                            error
-                        );
+                        log::info!("Failed to process a WireGuard handshake packet: {error:?}");
                         return None;
                     }
                 };
@@ -254,7 +248,7 @@ impl WireGuardTask {
                         Wait for the next session handshake or reconnect your client."
                     );
                 } else {
-                    log::debug!("WG::process_incoming_datagram: Err: {:?}", error);
+                    log::debug!("WG::process_incoming_datagram: Err: {error:?}");
                 }
             }
             TunnResult::WriteToTunnelV4(buf, src_addr) => {
@@ -284,7 +278,7 @@ impl WireGuardTask {
                         };
                     }
                     Err(error) => {
-                        log::warn!("Invalid IPv4 packet: {}", error);
+                        log::warn!("Invalid IPv4 packet: {error}");
                     }
                 }
             }
@@ -315,7 +309,7 @@ impl WireGuardTask {
                         };
                     }
                     Err(error) => {
-                        log::warn!("Invalid IPv6 packet: {}", error);
+                        log::warn!("Invalid IPv6 packet: {error}");
                     }
                 }
             }
@@ -361,7 +355,7 @@ impl WireGuardTask {
                 log::trace!("WG::process_outgoing_packet: Done");
             }
             TunnResult::Err(error) => {
-                log::error!("WG::process_outgoing_packet: Err: {:?}", error);
+                log::error!("WG::process_outgoing_packet: Err: {error:?}");
             }
             TunnResult::WriteToNetwork(buf) => {
                 let dst_addr = peer.endpoint.unwrap();

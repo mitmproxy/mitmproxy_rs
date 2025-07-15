@@ -111,7 +111,7 @@ impl TcpHandler<'_> {
             }
             // packet with incorrect length
             Err(e) => {
-                log::debug!("Received invalid TCP packet ({}) with payload:", e);
+                log::debug!("Received invalid TCP packet ({e}) with payload:");
                 log::debug!("{}", pretty_hex(&packet.payload_mut()));
                 return Ok(());
             }

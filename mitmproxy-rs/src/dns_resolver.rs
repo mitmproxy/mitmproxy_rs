@@ -26,8 +26,7 @@ impl DnsResolver {
         let resolver =
             mitmproxy::dns::DnsResolver::new(name_servers, use_hosts_file).map_err(|e| {
                 pyo3::exceptions::PyRuntimeError::new_err(format!(
-                    "failed to create dns resolver: {}",
-                    e
+                    "failed to create dns resolver: {e}"
                 ))
             })?;
         Ok(Self(Arc::new(resolver)))
@@ -74,7 +73,7 @@ impl DnsResolver {
 #[pyfunction]
 pub fn get_system_dns_servers() -> PyResult<Vec<String>> {
     DNS_SERVERS.clone().map_err(|e| {
-        pyo3::exceptions::PyRuntimeError::new_err(format!("failed to get dns servers: {}", e))
+        pyo3::exceptions::PyRuntimeError::new_err(format!("failed to get dns servers: {e}"))
     })
 }
 

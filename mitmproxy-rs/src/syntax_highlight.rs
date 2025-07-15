@@ -25,7 +25,7 @@ pub fn highlight(text: String, language: &str) -> PyResult<Vec<(&'static str, St
                 .map(|(tag, text)| (tag.as_str(), text))
                 .collect()
         })
-        .map_err(|e| PyValueError::new_err(format!("{:?}", e)))
+        .map_err(|e| PyValueError::new_err(format!("{e:?}")))
 }
 
 /// Return the list of all possible syntax highlight tags.

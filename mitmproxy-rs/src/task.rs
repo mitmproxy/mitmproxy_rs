@@ -101,7 +101,7 @@ impl PyInteropTask {
                                         if let Err(err) = future.await {
                                             let is_cancelled = Python::with_gil(|py| err.is_instance_of::<CancelledError>(py));
                                             if !is_cancelled {
-                                                log::error!("TCP connection handler coroutine raised an exception:\n{}", err);
+                                                log::error!("TCP connection handler coroutine raised an exception:\n{err}");
                                             }
                                         }
                                         active_streams.lock().await.remove(&connection_id);
@@ -112,7 +112,7 @@ impl PyInteropTask {
 
                                 Ok(())
                             }) {
-                                log::error!("Failed to spawn connection handler:\n{}", err);
+                                log::error!("Failed to spawn connection handler:\n{err}");
                             };
                         },
                     }
@@ -127,10 +127,7 @@ impl PyInteropTask {
                 // Future is already finished: just await;
                 // Python exceptions are already logged by the wrapper coroutine
                 if let Err(err) = handle.await {
-                    log::warn!(
-                        "TCP connection handler coroutine could not be joined: {}",
-                        err
-                    );
+                    log::warn!("TCP connection handler coroutine could not be joined: {err}");
                 }
             } else {
                 // Future is not finished: abort tokio task
@@ -139,7 +136,7 @@ impl PyInteropTask {
                 if let Err(err) = handle.await {
                     if !err.is_cancelled() {
                         // JoinError was not caused by cancellation: coroutine panicked, log error
-                        log::error!("TCP connection handler coroutine panicked: {}", err);
+                        log::error!("TCP connection handler coroutine panicked: {err}");
                     }
                 }
             }
