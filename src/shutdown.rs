@@ -41,9 +41,9 @@ pub async fn shutdown_task(mut tasks: JoinSet<Result<()>>, shutdown_done: watch:
             }
             Err(error) => {
                 if error.is_cancelled() {
-                    log::error!("Task cancelled: {}", error);
+                    log::error!("Task cancelled: {error}");
                 } else {
-                    log::error!("Task panicked: {}", error);
+                    log::error!("Task panicked: {error}");
                 }
                 tasks.shutdown().await;
             }

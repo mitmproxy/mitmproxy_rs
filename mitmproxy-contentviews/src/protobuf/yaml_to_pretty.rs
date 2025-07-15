@@ -29,12 +29,12 @@ impl Display for NumReprs {
             .unwrap();
         let mut i = self.0.iter().filter(|(t, _)| t != min_typ);
 
-        write!(f, "{}", min_val)?;
+        write!(f, "{min_val}")?;
         if let Some((t, v)) = i.next() {
-            write!(f, "  # {}: {}", t, v)?;
+            write!(f, "  # {t}: {v}")?;
         }
         for (t, v) in i {
-            write!(f, ", {}: {}", t, v)?;
+            write!(f, ", {t}: {v}")?;
         }
         Ok(())
     }
@@ -95,7 +95,7 @@ pub(super) fn apply_replacements(yaml_str: &str) -> anyhow::Result<String> {
 
 /// Ensure that floating point numbers have a ".0" component so that we roundtrip.
 fn format_float<T: Display>(val: T) -> String {
-    let mut ret = format!("{:.}", val);
+    let mut ret = format!("{val:.}");
     if !ret.contains(".") {
         ret.push_str(".0");
     }

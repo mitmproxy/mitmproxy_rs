@@ -169,13 +169,12 @@ fn walk_proto_directory(definitions_path: &Path, parser: &mut Parser) -> anyhow:
     for entry in definitions_path
         .read_dir()
         .context("failed to read protobuf directory")?
+        .flatten()
     {
-        if let Ok(entry) = entry {
-            if entry.metadata()?.is_dir() {
-                walk_proto_directory(entry.path().as_path(), parser)?;
-            } else if entry.file_name().to_string_lossy().ends_with(".proto") {
-                parser.input(entry.path());
-            }
+        if entry.metadata()?.is_dir() {
+            walk_proto_directory(entry.path().as_path(), parser)?;
+        } else if entry.file_name().to_string_lossy().ends_with(".proto") {
+            parser.input(entry.path());
         }
     }
     Ok(())

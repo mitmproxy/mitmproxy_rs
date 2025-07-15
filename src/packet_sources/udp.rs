@@ -42,7 +42,7 @@ pub(crate) fn create_and_bind_udp_socket(addr: SocketAddr) -> Result<UdpSocket> 
 
     sock2
         .bind(&addr.into())
-        .context(format!("Failed to bind UDP socket to {}", addr))?;
+        .context(format!("Failed to bind UDP socket to {addr}"))?;
 
     let std_sock: std::net::UdpSocket = sock2.into();
     std_sock
@@ -74,7 +74,7 @@ impl PacketSourceConf for UdpConf {
         let socket = create_and_bind_udp_socket(self.listen_addr)?;
         let local_addr: SocketAddr = socket.local_addr()?;
 
-        log::debug!("UDP server listening on {} ...", local_addr);
+        log::debug!("UDP server listening on {local_addr} ...");
 
         Ok((
             UdpTask {

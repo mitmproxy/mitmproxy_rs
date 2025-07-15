@@ -107,7 +107,7 @@ impl Contentview {
     pub fn prettify(&self, data: Vec<u8>, metadata: PythonMetadata) -> PyResult<String> {
         self.0
             .prettify(&data, &metadata)
-            .map_err(|e| PyValueError::new_err(format!("{:?}", e)))
+            .map_err(|e| PyValueError::new_err(format!("{e:?}")))
     }
 
     /// Return the priority of this view for rendering data.
@@ -153,7 +153,7 @@ impl InteractiveContentview {
     pub fn reencode(&self, data: &str, metadata: PythonMetadata) -> PyResult<Vec<u8>> {
         self.0
             .reencode(data, &metadata)
-            .map_err(|e| PyValueError::new_err(format!("{:?}", e)))
+            .map_err(|e| PyValueError::new_err(format!("{e:?}")))
     }
 
     fn __repr__(self_: PyRef<'_, Self>) -> PyResult<String> {

@@ -72,7 +72,7 @@ async fn udp_connect(
     let socket = if let Some((host, port)) = local_addr {
         UdpSocket::bind((host.as_str(), port))
             .await
-            .with_context(|| format!("unable to bind to ({}, {})", host, port))?
+            .with_context(|| format!("unable to bind to ({host}, {port})"))?
     } else if addrs.iter().any(|x| x.is_ipv4()) {
         // we initially tried to bind to IPv6 by default if that doesn't fail,
         // but binding mysteriously works if there are only IPv4 addresses in addrs,

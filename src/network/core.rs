@@ -53,7 +53,7 @@ impl NetworkStack<'_> {
             IpProtocol::Udp => {
                 match UdpPacket::try_from(packet) {
                     Ok(packet) => self.udp.receive_data(packet, tunnel_info, permit),
-                    Err(e) => log::debug!("Received invalid UDP packet: {}", e),
+                    Err(e) => log::debug!("Received invalid UDP packet: {e}"),
                 };
                 Ok(())
             }

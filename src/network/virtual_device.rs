@@ -86,7 +86,7 @@ impl TxToken for VirtualTxToken<'_> {
                 self.permit.send(NetworkCommand::SendPacket(packet));
             }
             Err(err) => {
-                log::error!("Failed to parse packet from smol: {:?}", err)
+                log::error!("Failed to parse packet from smol: {err:?}")
             }
         }
 

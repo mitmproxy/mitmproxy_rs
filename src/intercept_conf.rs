@@ -92,8 +92,8 @@ impl TryFrom<&str> for Pattern {
 impl std::fmt::Display for Action {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Action::Include(pat) => write!(f, "{}", pat),
-            Action::Exclude(pat) => write!(f, "!{}", pat),
+            Action::Include(pat) => write!(f, "{pat}"),
+            Action::Exclude(pat) => write!(f, "!{pat}"),
         }
     }
 }
@@ -101,8 +101,8 @@ impl std::fmt::Display for Action {
 impl std::fmt::Display for Pattern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Pattern::Pid(pid) => write!(f, "{}", pid),
-            Pattern::Process(name) => write!(f, "{}", name),
+            Pattern::Pid(pid) => write!(f, "{pid}"),
+            Pattern::Process(name) => write!(f, "{name}"),
         }
     }
 }
@@ -148,13 +148,13 @@ impl InterceptConf {
             .actions
             .iter()
             .map(|a| match a {
-                Action::Include(Pattern::Pid(pid)) => format!("Include PID {}.", pid),
+                Action::Include(Pattern::Pid(pid)) => format!("Include PID {pid}."),
                 Action::Include(Pattern::Process(name)) => {
-                    format!("Include processes matching \"{}\".", name)
+                    format!("Include processes matching \"{name}\".")
                 }
-                Action::Exclude(Pattern::Pid(pid)) => format!("Exclude PID {}.", pid),
+                Action::Exclude(Pattern::Pid(pid)) => format!("Exclude PID {pid}."),
                 Action::Exclude(Pattern::Process(name)) => {
-                    format!("Exclude processes matching \"{}\".", name)
+                    format!("Exclude processes matching \"{name}\".")
                 }
             })
             .collect();

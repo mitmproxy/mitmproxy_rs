@@ -205,7 +205,7 @@ impl SmolPacket {
                 IpProtocol::Icmp => IpProtocol::Icmp,
                 IpProtocol::Icmpv6 => IpProtocol::Icmpv6,
                 other => {
-                    log::debug!("TODO: Implement IPv6 next_header logic: {}", other);
+                    log::debug!("TODO: Implement IPv6 next_header logic: {other}");
                     other
                 }
             },

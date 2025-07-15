@@ -39,7 +39,7 @@ impl LocalRedirector {
     fn describe_spec(spec: &str) -> PyResult<String> {
         InterceptConf::try_from(spec)
             .map(|conf| conf.description())
-            .map_err(|e| PyValueError::new_err(format!("{:?}", e)))
+            .map_err(|e| PyValueError::new_err(format!("{e:?}")))
     }
 
     /// Set a new intercept spec.

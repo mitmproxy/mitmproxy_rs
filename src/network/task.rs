@@ -79,7 +79,7 @@ impl NetworkTask<'_> {
 
             #[cfg(debug_assertions)]
             if let Some(d) = delay {
-                log::debug!("Waiting for device timeout: {:?} ...", d);
+                log::debug!("Waiting for device timeout: {d:?} ...");
             }
 
             #[cfg(debug_assertions)]

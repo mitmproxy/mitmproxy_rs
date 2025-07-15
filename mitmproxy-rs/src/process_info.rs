@@ -57,7 +57,7 @@ pub fn active_executables() -> PyResult<Vec<Process>> {
     {
         processes::active_executables()
             .map(|p| p.into_iter().map(Process).collect())
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{}", e)))
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))
     }
     #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     Err(pyo3::exceptions::PyNotImplementedError::new_err(
