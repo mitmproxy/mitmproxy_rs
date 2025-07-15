@@ -152,7 +152,7 @@ fn parse_file_descriptor_set(definitions_path: &Path) -> anyhow::Result<Vec<File
     let mut parser = Parser::new();
     parser.pure();
     if definitions_path.is_dir() {
-        walk_proto_directory(definitions_path, &mut parser)
+        walk_proto_directory(definitions_path, &mut parser)?;
     } else {
         if let Some(parent) = definitions_path.parent() {
             parser.include(parent);
@@ -164,18 +164,19 @@ fn parse_file_descriptor_set(definitions_path: &Path) -> anyhow::Result<Vec<File
         .context("failed to create dynamic file descriptors")
 }
 
-fn walk_proto_directory(definitions_path: &Path, parser: &mut Parser) {
+fn walk_proto_directory(definitions_path: &Path, parser: &mut Parser) -> anyhow::Result<()> {
     parser.include(definitions_path);
     for entry in definitions_path
         .read_dir()
-        .expect("failed to read protobuf directory")
+        .context("failed to read protobuf directory")?
     {
         if let Ok(entry) = entry {
-            if entry.metadata().unwrap().is_dir() {
-                walk_proto_directory(entry.path().as_path(), parser);
-            } else if entry.file_name().to_str().unwrap().ends_with(".proto") {
+            if entry.metadata()?.is_dir() {
+                walk_proto_directory(entry.path().as_path(), parser)?;
+            } else if entry.file_name().to_string_lossy().ends_with(".proto") {
                 parser.input(entry.path());
             }
         }
     }
+    Ok(())
 }
