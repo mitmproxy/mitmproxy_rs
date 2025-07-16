@@ -78,6 +78,12 @@ fn find_best_message(
                     rpc.method
                 );
             }
+            for method in file.messages() {
+                if method.proto().name() != rpc.method {
+                    continue;
+                }
+                return Some(method);
+            }
         }
         log::info!("Did not find {rpc} in protobuf definitions.");
     }
@@ -144,7 +150,10 @@ impl std::fmt::Display for RpcInfo {
         if !self.package.is_empty() {
             write!(f, "{}.", self.package)?;
         }
-        write!(f, "{}.{}", self.service, self.method)
+        if !self.service.is_empty() {
+            write!(f, "{}.", self.service)?;
+        }
+        write!(f, "{}", self.method)
     }
 }
 
