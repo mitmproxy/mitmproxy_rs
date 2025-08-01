@@ -59,7 +59,7 @@ anyhow = { version = "1.0.97", features = ["backtrace"] }
 log = "0.4.27"
 pretty-hex = "0.4.1"
 smoltcp = "0.12"
-tokio = { version = "1.45.1", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util", "process"] }
+tokio = { version = "1.47.1", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util", "process"] }
 boringtun = { version = "0.6", default-features = false }
 console-subscriber = { version = "0.4.1", optional = true }
 image = { version = "0.25.6", default-features = false, features = ["png", "tiff"] }
@@ -70,7 +70,7 @@ lru_time_cache = "0.11.11"
 internet-packet = { version = "0.2.3", features = ["smoltcp"] }
 data-encoding = "2.8.0"
 hickory-resolver = "0.25.2"
-socket2 = "0.5.10"
+socket2 = "0.6.0"
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
@@ -99,17 +99,17 @@ core-graphics = "0.25"
 core-foundation = "0.10"
 cocoa = "0.26"
 objc = "0.2"
-sysinfo = "0.35.2"
+sysinfo = "0.36.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tun = { workspace = true, features = ["async"] }
 tempfile = "3.20.0"
-sysinfo = "0.35.2"
+sysinfo = "0.36.1"
 
 [dev-dependencies]
 env_logger = "0.11"
 rand = "0.9"
-criterion = "0.6.0"
+criterion = "0.7.0"
 hickory-server = "0.25.2"
 
 [[bench]]
