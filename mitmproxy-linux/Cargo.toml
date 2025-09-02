@@ -22,16 +22,16 @@ tun = { workspace = true, features = ["async"] }
 aya = { workspace = true }
 aya-log = { workspace = true }
 tokio = { version = "1.47", features = ["macros", "net", "rt-multi-thread", "sync", "io-util", "signal"] }
-anyhow = { version = "1.0.97", features = ["backtrace"] }
+anyhow = { version = "1.0.99", features = ["backtrace"] }
 log = "0.4.27"
 env_logger = "0.11.5"
 prost = "0.14.1"
 internet-packet = { version = "0.2.0", features = ["checksums"] }
-libc = "0.2.174"
+libc = "0.2.175"
 const-sha1 = "0.3.0"
 
 [target.'cfg(target_os = "linux")'.build-dependencies]
-anyhow = { version = "1.0.97", features = ["backtrace"] }
+anyhow = { version = "1.0.99", features = ["backtrace"] }
 aya-build = "0.1.2"
 mitmproxy-linux-ebpf = { path = "../mitmproxy-linux-ebpf" }
 
