@@ -18,7 +18,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
-      - run: brew install swift-protobuf
+      # FIXME: https://github.com/mitmproxy/mitmproxy/issues/7877 - bump SwiftProtobuf and then re-add this here.
+      # - run: brew install swift-protobuf
       - run: cargo install protoc-gen-prost
       - run: protoc --proto_path=./src/ipc/ mitmproxy_ipc.proto
           --prost_out=./src/ipc/
