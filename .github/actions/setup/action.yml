@@ -27,5 +27,5 @@ runs:
       with:
         key: ${{ inputs.rust-version }} # proxy value for glibc version
     - if: runner.os == 'Linux'
-      run: cargo install --locked bpf-linker
+      run: cargo install --locked bpf-linker@0.9.15
       shell: bash
