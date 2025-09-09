@@ -44,7 +44,7 @@ impl TunInterface {
         }
 
         #[cfg(not(target_os = "linux"))]
-        Some(String::from("OS not supported for TUN proxy mode"))
+        Some(String::from("TUN proxy mode is only supported on Linux"))
     }
 
     pub fn __repr__(&self) -> String {
