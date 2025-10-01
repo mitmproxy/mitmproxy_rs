@@ -805,7 +805,7 @@ async fn receive_icmp4_echo() -> Result<()> {
         let mut input_icmpv4_packet = match Icmpv4Packet::new_checked(response.payload_mut()) {
             Ok(p) => p,
             Err(e) => {
-                return Err(anyhow!("Invalid ICMPv4 packet emitted: {}", e.to_string()));
+                return Err(anyhow!("Invalid ICMPv4 packet emitted: {}", e));
             }
         };
 
@@ -843,7 +843,7 @@ async fn receive_icmp6_echo() -> Result<()> {
         let mut input_icmpv6_packet = match Icmpv6Packet::new_checked(response.payload_mut()) {
             Ok(p) => p,
             Err(e) => {
-                return Err(anyhow!("Invalid ICMPv6 packet emitted: {}", e.to_string()));
+                return Err(anyhow!("Invalid ICMPv6 packet emitted: {}", e));
             }
         };
 
