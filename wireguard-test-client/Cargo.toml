@@ -13,7 +13,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-anyhow = "1.0.99"
+anyhow = "1.0.100"
 data-encoding = "2.8.0"
 boringtun = "0.6"
 hex = "0.4"
