@@ -31,25 +31,28 @@ impl IconCache {
                 tiff.hash(&mut hasher);
                 let tiff_hash = hasher.finish();
                 e.insert(tiff_hash);
-                let icon = self
-                    .icons
-                    .entry(tiff_hash)
-                    .or_insert_with(|| tiff_to_png(&tiff));
+                let icon = match self.icons.entry(tiff_hash) {
+                    Entry::Occupied(e) => e.into_mut(),
+                    Entry::Vacant(e) => {
+                        let png = tiff_to_png(&tiff)?;
+                        e.insert(png)
+                    }
+                };
                 Ok(icon)
             }
         }
     }
 }
 
-pub fn tiff_to_png(tiff: &[u8]) -> Vec<u8> {
+pub fn tiff_to_png(tiff: &[u8]) -> Result<Vec<u8>> {
     let mut c = Cursor::new(Vec::new());
-    let tiff_image = image::load_from_memory_with_format(tiff, image::ImageFormat::Tiff)
-        .unwrap()
-        .resize(32, 32, image::imageops::FilterType::Triangle);
-    tiff_image
-        .write_to(&mut c, image::ImageFormat::Png)
-        .unwrap();
-    c.into_inner()
+    let tiff_image = image::load_from_memory_with_format(tiff, image::ImageFormat::Tiff)?.resize(
+        32,
+        32,
+        image::imageops::FilterType::Triangle,
+    );
+    tiff_image.write_to(&mut c, image::ImageFormat::Png)?;
+    Ok(c.into_inner())
 }
 
 pub fn tiff_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
