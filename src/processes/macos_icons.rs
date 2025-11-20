@@ -30,7 +30,6 @@ impl IconCache {
                 let mut hasher = DefaultHasher::new();
                 tiff.hash(&mut hasher);
                 let tiff_hash = hasher.finish();
-                e.insert(tiff_hash);
                 let icon = match self.icons.entry(tiff_hash) {
                     Entry::Occupied(e) => e.into_mut(),
                     Entry::Vacant(e) => {
@@ -38,6 +37,7 @@ impl IconCache {
                         e.insert(png)
                     }
                 };
+                e.insert(tiff_hash);
                 Ok(icon)
             }
         }
