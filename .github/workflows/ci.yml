@@ -91,10 +91,10 @@ jobs:
 
       - if: runner.os == 'Linux'
         name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@c69b784f32c6a34427a937c4887c928284a6d4cc
+        uses: install-pinned/maturin-with-zig@4d1a9421a8c84036989276ddf3dbd24aa48b8111
       - if: runner.os != 'Linux'
         name: Install maturin from PyPI
-        uses: install-pinned/maturin@9f07e24f8a6ddec5e728f9a6ce2fd377213a9e4a
+        uses: install-pinned/maturin@239b89ed00a1af9a610f3623e6d8b07d1bd8f88f
 
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         run: python .github/scripts/pin-versions.py
@@ -195,7 +195,7 @@ jobs:
       - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
       - uses: ./.github/actions/setup
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@c69b784f32c6a34427a937c4887c928284a6d4cc
+        uses: install-pinned/maturin-with-zig@4d1a9421a8c84036989276ddf3dbd24aa48b8111
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./mitmproxy-linux
       - run: test -f target/wheels/*-py3-none-*.whl  # ensure we have a universal wheel
