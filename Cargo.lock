@@ -2415,6 +2415,7 @@ dependencies = [
  "aya",
  "aya-build",
  "aya-log",
+ "cargo_metadata",
  "const-sha1",
  "env_logger",
  "hex",
