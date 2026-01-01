@@ -100,7 +100,7 @@ pub fn start_local_redirector(
     py: Python<'_>,
     handle_tcp_stream: PyObject,
     handle_udp_stream: PyObject,
-) -> PyResult<Bound<PyAny>> {
+) -> PyResult<Bound<'_, PyAny>> {
     #[cfg(windows)]
     {
         let executable_path: std::path::PathBuf = py

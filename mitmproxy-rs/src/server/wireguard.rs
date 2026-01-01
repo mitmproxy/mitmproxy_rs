@@ -69,7 +69,7 @@ pub fn start_wireguard_server(
     peer_public_keys: Vec<String>,
     handle_tcp_stream: PyObject,
     handle_udp_stream: PyObject,
-) -> PyResult<Bound<PyAny>> {
+) -> PyResult<Bound<'_, PyAny>> {
     let private_key = string_to_key(private_key)?;
     let peer_public_keys = peer_public_keys
         .into_iter()

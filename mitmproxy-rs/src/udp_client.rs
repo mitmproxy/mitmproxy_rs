@@ -25,7 +25,7 @@ pub fn open_udp_connection(
     host: String,
     port: u16,
     local_addr: Option<(String, u16)>,
-) -> PyResult<Bound<PyAny>> {
+) -> PyResult<Bound<'_, PyAny>> {
     pyo3_async_runtimes::tokio::future_into_py(py, async move {
         let socket = udp_connect(host, port, local_addr).await?;
 

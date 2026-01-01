@@ -67,7 +67,7 @@ pub fn create_tun_interface(
     handle_tcp_stream: PyObject,
     handle_udp_stream: PyObject,
     tun_name: Option<String>,
-) -> PyResult<Bound<PyAny>> {
+) -> PyResult<Bound<'_, PyAny>> {
     #[cfg(target_os = "linux")]
     {
         let conf = mitmproxy::packet_sources::tun::TunConf { tun_name };
