@@ -38,7 +38,7 @@ impl Prettify for HexStream {
 impl Reencode for HexStream {
     fn reencode(&self, data: &str, _metadata: &dyn Metadata) -> Result<Vec<u8>> {
         let data = data.trim_end_matches(['\n', '\r']);
-        if data.len() % 2 != 0 {
+        if !data.len().is_multiple_of(2) {
             anyhow::bail!("Invalid hex string: uneven number of characters");
         }
         data_encoding::HEXLOWER_PERMISSIVE

@@ -32,14 +32,14 @@ version = "0.13.0-dev"
 publish = false
 repository = "https://github.com/mitmproxy/mitmproxy-rs"
 edition = "2021"
-rust-version = "1.86"  # MSRV
+rust-version = "1.88"  # MSRV
 
 [workspace.dependencies]
 aya = { version = "0.13.0", default-features = false }
 aya-ebpf = { version = "0.1.1", default-features = false }
 aya-log = { version = "0.2.1", default-features = false }
 aya-log-ebpf = { version = "0.1.1", default-features = false }
-tun = { version = "0.7.22" }
+tun = { version = "0.8.5" }
 
 [workspace.lints.clippy]
 large_futures = "deny"
@@ -123,3 +123,6 @@ opt-level = 3
 
 [features]
 tracing = ["console-subscriber"]
+# This feature solely exists to silence warnings caused by objc 0.2.7,
+# see https://github.com/SSheldon/rust-objc/issues/125
+cargo-clippy = []

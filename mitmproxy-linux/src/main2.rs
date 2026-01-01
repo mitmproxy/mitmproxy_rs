@@ -43,7 +43,7 @@ fn load_bpf(device_index: u32) -> Result<Ebpf> {
         .context("failed to load eBPF program")?;
     if let Err(e) = aya_log::EbpfLogger::init(&mut ebpf) {
         // This can happen if you remove all log statements from your eBPF program.
-        warn!("failed to initialize eBPF logger: {}", e);
+        warn!("failed to initialize eBPF logger: {e}");
     }
 
     debug!("Attaching BPF_CGROUP_INET_SOCK_CREATE program...");
@@ -181,7 +181,7 @@ fn bump_memlock_rlimit() {
     };
     let ret = unsafe { libc::setrlimit(libc::RLIMIT_MEMLOCK, &rlim) };
     if ret != 0 {
-        info!("remove limit on locked memory failed, ret is: {}", ret);
+        info!("remove limit on locked memory failed, ret is: {ret}");
     }
 }
 

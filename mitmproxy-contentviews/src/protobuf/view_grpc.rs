@@ -81,7 +81,7 @@ impl GRPC {
                         &decompressed
                     }
                     "identity" => proto,
-                    _ => bail!("unsupported compression: {}", encoding),
+                    _ => bail!("unsupported compression: {encoding}"),
                 }
             } else {
                 proto

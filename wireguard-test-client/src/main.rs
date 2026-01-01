@@ -138,7 +138,7 @@ cafe0050123456790000000050100204FFFF0000\
                 }
             }
             TunnResult::Done => (),
-            _ => bail!("Unexpected decapsulatation result: {:?}", result),
+            _ => bail!("Unexpected decapsulatation result: {result:?}"),
         }
     }
     println!("All set!");

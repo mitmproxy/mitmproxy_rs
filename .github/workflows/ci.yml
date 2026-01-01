@@ -22,13 +22,13 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            rust: "1.86"  # MSRV - can't use variables here.
+            rust: "1.88"  # MSRV - can't use variables here.
             args: --exclude mitmproxy-linux-ebpf
           - os: macos-latest
-            rust: "1.86"  # MSRV - can't use variables here.
+            rust: "1.88"  # MSRV - can't use variables here.
             args: --exclude mitmproxy-linux-ebpf
           - os: ubuntu-22.04
-            rust: "1.86"  # MSRV - can't use variables here.
+            rust: "1.88"  # MSRV - can't use variables here.
             args: --exclude mitmproxy-linux-ebpf
           - os: ubuntu-latest
             rust: stable

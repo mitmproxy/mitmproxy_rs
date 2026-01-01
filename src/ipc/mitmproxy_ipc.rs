@@ -6,14 +6,14 @@
 // or file a PR and let CI handle it.
 
 /// Packet with associated tunnel info (Windows pipe to mitmproxy)
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct PacketWithMeta {
     #[prost(bytes = "bytes", tag = "1")]
     pub data: ::prost::bytes::Bytes,
     #[prost(message, optional, tag = "2")]
     pub tunnel_info: ::core::option::Option<TunnelInfo>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct TunnelInfo {
     #[prost(uint32, optional, tag = "1")]
     pub pid: ::core::option::Option<u32>,
@@ -21,14 +21,14 @@ pub struct TunnelInfo {
     pub process_name: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Packet or intercept spec (Windows pipe to redirector)
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct FromProxy {
     #[prost(oneof = "from_proxy::Message", tags = "1, 2")]
     pub message: ::core::option::Option<from_proxy::Message>,
 }
 /// Nested message and enum types in `FromProxy`.
 pub mod from_proxy {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
     pub enum Message {
         #[prost(message, tag = "1")]
         Packet(super::Packet),
@@ -38,28 +38,28 @@ pub mod from_proxy {
 }
 /// Packet (macOS UDP Stream)
 /// ⚠️ Bump network extension version on changes, <https://github.com/mitmproxy/mitmproxy_rs/pull/227.>
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Packet {
     #[prost(bytes = "bytes", tag = "1")]
     pub data: ::prost::bytes::Bytes,
 }
 /// Intercept conf (macOS Control Stream)
 /// ⚠️ Bump network extension version on changes, <https://github.com/mitmproxy/mitmproxy_rs/pull/227.>
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct InterceptConf {
     #[prost(string, repeated, tag = "1")]
     pub actions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// New flow (macOS TCP/UDP Stream)
 /// ⚠️ Bump network extension version on changes, <https://github.com/mitmproxy/mitmproxy_rs/pull/227.>
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct NewFlow {
     #[prost(oneof = "new_flow::Message", tags = "1, 2")]
     pub message: ::core::option::Option<new_flow::Message>,
 }
 /// Nested message and enum types in `NewFlow`.
 pub mod new_flow {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
     pub enum Message {
         #[prost(message, tag = "1")]
         Tcp(super::TcpFlow),
@@ -68,7 +68,7 @@ pub mod new_flow {
     }
 }
 /// ⚠️ Bump network extension version on changes, <https://github.com/mitmproxy/mitmproxy_rs/pull/227.>
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct TcpFlow {
     #[prost(message, optional, tag = "1")]
     pub remote_address: ::core::option::Option<Address>,
@@ -76,21 +76,21 @@ pub struct TcpFlow {
     pub tunnel_info: ::core::option::Option<TunnelInfo>,
 }
 /// ⚠️ Bump network extension version on changes, <https://github.com/mitmproxy/mitmproxy_rs/pull/227.>
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UdpFlow {
     #[prost(message, optional, tag = "1")]
     pub local_address: ::core::option::Option<Address>,
     #[prost(message, optional, tag = "3")]
     pub tunnel_info: ::core::option::Option<TunnelInfo>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UdpPacket {
     #[prost(bytes = "bytes", tag = "1")]
     pub data: ::prost::bytes::Bytes,
     #[prost(message, optional, tag = "2")]
     pub remote_address: ::core::option::Option<Address>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Address {
     #[prost(string, tag = "1")]
     pub host: ::prost::alloc::string::String,

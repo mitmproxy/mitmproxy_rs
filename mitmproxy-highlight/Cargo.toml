@@ -18,10 +18,10 @@ tree-sitter-css = "0.25.0"
 tree-sitter-highlight = "0.25.10"
 tree-sitter-javascript = "0.25.0"
 tree-sitter-xml = "0.7.0"
-tree-sitter-yaml = "0.7.1"
+tree-sitter-yaml = "0.7.2"
 
 [dev-dependencies]
-criterion = "0.7.0"
+criterion = "0.8.1"
 
 [[bench]]
 name = "syntax_highlight"
