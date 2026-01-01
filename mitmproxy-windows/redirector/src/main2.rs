@@ -129,7 +129,7 @@ async fn main() -> Result<()> {
 
     tokio::spawn(async move {
         if let Err(e) = handle_ipc(ipc_client, ipc_rx, event_tx).await {
-            error!("Error handling IPC: {}", e);
+            error!("Error handling IPC: {e}");
             std::process::exit(1);
         }
     });
@@ -148,7 +148,7 @@ async fn main() -> Result<()> {
                 let packet = match InternetPacket::try_from(data) {
                     Ok(p) => p,
                     Err(e) => {
-                        debug!("Error parsing packet: {:?}", e);
+                        debug!("Error parsing packet: {e:?}");
                         continue;
                     }
                 };
@@ -165,8 +165,7 @@ async fn main() -> Result<()> {
                     packet.src_ip().is_loopback() && packet.dst_ip().is_loopback();
                 if is_multicast || is_loopback_only {
                     debug!(
-                        "skipping multicast={} loopback={}",
-                        is_multicast, is_loopback_only
+                        "skipping multicast={is_multicast} loopback={is_loopback_only}"
                     );
                     inject_handle.send(&WinDivertPacket {
                         address,
@@ -333,7 +332,7 @@ async fn main() -> Result<()> {
                 let packet = match InternetPacket::try_from(buf.to_vec()) {
                     Ok(p) => p,
                     Err(e) => {
-                        info!("Error parsing packet: {:?}", e);
+                        info!("Error parsing packet: {e:?}");
                         continue;
                     }
                 };

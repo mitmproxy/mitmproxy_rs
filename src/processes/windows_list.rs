@@ -245,7 +245,7 @@ pub fn visible_windows() -> Result<HashSet<PID>> {
                     &mut cloaked as *mut BOOL as *mut _,
                     size_of::<BOOL>() as u32,
                 ) {
-                    log::debug!("DwmGetWindowAttribute failed: {:#}", e);
+                    log::debug!("DwmGetWindowAttribute failed: {e:#}");
                     false
                 } else {
                     cloaked.as_bool()
@@ -298,9 +298,9 @@ mod tests {
         for pid in pids {
             let procname = super::get_process_name(pid)
                 .map(|p| p.display().to_string())
-                .unwrap_or_else(|e| format!("<{:?}>", e));
+                .unwrap_or_else(|e| format!("<{e:?}>"));
 
-            println!("{: >6} {}", pid, procname);
+            println!("{pid: >6} {procname}");
         }
     }
 

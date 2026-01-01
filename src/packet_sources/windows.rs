@@ -81,7 +81,7 @@ impl PacketSourceConf for WindowsConf {
         if cfg!(debug_assertions) {
             if result.0 as u32 <= 32 {
                 let err = windows::core::Error::from_win32();
-                log::warn!("Failed to start child process: {}", err);
+                log::warn!("Failed to start child process: {err}");
             }
         } else if result.0 as u32 == SE_ERR_ACCESSDENIED {
             return Err(anyhow!(
@@ -89,7 +89,7 @@ impl PacketSourceConf for WindowsConf {
             ));
         } else if result.0 as u32 <= 32 {
             let err = windows::core::Error::from_win32();
-            return Err(anyhow!("Failed to start the executable: {}", err));
+            return Err(anyhow!("Failed to start the executable: {err}"));
         }
 
         let (conf_tx, conf_rx) = unbounded_channel();
