@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MSRV: "1.87"  # Minimum Supported Rust Version
+  MSRV: "1.88"  # Minimum Supported Rust Version
 
 jobs:
   protobuf:
@@ -25,6 +25,7 @@ jobs:
       - run: protoc --proto_path=./src/ipc/ mitmproxy_ipc.proto
           --prost_out=./src/ipc/
           --prost_opt="bytes=data"
+          --prost_opt="flat_output_dir=true"
           # --swift_out=./mitmproxy-macos/redirector/ipc
       - run: cargo fmt --all
       - uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27
