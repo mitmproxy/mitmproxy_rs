@@ -61,7 +61,7 @@ async fn start_redirector(
         while let Ok(Some(line)) = stderr.next_line().await {
             if shutdown2.is_shutting_down() {
                 // We don't want to log during exit, https://github.com/vorner/pyo3-log/issues/30
-                eprintln!("{}", line);
+                eprintln!("{line}");
                 continue;
             }
 
@@ -92,9 +92,9 @@ async fn start_redirector(
             }
             other => {
                 if shutdown.is_shutting_down() {
-                    eprintln!("[linux-redirector] exited during shutdown: {:?}", other)
+                    eprintln!("[linux-redirector] exited during shutdown: {other:?}")
                 } else {
-                    error!("[linux-redirector] exited: {:?}", other)
+                    error!("[linux-redirector] exited: {other:?}")
                 }
             }
         }
