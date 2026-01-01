@@ -143,7 +143,7 @@ pub fn start_local_redirector(
             if let Some(copy_task) = copy_task {
                 tokio::task::spawn_blocking(copy_task)
                     .await
-                    .map_err(|e| anyhow::anyhow!("failed to copy: {}", e))??;
+                    .map_err(|e| anyhow::anyhow!("failed to copy: {e}"))??;
             }
             let (server, conf_tx) =
                 Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;

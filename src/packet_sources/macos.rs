@@ -209,7 +209,7 @@ impl ConnectionTask {
                 .handle_udp(udp_flow)
                 .await
                 .context("failed to handle UDP stream"),
-            _ => bail!("Received invalid IPC message: {:?}", new_flow),
+            _ => bail!("Received invalid IPC message: {new_flow:?}"),
         }
     }
 

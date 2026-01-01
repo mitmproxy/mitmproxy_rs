@@ -49,7 +49,7 @@ impl TryFrom<&str> for InterceptConf {
             return Ok(InterceptConf::new(vec![]));
         }
         let actions: Vec<&str> = val.split(',').collect();
-        InterceptConf::try_from(actions).map_err(|_| anyhow!("invalid intercept spec: {}", value))
+        InterceptConf::try_from(actions).map_err(|_| anyhow!("invalid intercept spec: {value}"))
     }
 }
 

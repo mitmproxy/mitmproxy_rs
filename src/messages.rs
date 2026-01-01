@@ -176,7 +176,7 @@ impl TryFrom<Vec<u8>> for SmolPacket {
         match value[0] >> 4 {
             4 => Ok(SmolPacket::V4(Ipv4Packet::new_checked(value)?)),
             6 => Ok(SmolPacket::V6(Ipv6Packet::new_checked(value)?)),
-            _ => Err(anyhow!("Not an IP packet: {:?}", value)),
+            _ => Err(anyhow!("Not an IP packet: {value:?}")),
         }
     }
 }
