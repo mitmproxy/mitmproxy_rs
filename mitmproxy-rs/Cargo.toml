@@ -21,15 +21,15 @@ mitmproxy-highlight = { path = "../mitmproxy-highlight" }
 mitmproxy-contentviews = { path = "../mitmproxy-contentviews" }
 anyhow = { version = "1.0.100", features = ["backtrace"] }
 data-encoding = "2.8.0"
-log = "0.4.28"
+log = "0.4.29"
 pyo3 = { version = "0.25", features = ["abi3", "abi3-py312", "anyhow"] }
 pyo3-async-runtimes = { version = "0.25", features = ["tokio-runtime", "testing", "attributes"] }
 pyo3-log = "0.12"
 rand_core = { version = "0.6.4", features = ["getrandom"] }  # https://github.com/dalek-cryptography/curve25519-dalek/issues/731
-tokio = { version = "1.47", features = ["macros", "net", "rt-multi-thread", "sync"] }
+tokio = { version = "1.48", features = ["macros", "net", "rt-multi-thread", "sync"] }
 boringtun = "0.6"
 tar = "0.4.44"
-console-subscriber = { version = "0.4.1", optional = true }
+console-subscriber = { version = "0.5.0", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 nix = { version = "0.30.1", features = ["user"] }
