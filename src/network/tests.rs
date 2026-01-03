@@ -5,7 +5,7 @@ use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::shutdown;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use core::net::Ipv4Addr;
 use core::net::Ipv6Addr;
 use internet_packet::InternetPacket;
@@ -13,7 +13,7 @@ use smoltcp::{phy::ChecksumCapabilities, wire::*};
 use tokio::sync::watch;
 use tokio::{
     sync::{
-        mpsc::{channel, unbounded_channel, Receiver, Sender, UnboundedSender},
+        mpsc::{Receiver, Sender, UnboundedSender, channel, unbounded_channel},
         oneshot,
     },
     task::JoinHandle,

@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use pyo3::exceptions::asyncio::CancelledError;
 use pyo3::prelude::*;
 use pyo3_async_runtimes::TaskLocals;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 
 use crate::stream::Stream;
 use crate::stream::StreamState;
@@ -133,11 +133,11 @@ impl PyInteropTask {
                 // Future is not finished: abort tokio task
                 handle.abort();
 
-                if let Err(err) = handle.await {
-                    if !err.is_cancelled() {
-                        // JoinError was not caused by cancellation: coroutine panicked, log error
-                        log::error!("TCP connection handler coroutine panicked: {err}");
-                    }
+                if let Err(err) = handle.await
+                    && !err.is_cancelled()
+                {
+                    // JoinError was not caused by cancellation: coroutine panicked, log error
+                    log::error!("TCP connection handler coroutine panicked: {err}");
                 }
             }
         }

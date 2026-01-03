@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use windows::Win32::Foundation::{ERROR_INSUFFICIENT_BUFFER, NO_ERROR};
 use windows::Win32::NetworkManagement::IpHelper::{

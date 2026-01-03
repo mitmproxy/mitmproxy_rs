@@ -47,31 +47,31 @@ mod mitmproxy_rs {
     #[pymodule]
     mod dns {
         #[pymodule_export]
-        use crate::dns_resolver::{get_system_dns_servers, DnsResolver};
+        use crate::dns_resolver::{DnsResolver, get_system_dns_servers};
     }
 
     #[pymodule]
     mod local {
         #[pymodule_export]
-        use crate::server::{start_local_redirector, LocalRedirector};
+        use crate::server::{LocalRedirector, start_local_redirector};
     }
 
     #[pymodule]
     mod process_info {
         #[pymodule_export]
-        use crate::process_info::{active_executables, executable_icon, Process};
+        use crate::process_info::{Process, active_executables, executable_icon};
     }
 
     #[pymodule]
     mod tun {
         #[pymodule_export]
-        use crate::server::{create_tun_interface, TunInterface};
+        use crate::server::{TunInterface, create_tun_interface};
     }
 
     #[pymodule]
     mod udp {
         #[pymodule_export]
-        use crate::server::{start_udp_server, UdpServer};
+        use crate::server::{UdpServer, start_udp_server};
         #[pymodule_export]
         use crate::udp_client::open_udp_connection;
     }
@@ -79,7 +79,7 @@ mod mitmproxy_rs {
     #[pymodule]
     mod wireguard {
         #[pymodule_export]
-        use crate::server::{start_wireguard_server, WireGuardServer};
+        use crate::server::{WireGuardServer, start_wireguard_server};
         #[pymodule_export]
         use crate::util::{genkey, pubkey};
     }
@@ -92,7 +92,7 @@ mod mitmproxy_rs {
         #[pymodule_export]
         use crate::contentviews::InteractiveContentview;
         use mitmproxy_contentviews::{
-            HexDump, HexStream, MsgPack, Protobuf, TestInspectMetadata, GRPC,
+            GRPC, HexDump, HexStream, MsgPack, Protobuf, TestInspectMetadata,
         };
 
         #[pymodule_init]

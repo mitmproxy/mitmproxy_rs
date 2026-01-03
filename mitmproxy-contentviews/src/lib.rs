@@ -7,8 +7,8 @@ mod test_inspect_metadata;
 pub use hex_dump::HexDump;
 pub use hex_stream::HexStream;
 pub use msgpack::MsgPack;
-pub use protobuf::Protobuf;
 pub use protobuf::GRPC;
+pub use protobuf::Protobuf;
 pub use test_inspect_metadata::TestInspectMetadata;
 
 use anyhow::Result;

@@ -1,4 +1,4 @@
-use super::{common, Chunk, Tag};
+use super::{Chunk, Tag, common};
 use anyhow::Result;
 use std::sync::LazyLock;
 use tree_sitter_highlight::HighlightConfiguration;

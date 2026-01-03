@@ -25,11 +25,7 @@ impl Prettify for HexDump {
     }
 
     fn render_priority(&self, data: &[u8], _metadata: &dyn Metadata) -> f32 {
-        if is_binary(data) {
-            0.5
-        } else {
-            0.0
-        }
+        if is_binary(data) { 0.5 } else { 0.0 }
     }
 }
 

@@ -1,7 +1,7 @@
 use super::{existing_proto_definitions, reencode};
 use crate::protobuf::existing_proto_definitions::DescriptorWithDeps;
 use crate::{Metadata, Prettify, Protobuf, Reencode};
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use flate2::read::{DeflateDecoder, GzDecoder};
 use log::info;
 use mitmproxy_highlight::Language;
@@ -23,10 +23,10 @@ impl Prettify for GRPC {
     fn prettify(&self, data: &[u8], metadata: &dyn Metadata) -> Result<String> {
         let encoding = metadata.get_header("grpc-encoding").unwrap_or_default();
         let proto_def = existing_proto_definitions::find_best_match(metadata)?;
-        if let Some(descriptor) = &proto_def {
-            if let Ok(ret) = self.prettify_with_descriptor(data, &encoding, descriptor) {
-                return Ok(ret);
-            }
+        if let Some(descriptor) = &proto_def
+            && let Ok(ret) = self.prettify_with_descriptor(data, &encoding, descriptor)
+        {
+            return Ok(ret);
         }
         let ret = self.prettify_with_descriptor(data, &encoding, &DescriptorWithDeps::default())?;
         if proto_def.is_some() {

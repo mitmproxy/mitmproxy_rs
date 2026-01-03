@@ -4,10 +4,10 @@ use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::network::add_network_layer;
-use crate::{ipc, shutdown, MAX_PACKET_SIZE};
-use anyhow::{anyhow, Context, Result};
-use prost::bytes::Bytes;
+use crate::{MAX_PACKET_SIZE, ipc, shutdown};
+use anyhow::{Context, Result, anyhow};
 use prost::Message;
+use prost::bytes::Bytes;
 use std::future::Future;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc;

@@ -47,11 +47,13 @@ mod tests {
         )
         .await?;
         logger.wait_for("shutting down").await;
-        assert!(!logger
-            .logs()
-            .await
-            .into_iter()
-            .any(|l| l.contains("exception")));
+        assert!(
+            !logger
+                .logs()
+                .await
+                .into_iter()
+                .any(|l| l.contains("exception"))
+        );
         Ok(())
     }
 

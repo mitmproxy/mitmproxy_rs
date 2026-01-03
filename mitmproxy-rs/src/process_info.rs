@@ -2,9 +2,9 @@ use std::path::{Path, PathBuf};
 
 #[cfg(any(windows, target_os = "macos"))]
 use anyhow::Context;
-use pyo3::prelude::*;
 #[cfg(any(windows, target_os = "macos"))]
 use pyo3::IntoPyObjectExt;
+use pyo3::prelude::*;
 
 #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 use mitmproxy::processes;

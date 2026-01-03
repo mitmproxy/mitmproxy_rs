@@ -1,14 +1,14 @@
 #![no_std]
 #![no_main]
 
+use aya_ebpf::EbpfContext;
 use aya_ebpf::macros::{cgroup_sock, map};
 use aya_ebpf::maps::Array;
 use aya_ebpf::programs::SockContext;
-use aya_ebpf::EbpfContext;
 use aya_log_ebpf::debug;
 use mitmproxy_linux_ebpf_common::{Action, INTERCEPT_CONF_LEN};
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 static INTERFACE_ID: u32 = 0;
 
 #[map]

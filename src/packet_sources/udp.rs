@@ -3,8 +3,8 @@ use std::net::{Ipv4Addr, SocketAddr};
 use anyhow::{Context, Result};
 
 use crate::messages::{TransportCommand, TransportEvent, TunnelInfo};
-use crate::network::udp::{UdpHandler, UdpPacket};
 use crate::network::MAX_PACKET_SIZE;
+use crate::network::udp::{UdpHandler, UdpPacket};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use crate::shutdown;
 use socket2::{Domain, Protocol, Socket, Type};

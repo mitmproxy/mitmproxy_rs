@@ -4,7 +4,7 @@ mod tun;
 mod udp;
 mod wireguard;
 
-pub use local_redirector::{start_local_redirector, LocalRedirector};
-pub use tun::{create_tun_interface, TunInterface};
-pub use udp::{start_udp_server, UdpServer};
-pub use wireguard::{start_wireguard_server, WireGuardServer};
+pub use local_redirector::{LocalRedirector, start_local_redirector};
+pub use tun::{TunInterface, create_tun_interface};
+pub use udp::{UdpServer, start_udp_server};
+pub use wireguard::{WireGuardServer, start_wireguard_server};

@@ -1,4 +1,4 @@
-use mitmproxy::dns::{ResolveError, DNS_SERVERS};
+use mitmproxy::dns::{DNS_SERVERS, ResolveError};
 use pyo3::exceptions::socket::gaierror;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;

@@ -1,7 +1,7 @@
 use log::{LevelFilter, Log, Metadata, Record};
 use std::sync::LazyLock;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tokio::sync::{mpsc, Mutex, MutexGuard};
+use tokio::sync::{Mutex, MutexGuard, mpsc};
 
 /// A logger for tests to ensure that log statements are made.
 pub struct TestLogger {

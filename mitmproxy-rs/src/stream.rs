@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use pyo3::exceptions::PyKeyError;
-use pyo3::{exceptions::PyOSError, intern, prelude::*, IntoPyObjectExt};
+use pyo3::{IntoPyObjectExt, exceptions::PyOSError, intern, prelude::*};
 
 use tokio::sync::{
     mpsc::{self},

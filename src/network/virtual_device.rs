@@ -43,12 +43,12 @@ impl Device for VirtualDevice {
             return None;
         }
 
-        if let Ok(permit) = self.tx_channel.try_reserve() {
-            if let Some(buffer) = self.rx_buffer.pop_front() {
-                let rx = Self::RxToken { buffer };
-                let tx = VirtualTxToken { permit };
-                return Some((rx, tx));
-            }
+        if let Ok(permit) = self.tx_channel.try_reserve()
+            && let Some(buffer) = self.rx_buffer.pop_front()
+        {
+            let rx = Self::RxToken { buffer };
+            let tx = VirtualTxToken { permit };
+            return Some((rx, tx));
         }
 
         None

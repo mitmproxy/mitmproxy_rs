@@ -7,22 +7,22 @@ use std::os::windows::prelude::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 
-use anyhow::{anyhow, Result};
-use windows::core::w;
-use windows::core::{BOOL, PCWSTR, PWSTR};
+use anyhow::{Result, anyhow};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, LPARAM, MAX_PATH};
-use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
+use windows::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
 use windows::Win32::Storage::FileSystem::{
     GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
 };
 use windows::Win32::System::ProcessStatus::EnumProcesses;
 use windows::Win32::System::Threading::{
-    IsProcessCritical, OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_NATIVE,
-    PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+    IsProcessCritical, OpenProcess, PROCESS_NAME_NATIVE, PROCESS_NAME_WIN32,
+    PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
 };
+use windows::core::w;
+use windows::core::{BOOL, PCWSTR, PWSTR};
 
 use crate::intercept_conf::PID;
 use crate::processes::{ProcessInfo, ProcessList};

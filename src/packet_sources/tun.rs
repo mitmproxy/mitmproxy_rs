@@ -1,7 +1,7 @@
 use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
-use crate::network::{add_network_layer, MAX_PACKET_SIZE};
+use crate::network::{MAX_PACKET_SIZE, add_network_layer};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use crate::shutdown;
 use anyhow::{Context, Result};

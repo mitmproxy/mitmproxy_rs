@@ -2,7 +2,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::net::{IpAddr, SocketAddr};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use internet_packet::{InternetPacket, TransportProtocol};
 use smoltcp::wire::{IpProtocol, Ipv4Packet, Ipv6Packet};
 use tokio::sync::{mpsc, oneshot};
