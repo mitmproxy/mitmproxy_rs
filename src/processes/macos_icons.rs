@@ -1,6 +1,5 @@
 use anyhow::{bail, Result};
-use cocoa::base::id;
-use objc::{class, msg_send, sel, sel_impl};
+use objc2_app_kit::NSRunningApplication;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -66,19 +65,14 @@ pub fn tiff_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
         // process.exe() will return empty path if there was an error while trying to read /proc/<pid>/exe.
         if let Some(path) = process.exe() {
             if executable == path.to_path_buf() {
-                let pid = pid.as_u32();
-                unsafe {
-                    let app: id = msg_send![
-                        class!(NSRunningApplication),
-                        runningApplicationWithProcessIdentifier: pid
-                    ];
-                    if !app.is_null() {
-                        let img: id = msg_send![app, icon];
-                        let tiff: id = msg_send![img, TIFFRepresentation];
-                        let length: usize = msg_send![tiff, length];
-                        let bytes: *const u8 = msg_send![tiff, bytes];
-                        let data = std::slice::from_raw_parts(bytes, length).to_vec();
-                        return Ok(data);
+                let pid = pid.as_u32() as i32;
+                if let Some(app) =
+                    NSRunningApplication::runningApplicationWithProcessIdentifier(pid)
+                {
+                    if let Some(img) = app.icon() {
+                        if let Some(tiff) = img.TIFFRepresentation() {
+                            return Ok(tiff.to_vec());
+                        }
                     }
                 }
             }

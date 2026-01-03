@@ -97,8 +97,7 @@ security-framework = "3.2.0"
 nix = { version = "0.30.1", default-features = false, features = ["fs"] }
 core-graphics = "0.25"
 core-foundation = "0.10"
-cocoa = "0.26"
-objc = "0.2"
+objc2-app-kit = { version = "0.3.2", features = ["NSRunningApplication", "NSImage", "libc"] }
 sysinfo = "0.36.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -123,6 +122,3 @@ opt-level = 3
 
 [features]
 tracing = ["console-subscriber"]
-# This feature solely exists to silence warnings caused by objc 0.2.7,
-# see https://github.com/SSheldon/rust-objc/issues/125
-cargo-clippy = []
