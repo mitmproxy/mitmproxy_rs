@@ -8,7 +8,7 @@ use aya_ebpf::EbpfContext;
 use aya_log_ebpf::debug;
 use mitmproxy_linux_ebpf_common::{Action, INTERCEPT_CONF_LEN};
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 static INTERFACE_ID: u32 = 0;
 
 #[map]

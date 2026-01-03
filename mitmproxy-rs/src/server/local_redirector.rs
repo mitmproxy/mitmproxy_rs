@@ -1,3 +1,4 @@
+use std::path::Path;
 use mitmproxy::intercept_conf::InterceptConf;
 use pyo3::exceptions::PyValueError;
 
@@ -137,7 +138,12 @@ pub fn start_local_redirector(
     }
     #[cfg(target_os = "macos")]
     {
-        let copy_task = macos::copy_redirector_app(&py)?;
+        let module_filename = py.import("mitmproxy_macos")?.filename()?;
+        let redirector_tar = Path::new(module_filename.to_str()?)
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("invalid path"))?
+            .join("Mitmproxy Redirector.app.tar");
+        let copy_task = macos::copy_redirector_app(redirector_tar)?;
         let conf = MacosConf;
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
             if let Some(copy_task) = copy_task {
@@ -160,34 +166,26 @@ pub fn start_local_redirector(
 mod macos {
     use super::*;
     use anyhow::{Context, Result};
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::{env, fs};
 
     /// Ensure "Mitmproxy Redirector.app" is installed into /Applications and up-to-date.
     pub(super) fn copy_redirector_app(
-        py: &Python,
+        redirector_tar: PathBuf,
     ) -> PyResult<Option<impl FnOnce() -> Result<()>>> {
         if env::var_os("MITMPROXY_KEEP_REDIRECTOR").is_some_and(|x| x == "1") {
             log::info!("Using existing mitmproxy redirector app.");
             return Ok(None);
         }
 
-        let info_plist = Path::new("/Applications/Mitmproxy Redirector.app/Contents/Info.plist");
-        let redirector_tar = {
-            let module_filename = py.import("mitmproxy_macos")?.filename()?;
-            let path = Path::new(module_filename.to_str()?)
-                .parent()
-                .ok_or_else(|| anyhow::anyhow!("invalid path"))?
-                .join("Mitmproxy Redirector.app.tar");
-            if !path.exists() {
-                return Err(anyhow::anyhow!("{} does not exist", path.display()).into());
-            }
-            path
-        };
+        if !redirector_tar.exists() {
+            return Err(anyhow::anyhow!("{} does not exist", redirector_tar.display()).into());
+        }
         let expected_mtime = fs::metadata(&redirector_tar)
             .and_then(|x| x.modified())
             .context("failed to get mtime for redirector")?;
 
+        let info_plist = Path::new("/Applications/Mitmproxy Redirector.app/Contents/Info.plist");
         if let Ok(actual_mtime) = fs::metadata(info_plist).and_then(|m| m.modified()) {
             if actual_mtime == expected_mtime {
                 log::debug!("Existing mitmproxy redirector app is up-to-date.");

@@ -31,7 +31,7 @@ authors = [
 version = "0.13.0-dev"
 publish = false
 repository = "https://github.com/mitmproxy/mitmproxy-rs"
-edition = "2021"
+edition = "2024"
 rust-version = "1.88"  # MSRV
 
 [workspace.dependencies]
