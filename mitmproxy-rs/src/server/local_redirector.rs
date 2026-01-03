@@ -1,6 +1,5 @@
 use mitmproxy::intercept_conf::InterceptConf;
 use pyo3::exceptions::PyValueError;
-use std::path::Path;
 
 #[cfg(target_os = "linux")]
 use mitmproxy::packet_sources::linux::LinuxConf;
