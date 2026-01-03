@@ -338,11 +338,10 @@ impl ConnectionTask {
                     let Ok(_) = self.stream.write_buf(&mut write_buf).await else {
                         break;  // Client has disconnected.
                     };
-                    if write_buf.is_empty() {
-                        if let Some(tx) = drain_tx.take() {
+                    if write_buf.is_empty()
+                        && let Some(tx) = drain_tx.take() {
                             tx.send(()).ok();
                         }
-                    }
                 },
                 Ok(()) = self.stream.readable(), if read_tx.is_some() => {
                     let (n, tx) = read_tx.take().unwrap();

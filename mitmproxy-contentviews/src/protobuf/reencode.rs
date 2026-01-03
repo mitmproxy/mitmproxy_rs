@@ -138,29 +138,29 @@ fn add_field(message: &mut dyn MessageDyn, field_num: u32, value: Value) -> anyh
 }
 
 fn int_value(n: Number, field: Option<&FieldDescriptor>) -> UnknownValue {
-    if let Some(field) = field {
-        if let Some(typ) = field.proto().type_.and_then(|t| t.enum_value().ok()) {
-            match typ {
-                TYPE_FIXED64 | Type::TYPE_SFIXED64 | Type::TYPE_DOUBLE => {
-                    return if let Some(n) = n.as_u64() {
-                        UnknownValue::Fixed64(n)
-                    } else if let Some(n) = n.as_i64() {
-                        UnknownValue::sfixed64(n)
-                    } else {
-                        UnknownValue::double(n.as_f64().expect("as_f64 never fails"))
-                    };
-                }
-                TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => {
-                    return if let Some(n) = n.as_u64() {
-                        UnknownValue::Fixed32(n as u32)
-                    } else if let Some(n) = n.as_i64() {
-                        UnknownValue::sfixed32(n as i32)
-                    } else {
-                        UnknownValue::float(n.as_f64().expect("as_f64 never fails") as f32)
-                    };
-                }
-                _ => (),
+    if let Some(field) = field
+        && let Some(typ) = field.proto().type_.and_then(|t| t.enum_value().ok())
+    {
+        match typ {
+            TYPE_FIXED64 | Type::TYPE_SFIXED64 | Type::TYPE_DOUBLE => {
+                return if let Some(n) = n.as_u64() {
+                    UnknownValue::Fixed64(n)
+                } else if let Some(n) = n.as_i64() {
+                    UnknownValue::sfixed64(n)
+                } else {
+                    UnknownValue::double(n.as_f64().expect("as_f64 never fails"))
+                };
             }
+            TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => {
+                return if let Some(n) = n.as_u64() {
+                    UnknownValue::Fixed32(n as u32)
+                } else if let Some(n) = n.as_i64() {
+                    UnknownValue::sfixed32(n as i32)
+                } else {
+                    UnknownValue::float(n.as_f64().expect("as_f64 never fails") as f32)
+                };
+            }
+            _ => (),
         }
     }
     if let Some(n) = n.as_u64() {

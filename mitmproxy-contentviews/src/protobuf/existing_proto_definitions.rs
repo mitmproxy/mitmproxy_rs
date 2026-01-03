@@ -89,19 +89,19 @@ fn find_best_message(
     }
 
     let file = fds.first()?;
-    if let Some(service) = file.services().next() {
-        if let Some(method) = service.methods().next() {
-            log::info!(
-                "Falling back to first defined service in {}: {}",
-                file.name(),
-                service.proto().name()
-            );
-            return Some(if is_request {
-                method.input_type()
-            } else {
-                method.output_type()
-            });
-        }
+    if let Some(service) = file.services().next()
+        && let Some(method) = service.methods().next()
+    {
+        log::info!(
+            "Falling back to first defined service in {}: {}",
+            file.name(),
+            service.proto().name()
+        );
+        return Some(if is_request {
+            method.input_type()
+        } else {
+            method.output_type()
+        });
     }
     if let Some(method) = file.messages().next() {
         log::info!(

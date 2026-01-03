@@ -40,10 +40,10 @@ impl Prettify for Protobuf {
 
     fn prettify(&self, data: &[u8], metadata: &dyn Metadata) -> Result<String> {
         let proto_def = existing_proto_definitions::find_best_match(metadata)?;
-        if let Some(descriptor) = &proto_def {
-            if let Ok(ret) = self.prettify_with_descriptor(data, descriptor) {
-                return Ok(ret);
-            }
+        if let Some(descriptor) = &proto_def
+            && let Ok(ret) = self.prettify_with_descriptor(data, descriptor)
+        {
+            return Ok(ret);
         }
         let ret = self.prettify_with_descriptor(data, &DescriptorWithDeps::default())?;
         if proto_def.is_some() {

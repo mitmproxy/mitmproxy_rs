@@ -63,18 +63,15 @@ pub fn tiff_data_for_executable(executable: &Path) -> Result<Vec<u8>> {
     );
     for (pid, process) in sys.processes() {
         // process.exe() will return empty path if there was an error while trying to read /proc/<pid>/exe.
-        if let Some(path) = process.exe() {
-            if executable == path.to_path_buf() {
-                let pid = pid.as_u32() as i32;
-                if let Some(app) =
-                    NSRunningApplication::runningApplicationWithProcessIdentifier(pid)
-                {
-                    if let Some(img) = app.icon() {
-                        if let Some(tiff) = img.TIFFRepresentation() {
-                            return Ok(tiff.to_vec());
-                        }
-                    }
-                }
+        if let Some(path) = process.exe()
+            && executable == path.to_path_buf()
+        {
+            let pid = pid.as_u32() as i32;
+            if let Some(app) = NSRunningApplication::runningApplicationWithProcessIdentifier(pid)
+                && let Some(img) = app.icon()
+                && let Some(tiff) = img.TIFFRepresentation()
+            {
+                return Ok(tiff.to_vec());
             }
         }
     }

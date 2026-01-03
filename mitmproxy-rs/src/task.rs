@@ -133,11 +133,11 @@ impl PyInteropTask {
                 // Future is not finished: abort tokio task
                 handle.abort();
 
-                if let Err(err) = handle.await {
-                    if !err.is_cancelled() {
-                        // JoinError was not caused by cancellation: coroutine panicked, log error
-                        log::error!("TCP connection handler coroutine panicked: {err}");
-                    }
+                if let Err(err) = handle.await
+                    && !err.is_cancelled()
+                {
+                    // JoinError was not caused by cancellation: coroutine panicked, log error
+                    log::error!("TCP connection handler coroutine panicked: {err}");
                 }
             }
         }
