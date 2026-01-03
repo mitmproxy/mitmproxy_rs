@@ -1,15 +1,15 @@
+pub use hickory_resolver::ResolveError;
+use hickory_resolver::TokioResolver;
 use hickory_resolver::config::NameServerConfig;
 use hickory_resolver::config::ResolverConfig;
 use hickory_resolver::config::{LookupIpStrategy, ResolveHosts};
 use hickory_resolver::lookup_ip::LookupIp;
 use hickory_resolver::name_server::TokioConnectionProvider;
+use hickory_resolver::proto::ProtoError;
 pub use hickory_resolver::proto::op::Query;
 pub use hickory_resolver::proto::op::ResponseCode;
 use hickory_resolver::proto::xfer::Protocol;
-use hickory_resolver::proto::ProtoError;
 use hickory_resolver::system_conf::read_system_conf;
-pub use hickory_resolver::ResolveError;
-use hickory_resolver::TokioResolver;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::sync::LazyLock;

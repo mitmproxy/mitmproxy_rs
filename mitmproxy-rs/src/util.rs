@@ -1,11 +1,11 @@
 #[allow(unused_imports)]
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use data_encoding::BASE64;
 #[cfg(target_os = "macos")]
 use mitmproxy::certificates;
 
 use pyo3::exceptions::PyOSError;
-use pyo3::{exceptions::PyValueError, prelude::*, IntoPyObjectExt};
+use pyo3::{IntoPyObjectExt, exceptions::PyValueError, prelude::*};
 use rand_core::OsRng;
 
 use std::net::SocketAddr;

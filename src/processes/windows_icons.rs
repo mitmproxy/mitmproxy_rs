@@ -1,5 +1,5 @@
-use std::collections::hash_map::{DefaultHasher, Entry};
 use std::collections::HashMap;
+use std::collections::hash_map::{DefaultHasher, Entry};
 
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
@@ -9,12 +9,12 @@ use std::path::{Path, PathBuf};
 use std::ptr::addr_of_mut;
 use std::{iter, mem};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use image::RgbaImage;
 use windows::Win32::Foundation::HMODULE;
 use windows::Win32::Graphics::Gdi::{
-    DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFOHEADER, BI_RGB,
-    DIB_RGB_COLORS, HDC,
+    BI_RGB, BITMAP, BITMAPINFOHEADER, DIB_RGB_COLORS, DeleteObject, GetDC, GetDIBits, GetObjectW,
+    HDC, ReleaseDC,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Shell::ExtractAssociatedIconW;

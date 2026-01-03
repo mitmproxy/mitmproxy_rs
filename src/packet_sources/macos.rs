@@ -7,13 +7,13 @@ use crate::ipc;
 use crate::ipc::{NewFlow, TcpFlow, UdpFlow};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use crate::shutdown;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 
+use prost::Message;
 use prost::bytes::Bytes;
 use prost::bytes::BytesMut;
-use prost::Message;
 
 use std::process::Stdio;
 
@@ -25,7 +25,7 @@ use tokio::net::{UnixListener, UnixStream};
 use crate::network::udp::ConnectionState;
 use tokio::process::Command;
 use tokio::sync::mpsc::Sender;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tokio::sync::oneshot;
 use tokio::task::JoinSet;
 use tokio::time::timeout;

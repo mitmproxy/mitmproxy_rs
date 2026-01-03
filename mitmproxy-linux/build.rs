@@ -1,5 +1,5 @@
 #[cfg(target_os = "linux")]
-use anyhow::{anyhow, Context as _};
+use anyhow::{Context as _, anyhow};
 
 #[cfg(target_os = "linux")]
 use aya_build::Toolchain;

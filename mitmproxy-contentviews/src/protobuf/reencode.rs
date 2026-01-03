@@ -1,5 +1,5 @@
 use crate::protobuf::view_protobuf::tags;
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use protobuf::descriptor::field_descriptor_proto::Type;
 use protobuf::descriptor::field_descriptor_proto::Type::{TYPE_FIXED32, TYPE_FIXED64};
 use protobuf::reflect::{FieldDescriptor, MessageDescriptor, RuntimeFieldType, RuntimeType};
@@ -148,7 +148,7 @@ fn int_value(n: Number, field: Option<&FieldDescriptor>) -> UnknownValue {
                         UnknownValue::sfixed64(n)
                     } else {
                         UnknownValue::double(n.as_f64().expect("as_f64 never fails"))
-                    }
+                    };
                 }
                 TYPE_FIXED32 | Type::TYPE_SFIXED32 | Type::TYPE_FLOAT => {
                     return if let Some(n) = n.as_u64() {
@@ -157,7 +157,7 @@ fn int_value(n: Number, field: Option<&FieldDescriptor>) -> UnknownValue {
                         UnknownValue::sfixed32(n as i32)
                     } else {
                         UnknownValue::float(n.as_f64().expect("as_f64 never fails") as f32)
-                    }
+                    };
                 }
                 _ => (),
             }

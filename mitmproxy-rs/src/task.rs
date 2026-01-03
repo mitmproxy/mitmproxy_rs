@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use pyo3::exceptions::asyncio::CancelledError;
 use pyo3::prelude::*;
 use pyo3_async_runtimes::TaskLocals;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 
 use crate::stream::Stream;
 use crate::stream::StreamState;

@@ -88,7 +88,7 @@ mod macos_visible_windows {
     use crate::intercept_conf::PID;
     use anyhow::Result;
     use core_foundation::base::TCFType;
-    use core_foundation::number::{kCFNumberSInt32Type, CFNumberGetValue, CFNumberRef};
+    use core_foundation::number::{CFNumberGetValue, CFNumberRef, kCFNumberSInt32Type};
     use core_foundation::string::CFString;
     use core_graphics::display::{
         CFArrayGetCount, CFArrayGetValueAtIndex, CFDictionaryGetValueIfPresent, CFDictionaryRef,

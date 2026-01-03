@@ -1,5 +1,5 @@
-use crate::protobuf::raw_to_proto::new_empty_descriptor;
 use crate::Metadata;
+use crate::protobuf::raw_to_proto::new_empty_descriptor;
 use anyhow::Context;
 use protobuf::reflect::{FileDescriptor, MessageDescriptor};
 use protobuf_parse::Parser;

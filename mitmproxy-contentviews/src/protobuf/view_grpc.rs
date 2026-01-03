@@ -1,7 +1,7 @@
 use super::{existing_proto_definitions, reencode};
 use crate::protobuf::existing_proto_definitions::DescriptorWithDeps;
 use crate::{Metadata, Prettify, Protobuf, Reencode};
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use flate2::read::{DeflateDecoder, GzDecoder};
 use log::info;
 use mitmproxy_highlight::Language;
