@@ -37,11 +37,12 @@ pub fn get_process_name(pid: PID) -> Result<PathBuf> {
 }
 
 unsafe fn process_name(handle: HANDLE) -> Result<PathBuf> {
-    let mut buffer = Vec::with_capacity(MAX_PATH as usize);
-    let path = PWSTR(buffer.as_mut_ptr());
-    let mut len = buffer.capacity() as u32;
+    unsafe {
+        let mut buffer = Vec::with_capacity(MAX_PATH as usize);
+        let path = PWSTR(buffer.as_mut_ptr());
+        let mut len = buffer.capacity() as u32;
 
-    QueryFullProcessImageNameW(handle, PROCESS_NAME_WIN32, path, &mut len).or_else(|_|
+        QueryFullProcessImageNameW(handle, PROCESS_NAME_WIN32, path, &mut len).or_else(|_|
             // WSL wants PROCESS_NAME_NATIVE, see https://github.com/microsoft/WSL/issues/3478
             QueryFullProcessImageNameW(
                 handle,
@@ -49,7 +50,8 @@ unsafe fn process_name(handle: HANDLE) -> Result<PathBuf> {
                 path,
                 &mut len,
             ))?;
-    Ok(PathBuf::from(OsString::from_wide(path.as_wide())))
+        Ok(PathBuf::from(OsString::from_wide(path.as_wide())))
+    }
 }
 
 pub fn get_is_critical(pid: PID) -> Result<bool> {
@@ -62,9 +64,11 @@ pub fn get_is_critical(pid: PID) -> Result<bool> {
 }
 
 unsafe fn is_critical(handle: HANDLE) -> Result<bool> {
-    let mut is_critical = BOOL::default();
-    IsProcessCritical(handle, &mut is_critical)?; // we're ok if this fails.
-    Ok(is_critical.as_bool())
+    unsafe {
+        let mut is_critical = BOOL::default();
+        IsProcessCritical(handle, &mut is_critical)?; // we're ok if this fails.
+        Ok(is_critical.as_bool())
+    }
 }
 
 pub fn enumerate_pids() -> Result<Vec<PID>> {
