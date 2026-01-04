@@ -1,6 +1,5 @@
 use mitmproxy::intercept_conf::InterceptConf;
 use pyo3::exceptions::PyValueError;
-use std::path::Path;
 
 #[cfg(target_os = "linux")]
 use mitmproxy::packet_sources::linux::LinuxConf;
@@ -139,7 +138,7 @@ pub fn start_local_redirector(
     #[cfg(target_os = "macos")]
     {
         let module_filename = py.import("mitmproxy_macos")?.filename()?;
-        let redirector_tar = Path::new(module_filename.to_str()?)
+        let redirector_tar = std::path::Path::new(module_filename.to_str()?)
             .parent()
             .ok_or_else(|| anyhow::anyhow!("invalid path"))?
             .join("Mitmproxy Redirector.app.tar");
