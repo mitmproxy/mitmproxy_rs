@@ -87,9 +87,9 @@ fn is_system(process: &Process) -> bool {
 mod macos_visible_windows {
     use crate::intercept_conf::PID;
     use anyhow::Result;
-    use cocoa::base::nil;
-    use cocoa::foundation::NSString;
-    use core_foundation::number::{kCFNumberSInt32Type, CFNumberGetValue, CFNumberRef};
+    use core_foundation::base::TCFType;
+    use core_foundation::number::{CFNumberGetValue, CFNumberRef, kCFNumberSInt32Type};
+    use core_foundation::string::CFString;
     use core_graphics::display::{
         CFArrayGetCount, CFArrayGetValueAtIndex, CFDictionaryGetValueIfPresent, CFDictionaryRef,
         CGWindowListCopyWindowInfo,
@@ -111,12 +111,12 @@ mod macos_visible_windows {
 
             for i in 0..count - 1 {
                 let dic_ref = CFArrayGetValueAtIndex(windows_info_list, i);
-                let key = NSString::alloc(nil).init_str("kCGWindowOwnerPID");
+                let key = CFString::new("kCGWindowOwnerPID");
                 let mut pid: *const c_void = std::ptr::null_mut();
 
                 if CFDictionaryGetValueIfPresent(
                     dic_ref as CFDictionaryRef,
-                    key as *const c_void,
+                    key.as_concrete_TypeRef() as *const c_void,
                     &mut pid,
                 ) != 0
                 {

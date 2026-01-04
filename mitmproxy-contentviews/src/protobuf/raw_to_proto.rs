@@ -182,14 +182,13 @@ fn guess_field_type(
         parent.file_descriptor_proto().package.clone(),
         &format!("{}.UnknownField{}", parent.name_to_package(), field_index),
     );
-    if let Ok(descriptor) = create_descriptor_proto(values[0], &existing) {
-        if values
+    if let Ok(descriptor) = create_descriptor_proto(values[0], &existing)
+        && values
             .iter()
             .skip(1)
             .all(|data| descriptor.descriptor_dyn().parse_from_bytes(data).is_ok())
-        {
-            return GuessedFieldType::Message(Box::new(descriptor));
-        }
+    {
+        return GuessedFieldType::Message(Box::new(descriptor));
     }
 
     GuessedFieldType::Unknown

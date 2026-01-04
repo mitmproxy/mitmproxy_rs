@@ -1,11 +1,11 @@
 use crate::protobuf::view_protobuf::tags;
+use protobuf::MessageDyn;
 /// Parsed protobuf message => YAML value
 use protobuf::descriptor::field_descriptor_proto::Type;
 use protobuf::descriptor::field_descriptor_proto::Type::{
     TYPE_BYTES, TYPE_FIXED32, TYPE_FIXED64, TYPE_UINT64,
 };
 use protobuf::reflect::{ReflectFieldRef, ReflectValueRef};
-use protobuf::MessageDyn;
 use serde_yaml::value::TaggedValue;
 use serde_yaml::{Mapping, Number, Value};
 use std::ops::Deref;

@@ -1,5 +1,5 @@
 #[allow(unused_imports)]
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::str::FromStr;
 
 use mitmproxy_highlight::{Language, Tag};

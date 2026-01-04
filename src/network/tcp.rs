@@ -5,7 +5,7 @@ use std::{cmp, fmt};
 use anyhow::Result;
 use pretty_hex::pretty_hex;
 use smoltcp::iface::{Config, SocketSet};
-use smoltcp::socket::{tcp, Socket};
+use smoltcp::socket::{Socket, tcp};
 use smoltcp::wire::{HardwareAddress, Ipv6Address};
 use smoltcp::{
     iface::{Interface, SocketHandle},
@@ -291,7 +291,9 @@ impl TcpHandler<'_> {
             {
                 for waiter in data.drain_waiter.drain(..) {
                     if waiter.send(()).is_err() {
-                        log::debug!("TcpStream already closed, cannot send notification about drained buffers.")
+                        log::debug!(
+                            "TcpStream already closed, cannot send notification about drained buffers."
+                        )
                     }
                 }
             }

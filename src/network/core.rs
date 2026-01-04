@@ -41,11 +41,11 @@ impl NetworkStack<'_> {
             } => (packet, tunnel_info),
         };
 
-        if let SmolPacket::V4(p) = &packet {
-            if !p.verify_checksum() {
-                log::warn!("Received invalid IP packet (checksum error).");
-                return Ok(());
-            }
+        if let SmolPacket::V4(p) = &packet
+            && !p.verify_checksum()
+        {
+            log::warn!("Received invalid IP packet (checksum error).");
+            return Ok(());
         }
 
         match packet.transport_protocol() {
@@ -92,14 +92,13 @@ impl NetworkStack<'_> {
     pub fn handle_transport_command(&mut self, command: TransportCommand) {
         if command.connection_id().is_tcp() {
             self.tcp.handle_transport_command(command);
-        } else if let Some(packet) = self.udp.handle_transport_command(command) {
-            if self
+        } else if let Some(packet) = self.udp.handle_transport_command(command)
+            && self
                 .net_tx
                 .try_send(NetworkCommand::SendPacket(SmolPacket::from(packet)))
                 .is_err()
-            {
-                log::debug!("Channel unavailable, discarding UDP packet.");
-            }
+        {
+            log::debug!("Channel unavailable, discarding UDP packet.");
         }
     }
 

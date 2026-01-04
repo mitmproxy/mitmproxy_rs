@@ -40,10 +40,10 @@ impl Prettify for Protobuf {
 
     fn prettify(&self, data: &[u8], metadata: &dyn Metadata) -> Result<String> {
         let proto_def = existing_proto_definitions::find_best_match(metadata)?;
-        if let Some(descriptor) = &proto_def {
-            if let Ok(ret) = self.prettify_with_descriptor(data, descriptor) {
-                return Ok(ret);
-            }
+        if let Some(descriptor) = &proto_def
+            && let Ok(ret) = self.prettify_with_descriptor(data, descriptor)
+        {
+            return Ok(ret);
         }
         let ret = self.prettify_with_descriptor(data, &DescriptorWithDeps::default())?;
         if proto_def.is_some() {
@@ -202,7 +202,10 @@ mod tests {
         let result = Protobuf.prettify(
             b"\n\x13gRPC testing server\x12\x07\n\x05Index\x12\x07\n\x05Empty\x12\x0c\n\nDummyUnary\x12\x0f\n\rSpecificError\x12\r\n\x0bRandomError\x12\x0e\n\x0cHeadersUnary\x12\x11\n\x0fNoResponseUnary",
             &TestMetadata::default()).unwrap();
-        assert_eq!(result,  "1: gRPC testing server\n2:\n- 1: Index\n- 1: Empty\n- 1: DummyUnary\n- 1: SpecificError\n- 1: RandomError\n- 1: HeadersUnary\n- 1: NoResponseUnary\n");
+        assert_eq!(
+            result,
+            "1: gRPC testing server\n2:\n- 1: Index\n- 1: Empty\n- 1: DummyUnary\n- 1: SpecificError\n- 1: RandomError\n- 1: HeadersUnary\n- 1: NoResponseUnary\n"
+        );
     }
 
     #[test]

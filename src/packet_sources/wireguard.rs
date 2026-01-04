@@ -5,11 +5,11 @@ use std::sync::Arc;
 use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
-use crate::network::{add_network_layer, MAX_PACKET_SIZE};
+use crate::network::{MAX_PACKET_SIZE, add_network_layer};
 use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use boringtun::noise::{
-    errors::WireGuardError, handshake::parse_handshake_anon, Packet, Tunn, TunnResult,
+    Packet, Tunn, TunnResult, errors::WireGuardError, handshake::parse_handshake_anon,
 };
 use boringtun::x25519::{PublicKey, StaticSecret};
 use pretty_hex::pretty_hex;
@@ -18,8 +18,8 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{
     net::UdpSocket,
     sync::{
-        mpsc::{Receiver, Sender},
         Mutex,
+        mpsc::{Receiver, Sender},
     },
 };
 
