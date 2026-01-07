@@ -189,9 +189,12 @@ mod tests {
         const TEST_YAML_KNOWN: &str = "example: 150\n\n---\n\nexample: 150\n";
 
         const TEST_WITH_EXTRA_GRPC: &[u8] = &[0, 0, 0, 0, 10, 8, 123, 18, 3, 8, 200, 3, 40, 171, 4];
-        const TEST_WITH_EXTRA_YAML: &str = "example: 123\nnested:\n  example: 456\n5: 555  # !sint: -278\n";
+        const TEST_WITH_EXTRA_YAML: &str =
+            "example: 123\nnested:\n  example: 456\n5: 555  # !sint: -278\n";
 
-        const TEST_WITH_NESTED_EXTRA_GRPC: &[u8] = &[0, 0, 0, 0, 13, 8, 123, 18, 6, 8, 200, 3, 16, 142, 5, 40, 171, 4];
+        const TEST_WITH_NESTED_EXTRA_GRPC: &[u8] = &[
+            0, 0, 0, 0, 13, 8, 123, 18, 6, 8, 200, 3, 16, 142, 5, 40, 171, 4,
+        ];
         const TEST_WITH_NESTED_EXTRA_YAML: &str = "example: 123\nnested:\n  example: 456\n  2: 654  # !sint: 327\n5: 555  # !sint: -278\n";
 
         #[test]
@@ -276,7 +279,9 @@ mod tests {
                     env!("CARGO_MANIFEST_DIR"),
                     "/testdata/protobuf/nested.proto"
                 ));
-            let req = GRPC.prettify(TEST_WITH_NESTED_EXTRA_GRPC, &metadata).unwrap();
+            let req = GRPC
+                .prettify(TEST_WITH_NESTED_EXTRA_GRPC, &metadata)
+                .unwrap();
             assert_eq!(req, TEST_WITH_NESTED_EXTRA_YAML);
         }
 
