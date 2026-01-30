@@ -28,7 +28,7 @@ authors = [
     "Fabio Valentini <decathorpe@gmail.com>",
     "Maximilian Hils <cargo@maximilianhils.com>",
 ]
-version = "0.13.0-dev"
+version = "0.12.9"
 publish = false
 repository = "https://github.com/mitmproxy/mitmproxy-rs"
 edition = "2024"
