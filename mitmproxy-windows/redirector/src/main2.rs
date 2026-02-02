@@ -228,23 +228,52 @@ async fn main() -> Result<()> {
                 }
             }
             Event::SocketInfo(address) => {
-                if address.process_id() == 4 {
-                    // We get some weird operating system events here, which are not useful.
-                    debug!("Skipping PID 4");
-                    continue;
-                }
-
-                let Ok(proto) = TransportProtocol::try_from(address.protocol()) else {
-                    warn!("Unknown transport protocol: {}", address.protocol());
-                    continue;
-                };
+                let proto = TransportProtocol::try_from(address.protocol())?;
                 let connection_id = ConnectionId {
                     proto,
                     src: SocketAddr::from((address.local_address(), address.local_port())),
                     dst: SocketAddr::from((address.remote_address(), address.remote_port())),
                 };
 
+                if address.process_id() == 4 {
+                    // We get some weird operating system events here, which are not useful.
+                    debug!("Skipping PID 4");
+
+                    clear_connections(
+                        connection_id,
+                        &mut connections,
+                        &inject_handle,
+                        &mut ipc_tx,
+                        address,
+                    ).await;
+
+                    continue;
+                }
+
+                let Ok(proto) = TransportProtocol::try_from(address.protocol()) else {
+                    warn!("Unknown transport protocol: {}", address.protocol());
+
+                    clear_connections(
+                        connection_id,
+                        &mut connections,
+                        &inject_handle,
+                        &mut ipc_tx,
+                        address,
+                    ).await;
+
+                    continue;
+                };
+
                 if connection_id.src.ip().is_multicast() || connection_id.dst.ip().is_multicast() {
+
+                    clear_connections(
+                        connection_id,
+                        &mut connections,
+                        &inject_handle,
+                        &mut ipc_tx,
+                        address,
+                    ).await;
+
                     continue;
                 }
 
@@ -393,6 +422,47 @@ async fn main() -> Result<()> {
                 }
             }
         }
+    }
+}
+
+async fn clear_connections(
+    connection_id: ConnectionId,
+    connections: &mut LruCache<ConnectionId, ConnectionState>,
+    inject_handle: &WinDivert<NetworkLayer>,
+    ipc_tx: &mut UnboundedSender<ipc::PacketWithMeta>,
+    address: WinDivertAddress<SocketLayer>,
+) {
+    match address.event() {
+        WinDivertEvent::SocketConnect | WinDivertEvent::SocketAccept => {
+            let make_entry = match connections.get(&connection_id) {
+                None => true,
+                Some(e) => matches!(e, ConnectionState::Unknown(_)),
+            };
+
+            debug!(
+                "{:<15?} make_entry={} pid={} {}",
+                address.event(),
+                make_entry,
+                address.process_id(),
+                connection_id
+            );
+
+            if !make_entry {
+                return;
+            }
+
+            let action = ConnectionAction::None;
+            let _ = insert_into_connections(
+                connection_id,
+                &action,
+                &address.event(),
+                connections,
+                inject_handle,
+                ipc_tx,
+            )
+            .await;
+        }
+        _ => {}
     }
 }
 
