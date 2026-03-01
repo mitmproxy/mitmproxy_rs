@@ -16,11 +16,11 @@ workspace = true
 [target.'cfg(windows)'.dependencies]
 mitmproxy = { path = "../../" }
 tokio = { version = "1.48", features = ["macros", "net", "rt-multi-thread", "sync", "io-util"] }
-anyhow = { version = "1.0.100", features = ["backtrace"] }
+anyhow = { version = "1.0.102", features = ["backtrace"] }
 windivert = "0.6.0"
 lru_time_cache = "0.11.11"
 log = "0.4.29"
-env_logger = "0.11.5"
+env_logger = "0.11.9"
 prost = "0.14.3"
 internet-packet = { version = "0.2.2", features = ["checksums"] }
 
