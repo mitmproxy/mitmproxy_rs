@@ -91,10 +91,10 @@ jobs:
 
       - if: runner.os == 'Linux'
         name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@f2d528f09a3bbfb659c9959647d05c64874401d8
+        uses: install-pinned/maturin-with-zig@50a97815617ed3208f5425e944211e05c41e9e1a
       - if: runner.os != 'Linux'
         name: Install maturin from PyPI
-        uses: install-pinned/maturin@2b1e63c9d1c75642660f559ebf5dacab346d0555
+        uses: install-pinned/maturin@0dc469a17c5724baec070538bf371c337fea8953
 
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         run: python .github/scripts/pin-versions.py
@@ -107,7 +107,7 @@ jobs:
       - if: contains(matrix.args, 'sdist')
         run: pip install --no-dependencies target/wheels/*.tar.gz
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.name }}
           path: target/wheels
@@ -132,7 +132,7 @@ jobs:
           APPLE_PROVISIONING_PROFILE_EXT: ${{ secrets.APPLE_PROVISIONING_PROFILE_EXT }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-app
           path: mitmproxy-macos/redirector/dist/
@@ -148,7 +148,7 @@ jobs:
       - run: cargo build --release --package windows-redirector
 
       - run: python -m build --wheel ./mitmproxy-windows --outdir target/wheels/
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-os-windows
           path: target/wheels
@@ -168,13 +168,13 @@ jobs:
           cargo build --release --package macos-certificate-truster --target x86_64-apple-darwin
           cargo build --release --package macos-certificate-truster --target aarch64-apple-darwin
           lipo -create -output target/release/macos-certificate-truster target/x86_64-apple-darwin/release/macos-certificate-truster target/aarch64-apple-darwin/release/macos-certificate-truster
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: macos-app
           path: mitmproxy-macos/redirector/dist/
 
       - run: python -m build --wheel ./mitmproxy-macos --outdir target/wheels/
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-os-macos
           path: target/wheels
@@ -195,12 +195,12 @@ jobs:
       - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
       - uses: ./.github/actions/setup
       - name: Install maturin[zig] from PyPI
-        uses: install-pinned/maturin-with-zig@f2d528f09a3bbfb659c9959647d05c64874401d8
+        uses: install-pinned/maturin-with-zig@50a97815617ed3208f5425e944211e05c41e9e1a
       - run: maturin build --release ${{ matrix.args }}
         working-directory: ./mitmproxy-linux
       - run: test -f target/wheels/*-py3-none-*.whl  # ensure we have a universal wheel
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-os-${{ matrix.name }}
           path: target/wheels
@@ -211,7 +211,7 @@ jobs:
     steps:
       - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
       - uses: ./.github/actions/setup
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: wheels-os-linux-x86_64
           path: target/wheels
