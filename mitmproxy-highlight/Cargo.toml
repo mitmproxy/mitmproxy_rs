@@ -12,7 +12,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-anyhow = { version = "1.0.100", features = ["backtrace"] }
+anyhow = { version = "1.0.102", features = ["backtrace"] }
 tree-sitter = "0.25.10"
 tree-sitter-css = "0.25.0"
 tree-sitter-highlight = "0.25.10"
