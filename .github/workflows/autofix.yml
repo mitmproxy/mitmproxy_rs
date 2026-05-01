@@ -28,7 +28,7 @@ jobs:
           --prost_opt="flat_output_dir=true"
           # --swift_out=./mitmproxy-macos/redirector/ipc
       - run: cargo fmt --all
-      - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8
+      - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a
 
   rustfmt:
     runs-on: ${{ matrix.os }}
@@ -53,4 +53,4 @@ jobs:
       - run: cargo fmt --all
       - run: git checkout src/ipc/mitmproxy_ipc.rs
 
-      - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8
+      - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a
