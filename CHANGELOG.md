@@ -1,11 +1,14 @@
 ## Unreleased: mitmproxy_rs next
 
+- Fix UDP connection establishment on IPv6-only networks.
 
 ## 30 January 2026: mitmproxy_rs 0.12.9
 
+- Update to Rust Edition 2024.
 
 ## 22 November 2025: mitmproxy_rs 0.12.8
 
+- Fix some bugs related to process icon creation.
 
 ## 15 July 2025: mitmproxy_rs 0.12.7
 

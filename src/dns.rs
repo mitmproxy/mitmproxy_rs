@@ -97,19 +97,39 @@ impl DnsResolver {
 }
 
 fn _interleave_addrinfos(lookup_ip: LookupIp) -> Vec<IpAddr> {
-    let (mut ipv4_addrs, mut ipv6_addrs): (Vec<IpAddr>, Vec<IpAddr>) =
-        lookup_ip.into_iter().partition(|addr| addr.is_ipv4());
+    let mut addrs: Vec<IpAddr> = lookup_ip.into_iter().collect();
+    interleave_inplace(&mut addrs, |a| a.is_ipv4());
+    addrs
+}
 
-    let mut interleaved: Vec<IpAddr> = Vec::with_capacity(ipv4_addrs.len() + ipv6_addrs.len());
-
-    while let Some(ipv4) = ipv4_addrs.pop() {
-        interleaved.push(ipv4);
-        if let Some(ipv6) = ipv6_addrs.pop() {
-            interleaved.push(ipv6);
+/// Reorder `items` in place so that elements matching `predicate` are interleaved
+/// with non-matching ones, starting with a matching element. Leftover elements of
+/// either kind are appended at the end. O(n) swaps.
+pub fn interleave_inplace<T, F>(items: &mut [T], mut predicate: F)
+where
+    F: FnMut(&T) -> bool,
+{
+    let mut lookahead = 1;
+    let mut expects = true;
+    let mut i = 0;
+    while i < items.len() {
+        if predicate(&items[i]) != expects {
+            let Some(off) = items[lookahead..]
+                .iter()
+                .position(|x| predicate(x) == expects)
+            else {
+                break;
+            };
+            lookahead += off;
+            items.swap(i, lookahead);
+            lookahead += 1;
+            i += 2;
+        } else {
+            i += 1;
+            expects = !expects;
+            lookahead = i + 1;
         }
     }
-    interleaved.append(&mut ipv6_addrs);
-    interleaved
 }
 
 #[cfg(test)]
@@ -195,5 +215,30 @@ mod tests {
 
         tokio::spawn(async move { server.block_until_done().await });
         Ok(listen_addr)
+    }
+
+    #[test]
+    fn interleave_more_matches_than_misses() {
+        let mut items = vec![false, true, false, true, true];
+        interleave_inplace(&mut items, |b| *b);
+        assert_eq!(items, vec![true, false, true, false, true]);
+    }
+
+    #[test]
+    fn interleave_more_misses_than_matches() {
+        let mut items = vec![false, false, false, true];
+        interleave_inplace(&mut items, |b| *b);
+        assert_eq!(items, vec![true, false, false, false]);
+    }
+
+    #[test]
+    fn interleave_single_kind() {
+        let mut items = vec![true, true, true];
+        interleave_inplace(&mut items, |b| *b);
+        assert_eq!(items, vec![true, true, true]);
+
+        let mut items = vec![false, false];
+        interleave_inplace(&mut items, |b| *b);
+        assert_eq!(items, vec![false, false]);
     }
 }
