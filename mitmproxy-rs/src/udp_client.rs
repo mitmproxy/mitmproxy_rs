@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use anyhow::{Result, anyhow};
 use pyo3::prelude::*;
-use tokio::net::{ToSocketAddrs, UdpSocket, lookup_host};
+use tokio::net::{UdpSocket, lookup_host};
 use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
 use tokio::sync::oneshot;
 
