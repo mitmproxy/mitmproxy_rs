@@ -13,7 +13,7 @@ workspace = true
 
 [dependencies]
 anyhow = { version = "1.0.102", features = ["backtrace"] }
-log = "0.4.29"
+log = "0.4.31"
 data-encoding = "2.11.0"
 pretty-hex = "0.4.2"
 mitmproxy-highlight = { path = "../mitmproxy-highlight" }
