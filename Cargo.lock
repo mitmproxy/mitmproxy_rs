@@ -567,26 +567,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
-name = "c2rust-bitfields"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcee50917f9de1a018e3f4f9a8f2ff3d030a288cffa4b18d9b391e97c12e4cfb"
-dependencies = [
- "c2rust-bitfields-derive",
-]
-
-[[package]]
-name = "c2rust-bitfields-derive"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b457277798202ccd365b9c112ebee08ddd57f1033916c8b8ea52f222e5b715d"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "camino"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1348,9 +1328,9 @@ dependencies = [
 
 [[package]]
 name = "futures"
-version = "0.3.31"
+version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65bc07b1a8bc7c85c5f2e110c476c7389b4554ba72af57d8445ea63a576b0876"
+checksum = "8b147ee9d1f6d097cef9ce628cd2ee62288d963e16fb287bd9286455b241382d"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -1379,9 +1359,9 @@ checksum = "7e3450815272ef58cec6d564423f6e755e25379b217b0bc688e295ba24df6b1d"
 
 [[package]]
 name = "futures-executor"
-version = "0.3.31"
+version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e28d1d997f585e54aebc3f97d39e72338912123a67330d723fdbb564d646c9f"
+checksum = "baf29c38818342a3b26b5b923639e7b1f4a61fc5e76102d4b1981c6dc7a7579d"
 dependencies = [
  "futures-core",
  "futures-task",
@@ -1777,7 +1757,7 @@ dependencies = [
  "hyper",
  "libc",
  "pin-project-lite",
- "socket2 0.6.3",
+ "socket2 0.6.4",
  "tokio",
  "tower-service",
  "tracing",
@@ -2001,14 +1981,14 @@ dependencies = [
  "socket2 0.5.10",
  "widestring",
  "windows-sys 0.48.0",
- "winreg 0.50.0",
+ "winreg",
 ]
 
 [[package]]
 name = "ipnet"
-version = "2.11.0"
+version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "469fb0b9cefa57e3ef31275ee7cacb78f2fdca44e4765491884a2b119d4eb130"
+checksum = "d98f6fed1fde3f8c21bc40a1abb88dd75e67924f9cffc3ef95607bad8017f8e2"
 dependencies = [
  "serde",
 ]
@@ -2136,9 +2116,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.29"
+version = "0.4.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
+checksum = "113b30b4cd05f7c06868fdb2854f66a7b9fece9a48425351cd532e810d74024f"
 
 [[package]]
 name = "lru_time_cache"
@@ -2265,7 +2245,7 @@ dependencies = [
  "rand 0.9.4",
  "security-framework",
  "smoltcp",
- "socket2 0.6.3",
+ "socket2 0.6.4",
  "sysinfo",
  "tempfile",
  "tokio",
@@ -3560,9 +3540,9 @@ dependencies = [
 
 [[package]]
 name = "socket2"
-version = "0.6.3"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
+checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
@@ -3642,9 +3622,9 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 
 [[package]]
 name = "tar"
-version = "0.4.45"
+version = "0.4.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22692a6476a21fa75fdfc11d452fda482af402c008cdbaf3476414e122040973"
+checksum = "3f6221d9a6003c78398e3b239969f352578258df48c8eb051caadae0015bc840"
 dependencies = [
  "filetime",
  "libc",
@@ -3789,16 +3769,16 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.52.1"
+version = "1.52.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b67dee974fe86fd92cc45b7a95fdd2f99a36a6d7b0d431a231178d3d670bbcc6"
+checksum = "8fc7f01b389ac15039e4dc9531aa973a135d7a4135281b12d7c1bc79fd57fffe"
 dependencies = [
  "bytes",
  "libc",
  "mio",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2 0.6.3",
+ "socket2 0.6.4",
  "tokio-macros",
  "tracing",
  "windows-sys 0.61.2",
@@ -3897,7 +3877,7 @@ dependencies = [
  "hyper-util",
  "percent-encoding",
  "pin-project",
- "socket2 0.6.3",
+ "socket2 0.6.4",
  "sync_wrapper",
  "tokio",
  "tokio-stream",
@@ -4096,9 +4076,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "tun"
-version = "0.8.7"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ebb3e56bb60c1e6650c9317997862ab05864c358add3cfaa34b855ffae583d0"
+checksum = "7d07399f01137a3754b66fd571f6ad283b99acc86ccc9a5c11a4445253598aac"
 dependencies = [
  "bytes",
  "cfg-if",
@@ -4812,16 +4792,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "winreg"
-version = "0.55.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb5a765337c50e9ec252c2069be9bf91c7df47afb103b642ba3a53bf8101be97"
-dependencies = [
- "cfg-if",
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "winres"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4832,18 +4802,16 @@ dependencies = [
 
 [[package]]
 name = "wintun-bindings"
-version = "0.7.34"
+version = "0.7.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27ae04d34b8569174e849128d2e36538329a27daa79c06ed0375f2c5d6704461"
+checksum = "4d94caf41ce60c37c9215c68f124835c401d2ec4f9b3b6431b491c79b3cdd335"
 dependencies = [
  "blocking",
- "c2rust-bitfields",
  "futures",
  "libloading",
  "log",
  "thiserror 2.0.18",
  "windows-sys 0.61.2",
- "winreg 0.55.0",
 ]
 
 [[package]]
