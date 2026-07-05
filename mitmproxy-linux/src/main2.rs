@@ -38,7 +38,7 @@ fn load_bpf(device_index: u32) -> Result<Ebpf> {
     debug!("Loading BPF program ({:x})...", Bytes::from_static(&BPF_HASH));
     let mut ebpf = EbpfLoader::new()
         .btf(Btf::from_sys_fs().ok().as_ref())
-        .set_global("INTERFACE_ID", &device_index, true)
+        .override_global("INTERFACE_ID", &device_index, true)
         .load(BPF_PROG)
         .context("failed to load eBPF program")?;
     if let Err(e) = aya_log::EbpfLogger::init(&mut ebpf) {
