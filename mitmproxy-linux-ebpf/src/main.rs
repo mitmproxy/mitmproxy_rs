@@ -28,7 +28,7 @@ pub fn cgroup_sock_create(ctx: SockContext) -> i32 {
 
 pub fn should_intercept(ctx: &SockContext) -> bool {
     let command = ctx.command().ok();
-    let pid = ctx.pid();
+    let pid = ctx.tgid();
 
     let mut intercept = matches!(INTERCEPT_CONF.get(0), Some(Action::Exclude(_)));
     for i in 0..INTERCEPT_CONF_LEN {
