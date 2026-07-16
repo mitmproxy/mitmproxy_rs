@@ -1,7 +1,7 @@
 use anyhow::Context;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use pyo3::prelude::*;
 use tokio::net::{UdpSocket, lookup_host};
 use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
@@ -10,7 +10,6 @@ use tokio::sync::oneshot;
 use crate::stream::{Stream, StreamState};
 use mitmproxy::MAX_PACKET_SIZE;
 use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
-
 use mitmproxy::packet_sources::udp::remote_host_closed_conn;
 
 /// Start a UDP client that is configured with the given parameters:
@@ -57,41 +56,45 @@ pub fn open_udp_connection(
     })
 }
 
-/// Open an UDP socket from bind_to to host:port.
-/// This is a bit trickier than expected because we want to support IPv4 and IPv6.
+/// Open a UDP socket connected to `host:port`.
 async fn udp_connect(
     host: String,
     port: u16,
     local_addr: Option<(String, u16)>,
 ) -> Result<UdpSocket> {
-    let addrs: Vec<SocketAddr> = lookup_host((host.as_str(), port))
+    let mut addrs: Vec<SocketAddr> = lookup_host((host.as_str(), port))
         .await
         .with_context(|| format!("unable to resolve hostname: {host}"))?
         .collect();
+    mitmproxy::dns::interleave_inplace(&mut addrs, |a| a.is_ipv4());
+    let local_addr = local_addr.as_ref().map(|(h, p)| (h.as_str(), *p));
 
-    let socket = if let Some((host, port)) = local_addr {
-        UdpSocket::bind((host.as_str(), port))
-            .await
-            .with_context(|| format!("unable to bind to ({host}, {port})"))?
-    } else if addrs.iter().any(|x| x.is_ipv4()) {
-        // we initially tried to bind to IPv6 by default if that doesn't fail,
-        // but binding mysteriously works if there are only IPv4 addresses in addrs,
-        // and then we get a weird "invalid argument" error when calling socket.recv().
-        // So we just do the lazy thing and do IPv4 by default.
-        UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0))
-            .await
-            .context("unable to bind to 127.0.0.1:0")?
-    } else {
-        UdpSocket::bind(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0))
-            .await
-            .context("unable to bind to [::]:0")?
-    };
+    let mut last_err: Option<anyhow::Error> = None;
+    for addr in addrs {
+        let socket = match (local_addr, addr) {
+            (Some((host, port)), _) => UdpSocket::bind((host, port)).await,
+            (None, SocketAddr::V4(_)) => {
+                UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)).await
+            }
+            (None, SocketAddr::V6(_)) => {
+                UdpSocket::bind(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0)).await
+            }
+        };
+        let socket = match socket {
+            Ok(s) => s,
+            Err(e) => {
+                last_err = Some(e.into());
+                continue;
+            }
+        };
+        match socket.connect(addr).await {
+            Ok(()) => return Ok(socket),
+            Err(e) => last_err = Some(e.into()),
+        }
+    }
 
-    socket
-        .connect(addrs.as_slice())
-        .await
-        .with_context(|| format!("unable to connect to {host}"))?;
-    Ok(socket)
+    Err(last_err.unwrap_or_else(|| anyhow!("unable to resolve hostname: no addresses for {host}")))
+        .with_context(|| format!("unable to connect to {host}"))
 }
 
 #[derive(Debug)]
