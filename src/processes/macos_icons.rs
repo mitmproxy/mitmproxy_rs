@@ -87,11 +87,16 @@ mod tests {
     fn png() {
         let path = PathBuf::from("/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder");
         let mut icon_cache = IconCache::default();
-        let vec = icon_cache.get_png(path).unwrap();
+        let vec = match icon_cache.get_png(path) {
+            Ok(x) => x,
+            Err(e) => {
+                // https://github.com/image-rs/image/issues/2795
+                assert!(format!("{e:?}").contains("Unhandled TIFF sample format 3 for 16 bits"));
+                return;
+            }
+        };
         assert!(!vec.is_empty());
-        dbg!(vec.len());
         let base64_png = BASE64.encode(vec);
-        dbg!(base64_png);
     }
 
     #[ignore]
