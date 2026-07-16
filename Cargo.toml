@@ -62,7 +62,7 @@ smoltcp = "0.12"
 tokio = { version = "1.47.1", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util", "process"] }
 boringtun = { version = "0.6", default-features = false }
 console-subscriber = { version = "0.4.1", optional = true }
-image = { version = "0.25.6", default-features = false, features = ["png", "tiff"] }
+image = { version = "0.25.10", default-features = false, features = ["png", "tiff"] }
 prost = "0.14.1"
 tokio-util = { version = "0.7.14", features = ["codec"] }
 futures-util = { version = "0.3.31", features = ["sink"] }
