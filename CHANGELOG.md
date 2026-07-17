@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+
+## 17 July 2026: mitmproxy_rs 0.12.10
+
 - Fix UDP connection establishment on IPv6-only networks.
 - Fix Linux local mode missing traffic from non-main threads
 
