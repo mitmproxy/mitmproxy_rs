@@ -113,7 +113,7 @@ pub fn get_display_name(executable: &Path) -> Result<String> {
         let version_info_size = {
             let size = GetFileVersionInfoSizeW(PCWSTR::from_raw(executable_path.as_ptr()), None);
             if size == 0 {
-                return Err(windows::core::Error::from_win32().into());
+                return Err(windows::core::Error::from_thread().into());
             }
             size
         };
