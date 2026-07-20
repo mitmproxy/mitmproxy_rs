@@ -84,7 +84,7 @@ impl AddrInfoErrorConst {
     }
     fn get(&self) -> isize {
         *self.1.get_or_init(|| {
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 py.import("socket")
                     .and_then(|m| m.getattr(self.0))
                     .and_then(|m| m.extract())

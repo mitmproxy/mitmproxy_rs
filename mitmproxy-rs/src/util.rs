@@ -25,7 +25,7 @@ where
         .ok_or_else(|| PyValueError::new_err("Invalid key."))
 }
 
-pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyResult<PyObject> {
+pub fn socketaddr_to_py(py: Python, s: SocketAddr) -> PyResult<Py<PyAny>> {
     (s.ip().to_string(), s.port()).into_py_any(py)
 }
 

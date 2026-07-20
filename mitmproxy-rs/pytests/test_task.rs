@@ -65,7 +65,7 @@ mod tests {
         let (event_tx, event_rx) = mpsc::channel(1);
         let (shutdown_tx, shutdown_rx) = shutdown::channel();
 
-        let (tcp_handler, udp_handler) = Python::with_gil(|py| {
+        let (tcp_handler, udp_handler) = Python::attach(|py| {
             let locals = PyDict::new(py);
             let code = CString::new(code).unwrap();
             py.run(&code, None, Some(&locals)).unwrap();

@@ -70,7 +70,7 @@ pub fn active_executables() -> PyResult<Vec<Process>> {
 /// *Availability: Windows, macOS*
 #[pyfunction]
 #[allow(unused_variables)]
-pub fn executable_icon(py: Python<'_>, path: PathBuf) -> PyResult<PyObject> {
+pub fn executable_icon(py: Python<'_>, path: PathBuf) -> PyResult<Py<PyAny>> {
     #[cfg(any(windows, target_os = "macos"))]
     {
         let mut icon_cache = processes::ICON_CACHE.lock().unwrap();

@@ -38,8 +38,8 @@ impl Server {
     /// Set up and initialize a new WireGuard server.
     pub async fn init<T>(
         packet_source_conf: T,
-        py_tcp_handler: PyObject,
-        py_udp_handler: PyObject,
+        py_tcp_handler: Py<PyAny>,
+        py_udp_handler: Py<PyAny>,
     ) -> Result<(Self, T::Data)>
     where
         T: PacketSourceConf,
