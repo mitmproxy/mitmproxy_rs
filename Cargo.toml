@@ -104,7 +104,7 @@ sysinfo = "0.39.6"
 
 [dev-dependencies]
 env_logger = "0.11"
-rand = "0.9"
+rand = "0.10.2"
 criterion = "0.7.0"
 hickory-server = "0.26.1"
 
