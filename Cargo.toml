@@ -35,10 +35,10 @@ edition = "2024"
 rust-version = "1.95"  # MSRV
 
 [workspace.dependencies]
-aya = { version = "0.13.0", default-features = false }
-aya-ebpf = { version = "0.1.1", default-features = false }
-aya-log = { version = "0.2.1", default-features = false }
-aya-log-ebpf = { version = "0.1.0", default-features = false }
+aya = { version = "0.14.0", default-features = false }
+aya-ebpf = { version = "0.2.1", default-features = false }
+aya-log = { version = "0.3.0", default-features = false }
+aya-log-ebpf = { version = "0.2.0", default-features = false }
 tun = { version = "0.8.8" }
 
 [workspace.lints.clippy]

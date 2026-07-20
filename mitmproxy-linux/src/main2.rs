@@ -44,10 +44,14 @@ fn load_bpf(device_index: u32) -> Result<Ebpf> {
     );
     let mut ebpf = EbpfLoader::new()
         .btf(Btf::from_sys_fs().ok().as_ref())
-        .set_global("INTERFACE_ID", &device_index, true)
+        .override_global("INTERFACE_ID", &device_index, true)
         .load(BPF_PROG)
         .context("failed to load eBPF program")?;
-    if let Err(e) = aya_log::EbpfLogger::init(&mut ebpf) {
+    // In aya-log 0.3, EbpfLogger::init takes ownership of the AYA_LOGS map FD.
+    // We must keep the logger alive until after all programs are loaded,
+    // otherwise the closed FD causes "fd is not pointing to valid bpf_map" errors.
+    let _logger = aya_log::EbpfLogger::init(&mut ebpf);
+    if let Err(e) = &_logger {
         // This can happen if you remove all log statements from your eBPF program.
         warn!("failed to initialize eBPF logger: {e}");
     }
