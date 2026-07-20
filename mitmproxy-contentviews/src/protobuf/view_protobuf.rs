@@ -1,7 +1,5 @@
 use crate::protobuf::existing_proto_definitions::DescriptorWithDeps;
-use crate::protobuf::{
-    existing_proto_definitions, proto_to_yaml, raw_to_proto, reencode, yaml_to_pretty,
-};
+use crate::protobuf::{existing_proto_definitions, proto_to_yaml, reencode, yaml_to_pretty};
 use crate::{Metadata, Prettify, Reencode};
 use anyhow::{Context, Result};
 use log::info;
@@ -82,13 +80,7 @@ impl Protobuf {
             return Ok("{}  # empty protobuf message".to_string());
         }
 
-        let descriptor = raw_to_proto::merge_proto_and_descriptor(data, descriptor)?;
-
-        // Parse protobuf and convert to YAML
-        let message = descriptor
-            .parse_from_bytes(data)
-            .context("Error parsing protobuf")?;
-        let yaml_value = proto_to_yaml::message_to_yaml(message.as_ref());
+        let yaml_value = proto_to_yaml::decode_proto_to_yaml(data, &descriptor.descriptor)?;
 
         let yaml_str = serde_yaml::to_string(&yaml_value).context("Failed to convert to YAML")?;
         yaml_to_pretty::apply_replacements(&yaml_str)
@@ -219,6 +211,19 @@ mod tests {
 
         const VARINT_PRETTY_YAML: &str = "example: 150\n";
 
+        const EXTRA_STRING_PROTO: &[u8] = &[
+            8, 10, 26, 5, 104, 101, 108, 108, 111, 26, 5, 116, 104, 101, 114, 101,
+        ];
+        const EXTRA_STRING_YAML: &str = "example: 10\n3:\n- hello\n- there\n";
+
+        const EXTRA_MESSAGE_PROTO: &[u8] = &[
+            8, 42, 18, 36, 26, 28, 97, 32, 110, 101, 115, 116, 101, 100, 32, 109, 101, 115, 115,
+            97, 103, 101, 32, 119, 105, 116, 104, 32, 98, 121, 116, 101, 115, 33, 34, 4, 222, 173,
+            190, 239,
+        ];
+        const EXTRA_MESSAGE_YAML: &str =
+            "example: 42\n2:\n  3: a nested message with bytes!\n  4: !binary deadbeef\n";
+
         #[test]
         fn prettify() {
             let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
@@ -239,6 +244,27 @@ mod tests {
             ));
             let result = Protobuf.prettify(string::PROTO, &metadata).unwrap();
             assert_eq!(result, string::YAML);
+        }
+
+        /// When the wire data has additional fields
+        #[test]
+        fn extra_unknown_fields() {
+            let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/testdata/protobuf/simple.proto"
+            ));
+            let result = Protobuf.prettify(EXTRA_STRING_PROTO, &metadata).unwrap();
+            assert_eq!(result, EXTRA_STRING_YAML);
+        }
+        /// When the wire data has an additional unknown message
+        #[test]
+        fn extra_unknown_message() {
+            let metadata = TestMetadata::default().with_protobuf_definitions(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/testdata/protobuf/simple.proto"
+            ));
+            let result = Protobuf.prettify(EXTRA_MESSAGE_PROTO, &metadata).unwrap();
+            assert_eq!(result, EXTRA_MESSAGE_YAML);
         }
 
         #[test]

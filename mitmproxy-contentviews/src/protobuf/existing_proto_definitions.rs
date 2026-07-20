@@ -7,6 +7,7 @@ use std::path::Path;
 
 pub(super) struct DescriptorWithDeps {
     pub descriptor: MessageDescriptor,
+    #[allow(unused)]
     pub dependencies: Vec<FileDescriptor>,
 }
 
