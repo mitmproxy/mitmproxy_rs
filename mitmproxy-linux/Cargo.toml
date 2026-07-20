@@ -29,6 +29,8 @@ prost = "0.14.3"
 internet-packet = { version = "0.2.0", features = ["checksums"] }
 libc = "0.2.186"
 const-sha1 = "0.3.0"
+rtnetlink = "0.21.0"
+netlink-packet-route = "0.30.0"
 
 [target.'cfg(target_os = "linux")'.build-dependencies]
 anyhow = { version = "1.0.102", features = ["backtrace"] }
