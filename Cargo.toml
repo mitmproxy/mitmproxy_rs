@@ -69,7 +69,7 @@ futures-util = { version = "0.3.31", features = ["sink"] }
 lru_time_cache = "0.11.11"
 internet-packet = { version = "0.2.4", features = ["smoltcp"] }
 data-encoding = "2.8.0"
-hickory-resolver = "0.25.2"
+hickory-resolver = "0.26.1"
 socket2 = "0.6.0"
 
 
@@ -106,7 +106,7 @@ sysinfo = "0.36.1"
 env_logger = "0.11"
 rand = "0.9"
 criterion = "0.7.0"
-hickory-server = "0.25.2"
+hickory-server = "0.26.1"
 
 [[bench]]
 name = "process"
