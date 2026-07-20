@@ -32,7 +32,7 @@ version = "0.13.0-dev"
 publish = false
 repository = "https://github.com/mitmproxy/mitmproxy-rs"
 edition = "2024"
-rust-version = "1.88"  # MSRV
+rust-version = "1.95"  # MSRV
 
 [workspace.dependencies]
 aya = { version = "0.13.0", default-features = false }

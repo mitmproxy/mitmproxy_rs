@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MSRV: "1.88"  # Minimum Supported Rust Version
+  MSRV: "1.95"  # Minimum Supported Rust Version
 
 jobs:
   protobuf:
