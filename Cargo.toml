@@ -95,12 +95,12 @@ nix = { version = "0.31.3", default-features = false, features = ["fs"] }
 core-graphics = "0.25"
 core-foundation = "0.10"
 objc2-app-kit = { version = "0.3.2", features = ["NSRunningApplication", "NSImage", "libc"] }
-sysinfo = "0.36.1"
+sysinfo = "0.39.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tun = { workspace = true, features = ["async"] }
 tempfile = "3.20.0"
-sysinfo = "0.36.1"
+sysinfo = "0.39.6"
 
 [dev-dependencies]
 env_logger = "0.11"
