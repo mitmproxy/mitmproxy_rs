@@ -60,7 +60,7 @@ log = "0.4.27"
 pretty-hex = "0.4.1"
 smoltcp = "0.13.1"
 tokio = { version = "1.47.1", features = ["macros", "net", "rt-multi-thread", "sync", "time", "io-util", "process"] }
-boringtun = { version = "0.6", default-features = false }
+boringtun = { version = "0.7.1", default-features = false }
 console-subscriber = { version = "0.4.1", optional = true }
 image = { version = "0.25.10", default-features = false, features = ["png", "tiff"] }
 prost = "0.14.1"
@@ -72,9 +72,6 @@ data-encoding = "2.8.0"
 hickory-resolver = "0.25.2"
 socket2 = "0.6.0"
 
-[patch.crates-io]
-# tokio = { path = "../tokio/tokio" }
-boringtun = { git = 'https://github.com/cloudflare/boringtun', rev = '2f3c85f5c4a601018c10b464b1ca890d9504bf6e' }
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.61.3"

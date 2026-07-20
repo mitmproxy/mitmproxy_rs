@@ -414,12 +414,6 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
-
-[[package]]
-name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
@@ -484,11 +478,12 @@ dependencies = [
 
 [[package]]
 name = "boringtun"
-version = "0.6.0"
-source = "git+https://github.com/cloudflare/boringtun?rev=2f3c85f5c4a601018c10b464b1ca890d9504bf6e#2f3c85f5c4a601018c10b464b1ca890d9504bf6e"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15dd6a8a89cbe8997f37ca0cf035e6ea4d64cd2ecea4aed83ffb9f99f7126939"
 dependencies = [
  "aead",
- "base64 0.13.1",
+ "base64 0.22.1",
  "blake2",
  "chacha20poly1305",
  "hex",
@@ -496,8 +491,9 @@ dependencies = [
  "ip_network",
  "ip_network_table",
  "libc",
- "nix 0.25.1",
+ "nix 0.31.3",
  "parking_lot",
+ "portable-atomic",
  "rand_core 0.6.4",
  "ring",
  "tracing",
@@ -2332,18 +2328,6 @@ dependencies = [
  "libc",
  "log",
  "tokio",
-]
-
-[[package]]
-name = "nix"
-version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f346ff70e7dbfd675fe90590b92d59ef2de15a8779ae305ebcbfd3f0caf59be4"
-dependencies = [
- "autocfg",
- "bitflags 1.3.2",
- "cfg-if",
- "libc",
 ]
 
 [[package]]
