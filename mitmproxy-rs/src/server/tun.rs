@@ -64,8 +64,8 @@ impl TunInterface {
 #[pyo3(signature = (handle_tcp_stream, handle_udp_stream, tun_name=None))]
 pub fn create_tun_interface(
     py: Python<'_>,
-    handle_tcp_stream: PyObject,
-    handle_udp_stream: PyObject,
+    handle_tcp_stream: Py<PyAny>,
+    handle_udp_stream: Py<PyAny>,
     tun_name: Option<String>,
 ) -> PyResult<Bound<'_, PyAny>> {
     #[cfg(target_os = "linux")]

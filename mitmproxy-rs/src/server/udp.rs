@@ -57,7 +57,7 @@ pub fn start_udp_server(
     py: Python<'_>,
     host: IpAddr,
     port: u16,
-    handle_udp_stream: PyObject,
+    handle_udp_stream: Py<PyAny>,
 ) -> PyResult<Bound<'_, PyAny>> {
     let conf = UdpConf {
         listen_addr: SocketAddr::from((host, port)),

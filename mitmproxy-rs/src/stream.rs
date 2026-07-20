@@ -151,8 +151,8 @@ impl Stream {
         &self,
         py: Python,
         name: String,
-        default: Option<PyObject>,
-    ) -> PyResult<PyObject> {
+        default: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
         match name.as_str() {
             "transport_protocol" => {
                 let proto = if self.connection_id.is_tcp() {

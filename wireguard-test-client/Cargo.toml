@@ -15,6 +15,6 @@ workspace = true
 [dependencies]
 anyhow = "1.0.102"
 data-encoding = "2.11.0"
-boringtun = "0.6"
+boringtun = "0.7.1"
 hex = "0.4"
-smoltcp = "0.12"
+smoltcp = "0.13.1"

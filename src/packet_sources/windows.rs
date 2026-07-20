@@ -80,7 +80,7 @@ impl PacketSourceConf for WindowsConf {
 
         if cfg!(debug_assertions) {
             if result.0 as u32 <= 32 {
-                let err = windows::core::Error::from_win32();
+                let err = windows::core::Error::from_thread();
                 log::warn!("Failed to start child process: {err}");
             }
         } else if result.0 as u32 == SE_ERR_ACCESSDENIED {
@@ -88,7 +88,7 @@ impl PacketSourceConf for WindowsConf {
                 "Failed to start the interception process as administrator."
             ));
         } else if result.0 as u32 <= 32 {
-            let err = windows::core::Error::from_win32();
+            let err = windows::core::Error::from_thread();
             return Err(anyhow!("Failed to start the executable: {err}"));
         }
 

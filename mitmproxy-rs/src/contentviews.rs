@@ -77,9 +77,10 @@ impl Metadata for PythonMetadata<'_> {
     }
 }
 
-impl<'py> FromPyObject<'py> for PythonMetadata<'py> {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        Ok(PythonMetadata::new(ob.clone()))
+impl<'a, 'py> FromPyObject<'a, 'py> for PythonMetadata<'py> {
+    type Error = PyErr;
+    fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        Ok(PythonMetadata::new(ob.to_owned()))
     }
 }
 
@@ -121,7 +122,7 @@ impl Contentview {
         self.0.syntax_highlight().as_str()
     }
 
-    fn __lt__(&self, py: Python<'_>, other: PyObject) -> PyResult<bool> {
+    fn __lt__(&self, py: Python<'_>, other: Py<PyAny>) -> PyResult<bool> {
         Ok(self.name() < other.getattr(py, "name")?.extract::<String>(py)?.as_str())
     }
 

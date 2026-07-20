@@ -44,10 +44,11 @@ fn load_bpf(device_index: u32) -> Result<Ebpf> {
     );
     let mut ebpf = EbpfLoader::new()
         .btf(Btf::from_sys_fs().ok().as_ref())
-        .set_global("INTERFACE_ID", &device_index, true)
+        .override_global("INTERFACE_ID", &device_index, true)
         .load(BPF_PROG)
         .context("failed to load eBPF program")?;
-    if let Err(e) = aya_log::EbpfLogger::init(&mut ebpf) {
+    let logger = aya_log::EbpfLogger::init(&mut ebpf);
+    if let Err(e) = &logger {
         // This can happen if you remove all log statements from your eBPF program.
         warn!("failed to initialize eBPF logger: {e}");
     }

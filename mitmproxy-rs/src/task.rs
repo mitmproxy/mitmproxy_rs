@@ -16,8 +16,8 @@ pub struct PyInteropTask {
     locals: TaskLocals,
     transport_commands: mpsc::UnboundedSender<TransportCommand>,
     transport_events: mpsc::Receiver<TransportEvent>,
-    py_tcp_handler: PyObject,
-    py_udp_handler: PyObject,
+    py_tcp_handler: Py<PyAny>,
+    py_udp_handler: Py<PyAny>,
     shutdown: shutdown::Receiver,
 }
 
@@ -26,12 +26,12 @@ impl PyInteropTask {
     pub fn new(
         transport_commands: mpsc::UnboundedSender<TransportCommand>,
         transport_events: mpsc::Receiver<TransportEvent>,
-        py_tcp_handler: PyObject,
-        py_udp_handler: PyObject,
+        py_tcp_handler: Py<PyAny>,
+        py_udp_handler: Py<PyAny>,
         shutdown: shutdown::Receiver,
     ) -> Result<Self> {
         // Note: The current asyncio event loop needs to be determined here on the main thread.
-        let locals = Python::with_gil(|py| -> Result<TaskLocals, PyErr> {
+        let locals = Python::attach(|py| -> Result<TaskLocals, PyErr> {
             let py_loop = pyo3_async_runtimes::tokio::get_current_loop(py)?;
             TaskLocals::new(py_loop).copy_context(py)
         })
@@ -82,7 +82,7 @@ impl PyInteropTask {
                             let mut conns = active_streams.lock().await;
 
                             // spawn connection handler coroutine
-                            if let Err(err) = Python::with_gil(|py| -> Result<(), PyErr> {
+                            if let Err(err) = Python::attach(|py| -> Result<(), PyErr> {
 
                                 // calling Python coroutine object yields an awaitable object
                                 let coro = if connection_id.is_tcp() {
@@ -99,7 +99,7 @@ impl PyInteropTask {
                                     let active_streams = active_streams.clone();
                                     tokio::spawn(async move {
                                         if let Err(err) = future.await {
-                                            let is_cancelled = Python::with_gil(|py| err.is_instance_of::<CancelledError>(py));
+                                            let is_cancelled = Python::attach(|py| err.is_instance_of::<CancelledError>(py));
                                             if !is_cancelled {
                                                 log::error!("TCP connection handler coroutine raised an exception:\n{err}");
                                             }
