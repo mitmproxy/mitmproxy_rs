@@ -2114,7 +2114,7 @@ dependencies = [
  "internet-packet",
  "log",
  "lru_time_cache",
- "nix 0.30.1",
+ "nix 0.31.3",
  "objc2-app-kit",
  "pretty-hex",
  "prost",

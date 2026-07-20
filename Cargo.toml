@@ -91,7 +91,7 @@ features = [
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3.2.0"
-nix = { version = "0.30.1", default-features = false, features = ["fs"] }
+nix = { version = "0.31.3", default-features = false, features = ["fs"] }
 core-graphics = "0.25"
 core-foundation = "0.10"
 objc2-app-kit = { version = "0.3.2", features = ["NSRunningApplication", "NSImage", "libc"] }
