@@ -1,5 +1,6 @@
 ## Unreleased: mitmproxy_rs next
 
+- Add IPv6 support to Linux local capture mode.
 
 ## 17 July 2026: mitmproxy_rs 0.12.10
 
