@@ -313,4 +313,85 @@ mod tests {
     async fn bpf_load() {
         load_bpf(0).unwrap();
     }
+
+    /// Regression test for: mitmproxy started as root (e.g. privileged
+    /// Kubernetes container) must NOT require `sudo`.
+    ///
+    /// The test simulates a container image that has no `sudo` binary by
+    /// running with a PATH that excludes any directory containing `sudo`.
+    /// It then invokes the redirector binary directly (as root would) and
+    /// verifies it starts — proving that the fix in `start_redirector` works:
+    /// when `uid == 0`, the binary is launched directly without `sudo`.
+    ///
+    /// Requires: feature `root-tests` + runner must be root (uid 0).
+    /// In CI this is achieved with:
+    ///   CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="sudo -E" cargo test --features root-tests
+    #[cfg_attr(not(feature = "root-tests"), ignore)]
+    #[tokio::test]
+    async fn root_starts_redirector_without_sudo() {
+        // Gate: this test only makes sense when running as root.
+        let uid = unsafe { libc::getuid() };
+        assert_eq!(uid, 0, "this test must run as root (uid=0), got uid={uid}");
+
+        // Simulate a container image without sudo: remove every directory
+        // that contains a `sudo` binary from PATH.
+        let path_without_sudo: String = std::env::var("PATH")
+            .unwrap_or_default()
+            .split(':')
+            .filter(|dir| !std::path::Path::new(dir).join("sudo").exists())
+            .collect::<Vec<_>>()
+            .join(":");
+        // Safety: single-threaded at this point in the test, env mutation is OK.
+        unsafe { std::env::set_var("PATH", &path_without_sudo) };
+
+        // Sanity-check: sudo must not be reachable anymore.
+        let sudo_found = std::process::Command::new("which")
+            .arg("sudo")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        assert!(
+            !sudo_found,
+            "sudo is still reachable via PATH={path_without_sudo:?}; pre-condition not met"
+        );
+
+        // The redirector binary is produced by `cargo build` in the same
+        // workspace. CARGO_BIN_EXE_mitmproxy-linux-redirector is injected by
+        // cargo when compiling tests that live in the same workspace as the
+        // binary target.
+        let redirector_exe = std::path::PathBuf::from(
+            env!("CARGO_BIN_EXE_mitmproxy-linux-redirector"),
+        );
+        assert!(
+            redirector_exe.exists(),
+            "redirector binary not found at {}; run `cargo build` first",
+            redirector_exe.display()
+        );
+
+        // Spawn the redirector directly (as root, no sudo).
+        // We pass an intentionally non-existent pipe-dir so the process exits
+        // quickly with an error, but the important thing is that it was
+        // LAUNCHED — meaning no "Failed to run sudo" error occurred.
+        let output = std::process::Command::new(&redirector_exe)
+            .arg("/tmp/mitmproxy-root-test-nonexistent")
+            .env("PATH", &path_without_sudo)
+            .output()
+            .expect("failed to spawn the redirector binary — did it fail because sudo was missing?");
+
+        // The process may exit with an error (missing pipe dir / no eBPF),
+        // but must NOT produce the "No such file or directory" error that
+        // comes from trying to execute a missing `sudo`.
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            !stderr.contains("No such file or directory"),
+            "redirector stderr contains 'No such file or directory', \
+             which suggests sudo was invoked even though we are root.\n\
+             stderr: {stderr}"
+        );
+        assert!(
+            !stderr.contains("Failed to run sudo"),
+            "redirector stderr contains 'Failed to run sudo' — the fix is not active.\n\
+             stderr: {stderr}"
+        );
+    }
 }

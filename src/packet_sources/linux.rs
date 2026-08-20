@@ -21,31 +21,68 @@ use tokio::net::UnixDatagram;
 use tokio::process::Command;
 use tokio::time::timeout;
 
+/// Returns `true` if the current process is running as root (uid 0).
+#[cfg(unix)]
+fn is_root() -> bool {
+    // SAFETY: getuid() is always safe to call.
+    unsafe { libc::getuid() == 0 }
+}
+
+/// Builds the [`std::process::Command`] used to launch the redirector binary.
+///
+/// When `already_root` is `true`, the redirector is invoked directly so that
+/// environments without `sudo` (e.g. a privileged Kubernetes container) work
+/// out of the box.  Otherwise `sudo --non-interactive --preserve-env` is
+/// prepended to perform privilege escalation.
+///
+/// Extracted as a pure helper so it can be unit-tested without spawning
+/// real processes.
+fn build_redirector_command(
+    executable: &Path,
+    listener_addr: &Path,
+    already_root: bool,
+) -> Command {
+    if already_root {
+        let mut cmd = Command::new(executable);
+        cmd.arg(listener_addr);
+        cmd
+    } else {
+        let mut cmd = Command::new("sudo");
+        cmd.arg("--non-interactive")
+            .arg("--preserve-env")
+            .arg(executable)
+            .arg(listener_addr);
+        cmd
+    }
+}
+
 async fn start_redirector(
     executable: &Path,
     listener_addr: &Path,
     shutdown: shutdown::Receiver,
 ) -> Result<PathBuf> {
-    debug!("Elevating privileges...");
-    // Try to elevate privileges using a dummy sudo invocation.
-    // The idea here is to block execution and give the user time to enter their password.
-    // For now, we naively assume that all systems 1) have sudo and 2) timestamp_timeout > 0.
-    let mut sudo = Command::new("sudo")
-        .arg("echo")
-        .arg("-n")
-        .spawn()
-        .context("Failed to run sudo.")?;
-    sudo.stdin.take();
-    if !sudo.wait().await.is_ok_and(|x| x.success()) {
-        bail!("Failed to elevate privileges");
+    let already_root = is_root();
+
+    if already_root {
+        debug!("Already running as root, skipping privilege elevation.");
+    } else {
+        debug!("Elevating privileges...");
+        // Try to elevate privileges using a dummy sudo invocation.
+        // The idea here is to block execution and give the user time to enter their password.
+        // For now, we naively assume that all systems 1) have sudo and 2) timestamp_timeout > 0.
+        let mut sudo = Command::new("sudo")
+            .arg("echo")
+            .arg("-n")
+            .spawn()
+            .context("Failed to run sudo.")?;
+        sudo.stdin.take();
+        if !sudo.wait().await.is_ok_and(|x| x.success()) {
+            bail!("Failed to elevate privileges");
+        }
     }
 
     debug!("Starting mitmproxy-linux-redirector...");
-    let mut redirector_process = Command::new("sudo")
-        .arg("--non-interactive")
-        .arg("--preserve-env")
-        .arg(executable)
-        .arg(listener_addr)
+    let mut redirector_process = build_redirector_command(executable, listener_addr, already_root)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -213,5 +250,138 @@ impl PacketSourceTask for LinuxTask {
         .await?;
         drop(self.datagram_dir);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::OsStr;
+    use std::path::Path;
+
+    // -----------------------------------------------------------------------
+    // is_root()
+    // -----------------------------------------------------------------------
+
+    /// `is_root()` must agree with the raw `getuid()` syscall.
+    #[test]
+    fn is_root_matches_getuid() {
+        let uid = unsafe { libc::getuid() };
+        assert_eq!(is_root(), uid == 0);
+    }
+
+    /// Running `cargo test` without privileges means we are NOT root.
+    /// This guards against accidentally shipping a build where `is_root()`
+    /// is hardcoded to `true`.
+    #[test]
+    fn is_root_is_false_when_unprivileged() {
+        if unsafe { libc::getuid() } == 0 {
+            // Explicitly skip when the test runner itself is root (e.g. CI
+            // root-tests run). Use the `root_*` tests below instead.
+            return;
+        }
+        assert!(!is_root(), "expected is_root() == false for non-root user");
+    }
+
+    /// When tests are explicitly run as root (feature `root-tests`), confirm
+    /// that `is_root()` returns `true`.
+    #[cfg(feature = "root-tests")]
+    #[test]
+    fn is_root_is_true_when_privileged() {
+        assert!(is_root(), "expected is_root() == true when running as root");
+    }
+
+    // -----------------------------------------------------------------------
+    // build_redirector_command()
+    // -----------------------------------------------------------------------
+
+    /// Helper: extract the program name from a `tokio::process::Command`.
+    fn program_of(cmd: &Command) -> String {
+        // as_std() gives std::process::Command whose Debug format is:
+        //   "program" "arg1" "arg2" ...
+        let dbg = format!("{:?}", cmd.as_std());
+        dbg.trim_start_matches('"')
+            .split('"')
+            .next()
+            .unwrap_or("")
+            .to_string()
+    }
+
+    /// Helper: collect all arguments from a `tokio::process::Command`.
+    fn args_of(cmd: &Command) -> Vec<String> {
+        // std::process::Command Debug format: `"prog" "a" "b" ...`
+        let dbg = format!("{:?}", cmd.as_std());
+        let mut tokens = dbg.split('"').filter(|s| !s.trim().is_empty());
+        tokens.next(); // skip program
+        tokens.map(|s| s.to_string()).collect()
+    }
+
+    /// When already root, the command must start with the redirector executable
+    /// itself — *not* with `sudo`.
+    #[test]
+    fn command_as_root_runs_executable_directly() {
+        let exe = Path::new("/usr/lib/mitmproxy/mitmproxy-linux-redirector");
+        let addr = Path::new("/tmp/mitmproxy-test");
+        let cmd = build_redirector_command(exe, addr, /* already_root = */ true);
+        let prog = program_of(&cmd);
+        assert!(
+            prog.ends_with("mitmproxy-linux-redirector"),
+            "expected executable as first token, got: {prog:?}"
+        );
+        assert!(
+            !prog.contains("sudo"),
+            "sudo must NOT appear as the program when already root, got: {prog:?}"
+        );
+    }
+
+    /// When NOT root, the command must start with `sudo`.
+    #[test]
+    fn command_without_root_uses_sudo() {
+        let exe = Path::new("/usr/lib/mitmproxy/mitmproxy-linux-redirector");
+        let addr = Path::new("/tmp/mitmproxy-test");
+        let cmd = build_redirector_command(exe, addr, /* already_root = */ false);
+        let prog = program_of(&cmd);
+        assert!(
+            prog.ends_with("sudo"),
+            "expected 'sudo' as first token, got: {prog:?}"
+        );
+    }
+
+    /// When NOT root, the sudo invocation must pass `--non-interactive` and
+    /// `--preserve-env` so that the redirector inherits the user's environment
+    /// variables without prompting for a password.
+    #[test]
+    fn sudo_command_has_required_flags() {
+        let exe = Path::new("/usr/lib/mitmproxy/mitmproxy-linux-redirector");
+        let addr = Path::new("/tmp/mitmproxy-test");
+        let cmd = build_redirector_command(exe, addr, false);
+        let args = args_of(&cmd);
+        assert!(
+            args.iter().any(|a| a == "--non-interactive"),
+            "--non-interactive flag missing from sudo invocation; args={args:?}"
+        );
+        assert!(
+            args.iter().any(|a| a == "--preserve-env"),
+            "--preserve-env flag missing from sudo invocation; args={args:?}"
+        );
+    }
+
+    /// The listener address must be the last argument in both the root and
+    /// non-root command variants.
+    #[test]
+    fn listener_addr_is_last_argument() {
+        let exe = Path::new("/usr/lib/mitmproxy/mitmproxy-linux-redirector");
+        let addr = Path::new("/tmp/mitmproxy-9999");
+
+        for already_root in [true, false] {
+            let cmd = build_redirector_command(exe, addr, already_root);
+            let args = args_of(&cmd);
+            let last = args.last().cloned().unwrap_or_default();
+            assert_eq!(
+                OsStr::new(&last),
+                addr.as_os_str(),
+                "listener_addr must be the last argument (already_root={already_root}); args={args:?}"
+            );
+        }
     }
 }

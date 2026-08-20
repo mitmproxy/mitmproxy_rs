@@ -2049,6 +2049,7 @@ dependencies = [
  "hickory-server",
  "image",
  "internet-packet",
+ "libc",
  "log",
  "lru_time_cache",
  "nix 0.31.3",

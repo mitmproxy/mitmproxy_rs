@@ -100,7 +100,9 @@ sysinfo = "0.39.6"
 [target.'cfg(target_os = "linux")'.dependencies]
 tun = { workspace = true, features = ["async"] }
 tempfile = "3.20.0"
+
 sysinfo = "0.39.6"
+libc = "0.2"
 
 [dev-dependencies]
 env_logger = "0.11"
@@ -119,3 +121,6 @@ opt-level = 3
 
 [features]
 tracing = ["console-subscriber"]
+# Enables tests that require running as root (uid 0) and eBPF-capable kernel.
+# Usage: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="sudo -E" cargo test --features root-tests
+root-tests = []
