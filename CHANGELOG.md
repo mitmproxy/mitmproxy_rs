@@ -1,5 +1,6 @@
 ## Unreleased: mitmproxy_rs next
 
+- Preserve OS error details when UDP and WireGuard servers fail to start.
 
 ## 20 July 2026: mitmproxy_rs 0.12.11
 

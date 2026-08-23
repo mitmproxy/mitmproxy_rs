@@ -1,6 +1,6 @@
 use std::net::{IpAddr, SocketAddr};
 
-use crate::util::string_to_key;
+use crate::util::{anyhow_to_pyerr, string_to_key};
 
 use mitmproxy::packet_sources::wireguard::WireGuardConf;
 
@@ -81,7 +81,9 @@ pub fn start_wireguard_server(
         peer_public_keys,
     };
     pyo3_async_runtimes::tokio::future_into_py(py, async move {
-        let (server, local_addr) = Server::init(conf, handle_tcp_stream, handle_udp_stream).await?;
+        let (server, local_addr) = Server::init(conf, handle_tcp_stream, handle_udp_stream)
+            .await
+            .map_err(anyhow_to_pyerr)?;
         Ok(WireGuardServer { server, local_addr })
     })
 }

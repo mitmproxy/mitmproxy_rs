@@ -33,6 +33,49 @@ pub fn event_queue_unavailable<T>(_: mpsc::error::SendError<T>) -> PyErr {
     PyOSError::new_err("Server has been shut down.")
 }
 
+/// Convert I/O errors wrapped by anyhow into Python OSErrors, preserving errno.
+pub fn anyhow_to_pyerr(error: anyhow::Error) -> PyErr {
+    if let Some(io_error) = error
+        .chain()
+        .find_map(|cause| cause.downcast_ref::<std::io::Error>())
+    {
+        let message = error.to_string();
+        match io_error.raw_os_error() {
+            Some(errno) => PyOSError::new_err((errno, message)),
+            None => PyOSError::new_err(message),
+        }
+    } else {
+        error.into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::TcpListener;
+
+    #[test]
+    fn anyhow_io_error_becomes_oserror() {
+        Python::initialize();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let io_error = TcpListener::bind(listener.local_addr().unwrap()).unwrap_err();
+        let errno = io_error.raw_os_error().unwrap();
+        let error = anyhow::Error::new(io_error).context("Failed to bind socket");
+
+        let py_error = anyhow_to_pyerr(error);
+
+        Python::attach(|py| {
+            let value = py_error.value(py);
+            assert!(py_error.is_instance_of::<PyOSError>(py));
+            assert_eq!(
+                value.getattr("errno").unwrap().extract::<i32>().unwrap(),
+                errno
+            );
+            assert!(value.to_string().contains("Failed to bind socket"));
+        });
+    }
+}
+
 /// Generate a WireGuard private key, analogous to the `wg genkey` command.
 #[pyfunction]
 pub fn genkey() -> String {
