@@ -2118,7 +2118,7 @@ dependencies = [
  "mitmproxy",
  "mitmproxy-linux-ebpf",
  "mitmproxy-linux-ebpf-common",
- "netlink-packet-route",
+ "netlink-packet-route 0.31.0",
  "prost",
  "rtnetlink",
  "tokio",
@@ -2211,6 +2211,18 @@ name = "netlink-packet-route"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be8919612f6028ab4eacbbfe1234a9a43e3722c6e0915e7ff519066991905092"
+dependencies = [
+ "bitflags 2.13.1",
+ "libc",
+ "log",
+ "netlink-packet-core",
+]
+
+[[package]]
+name = "netlink-packet-route"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2288fcb784eb3defd5fb16f4c4160d5f477de192eac730f43e1d11c24d9a007"
 dependencies = [
  "bitflags 2.13.1",
  "libc",
@@ -3068,7 +3080,7 @@ dependencies = [
  "futures-util",
  "log",
  "netlink-packet-core",
- "netlink-packet-route",
+ "netlink-packet-route 0.30.0",
  "netlink-proto",
  "netlink-sys",
  "nix 0.30.1",
