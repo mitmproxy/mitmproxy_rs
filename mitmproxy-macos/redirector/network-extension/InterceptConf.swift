@@ -31,9 +31,14 @@ enum Pattern {
             return processInfo.pid == pid
         case .process(let name):
             if let processName = processInfo.path {
-                return processName.contains(name)
+                if let regex = try? NSRegularExpression(pattern: name) {
+                    let range = NSRange(location: 0, length: processName.utf16.count)
+                    return regex.firstMatch(in: processName, range: range) != nil
+                } else {
+                    return processName.contains(name)
+                }
             } else {
-                return false 
+                return false
             }
         }
     }
