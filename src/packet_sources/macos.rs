@@ -1,3 +1,5 @@
+#![cfg_attr(not(target_os = "macos"), allow(dead_code, unused_imports))]
+
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use crate::messages::{ConnectionIdGenerator, TransportCommand, TransportEvent, TunnelInfo};
@@ -246,7 +248,12 @@ impl ConnectionTask {
         loop {
             tokio::select! {
                 _ = self.shutdown.recv() => break,
-                Some(packet) = stream.next(), if state.packet_queue_len() < 10 => {
+                packet = stream.next(), if state.packet_queue_len() < 10 => {
+                    let Some(packet) = packet else {
+                        // extension closed the flow
+                        state.close();
+                        break;
+                    };
                     let packet = ipc::UdpPacket::decode(
                         packet.context("IPC read error")?
                     ).context("invalid IPC message")?;
@@ -378,5 +385,103 @@ impl ConnectionTask {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::mpsc;
+    use tokio::sync::watch;
+
+    fn udp_handshake() -> NewFlow {
+        NewFlow {
+            message: Some(ipc::new_flow::Message::Udp(UdpFlow {
+                local_address: Some(ipc::Address {
+                    host: "127.0.0.1".into(),
+                    port: 12345,
+                }),
+                tunnel_info: Some(ipc::TunnelInfo {
+                    pid: Some(42),
+                    process_name: Some("test".into()),
+                }),
+            })),
+        }
+    }
+
+    async fn write_handshake(client: &mut UnixStream, handshake: &NewFlow) {
+        let bytes = handshake.encode_to_vec();
+        client.write_u32(bytes.len() as u32).await.unwrap();
+        client.write_all(&bytes).await.unwrap();
+        client.flush().await.unwrap();
+    }
+
+    async fn spawn_connection_task(
+        server: UnixStream,
+    ) -> (
+        tokio::task::JoinHandle<Result<()>>,
+        mpsc::Receiver<TransportEvent>,
+        watch::Sender<()>,
+    ) {
+        let (events_tx, events_rx) = mpsc::channel(16);
+        let (shutdown_tx, shutdown_rx) = shutdown::channel();
+        let handle = tokio::spawn(ConnectionTask::new(server, events_tx, shutdown_rx).run());
+        (handle, events_rx, shutdown_tx)
+    }
+
+    /// Redirector EOF before the first datagram must complete the task.
+    /// `Some(packet) = stream.next()` ignores `None`, so the UnixStream leaked forever.
+    #[tokio::test]
+    async fn udp_eof_before_first_datagram_completes() {
+        let (mut client, server) = UnixStream::pair().unwrap();
+        let (handle, mut events_rx, _shutdown_tx) = spawn_connection_task(server).await;
+
+        write_handshake(&mut client, &udp_handshake()).await;
+        drop(client);
+
+        timeout(Duration::from_secs(1), handle)
+            .await
+            .expect("UDP task hung after redirector EOF before the first datagram")
+            .unwrap()
+            .unwrap();
+
+        assert!(
+            events_rx.try_recv().is_err(),
+            "ConnectionEstablished must not be sent when no datagram arrived"
+        );
+    }
+
+    /// EOF after a datagram must also complete without waiting for CloseConnection.
+    #[tokio::test]
+    async fn udp_eof_after_first_datagram_completes() {
+        let (mut client, server) = UnixStream::pair().unwrap();
+        let (handle, mut events_rx, _shutdown_tx) = spawn_connection_task(server).await;
+
+        write_handshake(&mut client, &udp_handshake()).await;
+
+        let mut framed = Framed::new(client, LengthDelimitedCodec::new());
+        let packet = ipc::UdpPacket {
+            data: Bytes::from_static(b"hello"),
+            remote_address: Some(ipc::Address {
+                host: "8.8.8.8".into(),
+                port: 53,
+            }),
+        };
+        framed
+            .send(Bytes::from(packet.encode_to_vec()))
+            .await
+            .unwrap();
+        drop(framed);
+
+        timeout(Duration::from_secs(1), handle)
+            .await
+            .expect("UDP task hung after redirector EOF following a datagram")
+            .unwrap()
+            .unwrap();
+
+        match events_rx.try_recv() {
+            Ok(TransportEvent::ConnectionEstablished { .. }) => {}
+            other => panic!("expected ConnectionEstablished, got {other:?}"),
+        }
     }
 }
