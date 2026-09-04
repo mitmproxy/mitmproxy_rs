@@ -15,7 +15,7 @@ use tokio::sync::mpsc::{Sender, UnboundedReceiver};
 
 #[cfg(target_os = "linux")]
 pub mod linux;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", all(unix, test)))]
 pub mod macos;
 #[cfg(target_os = "linux")]
 pub mod tun;
