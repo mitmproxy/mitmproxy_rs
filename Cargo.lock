@@ -2151,6 +2151,7 @@ dependencies = [
  "console-subscriber",
  "data-encoding",
  "env_logger",
+ "libc",
  "log",
  "mitmproxy",
  "mitmproxy-contentviews",
