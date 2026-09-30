@@ -2,7 +2,7 @@ use std::net::{IpAddr, SocketAddr};
 
 use mitmproxy::packet_sources::udp::UdpConf;
 
-use crate::{server::base::Server, util::anyhow_to_pyerr};
+use crate::{server::base::Server, util::ioerror_to_oserror};
 use pyo3::prelude::*;
 
 /// A running UDP server.
@@ -66,7 +66,7 @@ pub fn start_udp_server(
     pyo3_async_runtimes::tokio::future_into_py(py, async move {
         let (server, local_addr) = Server::init(conf, handle_tcp_stream, handle_udp_stream)
             .await
-            .map_err(anyhow_to_pyerr)?;
+            .map_err(ioerror_to_oserror)?;
         Ok(UdpServer { server, local_addr })
     })
 }

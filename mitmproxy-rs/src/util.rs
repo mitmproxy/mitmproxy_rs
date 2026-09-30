@@ -34,7 +34,7 @@ pub fn event_queue_unavailable<T>(_: mpsc::error::SendError<T>) -> PyErr {
 }
 
 /// Convert I/O errors wrapped by anyhow into Python OSErrors, preserving errno.
-pub fn anyhow_to_pyerr(error: anyhow::Error) -> PyErr {
+pub fn ioerror_to_oserror(error: anyhow::Error) -> PyErr {
     if let Some(io_error) = error
         .chain()
         .find_map(|cause| cause.downcast_ref::<std::io::Error>())
@@ -62,7 +62,7 @@ mod tests {
         let errno = io_error.raw_os_error().unwrap();
         let error = anyhow::Error::new(io_error).context("Failed to bind socket");
 
-        let py_error = anyhow_to_pyerr(error);
+        let py_error = ioerror_to_oserror(error);
 
         Python::attach(|py| {
             let value = py_error.value(py);
