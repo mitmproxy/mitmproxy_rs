@@ -137,10 +137,11 @@ impl UdpClientTask {
                         && matches!(error.raw_os_error(), Some(libc::EDESTADDRREQ | libc::ENOTCONN))
                         && send_handoff_retries < 10
                     {
-                        // Flow divert can temporarily clear connected state while returning
-                        // an excluded socket to the regular UDP protocol.
+                        // Observed in macOS local mode: sends on our own (excluded) UDP sockets can
+                        // briefly fail with EDESTADDRREQ/ENOTCONN, presumably while flow divert hands
+                        // the socket back to the regular UDP stack. There is no Apple reference for this.
                         if send_handoff_retries == 0 {
-                            log::warn!("macOS UDP connection handoff pending ({error}); retrying up to 10 times");
+                            log::debug!("macOS UDP connection handoff pending ({error}); retrying up to 10 times");
                         }
                         send_handoff_retries += 1;
                         tokio::time::sleep(std::time::Duration::from_millis(1)).await;
