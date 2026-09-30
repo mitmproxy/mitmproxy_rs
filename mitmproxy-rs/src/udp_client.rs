@@ -5,7 +5,7 @@ use anyhow::{Result, anyhow};
 use pyo3::prelude::*;
 use tokio::net::{UdpSocket, lookup_host};
 use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, watch};
 
 use crate::stream::{Stream, StreamState};
 use mitmproxy::MAX_PACKET_SIZE;
@@ -32,8 +32,9 @@ pub fn open_udp_connection(
         let sockname = socket.local_addr()?;
 
         let (command_tx, command_rx) = unbounded_channel();
+        let (task_done_tx, task_done) = watch::channel(());
 
-        tokio::spawn(async {
+        tokio::spawn(async move {
             let task = UdpClientTask {
                 socket,
                 transport_commands_rx: command_rx,
@@ -41,6 +42,7 @@ pub fn open_udp_connection(
             if let Err(e) = task.run().await {
                 log::error!("UDP client errored: {e}");
             }
+            drop(task_done_tx);
         });
 
         let stream = Stream {
@@ -50,6 +52,7 @@ pub fn open_udp_connection(
             peername,
             sockname,
             tunnel_info: TunnelInfo::None,
+            task_done: Some(task_done),
         };
 
         Ok(stream)

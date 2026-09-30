@@ -6,6 +6,7 @@ use pyo3::{IntoPyObjectExt, exceptions::PyOSError, intern, prelude::*};
 use tokio::sync::{
     mpsc::{self},
     oneshot::{self},
+    watch,
 };
 
 use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
@@ -31,6 +32,8 @@ pub struct Stream {
     pub peername: SocketAddr,
     pub sockname: SocketAddr,
     pub tunnel_info: TunnelInfo,
+    /// For UDP client streams, closed when the underlying task has finished.
+    pub task_done: Option<watch::Receiver<()>>,
 }
 
 #[pymethods]
@@ -135,9 +138,17 @@ impl Stream {
         }
     }
 
-    /// Wait until the stream is closed (currently a no-op).
+    /// Wait until the stream is closed.
+    /// For UDP client streams, this waits for the underlying task to finish.
     fn wait_closed<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        pyo3_async_runtimes::tokio::future_into_py(py, std::future::ready(Ok(())))
+        let task_done = self.task_done.clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            if let Some(mut task_done) = task_done {
+                // Errors once the sender is dropped by the finished task.
+                task_done.changed().await.ok();
+            }
+            Ok(())
+        })
     }
 
     /// Query the stream for details of the underlying network connection.
@@ -205,5 +216,49 @@ impl Stream {
 impl Drop for Stream {
     fn drop(&mut self) {
         self.close().ok();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn wait_closed_waits_for_udp_task() -> PyResult<()> {
+        Python::initialize();
+        Python::attach(|py| {
+            pyo3_async_runtimes::tokio::run(py, async {
+                let (command_tx, _command_rx) = mpsc::unbounded_channel();
+                let (task_done_tx, task_done) = watch::channel(());
+                let stream = Stream {
+                    connection_id: ConnectionId::unassigned_udp(),
+                    state: StreamState::Closed,
+                    command_tx,
+                    peername: "127.0.0.1:1234".parse()?,
+                    sockname: "127.0.0.1:4321".parse()?,
+                    tunnel_info: TunnelInfo::None,
+                    task_done: Some(task_done),
+                };
+                let wait_closed = Python::attach(|py| {
+                    let stream = Py::new(py, stream)?;
+                    pyo3_async_runtimes::tokio::into_future(
+                        stream.bind(py).call_method0("wait_closed")?,
+                    )
+                })?;
+                tokio::pin!(wait_closed);
+                assert!(
+                    tokio::time::timeout(Duration::from_millis(20), &mut wait_closed)
+                        .await
+                        .is_err(),
+                    "wait_closed returned before the task finished"
+                );
+                drop(task_done_tx);
+                tokio::time::timeout(Duration::from_secs(1), wait_closed)
+                    .await
+                    .expect("wait_closed did not return after the task finished")?;
+                Ok(())
+            })
+        })
     }
 }

@@ -77,6 +77,7 @@ impl PyInteropTask {
                                 peername: src_addr,
                                 sockname: dst_addr,
                                 tunnel_info,
+                                task_done: None,
                             };
 
                             let mut conns = active_streams.lock().await;
