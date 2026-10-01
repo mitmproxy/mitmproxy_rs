@@ -127,10 +127,10 @@ impl Stream {
         }
     }
 
-    /// Check whether this stream is being closed.
+    /// Check whether this stream is being closed or the server has been shut down.
     fn is_closing(&self) -> bool {
         match self.state {
-            StreamState::Open => false,
+            StreamState::Open => self.command_tx.is_closed(),
             StreamState::HalfClosed | StreamState::Closed => true,
         }
     }
@@ -205,5 +205,26 @@ impl Stream {
 impl Drop for Stream {
     fn drop(&mut self) {
         self.close().ok();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_closing_when_server_shut_down() {
+        let (command_tx, command_rx) = mpsc::unbounded_channel();
+        let stream = Stream {
+            connection_id: ConnectionId::unassigned_udp(),
+            state: StreamState::Open,
+            command_tx,
+            peername: "127.0.0.1:1234".parse().unwrap(),
+            sockname: "127.0.0.1:4321".parse().unwrap(),
+            tunnel_info: TunnelInfo::None,
+        };
+        assert!(!stream.is_closing());
+        drop(command_rx);
+        assert!(stream.is_closing());
     }
 }
