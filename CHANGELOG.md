@@ -1,5 +1,6 @@
 ## Unreleased: mitmproxy_rs next
 
+- `Stream.wait_closed()` now waits for outgoing UDP client tasks to finish.
 - Preserve OS error details when UDP and WireGuard servers fail to start.
 - `Stream.is_closing()` now returns `True` once the server or UDP client task has shut down.
 
