@@ -114,6 +114,8 @@ impl UdpClientTask {
         // cannot send (so we also block receiving new packets), but that's hopefully good enough.
         let mut packet_needs_sending = false;
         let mut packet_payload = Vec::new();
+        #[cfg(target_os = "macos")]
+        let mut send_handoff_retries = 0;
 
         let mut packet_tx: Option<oneshot::Sender<Vec<u8>>> = None;
 
@@ -133,7 +135,26 @@ impl UdpClientTask {
                 },
                 // send_to is cancel safe, so we can use that for backpressure.
                 e = self.socket.send(&packet_payload), if packet_needs_sending => {
+                    #[cfg(target_os = "macos")]
+                    if let Err(error) = &e
+                        && matches!(error.raw_os_error(), Some(libc::EDESTADDRREQ | libc::ENOTCONN))
+                        && send_handoff_retries < 10
+                    {
+                        // Observed in macOS local mode: sends on our own (excluded) UDP sockets can
+                        // briefly fail with EDESTADDRREQ/ENOTCONN, presumably while flow divert hands
+                        // the socket back to the regular UDP stack. There is no Apple reference for this.
+                        if send_handoff_retries == 0 {
+                            log::debug!("macOS UDP connection handoff pending ({error}); retrying up to 10 times");
+                        }
+                        send_handoff_retries += 1;
+                        tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+                        continue;
+                    }
                     e.context("UDP send() failed")?;
+                    #[cfg(target_os = "macos")]
+                    {
+                        send_handoff_retries = 0;
+                    }
                     packet_needs_sending = false;
                 },
                 command = self.transport_commands_rx.recv(), if !packet_needs_sending => {
@@ -204,6 +225,90 @@ mod tests {
 
         command_tx.send(TransportCommand::CloseConnection(cid, false))?;
         handle.await??;
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    fn spawn_send(socket: UdpSocket, payload: Vec<u8>) -> tokio::task::JoinHandle<Result<()>> {
+        let (tx, rx) = unbounded_channel();
+        tx.send(TransportCommand::WriteData(
+            ConnectionId::unassigned_udp(),
+            payload,
+        ))
+        .unwrap();
+        tokio::spawn(
+            UdpClientTask {
+                socket,
+                transport_commands_rx: rx,
+            }
+            .run(),
+        )
+    }
+
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn udp_send_recovers_when_connected_state_arrives() -> Result<()> {
+        use std::time::Duration;
+        let server = UdpSocket::bind("127.0.0.1:0").await?;
+        let socket = std::net::UdpSocket::bind("127.0.0.1:0")?;
+        socket.set_nonblocking(true)?;
+        let connector = socket.try_clone()?;
+        let task = spawn_send(UdpSocket::from_std(socket)?, b"once".to_vec());
+        tokio::time::sleep(Duration::from_millis(2)).await;
+        connector.connect(server.local_addr()?)?;
+        tokio::time::timeout(Duration::from_secs(1), task).await???;
+        let mut buffer = [0; 32];
+        let (size, _) =
+            tokio::time::timeout(Duration::from_secs(1), server.recv_from(&mut buffer)).await??;
+        assert_eq!(&buffer[..size], b"once");
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), server.recv_from(&mut buffer))
+                .await
+                .is_err(),
+            "a recovered send must not duplicate the datagram"
+        );
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn udp_send_handoff_retry_is_bounded() -> Result<()> {
+        use std::time::{Duration, Instant};
+        let socket = UdpSocket::bind("127.0.0.1:0").await?;
+        let start = Instant::now();
+        let error =
+            tokio::time::timeout(Duration::from_secs(1), spawn_send(socket, b"fail".to_vec()))
+                .await??
+                .unwrap_err();
+        assert_eq!(
+            error
+                .downcast_ref::<std::io::Error>()
+                .unwrap()
+                .raw_os_error(),
+            Some(libc::EDESTADDRREQ)
+        );
+        assert!(start.elapsed() >= Duration::from_millis(10));
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn udp_send_preserves_non_handoff_errors() -> Result<()> {
+        use std::time::Duration;
+        let server = UdpSocket::bind("127.0.0.1:0").await?;
+        let address = server.local_addr()?;
+        let socket = udp_connect(address.ip().to_string(), address.port(), None).await?;
+        let error =
+            tokio::time::timeout(Duration::from_secs(1), spawn_send(socket, vec![0; 65536]))
+                .await??
+                .unwrap_err();
+        assert_eq!(
+            error
+                .downcast_ref::<std::io::Error>()
+                .unwrap()
+                .raw_os_error(),
+            Some(libc::EMSGSIZE)
+        );
         Ok(())
     }
 }

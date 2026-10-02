@@ -6,10 +6,11 @@ use pyo3::exceptions::asyncio::CancelledError;
 use pyo3::prelude::*;
 use pyo3_async_runtimes::TaskLocals;
 use tokio::sync::{Mutex, mpsc};
+use tokio::task::JoinHandle;
 
 use crate::stream::Stream;
 use crate::stream::StreamState;
-use mitmproxy::messages::{TransportCommand, TransportEvent};
+use mitmproxy::messages::{ConnectionId, TransportCommand, TransportEvent};
 use mitmproxy::shutdown;
 
 pub struct PyInteropTask {
@@ -123,26 +124,60 @@ impl PyInteropTask {
 
         log::debug!("Python interoperability task shutting down.");
 
-        while let Some((_, handle)) = active_streams.lock().await.drain().next() {
-            if handle.is_finished() {
-                // Future is already finished: just await;
-                // Python exceptions are already logged by the wrapper coroutine
-                if let Err(err) = handle.await {
-                    log::warn!("TCP connection handler coroutine could not be joined: {err}");
-                }
-            } else {
-                // Future is not finished: abort tokio task
-                handle.abort();
+        shutdown_connection_handlers(&active_streams).await;
+        Ok(())
+    }
+}
 
-                if let Err(err) = handle.await
-                    && !err.is_cancelled()
-                {
-                    // JoinError was not caused by cancellation: coroutine panicked, log error
-                    log::error!("TCP connection handler coroutine panicked: {err}");
-                }
+async fn shutdown_connection_handlers(
+    active_streams: &Mutex<HashMap<ConnectionId, JoinHandle<()>>>,
+) {
+    let streams = std::mem::take(&mut *active_streams.lock().await);
+    for (_, handle) in streams {
+        if handle.is_finished() {
+            // Future is already finished: just await;
+            // Python exceptions are already logged by the wrapper coroutine
+            if let Err(err) = handle.await {
+                log::warn!("TCP connection handler coroutine could not be joined: {err}");
+            }
+        } else {
+            // Future is not finished: abort tokio task
+            handle.abort();
+
+            if let Err(err) = handle.await
+                && !err.is_cancelled()
+            {
+                // JoinError was not caused by cancellation: coroutine panicked, log error
+                log::error!("TCP connection handler coroutine panicked: {err}");
             }
         }
+    }
+}
 
-        Ok(())
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mitmproxy::messages::ConnectionIdGenerator;
+
+    #[tokio::test]
+    async fn shutdown_joins_every_connection_handler() {
+        for count in [0, 1, 8] {
+            let mut ids = ConnectionIdGenerator::tcp();
+            let mut streams = HashMap::new();
+            let mut handles = Vec::new();
+            for _ in 0..count {
+                let task = tokio::spawn(std::future::pending::<()>());
+                handles.push(task.abort_handle());
+                streams.insert(ids.next_id(), task);
+            }
+            let active_streams = Mutex::new(streams);
+            shutdown_connection_handlers(&active_streams).await;
+            let finished = handles.iter().filter(|handle| handle.is_finished()).count();
+            for handle in handles {
+                handle.abort();
+            }
+            assert!(active_streams.lock().await.is_empty());
+            assert_eq!(finished, count, "shutdown detached unfinished handlers");
+        }
     }
 }
