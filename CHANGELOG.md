@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+
+## 21 October 2026: mitmproxy_rs 0.12.12
+
 - Preserve OS error details when UDP and WireGuard servers fail to start.
 - `Stream.is_closing()` now returns `True` once the server or UDP client task has shut down.
 
