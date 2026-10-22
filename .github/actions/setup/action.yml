@@ -23,7 +23,7 @@ runs:
     - if: inputs.extra-targets
       run: rustup target add ${{ inputs.extra-targets }}
       shell: bash
-    - uses: mhils/workflows/rust-cache@7ca6e342bab3c7fa953a7fce003d436ff32794a2
+    - uses: mhils/workflows/rust-cache@32df1a2c80ba29b5c034478f6a950296e8263e25
       with:
         key: ${{ inputs.rust-version }} # proxy value for glibc version
     - if: runner.os == 'Linux'

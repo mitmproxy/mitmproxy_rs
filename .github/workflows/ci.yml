@@ -39,7 +39,7 @@ jobs:
     env:
       RUSTFLAGS: ${{ matrix.rust == 'nightly' && '-Zpanic_abort_tests -C panic=abort' || '' }}
     steps:
-      - uses: mhils/workflows/checkout@7ca6e342bab3c7fa953a7fce003d436ff32794a2
+      - uses: mhils/workflows/checkout@32df1a2c80ba29b5c034478f6a950296e8263e25
       - uses: ./.github/actions/setup
         with:
           rust-version: ${{ matrix.rust }}
