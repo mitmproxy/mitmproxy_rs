@@ -4,7 +4,7 @@ from typing import ClassVar, final, Literal
 
 
 # This should be a disjoint_base, but that's unavailable on Python 3.12
-class Contentview:  # mypy: ignore
+class Contentview:  # typing: ignore
     name: ClassVar[str]
 
     syntax_highlight: ClassVar[Literal["xml", "yaml", "none", "error"]]
