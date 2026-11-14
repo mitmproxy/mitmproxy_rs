@@ -436,8 +436,6 @@ mod tests {
         (handle, events_rx, shutdown_tx)
     }
 
-    /// Redirector EOF before the first datagram must complete the task.
-    /// `Some(packet) = stream.next()` ignores `None`, so the UnixStream leaked forever.
     #[tokio::test]
     async fn udp_eof_before_first_datagram_completes() {
         let (mut client, server) = UnixStream::pair().unwrap();
@@ -458,7 +456,6 @@ mod tests {
         );
     }
 
-    /// EOF after a datagram must also complete without waiting for CloseConnection.
     #[tokio::test]
     async fn udp_eof_after_first_datagram_completes() {
         let (mut client, server) = UnixStream::pair().unwrap();
@@ -490,6 +487,7 @@ mod tests {
             Ok(TransportEvent::ConnectionEstablished { .. }) => {}
             other => panic!("expected ConnectionEstablished, got {other:?}"),
         }
+    }
 
     async fn spawn_tcp_connection() -> (
         UnixStream,
