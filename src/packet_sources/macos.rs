@@ -1,5 +1,3 @@
-#![cfg_attr(not(target_os = "macos"), allow(dead_code, unused_imports))]
-
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use crate::messages::{ConnectionIdGenerator, TransportCommand, TransportEvent, TunnelInfo};
