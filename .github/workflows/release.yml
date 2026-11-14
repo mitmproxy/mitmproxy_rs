@@ -20,7 +20,7 @@ jobs:
     environment: deploy
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
       with:
         token: ${{ secrets.GH_PUSH_TOKEN }}  # this token works to push to the protected main branch.
         persist-credentials: true  # needed by release tool

@@ -17,7 +17,7 @@ jobs:
   protobuf:
     runs-on: macos-latest
     steps:
-      - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
+      - uses: mhils/workflows/checkout@e6b54c0368640a2201137f00272b978b51d26268
       # FIXME: https://github.com/mitmproxy/mitmproxy/issues/7877 - bump SwiftProtobuf and then re-add this here.
       # - run: brew install swift-protobuf
       - run: brew install protobuf
@@ -39,7 +39,7 @@ jobs:
           - os: macos-latest
           - os: ubuntu-latest
     steps:
-      - uses: mhils/workflows/checkout@5b6540d578f48644ffa5e955cedadc81034cb7d8  # v18.0
+      - uses: mhils/workflows/checkout@e6b54c0368640a2201137f00272b978b51d26268
       - uses: ./.github/actions/setup
         with:
           rust-version: ${{ env.MSRV }}

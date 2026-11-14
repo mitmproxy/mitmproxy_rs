@@ -144,10 +144,13 @@ impl UdpHandler {
             .unwrap_or(ConnectionId::unassigned_udp());
 
         match self.connections.get_mut(&potential_cid) {
-            Some((state, _)) => {
+            Some((state, _)) if !state.closed => {
                 state.add_packet(packet.payload);
             }
-            None => {
+            // Packets for a closed connection start a new one. Dropping them instead would also
+            // refresh the closed entry, so a client that keeps reusing the same four-tuple (e.g. for
+            // DNS) would never get through again.
+            _ => {
                 let mut state = ConnectionState::default();
                 state.add_packet(packet.payload);
                 let connection_id = self.connection_id_generator.next_id();
@@ -309,6 +312,41 @@ mod tests {
         state.close();
         state.add_packet(vec![1, 2, 3]);
         assert!(rx.blocking_recv().is_err());
+    }
+
+    #[test]
+    fn test_receive_after_close_opens_new_connection() {
+        let mut handler = UdpHandler::new();
+        let (events_tx, mut events_rx) = tokio::sync::mpsc::channel(1);
+        let mut receive = |handler: &mut UdpHandler| {
+            let packet = UdpPacket {
+                src_addr: SocketAddr::from_str("10.0.0.1:1").unwrap(),
+                dst_addr: SocketAddr::from_str("10.0.0.53:53").unwrap(),
+                payload: vec![1, 2, 3],
+            };
+            handler.receive_data(packet, TunnelInfo::None, events_tx.try_reserve().unwrap());
+            match events_rx.try_recv() {
+                Ok(TransportEvent::ConnectionEstablished { connection_id, .. }) => {
+                    Some(connection_id)
+                }
+                Err(_) => None,
+            }
+        };
+
+        let first = receive(&mut handler).expect("first packet opens a connection");
+        assert_eq!(
+            receive(&mut handler),
+            None,
+            "same four-tuple reuses the connection"
+        );
+
+        handler.close_connection(first);
+        let second = receive(&mut handler).expect("packet after close opens a new connection");
+        assert_ne!(first, second);
+
+        let (tx, rx) = oneshot::channel();
+        handler.read_data(second, tx);
+        assert_eq!(rx.blocking_recv().unwrap(), vec![1, 2, 3]);
     }
 
     #[tokio::test]
