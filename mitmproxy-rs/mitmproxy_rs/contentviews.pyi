@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import ClassVar, final, Literal
+from typing import ClassVar, final, Literal, disjoint_base
 
+@disjoint_base
 class Contentview:
     name: ClassVar[str]
 
