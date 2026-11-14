@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import ClassVar, final, Literal, disjoint_base
+from typing import ClassVar, final, Literal
 
-@disjoint_base
-class Contentview:
+
+# This should be a disjoint_base, but that's unavailable on Python 3.12
+class Contentview:  # mypy: ignore
     name: ClassVar[str]
 
     syntax_highlight: ClassVar[Literal["xml", "yaml", "none", "error"]]
