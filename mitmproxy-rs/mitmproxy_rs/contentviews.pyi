@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from typing import ClassVar, final, Literal
+from typing_extensions import disjoint_base
 
-class Contentview:
+
+@disjoint_base
+class Contentview:  # typing: ignore
     name: ClassVar[str]
 
     syntax_highlight: ClassVar[Literal["xml", "yaml", "none", "error"]]

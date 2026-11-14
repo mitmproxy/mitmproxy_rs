@@ -20,11 +20,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # TODO: This should ideally just reuse the main CI artifacts.
-      - uses: mhils/workflows/checkout@e6b54c0368640a2201137f00272b978b51d26268
+      - uses: mhils/workflows/checkout@589b2878317d2d57c315c5825f9a1cfe9c76a7c3
       - uses: ./.github/actions/setup
-      - uses: install-pinned/maturin-with-zig@7f54e6144d8fd17188d0e99742fefc4bcb178e06
-      - uses: install-pinned/mypy@75779f141592e4909d64e13f8a1861f06aa9cd8d
-      - uses: install-pinned/pdoc@69ba59f9699df21e1026110af4ec6b10a98cf5cd
+      - uses: install-pinned/maturin-with-zig@b10cdafc5d601c9f081acd683e4d9e2cb3538528
+      - uses: install-pinned/mypy@ca797a92cfcf502e7c9f5d37f8d2d276778d2774
+      - uses: install-pinned/pdoc@f06d2d4ffa04927fd830d36f5bafba15f02f3932
 
       - run: maturin build --features docs,pyo3/extension-module
         working-directory: ./mitmproxy-rs
@@ -52,4 +52,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
