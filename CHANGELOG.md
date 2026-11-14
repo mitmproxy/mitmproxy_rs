@@ -1,5 +1,8 @@
 ## Unreleased: mitmproxy_rs next
 
+
+## 14 November 2026: mitmproxy_rs 0.12.16
+
 - Refactor protobuf-YAML conversion, fix missing unknown fields on nested known messages.
 
 
