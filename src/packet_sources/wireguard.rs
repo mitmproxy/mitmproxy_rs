@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
@@ -10,6 +11,7 @@ use crate::packet_sources::{PacketSourceConf, PacketSourceTask};
 use anyhow::{Context, Result, anyhow};
 use boringtun::noise::{
     Packet, Tunn, TunnResult, errors::WireGuardError, handshake::parse_handshake_anon,
+    rate_limiter::RateLimiter,
 };
 use boringtun::x25519::{PublicKey, StaticSecret};
 use pretty_hex::pretty_hex;
@@ -21,6 +23,7 @@ use tokio::{
         Mutex,
         mpsc::{Receiver, Sender},
     },
+    time::{MissedTickBehavior, interval},
 };
 
 use crate::packet_sources::udp::{create_and_bind_udp_socket, remote_host_closed_conn};
@@ -28,6 +31,10 @@ use crate::shutdown;
 
 // WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6
 const WG_HEADER_SIZE: usize = 80;
+
+/// Number of handshakes per second we accept before answering with cookie replies
+/// (same value as boringtun's own device implementation).
+const HANDSHAKE_RATE_LIMIT: u64 = 100;
 
 /// A WireGuard peer. We keep track of the tunnel state and the peer address.
 pub struct WireGuardPeer {
@@ -59,18 +66,26 @@ impl PacketSourceConf for WireGuardConf {
             add_network_layer(transport_events_tx, transport_commands_rx, shutdown);
 
         // initialize WireGuard server
+        let public_key = PublicKey::from(&self.private_key);
+
+        // If no rate limiter is passed to `Tunn::new`, boringtun creates one per tunnel that only
+        // gets reset from `Tunn::update_timers`, which we never call. Its counter would then
+        // never be reset and all handshakes after the first ten would be answered with cookie
+        // replies. Instead, we share a single rate limiter and reset it ourselves (see `run`).
+        let rate_limiter = Arc::new(RateLimiter::new(&public_key, HANDSHAKE_RATE_LIMIT));
+
         let mut peers_by_idx = HashMap::new();
         let mut peers_by_key = HashMap::new();
-        for public_key in self.peer_public_keys {
+        for peer_public_key in self.peer_public_keys {
             let index = peers_by_idx.len() as u32;
 
             let tunnel = Tunn::new(
                 self.private_key.clone(),
-                public_key,
+                peer_public_key,
                 None,
                 Some(25),
                 index,
-                None,
+                Some(rate_limiter.clone()),
             );
 
             let peer = Arc::new(Mutex::new(WireGuardPeer {
@@ -79,7 +94,7 @@ impl PacketSourceConf for WireGuardConf {
             }));
 
             peers_by_idx.insert(index, peer.clone());
-            peers_by_key.insert(public_key, peer);
+            peers_by_key.insert(peer_public_key, peer);
         }
 
         let socket = create_and_bind_udp_socket(self.listen_addr)?;
@@ -87,13 +102,12 @@ impl PacketSourceConf for WireGuardConf {
 
         log::debug!("WireGuard server listening for UDP connections on {local_addr} ...");
 
-        let public_key = PublicKey::from(&self.private_key);
-
         Ok((
             WireGuardTask {
                 socket,
                 private_key: self.private_key,
                 public_key,
+                rate_limiter,
 
                 peers_by_idx,
                 peers_by_key,
@@ -113,6 +127,7 @@ pub struct WireGuardTask {
     socket: UdpSocket,
     private_key: StaticSecret,
     public_key: PublicKey,
+    rate_limiter: Arc<RateLimiter>,
 
     peers_by_idx: HashMap<u32, Arc<Mutex<WireGuardPeer>>>,
     peers_by_key: HashMap<PublicKey, Arc<Mutex<WireGuardPeer>>>,
@@ -133,9 +148,16 @@ impl PacketSourceTask for WireGuardTask {
 
         let mut udp_buf = vec![0; MAX_PACKET_SIZE];
 
+        // boringtun expects the handshake rate limiter to be reset about once per second.
+        let mut reset_rate_limiter = interval(Duration::from_secs(1));
+        reset_rate_limiter.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
         loop {
             tokio::select! {
                 exit = &mut self.network_task_handle => break exit.context("network task panic")?.context("network task error")?,
+                _ = reset_rate_limiter.tick() => {
+                    self.rate_limiter.reset_count();
+                },
                 // wait for WireGuard packets incoming on the UDP socket
                 r = self.socket.recv_from(udp_buf.as_mut_slice()) => {
                     if remote_host_closed_conn(&r) {
@@ -384,5 +406,82 @@ impl WireGuardTask {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::mpsc;
+
+    const HANDSHAKE_RESPONSE: u8 = 2;
+    const COOKIE_REPLY: u8 = 3;
+
+    /// Send a new handshake initiation (without mac2) and return the type of the server's reply.
+    async fn handshake(socket: &UdpSocket, client: &mut Tunn) -> u8 {
+        let mut buf = [0u8; 256];
+        let TunnResult::WriteToNetwork(initiation) =
+            client.format_handshake_initiation(&mut buf, true)
+        else {
+            panic!("failed to create handshake initiation");
+        };
+        socket.send(initiation).await.unwrap();
+        let mut reply = [0u8; 256];
+        tokio::time::timeout(Duration::from_secs(1), socket.recv(&mut reply))
+            .await
+            .expect("no reply from WireGuard server")
+            .unwrap();
+        reply[0]
+    }
+
+    #[tokio::test]
+    async fn handshake_rate_limiter_is_reset() {
+        let server_key = StaticSecret::from([1u8; 32]);
+        let client_key = StaticSecret::from([2u8; 32]);
+        let server_public_key = PublicKey::from(&server_key);
+
+        let conf = WireGuardConf {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            private_key: server_key,
+            peer_public_keys: vec![PublicKey::from(&client_key)],
+        };
+        let (transport_events_tx, _transport_events_rx) = mpsc::channel(256);
+        let (_transport_commands_tx, transport_commands_rx) = mpsc::unbounded_channel();
+        let (_shutdown_tx, shutdown_rx) = shutdown::channel();
+        let (task, server_addr) = conf
+            .build(transport_events_tx, transport_commands_rx, shutdown_rx)
+            .await
+            .unwrap();
+        tokio::spawn(task.run());
+
+        let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        socket.connect(server_addr).await.unwrap();
+        // Reusing one client tunnel keeps the handshake timestamps strictly increasing.
+        let mut client = Tunn::new(client_key, server_public_key, None, None, 0, None);
+
+        // A burst of handshakes eventually puts the server under load: it answers with cookie replies.
+        let mut under_load = false;
+        for _ in 0..10 * HANDSHAKE_RATE_LIMIT {
+            if handshake(&socket, &mut client).await == COOKIE_REPLY {
+                under_load = true;
+                break;
+            }
+        }
+        assert!(under_load, "the handshake rate limiter never kicked in");
+
+        // Once the burst is over, the rate limiter must be reset and handshakes must succeed again.
+        // Previously, the per-tunnel rate limiter was never reset, so this never happened.
+        let mut recovered = false;
+        for _ in 0..10 {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            if handshake(&socket, &mut client).await == HANDSHAKE_RESPONSE {
+                recovered = true;
+                break;
+            }
+        }
+        assert!(
+            recovered,
+            "the server still answers with cookie replies after the burst"
+        );
     }
 }
