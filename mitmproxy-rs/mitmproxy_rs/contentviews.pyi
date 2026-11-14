@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from typing import ClassVar, final, Literal
+from typing_extensions import disjoint_base
 
 
-# This should be a disjoint_base, but that's unavailable on Python 3.12
+@disjoint_base
 class Contentview:  # typing: ignore
     name: ClassVar[str]
 
