@@ -1,5 +1,7 @@
 ## Unreleased: mitmproxy_rs next
 
+- Fix Linux local mode process name matching, which was matched against the name of the thread creating a connection instead of the process name.
+
 
 ## 14 November 2026: mitmproxy_rs 0.12.16
 
