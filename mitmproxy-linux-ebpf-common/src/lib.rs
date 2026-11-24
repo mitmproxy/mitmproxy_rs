@@ -1,80 +1,54 @@
 #![no_std]
 
-// aya-ebpf currently does not compile on Windows.
-#[cfg(target_os = "linux")]
-use aya_ebpf::TASK_COMM_LEN;
-#[cfg(not(target_os = "linux"))]
-const TASK_COMM_LEN: usize = 16;
-
 type Pid = u32;
 
 pub const INTERCEPT_CONF_LEN: u32 = 20;
 
-#[derive(Copy, Clone, Debug)]
-#[repr(C)]
-pub enum Pattern {
-    Pid(Pid),
-    Process([u8; TASK_COMM_LEN]),
-}
+/// Maximum number of tgids per map that we resolve for process name patterns.
+pub const INTERCEPT_TGID_LEN: u32 = 16384;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub enum Action {
     None,
-    Include(Pattern),
-    Exclude(Pattern),
-}
-
-impl Pattern {
-    pub fn matches(&self, command: Option<&[u8; TASK_COMM_LEN]>, pid: Pid) -> bool {
-        match self {
-            Pattern::Pid(p) => pid == *p,
-            Pattern::Process(process) => {
-                let Some(command) = command else {
-                    return false;
-                };
-                // `command == process` inexplicably causes BPF verifier errors on Ubuntu 22.04,
-                // (it works on 24.04+), so we do a manual strcmp dance.
-                for i in 0..16 {
-                    let curr = command[i];
-                    if curr != process[i] {
-                        return false;
-                    }
-                    if curr == 0 {
-                        break;
-                    }
-                }
-                true
-            }
-        }
-    }
+    Include(Pid),
+    Exclude(Pid),
+    /// Matches processes by name. Userspace resolves name patterns to tgid sets and keeps
+    /// them in the INTERCEPT_TGID_INCLUDE eBPF map, since the eBPF program itself can only
+    /// see the name of the thread that creates a socket.
+    IncludeName,
+    /// Excludes processes by name, resolved like [`Action::IncludeName`].
+    ExcludeName,
 }
 
 impl From<&str> for Action {
     fn from(value: &str) -> Self {
         let value = value.trim();
-        if let Some(value) = value.strip_prefix('!') {
-            Action::Exclude(Pattern::from(value))
-        } else {
-            Action::Include(Pattern::from(value))
+        match value.strip_prefix('!') {
+            Some(pid) => pid
+                .parse()
+                .map(Action::Exclude)
+                .unwrap_or(Action::ExcludeName),
+            None => value
+                .parse()
+                .map(Action::Include)
+                .unwrap_or(Action::IncludeName),
         }
     }
 }
 
-impl From<&str> for Pattern {
-    fn from(value: &str) -> Self {
-        let value = value.trim();
-        match value.parse::<u32>() {
-            Ok(pid) => Pattern::Pid(pid),
-            Err(_) => {
-                let mut val = [0u8; TASK_COMM_LEN];
-                let src = value.as_bytes();
-                // This silently truncates to TASK_COMM_LEN - 1 bytes,
-                // bpf_get_current_comm always puts a null byte at the end.
-                let len = core::cmp::min(TASK_COMM_LEN - 1, src.len());
-                val[..len].copy_from_slice(&src[..len]);
-                Pattern::Process(val)
-            }
-        }
+#[cfg(test)]
+mod tests {
+    extern crate std;
+
+    use super::Action;
+
+    #[test]
+    fn test_action_from_str() {
+        assert_eq!(Action::from("42"), Action::Include(42));
+        assert_eq!(Action::from("!42"), Action::Exclude(42));
+        assert_eq!(Action::from(" 42 "), Action::Include(42));
+        assert_eq!(Action::from("firefox"), Action::IncludeName);
+        assert_eq!(Action::from("!firefox"), Action::ExcludeName);
     }
 }

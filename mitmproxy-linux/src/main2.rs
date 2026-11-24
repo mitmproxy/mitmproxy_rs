@@ -2,7 +2,7 @@ use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
 use aya::Btf;
-use aya::maps::Array;
+use aya::maps::{Array, HashMap, MapData};
 use aya::programs::{CgroupSock, links::CgroupAttachMode};
 use aya::{Ebpf, EbpfLoader};
 use log::{debug, error, info, warn};
@@ -14,15 +14,18 @@ use mitmproxy_linux_ebpf_common::{Action, INTERCEPT_CONF_LEN};
 use netlink_packet_route::rule::{RuleAction, RuleAttribute, RuleMessage};
 use prost::Message;
 use prost::bytes::{Bytes, BytesMut};
+use std::collections::HashSet;
 use std::fs::Permissions;
 use std::net::Ipv6Addr;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::time::Duration;
 use std::{fs, iter};
 use tokio::io::AsyncReadExt;
 use tokio::net::UnixDatagram;
 use tokio::select;
 use tokio::signal::unix::{SignalKind, signal};
+use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tun::AbstractDevice;
 
@@ -114,6 +117,17 @@ async fn main() -> anyhow::Result<()> {
         let mut dev_buf = BytesMut::with_capacity(IPC_BUF_SIZE);
 
         let mut ebpf = load_bpf(device_index).context("eBPF initialization failed")?;
+        debug!("Getting process name maps...");
+        let name_includes: HashMap<_, u32, u8> = HashMap::try_from(
+            ebpf.take_map("INTERCEPT_TGID_INCLUDE")
+                .context("couldn't get INTERCEPT_TGID_INCLUDE map")?,
+        )
+        .context("Cannot cast INTERCEPT_TGID_INCLUDE to HashMap")?;
+        let name_excludes: HashMap<_, u32, u8> = HashMap::try_from(
+            ebpf.take_map("INTERCEPT_TGID_EXCLUDE")
+                .context("couldn't get INTERCEPT_TGID_EXCLUDE map")?,
+        )
+        .context("Cannot cast INTERCEPT_TGID_EXCLUDE to HashMap")?;
         debug!("Getting INTERCEPT_CONF map...");
         let mut intercept_conf = {
             let map = ebpf
@@ -122,6 +136,13 @@ async fn main() -> anyhow::Result<()> {
             Array::<_, ActionWrapper>::try_from(map)
                 .context("Cannot cast INTERCEPT_CONF to Array")?
         };
+
+        let (name_patterns_tx, name_patterns_rx) = watch::channel(NamePatterns::default());
+        tokio::spawn(name_conf_task(
+            name_includes,
+            name_excludes,
+            name_patterns_rx,
+        ));
 
         loop {
             ipc_buf.clear();
@@ -144,6 +165,9 @@ async fn main() -> anyhow::Result<()> {
                                     if conf.actions.len() > INTERCEPT_CONF_LEN as usize {
                                         error!("Truncating intercept conf to {INTERCEPT_CONF_LEN} elements.");
                                     }
+                                    // Process name patterns become marker actions here, the eBPF
+                                    // program matches them against the tgid maps maintained by
+                                    // `name_conf_task`.
                                     let actions = conf.actions
                                         .iter()
                                         .map(|s| Action::from(s.as_str()))
@@ -153,6 +177,7 @@ async fn main() -> anyhow::Result<()> {
                                         intercept_conf.set(i as u32, ActionWrapper(action), 0)
                                             .context("failed to update INTERCEPT_CONF")?;
                                     }
+                                    name_patterns_tx.send_replace(name_patterns(&conf.actions));
                                 }
                             }
                         }
@@ -219,6 +244,198 @@ fn bump_memlock_rlimit() {
     let ret = unsafe { libc::setrlimit(libc::RLIMIT_MEMLOCK, &rlim) };
     if ret != 0 {
         info!("remove limit on locked memory failed, ret is: {ret}");
+    }
+}
+
+/// Process name patterns from an intercept spec.
+///
+/// The eBPF program can only see the name of the thread that creates a socket, which is
+/// different from the process name for most multithreaded applications. Process name
+/// patterns are therefore resolved to tgid sets in userspace by `name_conf_task`, and the
+/// eBPF program matches its name marker actions against those sets.
+#[derive(Clone, Debug, Default)]
+struct NamePatterns {
+    includes: Vec<String>,
+    excludes: Vec<String>,
+}
+
+impl NamePatterns {
+    fn has_includes(&self) -> bool {
+        !self.includes.is_empty()
+    }
+
+    fn has_excludes(&self) -> bool {
+        !self.excludes.is_empty()
+    }
+}
+
+/// Collect the process name patterns from intercept actions.
+fn name_patterns(actions: &[String]) -> NamePatterns {
+    let mut patterns = NamePatterns::default();
+    for action in actions {
+        let action = action.trim();
+        match action.strip_prefix('!') {
+            Some(name) => {
+                if name.parse::<u32>().is_err() {
+                    patterns.excludes.push(name.to_string());
+                }
+            }
+            None => {
+                if action.parse::<u32>().is_err() {
+                    patterns.includes.push(action.to_string());
+                }
+            }
+        }
+    }
+    patterns
+}
+
+/// Resolve process name patterns against a snapshot of running processes.
+///
+/// Pattern matching follows the `InterceptConf` semantics we use on other platforms:
+/// a process matches if its name contains the pattern.
+fn resolve_name_patterns(
+    patterns: &NamePatterns,
+    processes: &[(u32, String)],
+) -> (HashSet<u32>, HashSet<u32>) {
+    let mut included = HashSet::new();
+    let mut excluded = HashSet::new();
+    for (tgid, name) in processes {
+        if patterns.includes.iter().any(|p| name.contains(p)) {
+            included.insert(*tgid);
+        }
+        if patterns.excludes.iter().any(|p| name.contains(p)) {
+            excluded.insert(*tgid);
+        }
+    }
+    (included, excluded)
+}
+
+/// Collect the currently running processes as (tgid, process name) pairs.
+///
+/// The process name is the basename of /proc/<pid>/exe. Kernel threads and zombie
+/// processes have no exe link and are skipped.
+fn process_names() -> Vec<(u32, String)> {
+    let mut processes = Vec::new();
+    let Ok(entries) = fs::read_dir("/proc") else {
+        return processes;
+    };
+    for entry in entries.flatten() {
+        let Some(tgid) = entry.file_name().to_str().and_then(|s| s.parse::<u32>().ok()) else {
+            continue;
+        };
+        let Ok(path) = fs::read_link(format!("/proc/{tgid}/exe")) else {
+            continue;
+        };
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            processes.push((tgid, name.to_string()));
+        }
+    }
+    processes
+}
+
+/// Sync the eBPF tgid maps with the given sets of matching processes.
+fn sync_name_maps(
+    includes: &mut HashMap<MapData, u32, u8>,
+    excludes: &mut HashMap<MapData, u32, u8>,
+    new_included: &HashSet<u32>,
+    new_excluded: &HashSet<u32>,
+    included: &mut HashSet<u32>,
+    excluded: &mut HashSet<u32>,
+) -> Result<()> {
+    for tgid in included.difference(new_included) {
+        includes
+            .remove(tgid)
+            .context("failed to update INTERCEPT_TGID_INCLUDE")?;
+    }
+    for tgid in new_included.difference(included) {
+        includes
+            .insert(*tgid, 0, 0)
+            .context("failed to update INTERCEPT_TGID_INCLUDE")?;
+    }
+    for tgid in excluded.difference(new_excluded) {
+        excludes
+            .remove(tgid)
+            .context("failed to update INTERCEPT_TGID_EXCLUDE")?;
+    }
+    for tgid in new_excluded.difference(excluded) {
+        excludes
+            .insert(*tgid, 0, 0)
+            .context("failed to update INTERCEPT_TGID_EXCLUDE")?;
+    }
+    *included = new_included.clone();
+    *excluded = new_excluded.clone();
+    Ok(())
+}
+
+/// Update the tgid maps the eBPF program matches its name marker actions against.
+fn refresh_name_maps(
+    includes: &mut HashMap<MapData, u32, u8>,
+    excludes: &mut HashMap<MapData, u32, u8>,
+    patterns: &NamePatterns,
+    included: &mut HashSet<u32>,
+    excluded: &mut HashSet<u32>,
+) -> Result<()> {
+    let (new_included, new_excluded) = resolve_name_patterns(patterns, &process_names());
+    sync_name_maps(
+        includes,
+        excludes,
+        &new_included,
+        &new_excluded,
+        included,
+        excluded,
+    )
+}
+
+/// Interval at which we scan /proc for processes matching our name patterns. Processes
+/// that start and connect within one interval are not intercepted until their next socket.
+const PROCESS_SCAN_INTERVAL: Duration = Duration::from_millis(250);
+
+/// Keep the eBPF tgid maps in sync with the processes matching our name patterns.
+async fn name_conf_task(
+    mut includes: HashMap<MapData, u32, u8>,
+    mut excludes: HashMap<MapData, u32, u8>,
+    mut rx: watch::Receiver<NamePatterns>,
+) {
+    let mut included = HashSet::new();
+    let mut excluded = HashSet::new();
+    loop {
+        let patterns = rx.borrow_and_update().clone();
+        if let Err(e) = refresh_name_maps(
+            &mut includes,
+            &mut excludes,
+            &patterns,
+            &mut included,
+            &mut excluded,
+        ) {
+            error!("failed to apply process name patterns: {e}");
+        }
+
+        loop {
+            tokio::select! {
+                changed = rx.changed() => {
+                    if changed.is_err() {
+                        // The sender is gone, there is nothing left to do.
+                        return;
+                    }
+                    break;
+                }
+                _ = tokio::time::sleep(PROCESS_SCAN_INTERVAL) => {
+                    if !patterns.has_includes() && !patterns.has_excludes() {
+                        continue;
+                    }
+                    if let Err(e) = refresh_name_maps(
+                        &mut includes,
+                        &mut excludes,
+                        &patterns,
+                        &mut included,
+                        &mut excluded,
+                    ) {
+                        error!("failed to update process name maps: {e}");
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -312,5 +529,55 @@ mod tests {
     #[tokio::test]
     async fn bpf_load() {
         load_bpf(0).unwrap();
+    }
+
+    #[test]
+    fn test_name_patterns() {
+        let actions = [
+            "firefox".into(),
+            "!chrome".into(),
+            " 42 ".into(),
+            "!7".into(),
+            "wget".into(),
+        ];
+        let patterns = name_patterns(&actions);
+        assert_eq!(patterns.includes, vec!["firefox", "wget"]);
+        assert_eq!(patterns.excludes, vec!["chrome"]);
+
+        let patterns = name_patterns(&["!chrome".into()]);
+        assert!(!patterns.has_includes());
+        assert_eq!(patterns.excludes, vec!["chrome"]);
+
+        assert!(!name_patterns(&["42".into(), "!7".into()]).has_includes());
+        assert!(!name_patterns(&["42".into(), "!7".into()]).has_excludes());
+    }
+
+    #[test]
+    fn test_resolve_name_patterns() {
+        let patterns = NamePatterns {
+            includes: vec!["fire".into(), "python".into()],
+            excludes: vec!["chrom".into()],
+        };
+        let processes = vec![
+            (1, "firefox".to_string()),
+            (2, "chrome".to_string()),
+            (3, "python3".to_string()),
+        ];
+        let (included, excluded) = resolve_name_patterns(&patterns, &processes);
+        assert_eq!(included, HashSet::from([1, 3]));
+        assert_eq!(excluded, HashSet::from([2]));
+    }
+
+    #[test]
+    fn test_process_names() {
+        let own_tgid = std::process::id();
+        let own_name = std::env::current_exe()
+            .unwrap()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert!(process_names().contains(&(own_tgid, own_name)));
     }
 }
