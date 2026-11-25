@@ -22,6 +22,29 @@ pub fn remote_host_closed_conn<T>(_res: &Result<T, std::io::Error>) -> bool {
     false
 }
 
+/// Whether a send failed only because the OS had no buffer space for the datagram right now.
+/// macOS returns ENOBUFS under bursts instead of blocking. UDP is lossy, so we drop the datagram.
+pub fn out_of_buffer_space(e: &std::io::Error) -> bool {
+    #[cfg(target_os = "linux")]
+    const ENOBUFS: i32 = 105;
+    #[cfg(windows)]
+    const ENOBUFS: i32 = 10055; // WSAENOBUFS
+    #[cfg(not(any(target_os = "linux", windows)))]
+    const ENOBUFS: i32 = 55;
+    e.raw_os_error() == Some(ENOBUFS)
+}
+
+/// Sends a datagram, dropping it instead of failing when the OS is out of buffer space.
+pub async fn send_datagram(socket: &UdpSocket, buf: &[u8], dst: SocketAddr) -> Result<usize> {
+    match socket.send_to(buf, dst).await {
+        Err(e) if out_of_buffer_space(&e) => {
+            log::debug!("Dropping datagram to {dst}: {e}");
+            Ok(buf.len())
+        }
+        r => r.context("UDP send_to() failed"),
+    }
+}
+
 /// Creates a nonblocking UDP socket bound to the specified address, restricted to either IPv4 or IPv6 only.
 pub(crate) fn create_and_bind_udp_socket(addr: SocketAddr) -> Result<UdpSocket> {
     let domain = if addr.is_ipv4() {
@@ -140,7 +163,13 @@ impl PacketSourceTask for UdpTask {
                 },
                 // send_to is cancel safe, so we can use that for backpressure.
                 r = self.socket.send_to(&packet_payload, packet_dst), if packet_needs_sending => {
-                    let sent = r.context("UDP send_to() failed")?;
+                    let sent = match r {
+                        Err(e) if out_of_buffer_space(&e) => {
+                            log::debug!("Dropping datagram to {packet_dst}: {e}");
+                            packet_payload.len()
+                        }
+                        r => r.context("UDP send_to() failed")?,
+                    };
                     if sent != packet_payload.len() {
                         log::debug!("socket.send_to: {} of {} bytes sent.", sent, packet_payload.len());
                     }
@@ -157,5 +186,26 @@ impl PacketSourceTask for UdpTask {
         }
         log::debug!("UDP server task shutting down.");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_out_of_buffer_space() {
+        #[cfg(target_os = "linux")]
+        let enobufs = 105;
+        #[cfg(windows)]
+        let enobufs = 10055;
+        #[cfg(not(any(target_os = "linux", windows)))]
+        let enobufs = 55;
+        assert!(out_of_buffer_space(&std::io::Error::from_raw_os_error(
+            enobufs
+        )));
+        assert!(!out_of_buffer_space(&std::io::Error::from(
+            std::io::ErrorKind::AddrNotAvailable
+        )));
     }
 }
