@@ -1,5 +1,6 @@
 ## Unreleased: mitmproxy_rs next
 
+- Fix WireGuard and UDP servers shutting down when a send fails with `ENOBUFS` ('No buffer space available').
 
 ## 14 November 2026: mitmproxy_rs 0.12.16
 

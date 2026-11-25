@@ -26,7 +26,9 @@ use tokio::{
     time::{MissedTickBehavior, interval},
 };
 
-use crate::packet_sources::udp::{create_and_bind_udp_socket, remote_host_closed_conn};
+use crate::packet_sources::udp::{
+    create_and_bind_udp_socket, remote_host_closed_conn, send_datagram,
+};
 use crate::shutdown;
 
 // WireGuard headers are 60 bytes for IPv4 and 80 bytes for IPv6
@@ -249,7 +251,7 @@ impl WireGuardTask {
 
         while let TunnResult::WriteToNetwork(b) = result {
             log::trace!("WG::process_incoming_datagram: WriteToNetwork");
-            self.socket.send_to(b, sender_addr).await?;
+            send_datagram(&self.socket, b, sender_addr).await?;
 
             // check if there are more things to be handled
             result = peer
@@ -393,7 +395,7 @@ impl WireGuardTask {
                     pretty_hex(&buf),
                 );
 
-                self.socket.send_to(buf, dst_addr).await?;
+                send_datagram(&self.socket, buf, dst_addr).await?;
             }
             // IPv4 packet
             TunnResult::WriteToTunnelV4(_, _) => {
